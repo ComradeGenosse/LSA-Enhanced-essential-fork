@@ -25,7 +25,10 @@ export function stockDrivingCommand(command) {
   const match = /^DO\s*:?[ \t]*([a-z]+)/i.exec(String(command || '').trim());
   return match && STOCK_DRIVING.has(match[1].toLowerCase()) ? match[1].toLowerCase() : null;
 }
-export function activeAct6Driving(state) {
+export function activeAct6Driving(state, binding = null) {
+  if (binding && (state?.characterId !== binding.characterId ||
+    state?.encounterId !== binding.encounterId ||
+    state?.incarnationId !== binding.incarnationId)) return false;
   return state?.stateVersion === 1 && state.intent === 'vehicle_trip' &&
     ['admitting','resolving','preflighting','running','holding','paused','resuming'].includes(state.status);
 }
