@@ -233,7 +233,7 @@ test('the strict Luna JSON schema enumerates exactly verified scenarios and seat
     input:'hello',activityContext:ctx});
   const all=request.text.format.schema.properties.activity.anyOf;
   assert.equal(all[0].type,'null');
-  assert.equal(all.length,1+4+3+1+1+1+1+7+3+3+1);
+  assert.equal(all.length,1+4+3+7+3+3+1);
   const byIntent=intent=>all.filter(node=>node.properties?.intent?.enum?.[0]===intent);
   assert.deepEqual(byIntent('scenario_here').map(node=>node.properties.slots.properties.scenario.enum[0]),
     ['drink_coffee','smoke','phone','lean','stand_idle','clipboard','binoculars']);
@@ -252,8 +252,8 @@ test('the strict Luna JSON schema enumerates exactly verified scenarios and seat
   const decoder=createSegmentDecoder({act5Intents:ctx.intents,lunaDeliveryVersion:1});
   decoder.append(JSON.stringify({mode:'buffered_action',
     segments:[{delivery:'neutral',text:'Mind if I grab a coffee?'}],command:'',activity:approved}));
-  assert.deepEqual(decoder.finish().decision,decision(approved).dialogue
-    ? {dialogue:'Mind if I grab a coffee?',command:'',activity:approved}:null);
+  assert.deepEqual(decoder.finish().decision,
+    {dialogue:'Mind if I grab a coffee?',command:'',activity:approved});
 });
 
 test('all supported ACT3 options admit the existing native plan only after a spoken proposal and direct consent', async () => {
