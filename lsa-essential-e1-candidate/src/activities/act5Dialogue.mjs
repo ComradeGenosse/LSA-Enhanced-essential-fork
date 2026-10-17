@@ -22,6 +22,7 @@ const CANCEL = new Set(['stop', 'stop that', 'cancel the activity', 'cancel that
 const OFFER_MS = 90_000;
 const TERMINAL = new Set(['none','completed','failed','cancelled','superseded','expired','abandoned']);
 const COOLDOWN_MS = 90_000;
+const REPEAT_INTENT_MS = 300_000; // no repeated prompt for the same activity inside five minutes
 // Each option is a complete, closed, native-resolvable slot combination. The
 // model cannot make up seat indices, scenarios, entity handles or destinations.
 // The last scenario (sit_bench) deliberately stays blocked in ACT3.
@@ -124,6 +125,7 @@ export class Act5Dialogue {
     this.report = report;
     this.pending = new Map();
     this.cooldown = new Map();
+    this.lastOffered = new Map();
     this.lastAccepted = new Map();
     this.seenTurns = new Set();
     this.approvals = new Map();
@@ -186,8 +188,10 @@ export class Act5Dialogue {
     const busy = !TERMINAL.has(activityStatus?.status);
     const canOffer = !busy && !this.pending.has(characterId) &&
       (this.cooldown.get(characterId) || 0) <= this.now();
+    const lastOffered = this.lastOffered.get(characterId);
     const eligible = Object.fromEntries(Object.entries(ACT5_CHOICES).map(([intent, options]) => [
-      intent, !canOffer ? [] : options.filter(slots => {
+      intent, !canOffer || lastOffered?.intent === intent && this.now() - lastOffered.at < REPEAT_INTENT_MS
+        ? [] : options.filter(slots => {
         if (!act5WorldAvailable(intent,slots,owner.activityOffer)) return false;
         const spec = planSpec(intent, slots);
         if (!Array.isArray(spec.steps) || !spec.steps.length) return false;
@@ -244,6 +248,7 @@ export class Act5Dialogue {
     };
     this.pending.set(characterId, { activity: decision.activity, proposal, owner: current, expiresAt: this.now() + OFFER_MS });
     this.cooldown.set(characterId, this.now() + COOLDOWN_MS);
+    this.lastOffered.set(characterId,{ intent:proposal.intent,at:this.now() });
     this.report('act5_proposed', { intent: proposal.intent });
     return true; // Proposal only; no ACT goal or native command.
   }
@@ -328,5 +333,5 @@ export class Act5Dialogue {
     return result;
   }
 
-  clear() { this.pending.clear(); this.lastAccepted.clear(); this.cooldown.clear(); this.seenTurns.clear(); this.approvals.clear(); }
+  clear() { this.pending.clear(); this.lastAccepted.clear(); this.cooldown.clear(); this.lastOffered.clear(); this.seenTurns.clear(); this.approvals.clear(); }
 }
