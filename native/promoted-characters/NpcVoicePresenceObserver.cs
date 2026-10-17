@@ -5,9 +5,14 @@ using Rage;
 namespace LSA.PromotedCharacters {
     // Essential owns playout. This is a passive subscriber, NOT another player.
     internal sealed class NpcVoicePresenceObserver : IDisposable {
-        const int QueueLimit=32;
+        const int QueueLimit=32, GenerationHistoryLimit=256;
         readonly object gate=new object();
         readonly Queue<Fact> queue=new Queue<Fact>();
+        // The last generation survives an END or speaker change. Without this,
+        // a delayed START can resurrect a finished (or superseded) old turn.
+        // These entries are bounded and reset at world-epoch boundaries.
+        readonly Dictionary<string,long> lastGeneration=new Dictionary<string,long>();
+        readonly Queue<VoicePresenceTurnTracker.Key> generationOrder=new Queue<VoicePresenceTurnTracker.Key>();
         readonly VoicePresenceTurnTracker state;
         readonly NpcVoiceMouthOverlay mouth;
         readonly IPlayoutLevelSource levels;
@@ -58,6 +63,15 @@ namespace LSA.PromotedCharacters {
             if(e!=null)Enqueue(new Fact {Starting=false,Speaker=e.SpeakerPed,
                 Key=new VoicePresenceTurnTracker.Key(e.PedId,e.TurnId,e.GenerationId)});
         }
+        void Remember(VoicePresenceTurnTracker.Key key) {
+            lastGeneration[key.PedId]=key.Generation;
+            generationOrder.Enqueue(key);
+            while(generationOrder.Count>GenerationHistoryLimit) {
+                var old=generationOrder.Dequeue();
+                if(lastGeneration.TryGetValue(old.PedId,out var current)&&current==old.Generation)
+                    lastGeneration.Remove(old.PedId);
+            }
+        }
         static bool Live(Ped value) {
             try{return value!=null&&value.Exists()&&!value.IsDead;}catch{return false;}
         }
@@ -72,18 +86,31 @@ namespace LSA.PromotedCharacters {
             if(!attached||disposed)return;
             Fact[] batch;bool lost;
             lock(gate) {batch=queue.ToArray();queue.Clear();lost=overflow;overflow=false;}
-            if(currentEpoch!=epoch||lost) {Clear(currentEpoch==epoch);epoch=currentEpoch;}
+            // A batch collected before an epoch transition carries no epoch
+            // stamp. Discard it wholesale rather than re-authorize an old-world
+            // START in the new world. Initial epoch binding is not a reset.
+            bool epochChanged=epoch!=0&&currentEpoch!=epoch;
+            if(epochChanged||lost) {
+                Clear(!epochChanged);
+                if(epochChanged) {lastGeneration.Clear();generationOrder.Clear();}
+                epoch=currentEpoch;
+                return;
+            }
+            if(currentEpoch<=0) {Clear(false);return;}
+            epoch=currentEpoch;
             foreach(var f in batch) {
                 if(f.Starting) {
                     if(!Live(f.Speaker)||!f.Key.Valid)continue;
                     // Duplicate starts are idempotent and MUST NOT rebind the
                     // original actor to a new wrapper/handle/incarnation.
                     if(state.Active&&state.Epoch==epoch&&state.ActiveKey.Equals(f.Key))continue;
-                    // Never roll the same ped's generation backwards.
-                    if(state.Active&&state.Epoch==epoch&&state.ActiveKey.PedId==f.Key.PedId&&
-                       f.Key.Generation<=state.ActiveKey.Generation)continue;
+                    // Reject old or conflicting equal-generation starts even
+                    // after the newer turn ended or a different ped spoke.
+                    if(lastGeneration.TryGetValue(f.Key.PedId,out var newest)&&
+                       f.Key.Generation<=newest)continue;
                     if(state.Active) mouth?.Close(ped); // close prior owner's overlay before replacing turn
                     if(state.Begin(f.Key,epoch,nowMs)) {
+                        Remember(f.Key);
                         ped=f.Speaker;address=ped.MemoryAddress;handle=ped.Handle;
                     }
                 } else if(state.End(f.Key,epoch)) Clear();
@@ -108,8 +135,11 @@ namespace LSA.PromotedCharacters {
             try {speaking=NpcPlaybackCoordinator.IsPedCurrentlySpeaking(ped);} catch { }
             float level=0f;bool audible=false,buffered=false,have=false;
             if(speaking) have=levels.TryRead(ped,key.PedId,key.TurnId,key.Generation,out level,out audible,out buffered);
-            if(!speaking||!have) state.Silence();
-            else state.Sample(key,epoch,nowMs,audible?level:0f);
+            // A missing/untrusted reading or explicitly inaudible playout is
+            // evidence to CLOSE NOW. MinOpenMs only applies to valid short
+            // quiet samples (natural pauses), never missing playback proof.
+            bool validPlayout=speaking&&have&&audible&&state.Sample(key,epoch,nowMs,level);
+            if(!validPlayout) state.Silence();
             if(speaking&&!have&&!levels.Available&&!levelUnavailableLogged) {
                 levelUnavailableLogged=true;
                 Game.LogTrivial("[VP] level_source_unavailable mouth=closed no_estimate");
@@ -120,8 +150,7 @@ namespace LSA.PromotedCharacters {
                     " rms="+level.ToString("0.0000",System.Globalization.CultureInfo.InvariantCulture)+
                     " turn_buffered="+(buffered?1:0)+" open="+(state.MouthOpen?1:0)+" dist="+DistanceToPlayer());
             }
-            // Essential no longer speaking for this ped: close now, no dwell.
-            if(!speaking) mouth?.Close(ped,nowMs);
+            if(!validPlayout) mouth?.Close(ped,nowMs);
             else mouth?.Update(ped,nowMs,state.MouthOpen);
         }
         const long LevelLogMs=250;
@@ -145,6 +174,7 @@ namespace LSA.PromotedCharacters {
             if(disposed)return;disposed=true;
             Unsubscribe();
             Clear(); // Only Core Shutdown calls this on a live integration.
+            lastGeneration.Clear();generationOrder.Clear();
         }
     }
 }

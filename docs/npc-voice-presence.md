@@ -20,7 +20,8 @@ The pinned DLL (SHA-256 `9b6de42d…d653`) is obfuscated internally, but its pub
 - The old "Essential says the NPC is speaking" approximation is gone as a mouth driver. Speaking state is only a gate and an immediate-close signal.
 - **No estimates.** If the getters are missing or throw (different Essential build), or return a non-finite value, the mouth stays closed, one `[VP] playout_level=unavailable` line is logged, the reader stays off for the run, and speech continues unaffected.
 - **Natural pauses and smoothing.** Open at `mouthOpenLevel` (default 0.015 RMS), stay open down to 60% of it (hysteresis), close after 180 ms below that, even without further samples. Level-driven transitions respect a 150 ms minimum open and 120 ms minimum closed dwell, so a wavering level cannot spam facial natives. The facial clip is binary; this is smoothing by hysteresis and dwell, not a graded jaw.
-- **Immediate stops.** Turn end, interruption, supersession by another turn or speaker, Essential reporting "not speaking", world-epoch change, despawn, recycled handle/address, and shutdown all close or forget the overlay without waiting for dwell timers. Stale/changed peds never receive a native call.
+- **Immediate stops.** Turn end, interruption, supersession by another turn or speaker, Essential reporting "not speaking", loss of audible/valid level evidence, world-epoch change, despawn, recycled handle/address, and shutdown all close or forget the overlay without waiting for dwell timers. Stale/changed peds never receive a native call.
+- **Stale-event defense.** The observer keeps bounded per-ped generation high-watermarks after playback ends, so delayed old/equal-generation START events cannot reopen a finished turn. Epoch transitions retire those high-watermarks and drop any ambiguous queued old-world events; fresh new-world starts are admitted on subsequent ticks.
 - Shadow mode and `mouthEnabled: false` never call a facial native.
 - Authored cutscene, player switch and network session suppress the overlay.
 
@@ -71,3 +72,9 @@ If check 2 shows Essential is **not** positional, the smallest correct fix lives
 - "Rough time with audible speech": depends on check 3 (render-time vs enqueue-time level).
 - Positional sound: **not implemented here, probably already provided by Essential**; pending check 2.
 - Not yet complete: all GTA verification above.
+
+## Review remediation (2026-10-17)
+
+The observer now rejects stale START events after END, discards pre-reset callbacks on world-epoch changes, and immediately closes an experimental mouth overlay when valid playout evidence disappears (without the normal 150 ms minimum-open dwell). Focused regression tests target all three paths.
+
+**Remaining audio-level constraint:** Essential exposes a public per-ped `GetLastChunkRms` but its **render-time versus enqueue-time semantics are undocumented**. Checking `IsAudibleAudioPlaying` and the current turn's native playback is a useful validity gate, but not a proof that RMS follows rendered PCM samples or silence between queued chunks. Until the Essential playback implementation or a verified render-tap is available, describe this as an *experimental audio-level-driven approximation*, not verified sample-synchronous lip sync. The opt-in overlay remains off unless explicitly enabled, with shadow `levelLog` provided for GTA proof. Do not add a second player, infer missing audio timing or patch the pinned DLL silently.

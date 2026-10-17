@@ -127,6 +127,11 @@ static class Program {
         Assert(on.HasActiveTurn&&on.ActiveGeneration==13,"old end cannot stop replacement");
         End(npc,"npc1","second",13);on.Update(5,550);
         Assert(!on.HasActiveTurn,"replacement ends");
+        // A delayed old START must not resurrect a finished generation.
+        Start(npc,"npc1","first",12);on.Update(5,560);
+        Assert(!on.HasActiveTurn,"late old START rejected after newer playback END");
+        Start(npc,"npc1","second",13);on.Update(5,570);
+        Assert(!on.HasActiveTurn,"exact duplicate START rejected after completed END");
         Rage.Native.NativeFunction.Commands.Clear();
         Start(npc,"npc1","third",14);on.Update(5,600);
         Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")==1,"third turn opens from level");
@@ -158,7 +163,7 @@ static class Program {
         o.Update(1,1750);
         Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")==2,"next word reopens after dwell");
         levels.Set(npc,0.4f,false);o.Update(1,1800);o.Update(1,2000);
-        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==2,"inaudible playout (e.g. muted or gap) is silence even with a stale RMS");
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==2,"inaudible playout (e.g. muted or gap) immediately closes despite stale RMS");
         // Mouth never opens or closes faster than the dwell limits.
         Rage.Native.NativeFunction.Commands.Clear();
         for(long t=2100;t<3100;t+=10){levels.Set(npc,(t/10)%2==0?0.5f:0f);o.Update(1,t);}
@@ -227,10 +232,11 @@ static class Program {
         // Reader reports "no trustworthy reading" while the mouth is open: close, never hold.
         Reset();
         var flaky=new FakeLevels();flaky.Set(npc,0.3f);var fo=MouthObserver(flaky);
-        Start(npc,"n","f",9);fo.Update(1,100);fo.Update(1,150);
+        Start(npc,"n","f",9);fo.Update(1,100);
         Rage.Native.NativeFunction.Commands.Clear();
-        flaky.Fail=true;fo.Update(1,400);
-        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==1,"an unreadable level closes the mouth instead of holding it");
+        flaky.Fail=true;fo.Update(1,120);
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==1,
+            "lost level proof closes immediately, even inside 150 ms open dwell");
         fo.Dispose();
 
         // Speech-state exception from Essential never escapes the observer.
@@ -241,6 +247,16 @@ static class Program {
         Rage.Native.NativeFunction.Commands.Clear();
         o.Update(2,200);
         Assert(!o.HasActiveTurn&&!Sent("PLAY_FACIAL_ANIM"),"world epoch change drops the turn without touching the old ped");
+        // The queued START belongs to the old epoch: it has no own stamp and
+        // must not be interpreted as new-world speech after a clock reset.
+        Start(npc,"n","queued-old-world",2);
+        o.Update(3,220);
+        Assert(!o.HasActiveTurn&&!Sent("PLAY_FACIAL_ANIM"),"old-world START discarded on epoch change");
+        Start(npc,"n","fresh-world",1);
+        o.Update(3,240);
+        Assert(o.HasActiveTurn,"new-world generation begins after history reset");
+        End(npc,"n","fresh-world",1);o.Update(3,260);
+        Assert(!o.HasActiveTurn,"new world completes normally");
         // Despawned and recycled actors.
         Reset();
         Start(npc,"n","d",2);o.Update(2,300);o.Update(2,350);
