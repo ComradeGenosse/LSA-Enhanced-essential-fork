@@ -24,6 +24,7 @@ function rig(options={}){
     monotonicNow:()=>clock.ms,utcNow:()=>iso(clock.ms),options,
     onEvent:(kind,detail)=>events.push({kind,...detail}),
     persist:async ops=>{
+      if(stats.hold)await new Promise(resolve=>{stats.release=resolve;});
       if(stats.fail)throw stats.fail instanceof Error?stats.fail:new Error(stats.fail);
       sink.push(...ops);return {staleIndexes:[]};
     }});
@@ -196,16 +197,27 @@ test('persist failures are retried without dropping state; a hard ledger rejecti
   assert.equal(r.tracker.sample({}).accepted,false);
 });
 
-test('retire() and close() seal the final real sample and claim nothing after it',async()=>{
+test('retire() suspends writes, freezes the old frontier and resumes a separate window',async()=>{
   const r=rig(),a=r.npc('a');
-  r.run([a],20);
+  r.run([a],40);
+  await r.tracker.idle();
+  const firstId=r.last(a.characterId).coverageId;
   const lastTick=r.ctx.tick;
+  const before=r.records().length;
   r.tracker.retire('host_disconnected');
   await r.tracker.idle();
-  const w=r.last(a.characterId);
-  assert.equal(w.status,'closed');
-  assert.equal(w.closeReason,'host_disconnected');
-  assert.equal(w.endTick,lastTick);
+  assert.equal(r.records().length,before,'no writes while native source is revoked');
+  assert.equal(r.tracker.snapshot().sourceSuspended,true);
+  r.ctx.streamId=randomUUID();
+  r.run([a],40);
+  await r.tracker.idle();
+  const old=r.windows(a.characterId).filter(w=>w.coverageId===firstId).at(-1);
+  const next=r.windows(a.characterId).filter(w=>w.coverageId!==firstId).at(-1);
+  assert.equal(old.status,'closed');
+  assert.equal(old.closeReason,'host_disconnected');
+  assert.equal(old.endTick,lastTick);
+  assert.ok(next.startUtc>old.endUtc,'disconnected time is not claimed');
+  assert.equal(r.tracker.snapshot().sourceSuspended,false);
   await r.tracker.close();
   assert.equal(r.tracker.sample({}).accepted,false);
 });
@@ -256,4 +268,95 @@ test('SQLite missing-schema failures emit SQLITE_ERROR without logging SQL or pa
   {code:'SQLITE_ERROR',errorType:'Error',retryable:false});
  assert(!JSON.stringify(r.events).includes('/Users/private/'));
  assert.equal(r.tracker.snapshot().degradedReason,'ledger_write_rejected');
+});
+
+test('disconnect discards undecided old tail and keeps a new NPC window independent',async()=>{
+  const r=rig({retryMs:0,settleMs:500}),a=r.npc('a');
+  r.run([a],40);await r.tracker.idle();
+  const oldId=r.last(a.characterId).coverageId;
+  const queuedTick=r.ctx.tick;
+  r.tracker.noteQueued({key:'old-pending',characterId:a.characterId,tick:queuedTick});
+  r.run([a],8);
+  r.tracker.retire('host_disconnected');
+  assert.equal(r.tracker.snapshot().pending,0,'old undecided queue retired conservatively');
+  assert.equal(r.tracker.noteSettled('old-pending'),false);
+  r.ctx.streamId=randomUUID();
+  r.run([a],48);await r.tracker.idle();
+  const old=r.windows(a.characterId).filter(x=>x.coverageId===oldId).at(-1);
+  const fresh=r.windows(a.characterId).find(x=>x.coverageId!==oldId);
+  assert.ok(old.endTick<queuedTick,'no coverage past the undecided observation');
+  assert.equal(old.status,'closed');
+  assert.ok(fresh.endTick>queuedTick,'stale pending entry cannot block fresh coverage');
+  assert.equal(r.tracker.snapshot().degraded,false);
+});
+
+test('genuine timeline or epoch replacement abandons old tails, keeping committed coverage',async()=>{
+  const r=rig(),a=r.npc('a');
+  r.run([a],40);await r.tracker.idle();
+  const oldId=r.last(a.characterId).coverageId;
+  const committed=r.windows(a.characterId).filter(x=>x.coverageId===oldId).at(-1).endTick;
+  r.tracker.retire('timeline_changed');
+  const writes=r.records().length;
+  r.setTimeline(randomUUID());r.ctx.worldEpoch++;r.ctx.streamId=randomUUID();
+  r.run([a],40);await r.tracker.idle();
+  const old=r.windows(a.characterId).filter(x=>x.coverageId===oldId);
+  assert.equal(old.at(-1).endTick,committed,'verified checkpoint is retained without extension');
+  assert.equal(old.length,r.windows(a.characterId).filter(x=>x.coverageId===oldId).length);
+  assert.ok(r.records().length>writes,'current timeline still records new coverage');
+  assert.ok(r.windows(a.characterId).some(x=>x.coverageId!==oldId&&x.timelineId!==timeline));
+  assert.ok(r.tracker.snapshot().windowsAbandoned>=1);
+  assert.equal(r.tracker.snapshot().closing,0);
+});
+
+test('repeated disconnects never spin retries while unwritable',async()=>{
+  const r=rig({retryMs:0}),a=r.npc('a');
+  r.run([a],40);await r.tracker.idle();
+  for(let i=0;i<4;i++){
+    r.tracker.retire('host_disconnected');
+    r.tracker.retire('host_disconnected');
+    r.setTimeline(null);
+    for(let j=0;j<4;j++){
+      assert.equal(r.sample([a]).accepted,false);
+      await r.tracker.idle();
+    }
+    assert.equal(r.tracker.snapshot().sourceSuspended,true);
+    r.setTimeline(timeline);r.ctx.streamId=randomUUID();
+    r.run([a],20);await r.tracker.idle();
+    assert.equal(r.tracker.snapshot().sourceSuspended,false);
+  }
+  assert.equal(r.tracker.snapshot().persistFailures,0);
+  assert.equal(r.tracker.snapshot().resumptions,4);
+  assert.equal(r.tracker.snapshot().suspensions,4);
+});
+
+test('a pending stale write rejected after disconnect cannot turn into coverage',async()=>{
+  const r=rig({retryMs:0,settleMs:0}),a=r.npc('a');
+  r.stats.hold=true;
+  r.sample([a]); // first seal or window write is in flight
+  assert.equal(typeof r.stats.release,'function');
+  r.tracker.retire('host_disconnected');
+  r.stats.fail='timeline_write_suspended';
+  r.stats.hold=false;r.stats.release();
+  await r.tracker.idle();
+  assert.equal(r.records().length,0,'revoked in-flight write must not commit');
+  assert.equal(r.tracker.snapshot().persistFailures,1);
+  assert.equal(r.tracker.snapshot().sourceSuspended,true);
+  r.stats.fail=null;r.ctx.streamId=randomUUID();
+  r.run([a],40);await r.tracker.idle();
+  assert.ok(r.records().some(x=>x.kind==='window'),'freshly authorized write proceeds');
+  assert.equal(r.tracker.snapshot().degraded,false);
+});
+
+test('SQLite busy is transient; SQLite schema/provenance errors remain hard failures',async()=>{
+  const r=rig({retryMs:0}),a=r.npc('a');
+  r.stats.fail=Object.assign(new Error('private SQLite busy'),{code:'SQLITE_BUSY'});
+  r.run([a],40);await r.tracker.idle();
+  assert.equal(r.tracker.snapshot().degraded,false);
+  assert.ok(r.events.some(x=>x.kind==='persist_failed'&&x.code==='SQLITE_BUSY'&&x.retryable));
+  r.stats.fail=null;await r.tracker.idle();
+  assert.ok(r.last(a.characterId));
+  r.stats.fail=Object.assign(new Error('private SQLite schema'),{code:'SQLITE_ERROR'});
+  r.run([a],40);await r.tracker.idle();
+  assert.equal(r.tracker.snapshot().degradedReason,'ledger_write_rejected');
+  assert.equal(JSON.stringify(r.events).includes('private SQLite'),false);
 });
