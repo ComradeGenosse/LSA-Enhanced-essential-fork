@@ -33,6 +33,9 @@ import {bindHostContext} from './characters/timelineAutoResume.mjs';
 import {memoryKM3Activation,unavailableM3States} from './memory/m3Activation.mjs';
 import {createInspectorControls} from './memory/inspectorControls.mjs';
 import {withLearnedMemoryPause} from './memory/learnedMemoryPause.mjs';
+import {memoryKM9Activation,m9OperationalStates} from './memory/m9Activation.mjs';
+import {createM9RuntimeEvents} from './memory/m9RuntimeEvents.mjs';
+import {createM9Callbacks} from './memory/m9Callbacks.mjs';
 
 export async function createRuntimeForBundle(options = {}) {
   // Explicit test/embedding environments remain isolated from local secrets.
@@ -66,6 +69,8 @@ export async function createRuntimeForBundle(options = {}) {
   }
   const composition=createMemoryKRuntimeComposition(config);
   const m3Activation=memoryKM3Activation(config);
+  const m9Activation=memoryKM9Activation(config);
+  let m9Events=null;
   const owner=composition.scope;
   try {
   let telemetry = options.telemetry;
@@ -163,6 +168,7 @@ export async function createRuntimeForBundle(options = {}) {
       ...runtime.intelligence?.operationalStates(),
       ...(runtime.memoryM3?.operationalStates()??unavailableM3States(m3Activation)),
       ...runtime.services.memoryDialogueDiagnostics(),
+      ...m9OperationalStates({activation:m9Activation,m9Events:runtime.m9Events??null,callbacks:runtime.m9Callbacks??null,closed:runtime.closed===true}),
       'memory.journalContext':runtime.services.memoryJournalDiagnostics(),
       'memory.recall':runtime.services.memoryRecallDiagnostics(),
       'memory.commands':runtime.services.memoryCommandDiagnostics(),
@@ -281,7 +287,16 @@ export async function createRuntimeForBundle(options = {}) {
         // Strict synchronous verified PS2 tap; never execute SQLite here.
         const memoryObservationTap=receipt=>!runtime.memoryPause.paused&&memoryIntake?.acceptedObservationTap(receipt) ||
           {accepted:false,reason:'m3_owner_ledger_unavailable'};
-        const intelligenceOptions={radioCatalog,situationFor:ref=>runtime.situationFor(ref),
+        // M9 native event intake (default off). Only constructed when the M3
+        // recorder can accept its observations; absent/blocked families stay off.
+        if(canBindMemory&&!runtime.memoryPause.paused&&m3Activation.events.mode!=='off'){
+          try{
+            m9Events=createM9RuntimeEvents({activation:m9Activation,
+              now:()=>runtime.intelligence?.runtime.now()??Math.floor(performance.now())});
+            runtime.m9Events=m9Events;
+          }catch{m9Events=null;runtime.m9Events=null;try{console.warn('[M9] event_runtime_unavailable');}catch{}}
+        }
+        const intelligenceOptions={radioCatalog,situationFor:ref=>runtime.situationFor(ref),m9Events,
           directorProductionRequired:config.spontaneousSpeech.mode==='experimental',
           // Original stock A turn/mic/output stores; every missing bridge or
           // source read fails closed before native Director reserve/submit.
@@ -366,7 +381,7 @@ export async function createRuntimeForBundle(options = {}) {
       }catch{
         const cleanup=await owner.rollback(checkpoint);
         if(cleanup.failures.length) throw runtimeCleanupError(owner,cleanup.failures);
-        owner.failed('source.intelligence');runtime.intelligence=null;runtime.memoryD02=null;runtime.memoryM3=null;connectedMemoryAuthority=null;
+        owner.failed('source.intelligence');runtime.intelligence=null;runtime.memoryD02=null;runtime.memoryM3=null;connectedMemoryAuthority=null;m9Events=null;runtime.m9Events=null;
         try{console.warn('[PS] optional_channel_unavailable');}catch{}
       }
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
@@ -412,8 +427,41 @@ export async function createRuntimeForBundle(options = {}) {
       nativeRequest:r=>client.requestDirector(r),
       dispatch:r=>client.dispatchDirector(r),
     });
+    // M9 spontaneous memory callbacks (default off). They only wrap the existing
+    // coordinator's attempt(): PS3 selection, C-06/C-11 admission, cooldowns,
+    // player priority and delivery remain entirely the coordinator's.
+    let directorCoordinator=coordinator;
+    if(m9Activation.callbacks.mode!=='off'&&m9Events&&!runtime.memoryPause.paused&&
+       config.promotedCharacters?.storageMode==='sqlite'&&runtime.characterService?.ready===true){
+      try{
+        const callbacks=createM9Callbacks({activation:m9Activation,
+          store:runtime.memoryPause.optionalStore(runtime.characterService.store),
+          runtime:client.runtime,native:options.memoryNativeAuthority??memoryAuthorityPort,
+          quiet:()=>client.originalBackendEvidence()!==null,
+          directorLive:()=>{
+            const live=client.runtime,p=live.directorPriority,at=now();
+            return experimental&&p?.experimentalEnabled===true&&Number.isSafeInteger(p.receivedAt)&&
+              at>=p.receivedAt&&at-p.receivedAt<=1500&&live.directorRequestVersion===1;
+          },
+          m9Events,pause:runtime.memoryPause,now,telemetry,...options.m9CallbackOptions});
+        if(callbacks){
+          runtime.m9Callbacks=callbacks;
+          directorCoordinator=callbacks.wrapDirector(coordinator);
+          owner.own('memory.m9Callbacks',callbacks,value=>value.dispose());
+          let callbackStamp=null;
+          owner.own('m9.callbacks.host',client.subscribeVerifiedHostContext(host=>{
+            const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
+            if(stamp!==callbackStamp){if(callbackStamp!==null)callbacks.revoke('host_changed');callbackStamp=stamp;}
+          }),unsubscribe=>unsubscribe());
+          owner.own('m9.callbacks.boundary',client.subscribeWorldBoundary(()=>callbacks.revoke('world_boundary')),unsubscribe=>unsubscribe());
+        }
+      }catch{
+        runtime.m9Callbacks=null;directorCoordinator=coordinator;
+        try{console.warn('[M9] callbacks_runtime_unavailable');}catch{}
+      }
+    }
     let pump;
-    pump=new DirectorObservationPump({client,coordinator,now,
+    pump=new DirectorObservationPump({client,coordinator:directorCoordinator,now,
       stampFor:proposal=>pump.currentStamp(proposal),
       onDiagnostic:result=>{
         try {telemetry?.emit?.('director_gate',null,'internal',{

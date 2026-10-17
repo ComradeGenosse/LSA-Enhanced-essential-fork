@@ -32,7 +32,7 @@ namespace LSA.Intelligence
         public Func<object> PrimaryOwner;
         public Func<DirectorOwnerSample> DirectorOwner;
     }
-    public sealed class IntelligenceIntegration : IIntegration
+    public sealed partial class IntelligenceIntegration : IIntegration
     {
         readonly EntityAnchors anchors;
         readonly HostContext host;
@@ -118,6 +118,18 @@ namespace LSA.Intelligence
         bool stopped,started,playback,producerAdaptersInitialized;
         long updateCalls,completedUpdates,lastUpdateMs=-1,lastCompletedMs=-1;
         string shutdownReason="none";
+        // M9 GTA event state sampler: compiled only with LSA_M9_NATIVE (see
+        // IntelligenceIntegration.M9.cs and native/promoted-characters/M9Native.props).
+        // Without it these are empty partial methods that the compiler removes.
+#if LSA_M9_NATIVE
+        const bool M9Compiled=true;
+#else
+        const bool M9Compiled=false;
+#endif
+        partial void InitializeM9();
+        partial void ResetM9();
+        partial void UpdateM9(uint tick,long now);
+        partial void ShutdownM9();
         public string Id=>"intelligence";
         public bool IsAvailable=>started&&!stopped;
         public long UpdateCalls=>Interlocked.Read(ref updateCalls);
@@ -181,12 +193,12 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;nextRadio=0;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
+            director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();ResetM9();radioProbe=null;nextRadio=0;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
             if(channel?.Send("world_epoch",new {epoch,reason})!=true) {
-                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,memoryCurrentOwnerPlayerSample!=null);channel.Start();connectionVersion=0;
+                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,memoryCurrentOwnerPlayerSample!=null,M9Compiled&&producerPolicy.M9);channel.Start();connectionVersion=0;
             }
             nextRefresh=nextDiscovery=nextState=nextShot=0;
             LogStatus("[PS] clock_reset");
@@ -208,7 +220,7 @@ namespace LSA.Intelligence
                  if(directorShadow)LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Attach();
                 anchors.Retired+=OnRetired;anchors.Retirement+=OnRetirement;
                 InitializeProducerAdapters();
-                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,memoryCurrentOwnerPlayerSample!=null);channel.Start();
+                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,memoryCurrentOwnerPlayerSample!=null,M9Compiled&&producerPolicy.M9);channel.Start();
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
                 if(radioEnabled)Game.LogTrivial("[PS] radio_shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
@@ -221,6 +233,7 @@ namespace LSA.Intelligence
             sensors.WitnessEvaluator=producerPolicy.Any?(Func<RawSignal,List<WitnessReceipt>>)CaptureWitnesses:null;
             capabilities["shooting"]=producerPolicy.Allows("shooting");capabilities["state"]=producerPolicy.Allows("state");
             capabilities["action"]=producerPolicy.Allows("action");capabilities["witness"]=producerPolicy.Any;capabilities["playerSpeech"]=false;
+            if(M9Compiled&&producerPolicy.M9)InitializeM9();
             // Do not load a second tracker assembly. Essential owns its load.
             if(producerPolicy.Damage) {AppDomain.CurrentDomain.AssemblyLoad+=AssemblyLoaded;QueueDamagePin();}
             try {if(producerPolicy.Allows("playback")||directorShadow) {
@@ -335,7 +348,7 @@ namespace LSA.Intelligence
                 if(ownsHost) host.ObserveGameTick(tick);
                 previousTick=tick;
                 lineOfSightBudget=8;
-                if(channel.ConnectionVersion!=connectionVersion) {ps3Receipts.Reset();director.Reset();connectionVersion=channel.ConnectionVersion;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}nextRefresh=0;}
+                if(channel.ConnectionVersion!=connectionVersion) {ps3Receipts.Reset();director.Reset();ResetM9();connectionVersion=channel.ConnectionVersion;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}nextRefresh=0;}
                 if(now>=nextDiscovery) {
                     nextDiscovery=now+200;
                     var player=Game.LocalPlayer.Character;
@@ -431,6 +444,7 @@ namespace LSA.Intelligence
                     for(int n=0;n<25 && sources.Length>0;n++) {var a=sources[stateCursor++%sources.Length];if(sampling.Elapsed.TotalMilliseconds>=1) break;Sample(a,tick,now);}
                 }
                 if(radioEnabled && now>=nextRadio) {nextRadio=now+250;SampleRadio(tick,now);}
+                UpdateM9(tick,now);
                 bool refreshRoster=now>=nextRefresh;if(refreshRoster) nextRefresh=now+1000;
                 FlushControls(refreshRoster);
                 // Source-fenced, positive-only owner frame. Unsupported normal
@@ -1147,6 +1161,7 @@ namespace LSA.Intelligence
             LogStatus("[PS] shutdown "+RuntimeStatus());
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;
+            ShutdownM9();
             if(playback) {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}playback=false;}
             director.Disable();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;anchors.Retirement-=OnRetirement;host.WorldChanged-=WorldChanged;
             if(ownsHost) host.Shutdown();sensors.Reset();UpdateIndexes();

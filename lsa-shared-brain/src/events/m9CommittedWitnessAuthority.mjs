@@ -92,7 +92,11 @@ export class M9CommittedWitnessAuthority {
       !same(witness,event,P2_SCOPE)||
       !event.ownerProof||
       !same(witness,event.ownerProof,OWNER_FIELDS)||
-      event.ownerProof.ownerAlias!=='promoted.'+witness.characterId||
+      // A P2 owner alias is an opaque stable per-profile id ('promoted.<aliasId>'),
+      // NOT derived from the characterId. The caller supplies the alias its
+      // authenticated native owner resolution returned; the derived form is
+      // kept only as the fallback for callers that do not supply one.
+      event.ownerProof.ownerAlias!==(witness.ownerAlias??'promoted.'+witness.characterId)||
       typeof event.sourceHash!=='string'||!/^[0-9a-f]{64}$/i.test(event.sourceHash)||
       !Array.isArray(event.claims)||!event.claims.some(c=>
         c?.certainty==='direct'&&['self','visual','auditory'].includes(c?.modality)&&

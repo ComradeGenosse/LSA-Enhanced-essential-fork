@@ -121,3 +121,16 @@ test('W08 rechecks native scope AFTER P2 readback to defeat timeline changes',()
   assert.equal(authority.check({candidate,witness}).authorized,false);
   assert.equal(calls,2);
 });
+test('real P2 owner aliases are opaque per-profile ids, not derived from the characterId',()=>{
+  const opaque='promoted.'+id(200);
+  const h=harness();
+  h.state.event.ownerProof.ownerAlias=opaque;
+  assert.equal(h.check().authorized,false,'without a supplied alias the legacy derived form is still required');
+  h.state.witness.ownerAlias=opaque;
+  assert.equal(h.check().authorized,true,'the authenticated native owner alias is honored');
+  h.state.witness.ownerAlias='promoted.'+id(201);
+  assert.equal(h.check().authorized,false,'a different supplied alias never joins the committed event');
+  h.state.witness.ownerAlias=undefined;
+  h.state.event.ownerProof.ownerAlias='promoted.'+characterId;
+  assert.equal(h.check().authorized,true,'back-compat for callers that supply no alias');
+});

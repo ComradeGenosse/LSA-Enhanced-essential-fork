@@ -14,8 +14,11 @@ const BASES = {
 };
 const TYPES = new Set(['firing_burst','injury','death_seen','body_found','threat',
   'vehicle_impact','action_observed','location_changed','activity_changed',
-  'vehicle_transition','character_present','speech_heard','radio_heard','report']);
-const CLAIMS = new Set(['sound','firing','injured','dead','attack','location','action','presence','report']);
+  'vehicle_transition','character_present','speech_heard','radio_heard','report',
+  // M9 source-qualified incidents (native sample + witness receipt at the same tick).
+  'vehicle_crash','vehicle_rollover','airborne_stunt','vehicle_entered_water',
+  'vehicle_submerged','wanted_level_changed','wasted','busted']);
+const CLAIMS = new Set(['sound','firing','injured','dead','attack','location','action','presence','report','incident']);
 const nonNegative = value => Number.isSafeInteger(value) && value >= 0;
 const uuidV4FromHash = hash => {
   const b = Buffer.from(hash.slice(0,32),'hex');
@@ -75,7 +78,7 @@ function subjectFor(claim, identity, participantProofs) {
   // nearby anchors, the opposite participant, or the controlling protagonist.
   const subjectRef=['injured','dead'].includes(claim.kind)?claim.target:
     ['firing','attack'].includes(claim.kind)?claim.source:
-    ['sound','action','location','presence','report'].includes(claim.kind)?
+    ['sound','action','location','presence','report','incident'].includes(claim.kind)?
       (claim.source??claim.target):null;
   if(!subjectRef)return `unresolved:${claim.claimId}`;
   const observer=identity.ownerProof.observerCaptureRef;

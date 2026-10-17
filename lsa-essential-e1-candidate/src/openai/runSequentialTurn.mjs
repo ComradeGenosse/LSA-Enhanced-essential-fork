@@ -377,6 +377,15 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     if(isPlayer&&services.memoryCaptureEnabled&&durablePlayerReceipt?.durable!==true)
       turn.memoryDisabledForTurn||='memory_receipt_unavailable';
+    // M9: a Director (PS6) turn may carry ONE armed, durably verified memory of
+    // this same NPC. Never for player turns; the service validates the ticket,
+    // speaker, P2 visibility and fences, and returns null unless all hold.
+    if(!isPlayer && source==='special_event' && turn.directorTicket && services.prepareDirectorCallbackMemory){
+      try{
+        turn.memoryPrepared=await services.prepareDirectorCallbackMemory({turn,source,isCurrent:valid})??null;
+      }catch{turn.memoryPrepared=null;}
+      check();
+    }
     transition('model_running');
     if(services.finalizeKnowledgeFrame){
       try{turn.knowledgeProjection=await services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});}
