@@ -1044,7 +1044,7 @@ namespace LSA.Intelligence
                     });
                     receipt=new DirectorAdmission.Receipt(request.TicketId,"unsafe");
                 }
-                if(request.Operation=="cancel") {ps3Receipts.ClearGrant(request.TicketId);originalTurns.Retire(request.TicketId);}
+                if(request.Operation=="cancel") {socialScenes.Release(request);ps3Receipts.ClearGrant(request.TicketId);originalTurns.Retire(request.TicketId);}
                 channel.Send("director_response",new {
                     directorRequestVersion=1,ticketId=receipt.TicketId,status=receipt.Status
                 });
