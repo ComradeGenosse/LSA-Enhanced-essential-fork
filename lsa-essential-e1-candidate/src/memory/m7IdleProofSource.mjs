@@ -225,8 +225,12 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
     listeners.add(listener);
     if(watchdog===null){
       watchdog=setIntervalFn(()=>{
-        const s=selectedRef===null?null:streaks.get(selectedRef);
-        if(s&&mono()-s.lastNativeAt>maxNativeAgeMs)invalidate('native_sample_stale');
+        // A subscriber may register before its first snapshot; lost native
+        // cadence still invalidates the source rather than silently timing out.
+        const candidates=selectedRef===null?[...streaks.values()]:
+          [streaks.get(selectedRef)];
+        if(candidates.some(s=>s&&mono()-s.lastNativeAt>maxNativeAgeMs))
+          invalidate('native_sample_stale');
       },watchdogMs);
       watchdog?.unref?.();
     }
