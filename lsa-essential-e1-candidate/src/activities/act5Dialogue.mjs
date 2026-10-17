@@ -5,9 +5,30 @@ import { validateSlots } from './contracts.mjs';
 
 // ACT5 does not plan or execute steps. It retains one short-lived, spoken
 // invitation until the PLAYER explicitly accepts; ActivityEngine owns dispatch.
-const YES = new Set(['yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'alright', 'go ahead', 'do it', "let's do it", 'lets do it', 'sounds good', "yeah let's go", 'yes please']);
-const NO = new Set(['no', 'nope', 'nah', 'not now', 'no thanks', 'maybe later', 'never mind', 'nevermind', "don't", 'dont', 'cancel that', 'forget it']);
-const CANCEL = new Set(['stop', 'stop that', 'cancel the activity', 'cancel that activity', 'stop doing that']);
+const YES = new Set(['yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'alright', 'go ahead', 'do it',
+  "let's do it", 'lets do it', 'sounds good', "yeah let's go", 'yes please',
+  'sounds great do it', 'sounds good do it', 'yes go ahead', 'yeah go ahead', 'yes please do',
+  'sure go ahead', 'that sounds good', 'that sounds great', 'absolutely', 'please do']);
+const NO = new Set(['no', 'nope', 'nah', 'not now', 'no thanks', 'maybe later', 'never mind',
+  'nevermind', "don't", 'dont', 'cancel that', 'forget it', 'nah thanks',
+  'no please dont', "no please don't", 'not right now']);
+const CANCEL = new Set(['stop', 'stop that', 'cancel the activity', 'cancel that activity',
+  'stop doing that', 'stop please', 'cancel it']);
+// Only a bounded, intent-specific phrase is authorization. Never treat an
+// arbitrary sentence containing "yes" or "sure" as consent.
+const INTENT_YES = Object.freeze({
+  board_vehicle: new Set(['sure hop in', 'yeah hop in', 'yes hop in', 'go ahead hop in',
+    'sure get in', 'yes get in', 'go ahead get in', 'you can hop in']),
+  ride_along: new Set(['sure hop in', 'yeah hop in', 'yes hop in', 'come along',
+    'sure come along', 'sure ride along', 'yes ride along', 'go ahead and ride along']),
+  exit_vehicle_and_hold: new Set(['sure get out', 'yes get out', 'go ahead get out',
+    'get out and wait', 'sure get out and wait']),
+  scenario_here: new Set(['sure grab a coffee', 'yes grab a coffee', 'go ahead grab a coffee',
+    'sure have a coffee', 'go ahead have a coffee']),
+  approach_and_face: new Set(['sure come over', 'yeah come over', 'yes come over']),
+  leave_scene: new Set(['sure head out', 'yeah head out', 'go ahead head out']),
+  take_cover_and_hold: new Set(['sure take cover', 'yes take cover', 'go ahead take cover']),
+});
 const OFFER_MS = 90_000;
 const TERMINAL = new Set(['none','completed','failed','cancelled','superseded','expired','abandoned']);
 const COOLDOWN_MS = 90_000;
@@ -21,6 +42,13 @@ export const ACT5_SLOTS = Object.freeze({
   approach_and_face: Object.freeze({ person: Object.freeze({ kind: 'player' }) }),
   leave_scene: Object.freeze({}),
   take_cover_and_hold: Object.freeze({}),
+  // Every added ACT3 verb still needs its *own* live native hello, opt-in
+  // and probes. Vehicle identity/seat and scenario are rechecked by native
+  // anchor resolution and preflight after player consent.
+  board_vehicle: Object.freeze({ vehicle: Object.freeze({ kind: 'player_vehicle' }), seat: 'any_passenger' }),
+  ride_along: Object.freeze({ seat: 'any_passenger' }),
+  exit_vehicle_and_hold: Object.freeze({}),
+  scenario_here: Object.freeze({ scenario: 'drink_coffee' }),
 });
 const clean = value => String(value || '').trim().toLowerCase().replace(/[.,!?]+/g, ' ').replace(/\s+/g, ' ').trim();
 const keyFor = identity => identity && String(identity.pedId) + ':' + String(identity.sessionNonce);
@@ -170,18 +198,25 @@ export class Act5Dialogue {
     if (!pending) {
       if (!CANCEL.has(response)) return null;
       const last = this.lastAccepted.get(characterId);
-      if (!last || this.activities.engine.activities.find(a => a.activityId === last)?.status === undefined) return null;
+      if (!last) return null;
       const owner = await this.#owner(turn);
-      if (!owner || !isCurrent() || owner.binding.encounterId !== context.owner.binding.encounterId) return null;
-      const running = this.activities.engine.activities.find(a => a.activityId === last && !['cancelled','failed','completed','superseded','expired','abandoned'].includes(a.status));
-      if (!running) return null;
+      if (!owner || !isCurrent() || owner.binding.encounterId !== context.owner.binding.encounterId ||
+          owner.binding.ownershipToken !== context.owner.binding.ownershipToken) return null;
+      const running = this.activities.engine.activities.find(a => a.activityId === last &&
+        !['cancelled','failed','completed','superseded','expired','abandoned'].includes(a.status));
+      const latest = this.activities.engine.activities.filter(a => a.actor.characterId === characterId).at(-1);
+      if (!running || latest !== running ||
+          running.actor.encounterId !== owner.binding.encounterId ||
+          running.actor.incarnationId !== owner.binding.incarnationId ||
+          running.actor.ownershipToken !== owner.binding.ownershipToken) return null;
       const result = this.activities.cancel(characterId);
       this.report('act5_cancelled', { ok: result?.ok === true });
       return Object.freeze({ kind: result?.ok ? 'cancelled' : 'unavailable', intent: running.template });
     }
-    if (!YES.has(response) && !NO.has(response) && !CANCEL.has(response)) return null;
+    const affirmative = YES.has(response) || INTENT_YES[pending.activity.intent]?.has(response) === true;
+    if (!affirmative && !NO.has(response) && !CANCEL.has(response)) return null;
     this.pending.delete(characterId);
-    if (!YES.has(response)) {
+    if (!affirmative) {
       this.report('act5_declined', { intent: pending.activity.intent });
       return Object.freeze({ kind: 'declined', intent: pending.activity.intent });
     }
