@@ -479,7 +479,7 @@ export async function createRuntimeForBundle(options = {}) {
     const client=runtime.intelligence;
     const now=()=>client.runtime.now();
     const experimental=config.spontaneousSpeech.mode==='experimental';
-    const sourceCheck=({proposal,stamp,stage})=>{
+    const sourceCheck=({proposal,stamp,stage,ticketId})=>{
       const live=client.runtime,owner=live.directorOwnerProofFor(proposal.speakerCaptureRef);
       const priority=live.directorPriority,at=now();
       if(!owner || !priority || !priority.experimentalEnabled ||
@@ -497,7 +497,7 @@ export async function createRuntimeForBundle(options = {}) {
       // bound Core tuple and current player-priority epoch at playback end.
       if(stage==='complete')return true;
       return ['original_companion_ps2_ps3','native_director_social'].includes(
-        client.directorOriginalEntitlement(proposal,stamp)?.source);
+        client.directorOriginalEntitlement(proposal,stamp,ticketId)?.source);
     };
     const admission=new DirectorSpeechReservations({
       now,enabled:experimental,checkCurrent:sourceCheck,
@@ -511,7 +511,7 @@ export async function createRuntimeForBundle(options = {}) {
     });
     const coordinator=new SceneDirectorSpeech({
       admission,now,mode:experimental?'active':'shadow',
-      originalEntitlement:(proposal,stamp)=>client.directorOriginalEntitlement(proposal,stamp),
+      originalEntitlement:(proposal,stamp,ticketId)=>client.directorOriginalEntitlement(proposal,stamp,ticketId),
       nativeRequest:r=>client.requestDirector(r),
       dispatch:r=>client.dispatchDirector(r),
     });
