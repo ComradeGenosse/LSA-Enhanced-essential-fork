@@ -11,6 +11,7 @@ on:
       - 'lsa-essential-e1-candidate/tests/director-production.test.mjs'
       - 'lsa-essential-e1-candidate/tests/director-orchestrator.test.mjs'
       - 'lsa-essential-e1-candidate/tests/ps6-phase13a-reliability.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/ps6-phase13a-source-pipeline.test.mjs'
       - '.github/workflows/ps6-phase13a-reliability.yml'
   workflow_dispatch:
 permissions:
@@ -30,4 +31,4 @@ jobs:
         with:
           node-version: '24'
       - name: Focused PS6 selection, producer, native-admission contracts
-        run: node --test tests/scene-director.test.mjs tests/director-production.test.mjs tests/ps6-phase13a-reliability.test.mjs tests/director-orchestrator.test.mjs tests/scene-director-admission.test.mjs tests/observability.test.mjs
+        run: node --test tests/scene-director.test.mjs tests/director-production.test.mjs tests/ps6-phase13a-reliability.test.mjs tests/director-orchestrator.test.mjs tests/scene-director-admission.test.mjs tests/ps6-phase13a-source-pipeline.test.mjs tests/observability.test.mjs
