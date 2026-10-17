@@ -29,7 +29,8 @@ namespace LSA.PromotedCharacters
                 public string PlaceRef, Capability;
                 public ulong PedHandle, VehicleHandle;
                 public IntPtr PedAddress, VehicleAddress;
-                public float InitialDistance, BestDistance;
+                public float InitialDistance, BestDistance, MovedMeters;
+                public Vector3 LastPosition;
                 public uint IssuedAt, LastProgressAt;
                 public bool Progress;
                 public int ArrivalSamples;
@@ -270,7 +271,7 @@ namespace LSA.PromotedCharacters
                         PlaceRef=args.Place, Capability=capability, PedHandle=Convert.ToUInt64(ped.Handle), PedAddress=ped.MemoryAddress,
                         VehicleHandle=vehicle == null ? 0 : Convert.ToUInt64(vehicle.Handle),
                         VehicleAddress=vehicle == null ? IntPtr.Zero : vehicle.MemoryAddress,
-                        InitialDistance=FlatDistance(ped.Position,dest), BestDistance=FlatDistance(ped.Position,dest),
+                        InitialDistance=FlatDistance(ped.Position,dest), BestDistance=FlatDistance(ped.Position,dest), LastPosition=ped.Position,
                         IssuedAt=GameTime, LastProgressAt=GameTime
                     };
                     own[encounterId] = capability;
@@ -400,11 +401,16 @@ namespace LSA.PromotedCharacters
                         Convert.ToUInt64(current.Handle)==item.VehicleHandle && current.MemoryAddress==item.VehicleAddress;
                     if (!sample.NavVehicleSame) return;
                 } else sample.NavVehicleSame = true;
-                if (item.BestDistance - sample.NavDistance >= 1.5f) {
-                    item.BestDistance=sample.NavDistance;
+                // Driving legitimately moves away from the goal for turns, junctions and roundabouts.
+                // Establish progress from actual displacement under the owned task; judge final arrival
+                // against the original retained target separately.
+                var displacement = FlatDistance(actor.Position,item.LastPosition);
+                if (displacement >= 1.0f) {
+                    item.LastPosition=actor.Position; item.MovedMeters+=displacement;
                     item.LastProgressAt=now;
-                    if (item.InitialDistance - sample.NavDistance >= 2.0f) item.Progress=true;
+                    if (item.MovedMeters>=2.0f) item.Progress=true;
                 }
+                if (sample.NavDistance < item.BestDistance) item.BestDistance=sample.NavDistance;
                 sample.NavProgress=item.Progress;
                 var close=sample.NavDistance <= (item.Capability=="drive_to"?8f:3f);
                 var stopped=item.Capability!="drive_to" || sample.VehicleSpeed<4f;
