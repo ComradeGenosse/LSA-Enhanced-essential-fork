@@ -71,6 +71,8 @@ const replyKind = (response, intent) => {
 // Native inspect supplies fresh booleans; admission still reacquires C-02
 // anchors and native preflight after the player's consent.
 export function act5WorldAvailable(intent, slots, state) {
+  // An explicitly unsafe native owner may not propose any physical activity.
+  if (state?.version === 1 && state.safe !== true) return false;
   // Older native installs have no advisory snapshot: retain ACT2's historical
   // checks, but never expose an ACT3 physical offer without native evidence.
   if (intent === 'sit_here' || intent === 'accompany') {
@@ -113,7 +115,7 @@ export function validateAct5Choice(activity, intents, choices = ACT5_CHOICES) {
         ? b[k] && typeof b[k] === 'object' && Object.keys(a[k]).length === Object.keys(b[k]).length &&
           Object.keys(a[k]).every(n => a[k][n] === b[k][n])
         : a[k] === b[k]));
-  return choices[activity.intent].some(options => same(activity.slots, options));
+  return Array.isArray(choices?.[activity.intent]) && choices[activity.intent].some(options => same(activity.slots, options));
 }
 
 export class Act5Dialogue {
