@@ -1,3 +1,36 @@
+# Phase 13a remaining events — implementation follow-up (2026-10-17)
+
+**This table supersedes the earlier missing-producer findings in this document.** Source implemented and offline-tested is not the same as working in GTA V Enhanced.
+
+| Event | Implementation on #214 | Remaining verification |
+|---|---|---|
+| Gunfire | Existing native shooting with actual direct witness, PS2/PS3/PS6 | Re-test in GTA |
+| Vehicle crash, nearby observer | Real DamageTracker vehicle callback with collision classification and finite contact point; <=100ms owner-fiber victim/vehicle LOS and interior check | GTA collision/witness playback |
+| Vehicle crash, Nathan inside vehicle | Actual collision callback plus independently verified current occupant and exact vehicle native handle/address | GTA passenger/driver test |
+| Nearby NPC injury | Native ped damage callback plus <=100ms owner-fiber clear LOS to actual victim; original sampled injury remains | GTA event and target wrapper compatibility |
+| Player injury | Native player damage callback with same bounded direct observer LOS | GTA source callback and player priority |
+| Promoted NPC injury | Existing exact victim self receipt, plus new nearby observer callback visibility | GTA verification |
+| Witnessed NPC death | Existing sampled death edge plus native visual/self receipts | GTA verification |
+| Body discovered later | New state-producer body_discovered -> PS2 body_found from a retained actually dead Ped; visual observer check after 1.5s, bounded and one-shot per observer/corpse | GTA proof and retention coverage |
+| Generic threat label | Still schema-only; no general native threat producer authorized. Gunfire, damage, deaths and collisions cover actual source-verified threat subtypes | No invented generic threat |
+
+## Native implementation details and limits
+
+DamageTracker executes callbacks on a thread not certified as the GTA native owner fiber. The callback records source-vetted damage facts only; the original Update owner fiber later verifies target lifetime, owner-fiber timestamp, current visual/in-front LOS and matching interior. Native game-tick delta **and** monotonic callback age must both be at most 100ms. A witness sample here is *near-event*, not guaranteed simultaneous. Stale, occluded, unknown or mismatched callbacks remain non-qualifying. A vehicle gunfire/fire hit is never relabeled a crash: only collision-class damage with a finite original contact position becomes a vehicle_impact.
+
+Body discovery introduces no new world scan or character acquisition. It only inspects already-anchored dead Ped entities, no more than eight corpse candidates and two LOS rays every 250ms, using the existing shared LOS budget. The source requires current dead state, current observer and target anchors, same interior, in-front visual LOS, a 1.5s delay, 30s evidence lifetime, and a bounded one-shot ledger per pair. The same observer who already had a true death witness receipt cannot produce a duplicate body_found for that corpse. Retirement, world change, reconnect and shutdown revoke the ledger.
+
+## GTA acceptance — newly connected events
+
+1. **Nearby crash:** With Nathan observing a safely controlled collision, confirm native vehicle_damage collision callback, then vehicle_impact PS2 receipt, PS3 eligible grant, PS6 candidate/native admission and completed Luna/audio acknowledgment. Negative control: shoot a vehicle; it must not become a crash.
+2. **Inside crash:** Have Nathan ride in the affected vehicle during a controlled minor collision; confirm the exact-seat native self receipt and the same safe PS6 chain. Retire/dismiss Nathan and verify the old reference cannot be reused.
+3. **NPC and player injuries:** Cause minor damage directly in Nathan's clear view, then behind an obstacle. Confirm ped_damage/player_damage callback counters and distinct visual receipt or no-receipt results. Do not assert the attacker identity unless a separate source proves it.
+4. **Discovered corpse:** Kill a non-promoted NPC outside Nathan's view, keep the corpse within the retained native snapshot, wait at least two seconds, then move Nathan into a front-facing, same-interior clear line of sight within 30 m. Confirm precisely one native body_discovered and PS2 body_found for this observer/corpse, then PS3/PS6; seeing the death firsthand must suppress an additional discovery for the same observer.
+5. **Failure/negative controls:** Try obstructed line of sight, callbacks delayed >100ms, unrelated vehicle gunfire, duplicate impact events, player microphone or speech already active, scene cooldown, actor retirement and reconnect. No fabricated witness, stale ticket replay or false completed-audio PS6 acknowledgment is permissible.
+
+Offline JS source pipeline checks and portable native policy checks are distinct from full net481 integration compile and **never** constitute an actual GTA session. Existing exact C-06, P2 ownership, original PS3 entitlement, player-priority and playback gates remain mandatory.
+
+---
 # PS6 Phase 13a — source audit, verified gaps and GTA acceptance (2026-10-17)
 
 Target: latest #138 `aefd4d96f975f892ce4a26edb50cb0b487555be3`. This is a **source/offline** assessment, not a controlled GTA V Enhanced run. PRs #201, #207 and #212 are preserved by building on #138. Phase 13a, not 13b/PS7/M9.
