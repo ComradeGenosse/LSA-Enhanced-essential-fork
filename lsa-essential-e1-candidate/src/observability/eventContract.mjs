@@ -19,6 +19,8 @@ export const EVENT_NAMES = new Set([
   'memory_journal_committed','memory_journal_not_committed',
   'memory_m3_intake_loss','memory_m3_coverage',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
+
+  'stream_segments_reflowed','model_decision_validation_failure','elevenlabs_tts_timing_summary','perception_trace','radio_trace', // Main/EA allowed vocab preserved alongside Memory K
 ]);
 
 const safeKeys = new Set([
@@ -57,6 +59,8 @@ const safeKeys = new Set([
   'traitsIncluded','memoryCount','biographyIncluded','relationshipIncluded','generatedPersonaPolicy',
   'truncatedFields','truncatedFieldCount','droppedMemoryCount',
   'activityId','intent','capability','receiptState','stepIndex','delivery',
+
+  'reflowedSegments','originalSegments','firstPcmMs','wallMs','generatedChunks','forwardedChunks','modelId','maxSegmentChars','maxDialogueChars','responseChars','playbackBufferMode','receivedChunks','generationDurationMs','forwardDurationMs','maxChunkGapMs','p95ChunkGapMs','slowChunkCount','forwardWaitMaxMs','underRealtime','streamRate','bufferedBytes','underrunRiskCount','fallbackUsed','captureEventRadio','selectedRadio','radioQuestion','traceCode','signalKind','producer','catalog','receipts','selfReceipts','qualified','ownedQualified','ownedObservers','ps2','ps2Reason','observations','ownedObservations','ps3Owned','ps3Reason','urgency','ps2OwnedWitnessed','ps2DedupeEvicted','ps2DropInvalidInput','ps2DropRadioIdentityMismatch','ps2DropUnsupportedEvent','ps2DropEpisodeClaimCapacity','ps2DropEpisodeRejected','ps2DropObservationClaimCapacity','ps2DropObservationRejected','ps3OwnedDecisions','ps3OwnedEligible','ps3OwnedUrgent','radioChanged','radioStopped','radioKnown','radioUnknown','radioMismatch','radioOff','radioObservations','radioOwnedObservations','nativeRadioSamples','nativeRadioEdges','nativeRadioFailures','nativeRadioWitnessed','nativeRadioWitnessUnknown','nativeWitnessDeferred','nativeWitnessUnknown','nativeWitnessRejected','ownerStalls','ownerStallMaxMs','traceEmitted','traceSuppressed', // Main/EA allowed vocab preserved alongside Memory K
 ]);
 const safeTokens = new Set([
   'delivered','expired','ack_key_retired','observation_expired',
@@ -91,6 +95,8 @@ const safeTokens = new Set([
   'present','explicitly_cleared','omitted','available','unavailable','already_unavailable','known','changed','cleared','replaced','target_changed','target_missing','target_invalid','reference_map_revision_changed','missing_or_unknown',
   'persistent','ephemeral','conflict','owner_verified','no_evidence','invalid_evidence','contradictory_claim','incarnation_mismatch','character_already_active','native_stale','actor_mismatch','owner_retired','stale_evidence','binding_limit','store_unavailable','evidence_unavailable','voice_incompatible','session_closed','persistent-character',
   'profile_store_unavailable','promotion_failed','owner_unavailable','scripted_state','ownership_conflict','native_operation_failed','identity_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model','profile_projection_failed',
+
+  'native_owner_stalled','deferred_ticket_already_active','deferred_rate_limited','deferred_scene_or_speaker_cooldown','adaptive','complete-utterance','streaming', // Main/EA allowed vocab preserved alongside Memory K
 ]);
 
 // Closed PS6 reason vocabulary: preserve diagnostics without arbitrary text.

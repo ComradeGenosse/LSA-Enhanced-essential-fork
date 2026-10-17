@@ -1,4 +1,7 @@
 import {normalizeDialogueKnowledge} from './dialogueKnowledge.mjs';
+import { normalizeExpressiveDeliveryConfig } from '../voice/emotion/deliveryContract.mjs';
+import { normalizeReactionConfig } from '../reactions/reactionConfig.mjs';
+import { normalizeMemoryKConfig } from '../memory/capabilityPolicy.mjs';
 import {directorSpeechLimitsForPreset} from '../perception/sceneDirector.mjs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -7,9 +10,7 @@ import { normalizeIdentityConfig } from '../identity/identityContract.mjs';
 import { normalizeCharacterConfig } from '../characters/characterService.mjs';
 import { normalizePerceptionConfig } from '../perception/contracts.mjs';
 import { normalizeActivityConfig } from '../activities/contracts.mjs';
-import { normalizeReactionConfig } from '../reactions/reactionConfig.mjs';
 import { normalizeDialogueLoggingConfig } from '../observability/dialogueTrace.mjs';
-import { normalizeMemoryKConfig } from '../memory/capabilityPolicy.mjs';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const defaultConfigPath = path.resolve(moduleDirectory, '../../e1.config.json');
@@ -105,6 +106,30 @@ export function normalizeConfig(input = {}, env = process.env) {
   if(speechMode!=='off' && input.intelligence?.mode!=='shadow')
     throw new TypeError('spontaneousSpeech requires intelligence.mode=shadow.');
   const selectedProvider = String(input.provider ?? env.AI_PROVIDER ?? 'openai').trim().toLowerCase();
+  // Old private qwenTts fields are inert; selecting a retired provider is prohibited.
+  const speechProvider = String(input.speechProvider ?? 'openai').trim().toLowerCase();
+  if (!['openai','elevenlabs'].includes(speechProvider))
+    throw new TypeError('speechProvider must be openai or elevenlabs.');
+  const elevenInput = input.elevenLabs ?? {};
+  if (!elevenInput || typeof elevenInput !== 'object' || Array.isArray(elevenInput) ||
+      Object.keys(elevenInput).some(k => !['modelId','voices','speechVoiceProfiles'].includes(k)))
+    throw new TypeError('elevenLabs has unknown or invalid fields.');
+  const elevenModel = elevenInput.modelId ?? 'eleven_v4_turbo';
+  if (elevenModel !== 'eleven_v4_turbo')
+    throw new TypeError('elevenLabs.modelId must be eleven_v4_turbo for dialogue streaming.');
+  const elevenVoiceInput = elevenInput.voices ?? {};
+  if (!elevenVoiceInput || typeof elevenVoiceInput !== 'object' || Array.isArray(elevenVoiceInput) ||
+      Object.keys(elevenVoiceInput).length > 32 ||
+      Object.entries(elevenVoiceInput).some(([alias,id]) => !/^[a-z][a-z0-9_-]{0,31}$/.test(alias) ||
+        typeof id !== 'string' || !/^[A-Za-z0-9]{20}$/.test(id)) ||
+      new Set(Object.values(elevenVoiceInput)).size !== Object.values(elevenVoiceInput).length)
+    throw new TypeError('elevenLabs.voices must map up to 32 unique aliases to unique 20-character voice IDs.');
+  if (speechProvider === 'elevenlabs' && Object.keys(elevenVoiceInput).length === 0)
+    throw new TypeError('elevenLabs.voices needs at least one voice alias.');
+  const elevenLabs = Object.freeze({
+    modelId: elevenModel, voices: Object.freeze({...elevenVoiceInput}),
+    apiKey: String(env.ELEVENLABS_API_KEY ?? ''),
+  });
   if (!['openai', 'gemini'].includes(selectedProvider)) throw new TypeError('E1 provider must be openai or gemini.');
   const defaults = {
     reasoningModel: 'gpt-6-luna', reasoningEffort: 'low', transcriptionModel: 'gpt-transcribe',
@@ -120,8 +145,10 @@ export function normalizeConfig(input = {}, env = process.env) {
   };
   const reasoningModel = String(input.reasoningModel ?? env.OPENAI_REASONING_MODEL ?? defaults.reasoningModel).trim();
   const transcriptionModel = String(input.transcriptionModel ?? env.OPENAI_TRANSCRIPTION_MODEL ?? defaults.transcriptionModel).trim();
-  const ttsModel = String(input.ttsModel ?? env.OPENAI_TTS_MODEL ?? defaults.ttsModel).trim();
-  const ttsVoice = String(input.ttsVoice ?? env.OPENAI_TTS_VOICE ?? defaults.ttsVoice).trim();
+  const ttsModel = speechProvider === 'elevenlabs' ? elevenLabs.modelId
+    : String(input.ttsModel ?? env.OPENAI_TTS_MODEL ?? defaults.ttsModel).trim();
+  const ttsVoice = speechProvider === 'elevenlabs' ? Object.keys(elevenLabs.voices)[0]
+    : String(input.ttsVoice ?? env.OPENAI_TTS_VOICE ?? defaults.ttsVoice).trim();
   const reasoningEffort = String(input.reasoningEffort ?? env.OPENAI_REASONING_EFFORT ?? defaults.reasoningEffort).trim().toLowerCase();
   if (input.observabilityEnabled !== undefined && typeof input.observabilityEnabled !== 'boolean') throw new TypeError('observabilityEnabled must be a boolean.');
   if (input.actingEnabled !== undefined && typeof input.actingEnabled !== 'boolean') throw new TypeError('actingEnabled must be a boolean.');
@@ -136,20 +163,29 @@ export function normalizeConfig(input = {}, env = process.env) {
   }
   if (!['none', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) throw new TypeError('reasoningEffort is unsupported.');
 
-  const explicitVoicePool = input.speechVoices !== undefined && input.speechVoices !== null;
-  const voiceInput = explicitVoicePool ? input.speechVoices : [ttsVoice];
+  const explicitVoicePool = speechProvider === 'elevenlabs' ||
+    (input.speechVoices !== undefined && input.speechVoices !== null);
+  const voiceInput = speechProvider === 'elevenlabs' ? Object.keys(elevenLabs.voices)
+    : (explicitVoicePool ? input.speechVoices : [ttsVoice]);
   if (!Array.isArray(voiceInput) || voiceInput.length === 0 || voiceInput.length > 32 || voiceInput.some(voice => typeof voice !== 'string')) {
     throw new TypeError('speechVoices must be a nonempty array of at most 32 voice names.');
   }
   const speechVoices = voiceInput.map(voice => explicitVoicePool ? voice.trim().toLowerCase() : voice.trim());
   if (speechVoices.some(voice => !voice || voice.length > 128 || (explicitVoicePool && !/^[a-z][a-z0-9_-]{0,31}$/.test(voice)))) throw new TypeError('speechVoices contains an invalid voice name.');
   if (new Set(speechVoices).size !== speechVoices.length) throw new TypeError('speechVoices cannot contain duplicates.');
-  const ttsSpeed = Number(input.ttsSpeed ?? 1);
+  // Post-synthesis gain shared by OpenAI and ElevenLabs; 1.0 is bit-exact passthrough.
+  const ttsVolume = input.ttsVolume ?? 1;
+  if (typeof ttsVolume !== 'number' || !Number.isFinite(ttsVolume) || ttsVolume < 0 || ttsVolume > 2)
+    throw new TypeError('ttsVolume must be a number between 0 and 2.');
+  const ttsSpeed = Number(speechProvider === 'elevenlabs' ? 1 : (input.ttsSpeed ?? 1));
   if (!Number.isFinite(ttsSpeed) || ttsSpeed < 0.25 || ttsSpeed > 4) throw new TypeError('ttsSpeed must be between 0.25 and 4.0.');
   const speechInstructionsSupported = /^gpt-4o-mini-tts(?:-|$)/.test(ttsModel);
   const actingEnabled = input.actingEnabled ?? false;
-  if (actingEnabled && !speechInstructionsSupported) throw new TypeError('actingEnabled requires a TTS model that supports speech instructions.');
-  const supportedVoices = supportedVoicesForModel(ttsModel, speechInstructionsSupported);
+  // v4 acts on inline delivery tags, NOT on OpenAI natural-language instructions.
+  if (actingEnabled && !speechInstructionsSupported && speechProvider !== 'elevenlabs')
+    throw new TypeError('actingEnabled requires a TTS model that supports speech instructions.');
+  const supportedVoices = speechProvider === 'elevenlabs' ? Object.keys(elevenLabs.voices)
+    : supportedVoicesForModel(ttsModel, speechInstructionsSupported);
   if (explicitVoicePool && speechVoices.length > 1) {
     if (!supportedVoices) throw new TypeError('Cannot validate a multi-voice pool for the configured TTS model.');
     if (speechVoices.some(voice => !supportedVoices.includes(voice))) throw new TypeError('speechVoices contains a voice unsupported by the configured TTS model.');
@@ -158,7 +194,13 @@ export function normalizeConfig(input = {}, env = process.env) {
   if (!['deterministic-session', 'character-aware-session'].includes(voiceAssignment)) {
     throw new TypeError('voiceAssignment must be deterministic-session or character-aware-session.');
   }
-  const speechVoiceProfiles = normalizeSpeechVoiceProfiles(input.speechVoiceProfiles, { speechVoices, supportedVoices, voiceAssignment });
+  const speechVoiceProfiles = normalizeSpeechVoiceProfiles(
+    speechProvider === 'elevenlabs'
+      ? (elevenInput.speechVoiceProfiles ?? Object.fromEntries(
+        Object.keys(elevenLabs.voices).map(voice => [voice, {genders:['any'],ageBands:['any']}]))
+      )
+      : input.speechVoiceProfiles,
+    { speechVoices, supportedVoices, voiceAssignment });
 
   const providerWorkDeadlineMs = boundedInteger(input.providerWorkDeadlineMs ?? input.turnDeadlineMs, defaults.turnDeadlineMs, 5_000, 120_000, 'providerWorkDeadlineMs');
   const retryInput = input.retry ?? defaults.retry;
@@ -182,9 +224,11 @@ export function normalizeConfig(input = {}, env = process.env) {
 
   return Object.freeze({
     provider: selectedProvider,
+    speechProvider, elevenLabs,
+    expressiveDelivery: normalizeExpressiveDeliveryConfig(input.expressiveDelivery, { speechProvider }),
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
-    promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     memoryK: normalizeMemoryKConfig(input.memoryK),
+    promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),
     spontaneousSpeech: Object.freeze({mode:speechMode,preset:speechPreset}),
     dialogueKnowledge: normalizeDialogueKnowledge(input.dialogueKnowledge),
@@ -192,7 +236,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     reactions: normalizeReactionConfig(input.reactions),
     dialogueLogging: normalizeDialogueLoggingConfig(input.dialogueLogging, boundedInteger),
     reasoningModel, reasoningEffort, transcriptionModel, ttsModel, ttsVoice,
-    speechVoices: Object.freeze(speechVoices), speechVoiceProfiles, voiceAssignment, ttsSpeed, actingEnabled, speechInstructionsSupported,
+    speechVoices: Object.freeze(speechVoices), speechVoiceProfiles, voiceAssignment, ttsSpeed, ttsVolume, actingEnabled, speechInstructionsSupported,
     reasoningBaseUrl: baseUrl(input.reasoningBaseUrl ?? env.OPENAI_REASONING_BASE_URL, 'https://api.openai.com/v1', 'reasoningBaseUrl'),
     transcriptionBaseUrl: baseUrl(input.transcriptionBaseUrl ?? env.OPENAI_TRANSCRIPTION_BASE_URL, 'https://api.openai.com/v1', 'transcriptionBaseUrl'),
     ttsBaseUrl: baseUrl(input.ttsBaseUrl ?? env.OPENAI_TTS_BASE_URL, 'https://api.openai.com/v1', 'ttsBaseUrl'),

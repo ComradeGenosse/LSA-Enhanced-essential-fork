@@ -1,6 +1,7 @@
 import {KNOWLEDGE_LIMITS,jsonBytes} from '../context/knowledgeSelector.mjs';
 import { ProviderRequestError, endpoint, responseFailure, safeRequestId } from './request.mjs';
 import { createSegmentDecoder } from './segmentDecoder.mjs';
+import { LUNA_SEGMENT_DELIVERY_V1 } from '../context/essentialDecision.mjs';
 
 const MAX_EVENT_BYTES = 64 * 1024;
 const MAX_RESPONSE_BYTES = 256 * 1024;
@@ -20,14 +21,42 @@ export const segmentedDecisionSchema = Object.freeze({
   },
 });
 
+// Mirrored with the request schema in essentialDecision.mjs. Keep both
+// versions in sync; strict JSON schemas do not allow optional properties.
+export const segmentedDeliveryV1Schema = Object.freeze({
+  type: 'object', additionalProperties: false,
+  required: ['mode', 'segments', 'command'],
+  properties: {
+    mode: { type: 'string', enum: ['dialogue_only', 'buffered_action'] },
+    segments: {
+      type: 'array', items: {
+        type: 'object', additionalProperties: false, required: ['delivery', 'text'],
+        properties: {
+          delivery: { type: 'string', enum: [...LUNA_SEGMENT_DELIVERY_V1] },
+          text: { type: 'string' },
+        },
+      },
+    },
+    command: { type: 'string' },
+  },
+});
+
 // Emits only complete segment objects after local schema and text validation.
 // The original JSON object remains buffered and is strictly reconciled at EOF.
 export async function streamDecision({
   config, body, signal, timeoutMs = config.providerWorkDeadlineMs, fetchImpl = globalThis.fetch,
-  telemetry, onSegment = () => {}, dialogueAttempt, beforeRequest, verifyBeforeRequest, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200,
+  telemetry, onSegment = () => {}, dialogueAttempt, beforeRequest, verifyBeforeRequest, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200, lunaDeliveryVersion = 0,
 }) {
   if (!String(config.reasoningKey || '').trim()) throw new ProviderRequestError('The selected OpenAI credential is missing.', { code: 'missing_credential' });
-  const decoder = createSegmentDecoder({ maxSegments, maxSegmentChars, maxDialogueChars });
+  if (lunaDeliveryVersion !== 0 && lunaDeliveryVersion !== 1)
+    throw new TypeError('Unsupported Luna segment delivery protocol version.');
+  const expectedSchemaName = lunaDeliveryVersion === 1 ? 'e1_segmented_delivery_v1' : 'e1_segmented_decision';
+  // Fail before any network request if caller and strict wire schema disagree.
+  if (lunaDeliveryVersion === 1 && body?.text?.format?.name !== expectedSchemaName)
+    throw new TypeError('Luna segment delivery version does not match the requested schema.');
+  if (lunaDeliveryVersion === 0 && body?.text?.format?.name === 'e1_segmented_delivery_v1')
+    throw new TypeError('Luna segment delivery v1 requires explicit opt-in.');
+  const decoder = createSegmentDecoder({ maxSegments, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion });
   const streamStartedAt = performance.now();
   const controller = new AbortController();
   const abort = () => controller.abort(signal?.reason || new Error('turn_aborted'));
@@ -103,7 +132,10 @@ export async function streamDecision({
           segments = decoder.takeNewSegments();
         } catch (error) {
           if (error instanceof ProviderRequestError) throw error;
-          throw new ProviderRequestError('OpenAI streamed an invalid structured decision.', { code: 'invalid_response' });
+          const code = /^segment_[a-z_]+$/.test(error?.code || '') ? error.code : 'invalid_response';
+          telemetry?.event('model_decision_validation_failure', {stage:'incremental', code,
+            responseChars: decoder.responseChars, maxSegmentChars, maxDialogueChars});
+          throw new ProviderRequestError('OpenAI streamed an invalid structured decision.', { code });
         }
         for (const segment of segments) {
           try { dialogueAttempt?.segment({ sequence: segment.sequence, text: segment.text, mode: decoder.mode }); } catch {}
@@ -152,7 +184,16 @@ export async function streamDecision({
     if (!terminalText || terminalText !== decoder.text) throw new ProviderRequestError('OpenAI stream text did not match its completed response.', { code: 'invalid_response' });
     let result;
     try { result = decoder.finish(); }
-    catch { throw new ProviderRequestError('OpenAI completed an invalid structured decision.', { code: 'invalid_response' }); }
+    catch (error) {
+      const code = /^segment_[a-z_]+$/.test(error?.code || '') ? error.code : 'invalid_response';
+      telemetry?.event('model_decision_validation_failure', {stage:'final', code,
+        responseChars: decoder.responseChars, maxSegmentChars, maxDialogueChars});
+      throw new ProviderRequestError('OpenAI completed an invalid structured decision.', { code });
+    }
+    if (result.reflowedSegments) telemetry?.event('stream_segments_reflowed', {
+      reflowedSegments: result.reflowedSegments, segmentCount: result.segments.length,
+      maxSegmentChars, maxDialogueChars,
+    });
     telemetry?.event('model_usage', {
       inputTokens: Number.isFinite(terminal.usage?.input_tokens) ? terminal.usage.input_tokens : null,
       outputTokens: Number.isFinite(terminal.usage?.output_tokens) ? terminal.usage.output_tokens : null,
@@ -164,7 +205,6 @@ export async function streamDecision({
   } catch (error) {
     spanDone?.('failed', { code: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'provider_request_failed' });
     if (error instanceof ProviderRequestError) throw error;
-    if (error?.code === 'knowledge_request_stale') throw error;
     if (signal?.aborted) throw new ProviderRequestError('OpenAI streaming decision was cancelled.', { code: 'cancelled' });
     if (controller.signal.aborted) throw new ProviderRequestError('OpenAI streaming decision timed out.', { code: 'timeout' });
     throw new ProviderRequestError('OpenAI streaming decision could not be completed.', { code: 'network_error' });

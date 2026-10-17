@@ -65,7 +65,7 @@ export async function decide({ config, context, input, history, signal, knowledg
 
 export async function decideStreaming({ config, context, input, history, signal, knowledgeProjection, knowledgeDelivery,
   timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch,
-  telemetry, onSegment, dialogueAttempt }) {
+  telemetry, onSegment, dialogueAttempt, lunaDeliveryVersion = 0 }) {
   const body = buildRequest({
     model: config.reasoningModel,
     effort: config.reasoningEffort,
@@ -81,6 +81,7 @@ export async function decideStreaming({ config, context, input, history, signal,
     history,
     maxOutputTokens: config.streamingMaxOutputTokens,
     structuredSegments: true,
+    lunaDeliveryVersion,
   });
   recordCanonRequest(telemetry,body,context.actor);
   return streamDecision({
@@ -89,5 +90,6 @@ export async function decideStreaming({ config, context, input, history, signal,
     maxSegments: config.streamingMaxSegments,
     maxSegmentChars: config.streamingMaxSegmentChars,
     maxDialogueChars: config.streamingMaxDialogueChars,
+    lunaDeliveryVersion,
   });
 }

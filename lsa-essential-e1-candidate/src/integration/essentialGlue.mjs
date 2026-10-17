@@ -31,6 +31,9 @@ import {mayBeM5PlayerInput} from '../../../lsa-shared-brain/src/memory/m5Runtime
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
+import { resolveDelivery as resolveVerifiedSceneDelivery } from '../voice/emotion/sceneDelivery.mjs';
+import { projectActingEvidence } from '../voice/emotion/sceneOwnerProjection.mjs';
+import { createMoodRuntime } from '../voice/emotion/moodRuntime.mjs';
 import { VoiceResolver } from '../voice/voiceResolver.mjs';
 import { createVoiceActivity } from '../voice/voiceActivity.mjs';
 import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
@@ -45,7 +48,7 @@ import {createLearnedMemoryPause} from '../memory/learnedMemoryPause.mjs';
 // Fail-closed startup contract for E1's separately reviewed storage-only preset.
 export const MEMORY_K_COMPOSITION_VERSION=1;
 
-export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner, memoryNativeAuthority = null, deferCharacterInitialization = false } = {}) {
+export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner, memoryNativeAuthority = null, deferCharacterInitialization = false, verifiedProtagonistAuthority = null } = {}) {
   const actorPresence=new ActorPresenceStore();
   const originalTurnTimeline=new OriginalEssentialTurnTimeline();
   dialogueTrace ||= createNoopDialogueTrace();
@@ -141,7 +144,39 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // This is an optional verified-native authority, NOT a hint from a model,
   // ped handle, room proximity, or a UI-generated 'trusted' flag. Missing
   // current host + exact owner/turn/protagonist proof disables M2 writes.
+  // The production authority is the actual post-validation IntelligenceClient.
+  // An unavailable/replaced native stream must produce neutral mood.
+  const liveNativeProtagonist=Object.freeze({
+    readVerified() {
+      try {return runtime.intelligence?.protagonistAuthority?.readVerified?.()??null;}
+      catch {return null;}
+    },
+    isCurrent(record) {
+      try {return runtime.intelligence?.protagonistAuthority?.isCurrent?.(record)===true;}
+      catch {return false;}
+    }
+  });
+  const emotionalMood = createMoodRuntime({getRuntime:()=>runtime,
+    protagonistAuthority:verifiedProtagonistAuthority??liveNativeProtagonist});
   const services = {
+    // Every segment rechecks real P1 binding and PS2 observer lifetime.
+    emotionalActing: config.speechProvider === 'elevenlabs' &&
+      ['shadow','experimental'].includes(config.expressiveDelivery?.mode)
+      ? Object.freeze({
+          resolveDelivery:resolveVerifiedSceneDelivery,
+          readMood:emotionalMood.readMood,
+          onSpeechCompleted:emotionalMood.onSpeechCompleted,
+          retireTurn:emotionalMood.retireTurn,
+          getSceneEvidence:({identity,turn})=>projectActingEvidence({
+            identity,turn,perception:runtime.intelligence?.runtime,identityService,
+          }),
+          getActorTraits:({turn})=>{
+            const id=turn?.characterSnapshot?.resolution?.characterId;
+            const profile=id && characterService?.store?.get(id);
+            return profile ? Object.freeze({characterId:id,personality:profile.personality}) : null;
+          },
+        }) : null,
+
     bindM2Turn({turn,isCurrent}={}) {
       dialogueResults.player=null;
       try{runtime.retention?.noteForeground();}catch{} // M6 yields to any live turn
@@ -620,7 +655,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     executeProvider: providerStack ? args => executeProviderOperation({ ...args, retryConfig: config.retry, telemetry: args.telemetry }) : null,
   };
   const runtime = {
-    config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,memoryPause,
+    config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,emotionalMood,memoryPause,
     voiceActivity,
     separateKnowledgeInstruction,
     captureNormalizedActor: (actor,raw,shape)=>actorPresence.capture(actor,raw,shape),
@@ -775,12 +810,14 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       connections.add(connection); telemetry?.emit('bridge_ready', null, null, { provider: 'openai' });
     },
     closeConnections() {
+      emotionalMood.clear();
       runtime.closed=true;
       runtime.retireOriginalAcceptanceSourceRun();
       for(const connection of [...connections]) connection.close();
     },
     detach(connection) {
       connections.delete(connection);
+      emotionalMood.clear(); // Native session retirement invalidates acting.
         // Session close/identity retirement/disconnect revokes every pending
         // acceptance receipt and ledger entry of this native session.
         try { openaiAcceptance?.verifier.retireSession(connection.sessionIdentity ?? {}); } catch {}
@@ -795,6 +832,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         telemetry?.emit('bridge_disconnected', null, null, { provider: 'openai', reason: 'session_closed' });
     },
     attachBridge(value) {
+      emotionalMood.clear(); // Fresh native evidence epoch, never carry mood forward.
       for (const name of ['isCurrent', 'routePinnedEvent', 'authorize', 'onNativeEvent', 'assertCapabilities', 'validateDecision', 'failMatchingTurn']) {
         if (typeof value?.[name] !== 'function') throw new Error(`Missing Essential lifecycle capability: ${name}`);
       }
