@@ -19,7 +19,7 @@ function canonData(value){
 
 
 export function projectCompatibility({actor,listener,referenceMap,presence=[]}) {
- const known=new Set(presence),self={status:actor?'present':'unknown'};
+ const known=new Set(presence),self={status:actor?'present':'unknown',participantRole:'npc'};
  for(const key of ['isArmed','isIndoors','hasHeldItem']) self[key]=known.has(key)&&typeof actor?.[key]==='boolean'?actor[key]:'unknown';
  self.gender=known.has('gender')&&['male','female','unknown'].includes(actor?.gender)?actor.gender:'unknown';
  self.ageRange=known.has('ageRange')&&['young','middle-aged','old','unknown'].includes(actor?.ageRange)?actor.ageRange:'unknown';
@@ -31,7 +31,8 @@ export function projectCompatibility({actor,listener,referenceMap,presence=[]}) 
  self.availableWeapons=[...new Set(weapons.map(value=>token(typeof value==='string'?value.trim():value)).filter(Boolean))].sort().slice(0,32);
  const persons=Object.entries(referenceMap?.persons||{}).filter(([key,id])=>/^P\d{3}$/.test(key)&&typeof id==='string'&&/^[0-9a-f]+$/i.test(id)).map(([key])=>key).sort().slice(0,32);
  const vehicles=Object.entries(referenceMap?.vehicles||{}).filter(([key,id])=>/^V\d{3}$/.test(key)&&typeof id==='string'&&/^[0-9a-f]+$/i.test(id)).map(([key])=>key).sort().slice(0,32);
- const target={status:listener===null?'unavailable':listener?'present':'unknown'};
+ const target={status:listener===null?'unavailable':listener?'present':'unknown',
+  participantRole:listener?.pedId==='player'?'player':listener?'other':'unknown'};
  if(listener?.pedId==='player')target.address='A';
  else {const hit=persons.find(key=>referenceMap.persons[key]===String(listener?.pedId||'').toLowerCase());if(hit)target.address=hit;}
  const result={actor:self,listener:target,persons,vehicles};
