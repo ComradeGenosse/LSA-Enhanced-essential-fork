@@ -127,7 +127,10 @@ export async function createRuntimeForBundle(options = {}) {
     resolvePrepromotion:x=>connectedMemoryAuthority?.resolvePrepromotion(x)??null,
     verifyNativeCoverage:x=>connectedMemoryAuthority?.verifyNativeCoverage(x)??null
   });
-  const runtime = createRuntime(config, { ...options,
+  // Production cannot accept a caller-supplied emotional protagonist authority:
+  // only native C-13 may issue it. Keep test injection confined to createRuntime().
+  const {verifiedProtagonistAuthority:ignoredTestAuthority,...safeRuntimeOptions}=options;
+  const runtime = createRuntime(config, { ...safeRuntimeOptions,
     deferCharacterInitialization:true,
     memoryNativeAuthority:options.memoryNativeAuthority??memoryAuthorityPort,
     telemetry, dialogueTrace });
@@ -302,6 +305,12 @@ export async function createRuntimeForBundle(options = {}) {
         }};
         runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);
         owner.own('source.intelligence',runtime.intelligence,value=>value.stop());
+        // EA mood does not survive world epochs, host authority changes or a
+        // retired native intelligence stream. This listener cannot grant mood.
+        owner.own('emotion.world',runtime.intelligence.subscribeWorldBoundary(
+          ()=>runtime.emotionalMood?.clear()),unsubscribe=>unsubscribe());
+        owner.own('emotion.host',runtime.intelligence.subscribeVerifiedHostContext(
+          ()=>runtime.emotionalMood?.clear()),unsubscribe=>unsubscribe());
         // Independently authenticated D02 owner/controlled-player source.
         // Exposes only the synchronous read-through lease/verification port;
         // neither this port nor the native frame attests accepted dialogue.
@@ -370,6 +379,7 @@ export async function createRuntimeForBundle(options = {}) {
         const cleanup=await owner.rollback(checkpoint);
         if(cleanup.failures.length) throw runtimeCleanupError(owner,cleanup.failures);
         owner.failed('source.intelligence');runtime.intelligence=null;runtime.memoryD02=null;runtime.memoryM3=null;connectedMemoryAuthority=null;
+        runtime.emotionalMood?.clear();
         try{console.warn('[PS] optional_channel_unavailable');}catch{}
       }
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
