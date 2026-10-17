@@ -665,7 +665,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     dialogueTurn?.decision({ dialogue: decision.dialogue, command: decision.command, internalTranscript: validated.internalTranscript });
     try { reaction?.validated({ dialogue: decision.dialogue, command: decision.command, actionCount: validated.actionCount }); }
     catch { /* cosmetic only */ }
-    history.stage({ identity, spokenReply: decision.dialogue });
+    history.stage({ identity, spokenReply: decision.dialogue,
+      // Only the current Director + P2 owner may seal spontaneous playback for
+      // later conversational context. The history commits it after native ACK.
+      socialProof:source==='special_event'&&turn.directorTicket?.decisionKey?.startsWith('social:')
+        ?services.socialPlaybackProof?.(turn)??null:null });
     metrics?.count('assistantStageCount');
     metrics?.event('assistant_history_staged', { outputChars: String(decision.dialogue || '').length });
     // Stock action listener preserves timing, including final-only actions.
