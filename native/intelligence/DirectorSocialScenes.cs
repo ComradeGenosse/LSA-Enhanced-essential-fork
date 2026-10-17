@@ -52,7 +52,11 @@ namespace LSA.Intelligence
                 var car=player.CurrentVehicle;
                 if(car==null || !car.Exists() || car.Handle.ToString()!=handle)return "unknown";
                 var driver=car.Driver;
-                return ReferenceEquals(driver,actor)?"driver":ReferenceEquals(driver,player)?"passenger":"unknown";
+                return driver!=null && driver.Exists() &&
+                    (driver.Handle==actor.Handle && driver.MemoryAddress==actor.MemoryAddress)
+                    ?"driver":driver!=null && driver.Exists() &&
+                    (driver.Handle==player.Handle && driver.MemoryAddress==player.MemoryAddress)
+                    ?"passenger":"unknown";
             }catch{return "unknown";}
         }
         Scene Emit(Track track,string kind,string speaker,string player,string owner,
@@ -176,10 +180,13 @@ namespace LSA.Intelligence
             if(!Live(selected) || !Live(local) ||
                selected.Position.DistanceTo(local.Position)>20)return null;
             var anchor=current.FirstOrDefault(a=>a.Kind=="ped" && a.Observer &&
-                a.OwnerLifetime!=null && ReferenceEquals(a.Entity,selected));
+                a.OwnerLifetime!=null && a.Entity is Ped ped &&
+                ped.Handle==selected.Handle && ped.MemoryAddress==selected.MemoryAddress);
             if(anchor==null)return null;
             var owner=roster.FirstOrDefault(o=>o!=null && o.Current?.Invoke()==true &&
-                ReferenceEquals(o.Ped,selected)&&o.Lifetime==anchor.OwnerLifetime);
+                o.Ped!=null && o.Ped.Handle==selected.Handle &&
+                o.Ped.MemoryAddress==selected.MemoryAddress &&
+                o.Lifetime==anchor.OwnerLifetime);
             var state=owner?.DirectorOwner?.Invoke();
             if(state==null || state.Suspended || state.Revision<=0)return null;
             Track track;
