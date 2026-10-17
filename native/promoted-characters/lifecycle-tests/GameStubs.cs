@@ -38,6 +38,7 @@ namespace Rage
         public bool Exists() { Game.PedReads++; return Existing; }
         public bool IsDead,IsPersistent;
         public Vehicle CurrentVehicle, LastVehicle;
+        public int SeatIndex;
         public bool IsInAnyVehicle(bool includeEntering) { Game.NativeCalls++; return CurrentVehicle != null; }
         public Vector3 Position, Bone;
         public float ScreenX, ScreenY;
