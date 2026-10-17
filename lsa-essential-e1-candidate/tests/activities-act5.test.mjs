@@ -36,6 +36,7 @@ function harness({ enabled = true, act3Capabilities = [], extraProbes = [] } = {
   const hello = {type:'hello', ...host, nativeRun, adapterEpoch, capabilities: {
     hold_position:true, follow_person:true, sit_on_ground:true, resume_ambient:true,
     stop_and_face:true, approach_person:true, walk_away_from:true, take_cover:true, begin_driving:true,
+    scenario_here:true, enter_vehicle_seat:true, exit_vehicle:true,
   }};
   engine.noteHello(hello);
   let currentEncounter = encounter;
@@ -186,4 +187,153 @@ test('no approval, stale playback, disabled ACT5 and replayed engine admission f
   assert.equal(first.ok,true);
   assert.deepEqual(h.engine.assign(p,owner,{playerApproved:true}),first);
   assert.equal(h.commands.filter(v=>v.type==='actor.acquire').length,1);
+});
+
+const extendedNative = ['approach_person','stop_and_face','walk_away_from','take_cover',
+  'scenario_here','enter_vehicle_seat','exit_vehicle'];
+const extendedProbes = ['A1','C2','S1','V1','V2','V3','V4','SVE1'];
+const nativeHarness = () => harness({act3Capabilities:extendedNative,extraProbes:extendedProbes});
+
+test('ACT5 advertises the full enabled ACT3 set but does not expose ACT6 or unprobed native paths', async () => {
+  const gated = harness({act3Capabilities:extendedNative,extraProbes:['A1','C2','S1']});
+  const withoutVehicle = await gated.dialogue.prepare(turn(),'player_text');
+  assert.equal(withoutVehicle.intents.includes('board_vehicle'),false);
+  assert.equal(withoutVehicle.intents.includes('ride_along'),false);
+  assert.equal(withoutVehicle.intents.includes('exit_vehicle_and_hold'),true);
+  const h = nativeHarness();
+  const context = await h.dialogue.prepare(turn(),'player_text');
+  assert.deepEqual(context.intents,[
+    'hold_position','accompany','resume_previous','sit_here','approach_and_face',
+    'leave_scene','take_cover_and_hold','scenario_here','board_vehicle','ride_along',
+    'exit_vehicle_and_hold'
+  ]);
+  assert.equal(context.intents.includes('vehicle_trip'),false);
+  assert.equal(context.intents.includes('go_to_place'),false);
+  assert.equal(context.availableChoices.scenario_here.length,7);
+  assert.deepEqual(context.availableChoices.board_vehicle.map(slot=>slot.seat),
+    ['any_passenger','passenger','rear']);
+  for (const [intent, options] of Object.entries(context.availableChoices)) {
+    for (const slots of options) assert.equal(validateAct5Choice(choice(intent,slots),context.intents),true,
+      intent+JSON.stringify(slots));
+  }
+  for (const invalid of [
+    choice('scenario_here',{scenario:'sit_bench'}),
+    choice('scenario_here',{scenario:'unknown'}),
+    choice('ride_along',{seat:'driver'}),
+    choice('board_vehicle',{vehicle:{kind:'turn_alias',alias:'V001'},seat:'passenger'}),
+    choice('board_vehicle',{vehicle:{kind:'player_vehicle'},seat:'driver'}),
+    choice('board_vehicle',{vehicle:{kind:'player_vehicle'},seat:1}),
+    choice('exit_vehicle_and_hold',{seat:'passenger'}),
+  ]) assert.equal(validateAct5Choice(invalid,context.intents),false);
+});
+
+test('the strict Luna JSON schema enumerates exactly verified scenarios and seat choices', async () => {
+  const h=nativeHarness(), t=turn(), ctx=await h.dialogue.prepare(t,'player_text');
+  const request=buildRequest({model:'gpt-6-luna',effort:'low',systemInstruction:'NPC',
+    input:'hello',activityContext:ctx});
+  const all=request.text.format.schema.properties.activity.anyOf;
+  assert.equal(all[0].type,'null');
+  assert.equal(all.length,1+4+3+1+1+1+1+7+3+3+1);
+  const byIntent=intent=>all.filter(node=>node.properties?.intent?.enum?.[0]===intent);
+  assert.deepEqual(byIntent('scenario_here').map(node=>node.properties.slots.properties.scenario.enum[0]),
+    ['drink_coffee','smoke','phone','lean','stand_idle','clipboard','binoculars']);
+  assert.deepEqual(byIntent('board_vehicle').map(node=>node.properties.slots.properties.seat.enum[0]),
+    ['any_passenger','passenger','rear']);
+  assert.equal(all.every(node=>node.type==='null' ||
+    (node.additionalProperties===false && node.required.join(',')==='intent,slots' &&
+     node.properties.slots.additionalProperties===false &&
+     node.properties.slots.required.every(k=>Object.hasOwn(node.properties.slots.properties,k)))),true);
+  assert.match(request.input[0].content,/availableChoices/);
+  const segment=buildRequest({model:'gpt-6-luna',effort:'low',systemInstruction:'NPC',input:'hello',
+    activityContext:ctx,structuredSegments:true,lunaDeliveryVersion:1});
+  assert.deepEqual(segment.text.format.schema.properties.activity,request.text.format.schema.properties.activity);
+  const approved=choice('scenario_here',{scenario:'drink_coffee'});
+  assert.deepEqual(parseDecisionJson(JSON.stringify(decision(approved)),{act5Intents:ctx.intents}),decision(approved));
+  const decoder=createSegmentDecoder({act5Intents:ctx.intents,lunaDeliveryVersion:1});
+  decoder.append(JSON.stringify({mode:'buffered_action',
+    segments:[{delivery:'neutral',text:'Mind if I grab a coffee?'}],command:'',activity:approved}));
+  assert.deepEqual(decoder.finish().decision,decision(approved).dialogue
+    ? {dialogue:'Mind if I grab a coffee?',command:'',activity:approved}:null);
+});
+
+test('all supported ACT3 options admit the existing native plan only after a spoken proposal and direct consent', async () => {
+  for (const [intent,slots,utterance] of [
+    ['scenario_here',{scenario:'drink_coffee'},'Sure, go ahead.'],
+    ['scenario_here',{scenario:'phone'},'Sounds good.'],
+    ['board_vehicle',{vehicle:{kind:'player_vehicle'},seat:'any_passenger'},'Okay, get in.'],
+    ['board_vehicle',{vehicle:{kind:'player_vehicle'},seat:'rear'},'Sure, hop in.'],
+    ['ride_along',{seat:'passenger'},'Yeah, let’s go.'],
+    ['ride_along',{seat:'rear'},'Ride with me.'],
+    ['exit_vehicle_and_hold',{},'Go ahead, get out.'],
+    ['approach_and_face',{person:{kind:'player'}},'Yeah, let’s do that.'],
+    ['leave_scene',{},'Go for it.'],
+    ['take_cover_and_hold',{},'Okay take cover.'],
+  ]) {
+    const h=nativeHarness();
+    const t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+    const proposed=await h.dialogue.publish(t,decision(choice(intent,slots)),ctx,()=>true);
+    assert.equal(proposed,true,intent);
+    assert.equal(h.engine.goals.goals.length,0,intent);
+    assert.equal(h.commands.length,0,intent);
+    const approving=turn(),replyContext=await h.dialogue.prepare(approving,'player_text');
+    const reply=await h.dialogue.onPlayerInput(approving,utterance,replyContext,()=>true);
+    assert.equal(reply?.kind,'approval_pending',intent);
+    assert.equal(h.engine.goals.goals.length,0,intent);
+    const admitted=await h.dialogue.commitApproved(approving,()=>true);
+    assert.equal(admitted.ok,true,intent+':'+admitted.reason);
+    assert.equal(h.engine.activities.length,1,intent);
+    assert.equal(h.engine.activities[0].template,intent);
+    assert.equal(h.engine.activities[0].steps.length,
+      ['approach_and_face','leave_scene','exit_vehicle_and_hold'].includes(intent)?2:1);
+    assert.equal(h.commands.filter(frame=>frame.type==='actor.acquire').length,1);
+    assert.equal((await h.dialogue.commitApproved(approving,()=>true)).ok,false);
+  }
+});
+
+test('natural refusals, ambiguous speech and changed minds do not produce ghost activity', async () => {
+  for (const utterance of ['Actually, never mind.','No, stay here instead.','Please don’t.']) {
+    const h=nativeHarness(),t=turn(),ctx=await h.dialogue.prepare(t,'player_mic');
+    await h.dialogue.publish(t,decision(choice('board_vehicle',{vehicle:{kind:'player_vehicle'},seat:'any_passenger'})),ctx,()=>true);
+    const next=turn(),snapshot=await h.dialogue.prepare(next,'player_mic');
+    assert.equal((await h.dialogue.onPlayerInput(next,utterance,snapshot,()=>true))?.kind,'declined');
+    assert.equal(h.commands.length,0);
+  }
+  for (const utterance of ['I said yes yesterday','sure but not right now',
+    'Yes, what was that song?', 'I guess we could think about it','no, wait, yes',
+    'okay, do you know the weather?']) {
+    const h=nativeHarness(),t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+    await h.dialogue.publish(t,decision(choice('scenario_here',{scenario:'drink_coffee'})),ctx,()=>true);
+    const next=turn(),snapshot=await h.dialogue.prepare(next,'player_text');
+    assert.equal(await h.dialogue.onPlayerInput(next,utterance,snapshot,()=>true),null,utterance);
+    assert.equal(h.commands.length,0);
+  }
+});
+
+test('stop cancels only the ACT5-owned currently active activity, never a later player activity', async () => {
+  const h=nativeHarness(),initial=turn(),available=await h.dialogue.prepare(initial,'player_text');
+  await h.dialogue.publish(initial,decision(choice('hold_position')),available,()=>true);
+  const approval=turn(),snapshot=await h.dialogue.prepare(approval,'player_text');
+  await h.dialogue.onPlayerInput(approval,'Sure',snapshot,()=>true);
+  assert.equal((await h.dialogue.commitApproved(approval,()=>true)).ok,true);
+  const stop=turn(),stopSnapshot=await h.dialogue.prepare(stop,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(stop,'Stop doing that',stopSnapshot,()=>true))?.kind,'cancelled');
+  assert.equal(h.engine.activities[0].status,'cancelled');
+  const next=turn(),nextSnapshot=await h.dialogue.prepare(next,'player_text');
+  assert.equal(await h.dialogue.onPlayerInput(next,'Stop doing that',nextSnapshot,()=>true),null);
+});
+
+test('expired proposals, rekeyed tokens and changed native adapter epochs never admit ACT5', async () => {
+  const h=nativeHarness(),t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+  await h.dialogue.publish(t,decision(choice('ride_along',{seat:'rear'})),ctx,()=>true);
+  h.advance(90001);
+  const next=turn(),nextCtx=await h.dialogue.prepare(next,'player_text');
+  assert.equal(await h.dialogue.onPlayerInput(next,'yeah',nextCtx,()=>true),null);
+  assert.equal(h.commands.length,0);
+  const k=nativeHarness(),u=turn(),uc=await k.dialogue.prepare(u,'player_text');
+  await k.dialogue.publish(u,decision(choice('scenario_here',{scenario:'phone'})),uc,()=>true);
+  const approve=turn(),apCtx=await k.dialogue.prepare(approve,'player_text');
+  assert.equal((await k.dialogue.onPlayerInput(approve,'yes',apCtx,()=>true))?.kind,'approval_pending');
+  k.changeToken();
+  assert.equal((await k.dialogue.commitApproved(approve,()=>true)).ok,false);
+  assert.equal(k.commands.length,0);
 });
