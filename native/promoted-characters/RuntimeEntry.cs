@@ -12,6 +12,7 @@ namespace LSA.PromotedCharacters
     {
         static PromotedCharactersIntegration integration;
         static LSA.Intelligence.IntelligenceIntegration intelligence;
+        static LSA.Reactions.ReactionIntegration reactions;
         static HostContext host;
         static int startClaim;
         static volatile bool stopping,finished;
@@ -61,6 +62,19 @@ namespace LSA.PromotedCharacters
                             IntegrationManager.Register(intelligence);intelligence.Initialize();
                         } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
                     }
+                    // Cosmetic conversation reactions: default off, own pipe, no ACT/P2 involvement.
+                    if(config.reactions?.mode=="shadow" || config.reactions?.mode=="on") {
+                        try {
+                            var reactionOptions=new LSA.Reactions.ReactionOptions {Mode=config.reactions.mode,
+                                AllowDuringOwnedBehavior=config.reactions.allowDuringOwnedBehavior is bool && (bool)config.reactions.allowDuringOwnedBehavior};
+                            foreach(var name in config.reactions.disabled ?? new string[0])
+                                if(LSA.Reactions.ReactionCatalog.IsKnown(name))reactionOptions.Disabled.Add(name);
+                            reactions=new LSA.Reactions.ReactionIntegration(reactionOptions,config.reactions.pipeName,host.HostRunId,()=>host.WorldEpoch,()=>host.MonotonicMs,OwnedByLsaBehavior);
+                            var reactionHost=reactions;
+                            host.WorldChanged+=(epoch,reason)=>reactionHost.WorldChanged(reason);
+                            IntegrationManager.Register(reactions);reactions.Initialize();
+                        } catch {Game.LogTrivial("[RX] optional_host_unavailable");}
+                    }
                     Game.LogTrivial(integration.IsAvailable?"[P2] integrations_installed":"[P2] integration_unavailable");
                     var statusClock=Stopwatch.StartNew();long nextStatus=0;
                     while(!stopping && integration.IsAvailable) {
@@ -76,10 +90,32 @@ namespace LSA.PromotedCharacters
                     if(stopping) exitReason="host_stop_requested";
                     LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] host_exit reason="+exitReason+" p2_reason="+(integration?.UnavailabilityReason??"not_initialized"));
                     if(intelligence!=null) ReportStatus();
+                    // Native clip cleanup must run from ReactionIntegration.Update on Core, not this lifetime fiber.
+                    try {reactions?.RequestShutdown();} catch {}
                     try {intelligence?.Shutdown(exitReason);} finally {try {integration?.RequestShutdown();} finally {finished=true;Game.LogTrivial("[P2] native_host_stopped");}}
                 }
             },"LSA character host lifetime");
             return true;
+        }
+        // A promoted ped must carry positively current P2/ACT idle proof.
+        // Ordinary unpromoted peds are not owned by P2/ACT; the executor still
+        // independently requires the exact Essential conversation speaker and
+        // a fresh safe-state preflight before and during every animation tick.
+        // Missing/retired roster authority is never accepted as *promoted* idle.
+        static bool OwnedByLsaBehavior(Ped ped) {
+            var owner=integration;
+            if(owner==null || ped==null || !ped.Exists() || ped.IsDead) return true;
+            foreach(var participant in owner.PerceptionRoster()) {
+                if(participant.Ped==null || !participant.Ped.Equals(ped)) continue;
+                if(participant.Current?.Invoke()!=true) return true;
+                var sample=participant.PrimaryOwner?.Invoke() as PrimaryBehaviorOwner;
+                if(sample==null || sample.mode!="idle") return true;
+                return sample.owner!="p2" && sample.owner!="act";
+            }
+            // No P2/ACT roster membership: possible ordinary Essential speaker.
+            // No gesture is admitted until ReactionExecutor.ReadFacts confirms
+            // current speaker, player exclusion, no active tasks and safe natives.
+            return false;
         }
         public static void Stop() { stopping=true; EssentialInputInterception.ReleaseAll(); }
         public static bool LeaseInput(int mark,int text) => !stopping && EssentialInputInterception.Lease(mark,text);
@@ -105,10 +141,13 @@ namespace LSA.PromotedCharacters
             public string identityPipeName {get;set;}="LSA.SessionIdentity.v1";
             public IntelligenceConfig intelligence {get;set;}=new IntelligenceConfig();
             public ActivitiesConfig activities {get;set;}=new ActivitiesConfig();
+            public ReactionsConfig reactions {get;set;}=new ReactionsConfig();
             public NativeMemoryKConfig memoryK {get;set;}
         }
         public sealed class NativeMemoryKConfig {public System.Collections.Generic.Dictionary<string,object> capabilities {get;set;}}
         public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string radio {get;set;}="off";public object directorAttemptPreset {get;set;}="normal";public string pipeName {get;set;}="LSA.Intelligence.v1";public System.Collections.Generic.Dictionary<string,object> producers {get;set;}}
+        // Default off. Only the literal strings "shadow" and "on" enable anything; "on" is the only mode that animates.
+        public sealed class ReactionsConfig {public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Reactions.v1";public string[] disabled {get;set;}=new string[0];public object allowDuringOwnedBehavior {get;set;}=false;}
         public sealed class ActivitiesConfig {public object dialogueReceipts {get;set;}=false;public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Activities.v1";}
     }
 }

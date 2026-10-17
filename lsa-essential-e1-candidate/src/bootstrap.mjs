@@ -21,6 +21,8 @@ import {DirectorSpeechReservations} from './perception/sceneDirectorAdmission.mj
 import {SceneDirectorSpeech} from './perception/sceneDirectorOrchestrator.mjs';
 import { ActivityClient } from './activities/activityClient.mjs';
 import { ActivityRuntime } from './activities/activityRuntime.mjs';
+import { ReactionClient } from './reactions/reactionClient.mjs';
+import { createReactionService } from './reactions/reactionService.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
 import { createDialogueTrace, createNoopDialogueTrace } from './observability/dialogueTrace.mjs';
 import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
@@ -470,6 +472,23 @@ export async function createRuntimeForBundle(options = {}) {
       if(cleanup.failures.length) throw runtimeCleanupError(owner,cleanup.failures);
       owner.failed('activities');runtime.activities=null;
       try { console.warn('[ACT] optional_channel_unavailable'); } catch {}
+    }
+  }
+  // Cosmetic gestures are default off and cannot veto a normal conversation.
+  if (config.reactions?.mode === 'shadow' || config.reactions?.mode === 'on') {
+    const checkpoint = owner.checkpoint();
+    try {
+      owner.starting('reactions');
+      const report = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data); } catch {} };
+      const client = new ReactionClient(config.reactions, { ...options.reactionOptions, onEvent: report });
+      runtime.services.reactions = createReactionService({ config: config.reactions, client, report });
+      owner.own('reactions', client, value => value.stop());
+      client.start();
+    } catch {
+      const cleanup = await owner.rollback(checkpoint);
+      if (cleanup.failures.length) throw runtimeCleanupError(owner, cleanup.failures);
+      owner.failed('reactions'); runtime.services.reactions = null;
+      try { console.warn('[RX] optional_channel_unavailable'); } catch {}
     }
   }
   if (runtime.characterService) {
