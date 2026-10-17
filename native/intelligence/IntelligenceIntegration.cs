@@ -1011,9 +1011,8 @@ namespace LSA.Intelligence
             // DamageTracker callbacks do not have a verified GTA owner fiber.
             // Only attach observers from a fresh owner-fiber LOS sample.
             if(signal.kind=="damage"||signal.kind=="vehicle_damage") {
-                uint sampledLag=unchecked(callbackTick-signal.gameTick);
-                if(sampledLag<=100 && now>=signal.receivedMs &&
-                   now-signal.receivedMs<=100 &&
+                if(WitnessPolicy.FreshCallbackWindow(signal.gameTick,callbackTick,
+                    signal.receivedMs,now) &&
                    (signal.kind!="vehicle_damage" ||
                     (Object.Equals(signal.facts["classification"],"collision")&&
                      signal.facts.ContainsKey("collision"))))

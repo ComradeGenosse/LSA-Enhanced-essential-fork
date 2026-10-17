@@ -64,6 +64,13 @@ namespace LSA.Intelligence
     // Pure policy. Native adapter supplies only owner-fiber geometry actually sampled.
     public static class WitnessPolicy
     {
+        // GTA owner-fiber witnesses are attached only to near-time callbacks.
+        // The unsigned game-tick delta safely crosses GTA's clock rollover.
+        public static bool FreshCallbackWindow(uint producerTick,uint ownerTick,long receivedMs,long now)
+        {
+            return receivedMs>=0&&now>=receivedMs&&now-receivedMs<=100&&
+                unchecked(ownerTick-producerTick)<=100;
+        }
         public static double VisualRange(string kind) {
             switch(kind) {case "firing":return 50;case "injury_state":case "death":case "damage":return 35;case "vehicle_damage":return 35;case "body_discovered":return 30;case "vehicle_transition":return 40;case "location_changed":case "activity_changed":return 35;default:return 0;}
         }

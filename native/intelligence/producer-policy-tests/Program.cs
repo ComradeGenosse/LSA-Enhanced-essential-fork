@@ -41,6 +41,14 @@ static class Program
         Check(!NativeProducerPolicy.FromConfig(null,null,"off").Allows("radio"),"radio keeps separate default off");
         var single=new NativeProducerPolicy("on",new Dictionary<string,object>{{"shooting","on"}},"shadow");
         Check(single.Allows("shooting")&&names.Where(x=>x!="shooting").All(x=>!single.Allows(x)),"one explicit producer request cannot start siblings");
+        Check(WitnessPolicy.FreshCallbackWindow(900,920,1000,1050),
+              "callback owner-fiber sight within 100ms is eligible");
+        Check(!WitnessPolicy.FreshCallbackWindow(900,1100,1000,1050)&&
+              !WitnessPolicy.FreshCallbackWindow(900,920,1000,1101)&&
+              !WitnessPolicy.FreshCallbackWindow(900,920,1000,999),
+              "stale and future callback samples cannot prove witnessing");
+        Check(WitnessPolicy.FreshCallbackWindow(uint.MaxValue-10,10,1000,1020),
+              "game tick rollover preserves valid bounded callback sample");
         var ledger=new BodyDiscoveryLedger();
         Check(ledger.NoteDead("body",100)&&!ledger.CanDiscover("nathan","body",1599),
               "newly deceased is not an immediate discovery");
