@@ -248,3 +248,50 @@ test('permission error never reports successful apply',async t=>{
     await assert.rejects(run('apply',{game,activate:true}),/EACCES|EPERM/);
   } finally {await fs.chmod(dir,stat.mode);}
 });
+test('working feature cannot be silently disabled; explicit approval is scoped',async t=>{
+  const {game,files}=await setup(t);
+  await run('import',{game});
+  await editMaster(files,m=>{m.sections.voice.actingEnabled=false;});
+  const blocked=await run('validate',{game});
+  assert.equal(blocked.ok,false);
+  assert.ok(blocked.problems.some(p=>p.code==='DISABLE_GUARD'&&p.detail.includes('e1.actingEnabled')));
+  assert.equal((await run('apply',{game,activate:true})).ok,false);
+  await editMaster(files,m=>{m.approvals.allowDisable=['e1.actingEnabled'];});
+  const permitted=await run('apply',{game,activate:true});
+  assert.equal(permitted.ok,true,JSON.stringify(permitted));
+  assert.equal((await read(files.e1)).actingEnabled,false);
+});
+
+test('diff exposes exact intended changes but never private legacy keys',async t=>{
+  const {game,files}=await setup(t,{secret:true});
+  await run('import',{game});
+  await editMaster(files,m=>{m.sections.ai.maxOutputTokens=444;});
+  const diff=await run('diff',{game});
+  assert.equal(diff.ok,true,JSON.stringify(diff));
+  const entry=diff.preview.e1.find(v=>v.path==='maxOutputTokens');
+  assert.deepEqual(entry,{path:'maxOutputTokens',before:300,after:444});
+  assert.doesNotMatch(JSON.stringify(diff.preview),/privateApiKey|not-for-master/);
+});
+
+test('native size gate rejects oversized proposed runtime JSON and leaves current files untouched',async t=>{
+  const {game,files}=await setup(t);
+  await run('import',{game});
+  await editMaster(files,m=>{m.sections.extensions.promoted.extraPadding='x'.repeat(8000);});
+  const result=await run('apply',{game,activate:true});
+  assert.equal(result.ok,false);
+  assert.ok(result.problems.some(x=>x.code==='NATIVE_FILE_SIZE'));
+  assert.equal(Object.hasOwn(await read(files.promoted),'extraPadding'),false);
+});
+
+test('status shows requested state and pending restart after managed apply',async t=>{
+  const {game,files}=await setup(t);
+  await run('import',{game});
+  await editMaster(files,m=>{m.sections.ai.maxOutputTokens=345;});
+  const applied=await run('apply',{game,activate:true});
+  assert.equal(applied.ok,true,JSON.stringify(applied));
+  const status=await run('status',{game});
+  assert.equal(status.ok,true,JSON.stringify(status));
+  assert.equal(status.operationalStatus,'unverified_without_running_GTA');
+  assert.ok(status.pendingRestart.includes('e1'));
+  assert.equal(status.configured.speechProvider,'openai');
+});
