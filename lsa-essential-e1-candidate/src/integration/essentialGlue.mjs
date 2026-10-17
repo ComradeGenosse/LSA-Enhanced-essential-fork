@@ -537,6 +537,14 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         memory.opinionCurrent(opinionOnly.opinionReferences,opinionOnly.opinionStamp)===true
         ?opinionOnly:base;
       const mode=config.dialogueKnowledge?.mode??'off',ps=runtime.intelligence?.runtime;
+      // Diagnostic only: do not relax the source, build or native protocol gate.
+      // Existing fallback behavior remains unchanged if any proof is missing.
+      const contractFailure=mode==='off'?null:
+        runtime.dialogueKnowledgeBuildSupported!==true?
+          (runtime.dialogueKnowledgeBuildFailure??'dialogue_contract_mismatch'):
+        ps?.observerIndexVersion!==1?'native_observer_index_unavailable':
+        ps?.observerSituationVersion!==1?'native_observer_situation_unavailable':
+        ps?.hostContext?.hostContextVersion!==1?'native_host_context_unavailable':null;
       let reason=mode==='off'?'disabled':'unsupported_contract',preview=null;
       if(!safeOnly && mode!=='off' && config.provider==='openai' && runtime.dialogueKnowledgeBuildSupported && ps?.observerIndexVersion===1 && ps?.observerSituationVersion===1 && ps?.hostContext?.hostContextVersion===1) {
         reason=runtime.intelligence.assertKnowledgeCurrent(turn.knowledgeInputs);
@@ -562,7 +570,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       turn.knowledgePreview=preview?Object.freeze({selectedObservations:preview.delivery.length,frameBytes:preview.diagnostics.bytes,frameHash:createHash('sha256').update(JSON.stringify(preview.modelAllocation)).digest('hex')}):null;
       turn.knowledgeFallbackReason=reason;
       const capture=turn.knowledgeInputs?.captureDiagnostics;
-      try {telemetry?.emit('knowledge_frame_projected',turn.identity,source,{knowledgeMode:mode,preview:!!preview,captureObservationCount:capture?.observations??0,capturePairCount:capture?.retainedPairs??0,capturePoolBytes:capture?.poolBytes??0,captureMissingSalience:capture?.noMatchingSalience??0,captureRevisionMismatch:capture?.revisionMismatch??0,captureRetiredRefs:capture?.participantRetired??0,captureBudgetExcluded:capture?.budgetExcluded??0,...summarizeKnowledgeSelection(turn.knowledgeInputs,preview),radioQuestion:['player_text','player_mic'].includes(source)&&radioTurnRelevant(input),selectedObservations:preview?.delivery.length??0,frameBytes:preview?.diagnostics.bytes??base.diagnostics.bytes,frameHash:turn.knowledgePreview?.frameHash??createHash('sha256').update(JSON.stringify(base.modelAllocation)).digest('hex'),reason:turn.knowledgeFallbackReason});}catch{}
+      try {telemetry?.emit('knowledge_frame_projected',turn.identity,source,{knowledgeMode:mode,preview:!!preview,captureObservationCount:capture?.observations??0,capturePairCount:capture?.retainedPairs??0,capturePoolBytes:capture?.poolBytes??0,captureMissingSalience:capture?.noMatchingSalience??0,captureRevisionMismatch:capture?.revisionMismatch??0,captureRetiredRefs:capture?.participantRetired??0,captureBudgetExcluded:capture?.budgetExcluded??0,...summarizeKnowledgeSelection(turn.knowledgeInputs,preview),radioQuestion:['player_text','player_mic'].includes(source)&&radioTurnRelevant(input),selectedObservations:preview?.delivery.length??0,frameBytes:preview?.diagnostics.bytes??base.diagnostics.bytes,frameHash:turn.knowledgePreview?.frameHash??createHash('sha256').update(JSON.stringify(base.modelAllocation)).digest('hex'),reason:turn.knowledgeFallbackReason,diagnosticReason:turn.knowledgeFallbackReason==='unsupported_contract'?contractFailure:null});}catch{}
       const validateKnowledge=frame=>(
         (frame.delivery?.length??0)+(frame.activityReferences?.length??0)+
         (frame.dialogueReferences?.length??0)===0?null:
