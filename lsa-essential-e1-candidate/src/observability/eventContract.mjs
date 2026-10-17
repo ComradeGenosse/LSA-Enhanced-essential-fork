@@ -1,5 +1,5 @@
 export const EVENT_NAMES = new Set([
-  'run_started','bridge_ready','bridge_disconnected','run_shutdown','turn_bound','turn_stage','phase_started','phase_finished','phase_failed','pcm_first_forwarded','voice_profile_assigned','speech_provider_selected',
+  'run_started','bridge_ready','bridge_disconnected','run_shutdown','turn_bound','turn_stage','mic_input_captured','stt_completed','memory_bypass','memory_fallback','audio_handoff_started','phase_started','phase_finished','phase_failed','pcm_first_forwarded','voice_profile_assigned','speech_provider_selected',
   'input_ready','capture_started','capture_stopped','mic_chunk','input_overflow','provider_request_started',
   'provider_headers','provider_first_byte','provider_request_finished','provider_request_failed','model_usage',
   'model_first_content_delta','stream_segment_validated','stream_tts_segment_started','stream_tts_segment_finished',
@@ -42,7 +42,7 @@ const safeKeys = new Set([
   'playerDuplicateCount','actionValidatedCount','actionDispatchAttempts','actionDispatchAccepted',
   'actionDispatchRejected','authorizationAcceptedCount','authorizationRejectedCount','authorizationAttempts',
   'credentialAvailable','providerWorkDeadlineMs','playbackCompletionMaxMs',
-  'micChunks','droppedTelemetryRecords',
+  'micChunks','droppedTelemetryRecords','hasPcm','hasTranscript',
   'listenerState','worldStatus','actorStatus','personReferenceCount','vehicleReferenceCount','referenceCount',
   'anchors','queued','retainedSignals','received','stale','malformed','duplicate','gaps','expired','resets',
   'historyExpired','historyEvicted','historySkipped','historyHighWater','dropAnchorCapacity','dropObserverCapacity',
@@ -59,7 +59,9 @@ const safeKeys = new Set([
   'activityId','intent','capability','receiptState','stepIndex','delivery',
 ]);
 const safeTokens = new Set([
-  'delivered','expired','ack_key_retired','observation_expired','memory_stale','recall_stale','opinion_stale','revision_mismatch','unclassified_stale_reason',
+  'delivered','expired','ack_key_retired','observation_expired',
+  'native_memory_source_timeout','memory_capture_unavailable','memory_receipt_unavailable','memory_capture_timeout','memory_capture_failed','memory_prepare_timeout','memory_prepare_failed','pre_request_stale',
+  'memory_stale','recall_stale','opinion_stale','revision_mismatch','unclassified_stale_reason',
   'invalid_json','invalid_order','invalid_contract','sequence_gap','runtime_consistency',
   'hello','anchors','retire','retire_batch','observer_index','observer_situation',
   'world_epoch','director_priority','director_response','signal','diagnostics',

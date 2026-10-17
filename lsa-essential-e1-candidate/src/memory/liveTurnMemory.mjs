@@ -169,7 +169,8 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
       verifiedFence===null?'not_verified':
       store.memoryRequestFenceFailure?.(verifiedRequestFence)??
       (sendCurrentInFlight()?null:preparedH1.invalidationReason?.()??'source_changed');
-    const opinionCurrent=(_refs,seen)=>opinionValid&&sendCurrent()&&!!seen&&
+    const opinionCurrent=(_refs,seen,{requestSent=false}={})=>opinionValid&&
+      (requestSent?sendCurrentInFlight():sendCurrent())&&!!seen&&
       Object.keys(preparedM8.stamp).every(k=>seen[k]===preparedM8.stamp[k]);
     return Object.freeze({status:'ready',preparedRecall,preparedM8,conversationJournal,
       memoryAction,recallCurrent,verifyPrepared,sendCurrent,sendCurrentInFlight,

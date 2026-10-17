@@ -27,16 +27,19 @@ import {prepareH1ConversationHistory} from '../memory/h1ConversationHistory.mjs'
 import {prepareFactualRecall} from '../memory/h2FactualRecall.mjs';
 import {composeIndependentForegroundMemory} from '../memory/independentForegroundMemory.mjs';
 import {prepareM5Commands} from '../memory/m5IndependentCommands.mjs';
+import {mayBeM5PlayerInput} from '../../../lsa-shared-brain/src/memory/m5RuntimeCoordinator.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
 import { VoiceResolver } from '../voice/voiceResolver.mjs';
+import { createVoiceActivity } from '../voice/voiceActivity.mjs';
 import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
 import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
-import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation,memoryKM6Activation} from '../memory/runtimeComposition.mjs';
+import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation,memoryKM6Activation,memoryKM8Activation} from '../memory/runtimeComposition.mjs';
+import {prepareIndependentM8} from '../memory/m8IndependentInterpretation.mjs';
 import {createLearnedMemoryPause} from '../memory/learnedMemoryPause.mjs';
 
 // Fail-closed startup contract for E1's separately reviewed storage-only preset.
@@ -53,6 +56,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // Stock Gemini keeps its native transport and does not enter this stack.
   const providerStack = config.provider === 'openai' ? createProviderStack(config, { fetchImpl, providers }) : null;
   const voiceResolver = config.provider === 'openai' ? new VoiceResolver(config) : null;
+  // UX4 mic meter and status: peak level and phase codes only, never audio.
+  const voiceActivity = config.provider === 'openai' ? createVoiceActivity() : null;
   const identityService = config.provider === 'openai' && config.persistentIdentity?.enabled
     ? new IdentityResolver(config.persistentIdentity, { evidence: identityEvidence, store: identityStore, telemetry,
       retireSession: (session, reason) => {
@@ -73,8 +78,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const recallActivation=memoryKH2Activation(config);
   const commandActivation=memoryKM5Activation(config);
   const retentionActivation=memoryKM6Activation(config);
+  const interpretationActivation=memoryKM8Activation(config);
   const recallState={preparation:null,validation:null,contributed:false,requestAttempted:false};
   const journalState={preparation:null,validation:null,contributed:false,requestAttempted:false};
+  // L: independent M8 interpretation. Status vocabulary only; never text, ids or messages.
+  const interpretationState={preparation:null,validation:null,contributed:false,requestAttempted:false};
   // I1: M5 command state. `outcome` is a closed, privacy-safe vocabulary; it never
   // carries player text, memory content, ids or exception messages.
   const commandState={preparation:null,validation:null,outcome:null,contributed:false,requestAttempted:false};
@@ -138,7 +146,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       dialogueResults.player=null;
       try{runtime.retention?.noteForeground();}catch{} // M6 yields to any live turn
 
-      if(!dialogueActivation.player||runtime.closed||memoryPause.paused) return null;
+      if(!dialogueActivation.player||runtime.closed||memoryPause.paused||turn?.memoryDisabledForTurn) return null;
       const characterId=journalCharacter(turn);
       const ownerAlias=turn?.characterProjection?.profile?.promotion?.ownerAlias;
       if(!characterId||!ownerAlias||typeof isCurrent!=='function'||
@@ -185,13 +193,16 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     async prepareLiveTurnMemory(args) {
       try{runtime.retention?.noteForeground();}catch{}
       if(runtime.closed||memoryPause.paused)return null;
-      for(const state of [journalState,recallState,commandState]){
+      for(const state of [journalState,recallState,commandState,interpretationState]){
         state.preparation=null;state.validation=null;state.contributed=false;state.requestAttempted=false;
       }
       commandState.outcome=null;
       // F-only or recording-only capabilities must not even inspect source getters.
       if(!optionalMemoryEnabled&&journalActivation.mode!=='on'&&
-         recallActivation.mode!=='on'&&commandActivation.mode!=='on')return null;
+         recallActivation.mode!=='on'&&commandActivation.mode!=='on'&&
+         interpretationActivation.mode!=='on')return null;
+      // Dormant capabilities must not inspect even hostile turn/source getters.
+      if(args.turn?.memoryDisabledForTurn)return null;
       const memoryEpoch=memoryPause.stamp(),sourceCurrent=args.isCurrent;
       args={...args,isCurrent:()=>memoryPause.current(memoryEpoch)&&sourceCurrent()};
       if(optionalMemoryEnabled){
@@ -201,10 +212,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         return result;
       }
       // Independently prepare each enabled consumer using exactly the same
-      // accepted D03 receipt and original source/turn identity. M8 stays off.
+      // accepted D03 receipt and original source/turn identity. M8 runs only
+      // when memory.interpretation is explicitly on.
       // M5 runs FIRST so any durable remember/forget/correct is committed before
       // H1/H2 read, and neither can ever send a pre-command snapshot.
-      let history=null,recall=null,commands=null;
+      let history=null,recall=null,commands=null,interpretation=null;
       if(commandActivation.mode==='on'){
         try{commands=await prepareM5Commands({store:journalStore,...args});}
         catch{commands={status:'unavailable',reason:'command_read_failed',outcome:'command_failure'};}
@@ -221,8 +233,19 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         catch{recall={status:'unavailable',reason:'recall_read_failed'};}
         recallState.preparation=journalOutcome(recall.status,recall.reason??null);
       }
-      const result=composeIndependentForegroundMemory({history,recall,commands,
-        onValidation:({h1,h2,m5})=>{
+      // L: M8 is read AFTER M5 so a durable forget/correct is already committed,
+      // and it is a separate P2 read with its own native-owner stamp. Its failure
+      // is isolated: it can only remove the opinion lane.
+      if(interpretationActivation.mode==='on'){
+        try{interpretation=await prepareIndependentM8({store:journalStore,...args});}
+        catch{interpretation={status:'unavailable',reason:'interpretation_read_failed'};}
+        interpretationState.preparation=journalOutcome(interpretation.status,interpretation.reason??null);
+      }
+      const result=composeIndependentForegroundMemory({history,recall,commands,interpretation,
+        onValidation:({h1,h2,m5,m8})=>{
+          if(interpretation?.status==='ready'&&m8!==undefined)
+            interpretationState.validation=journalOutcome(m8?'ready':'invalidated',m8?null:'source_authority_revoked');
+          if(h1===undefined)return;
           if(commands?.status==='ready'&&commands.memoryAction?.length)
             commandState.validation=journalOutcome(m5?'ready':'invalidated',m5?null:'source_authority_revoked');
           if(history?.status==='ready')
@@ -230,7 +253,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
           if(recall?.status==='ready')
             recallState.validation=journalOutcome(h2?'ready':'invalidated',h2?null:'source_authority_revoked');
         }});
-      return result??history??recall??null;
+      return result??history??recall??interpretation??null;
     },
     noteH1Skipped() {
       if(journalActivation.mode==='on'){
@@ -240,6 +263,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       if(recallActivation.mode==='on'){
         recallState.preparation=journalOutcome('blocked','accepted_line_authority_missing');
         recallState.validation=null;recallState.contributed=false;recallState.requestAttempted=false;
+      }
+      if(interpretationActivation.mode==='on'){
+        interpretationState.preparation=journalOutcome('unavailable','accepted_line_authority_missing');
+        interpretationState.validation=null;interpretationState.contributed=false;interpretationState.requestAttempted=false;
       }
       if(commandActivation.mode==='on'){
         commandState.preparation=journalOutcome('unavailable','accepted_line_authority_missing');
@@ -269,6 +296,36 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         operationalState:state,reason:reason??(state==='waiting'?'accepted_player_turn_required':null),
         lastPreparation:recallState.preparation,lastValidation:recallState.validation,
         contributedToModelRequest:recallState.contributed,requestAttempted:recallState.requestAttempted,
+        legacy,restartRequired:true});
+    },
+    // L: privacy-safe M8 interpretation status. No text, ids or exception messages.
+    memoryInterpretationDiagnostics() {
+      const {requestedMode,mode,reason:activationReason,legacy}=interpretationActivation;
+      const environmentReason=runtime.closed?'runtime_stopped':
+        config.provider!=='openai'?'d01_acceptance_source_unavailable':
+        config.promotedCharacters?.storageMode!=='sqlite'||!characterService?.ready||
+          typeof journalStore?.withP2SqliteRead!=='function'?'p2_sqlite_unavailable':null;
+      // Without an explicit capability map M8 stays on the inherited combined
+      // path, coupled to M4 recall; this independent state machine is idle there.
+      if(legacy)return Object.freeze({requestedMode,state:'waiting',effectiveMode:null,
+        operationalState:'waiting',reason:'coupled_to_m4_recall_legacy_path',
+        lastPreparation:null,lastValidation:null,contributedToModelRequest:false,
+        requestAttempted:false,legacy,restartRequired:true});
+      const reason=activationReason??(mode==='on'?environmentReason??interpretationState.validation?.reason??
+        interpretationState.preparation?.reason:null);
+      const state=mode!=='on'?requestedMode==='shadow'?'unavailable':
+        requestedMode==='on'?'blocked':'stopped':
+        environmentReason==='runtime_stopped'?'stopped':
+        environmentReason?'unavailable':
+        interpretationState.validation?.status==='invalidated'?'blocked':
+        interpretationState.validation?.status==='ready'?'ready':
+        interpretationState.preparation?.status==='blocked'?'blocked':
+        interpretationState.preparation?.status==='unavailable'?'unavailable':'waiting';
+      return Object.freeze({requestedMode,state,
+        effectiveMode:state==='ready'?'on':state==='stopped'?'off':null,
+        operationalState:state,reason:reason??(state==='waiting'?'accepted_player_turn_required':null),
+        lastPreparation:interpretationState.preparation,lastValidation:interpretationState.validation,
+        contributedToModelRequest:interpretationState.contributed,requestAttempted:interpretationState.requestAttempted,
         legacy,restartRequired:true});
     },
     // I1: privacy-safe M5 command capability status. `code` is one of a closed
@@ -380,8 +437,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     },
     config,
     dialogueTrace,
-    finalizeKnowledgeFrame(turn,{input,history,source}) {
+    memoryCaptureEnabled:dialogueActivation.player,
+    shouldWaitForMemoryCommand:input=>commandActivation.mode==='on'&&mayBeM5PlayerInput(input),
+    finalizeKnowledgeFrame(turn,{input,history,source,forceNoMemory=false}) {
       const pausedAtFrame=memoryPause.paused,memoryEpoch=memoryPause.stamp();
+      const safeOnly=forceNoMemory||!!turn.memoryDisabledForTurn;
       const character=turn.characterProjection;
       // A persistent promoted NPC using the P2 SQLite history must never
       // substitute unverified RAM history if D03/native proof temporarily
@@ -390,15 +450,20 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const p2HistoryRequired=character?.persistent===true &&
         config.promotedCharacters?.storageMode==='sqlite';
       const args={turn:turn.identity,frozenAt:turn.knowledgeInputs?.frozenAt??0,
-        profile:pausedAtFrame&&character?.profile?{...character.profile,memories:[]}:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
+        profile:(pausedAtFrame||safeOnly)&&character?.profile?{...character.profile,memories:[]}:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
         actor:turn.context.actor,listener:turn.context.listener,world:turn.context.world,referenceMap:turn.context.referenceMap,
-        presence:turn.sourcePresence,history:p2HistoryRequired?[]:history,input,source,
+        presence:turn.sourcePresence,history:safeOnly||p2HistoryRequired?[]:history,input,source,
         directorEventContext:turn.directorTicket && source==='special_event'
           ? turn.context.internalEvent:null};
-      const memory=memoryPause.paused?null:turn.memoryPrepared;
+      const memory=memoryPause.paused||safeOnly?null:turn.memoryPrepared;
       // Even a missing D03 receipt must not reintroduce a previously
       // forgotten/corrected durable line from the original RAM conversation.
-      const base=renderKnowledge({...args,history:memory?[]:args.history,includePerceived:false});
+      // Every automatic fallback uses this independent no-learned-memory frame.
+      // A P1-authored name/personality survives, while prior RAM conversation,
+      // optional P2 memories, PS4 claims and unverified selected profile memories do not.
+      const base=renderKnowledge({...args,history:[],knowledgeInputs:null,
+        profile:character?.profile?{...character.profile,memories:[]}:null,includePerceived:false});
+      const ordinaryBase=safeOnly?base:renderKnowledge({...args,history:memory?[]:args.history,includePerceived:false});
       const memoryReady=memory?.status==='ready';
       const recallReady=memoryReady&&memory.preparedRecall?.status==='ready'&&
         memory.recallCurrent?.([],memory.preparedRecall.stamp)===true;
@@ -407,23 +472,37 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       // combined results never set commandsPrepared, so they keep their gating.
       const commandsReady=memoryReady&&memory.commandsPrepared===true&&
         Array.isArray(memory.memoryAction)&&memory.memoryAction.length>0;
+      // Independently verified M8 does not require H1, M4 or M5.
+      const m8Ready=memoryReady&&memory.interpretationPrepared===true&&
+        memory.preparedM8?.status==='ready';
       const journalStamp=memoryReady?(memory.stamp??memory.preparedRecall?.stamp):null;
       const memoryArgs={
         ...(recallReady?{
-          preparedRecall:memory.preparedRecall,preparedM8:memory.preparedM8,
-          m8Authorization:prepared=>prepared===memory.preparedM8&&recallReady,
+          preparedRecall:memory.preparedRecall,
           recallAuthorization:prepared=>prepared===memory.preparedRecall&&
             memory.recallCurrent([],prepared?.stamp)===true
+        }:{}),
+        ...((recallReady||m8Ready)?{
+          preparedM8:memory.preparedM8,
+          m8Authorization:prepared=>prepared===memory.preparedM8&&(recallReady||m8Ready)
         }:{}),
         ...((recallReady||commandsReady)?{memoryAction:memory.memoryAction}:{}),
         ...(journalReady?{conversationJournal:memory.conversationJournal}:{}),
         ...(journalReady||recallReady||commandsReady?{memoryStamp:journalStamp}:{})
       };
-      const memoryBase=journalReady||recallReady||commandsReady
-        ?renderKnowledge({...args,...memoryArgs,includePerceived:false}):base;
+      const memoryBase=journalReady||recallReady||commandsReady||m8Ready
+        ?renderKnowledge({...args,...memoryArgs,includePerceived:false}):ordinaryBase;
+      // Only a still-current M8 opinion may survive removal of unrelated
+      // unsent foreground memories. Never include revoked H1/H2/M5 evidence.
+      const opinionOnly=m8Ready?renderKnowledge({...args,includePerceived:false,
+        preparedM8:memory.preparedM8,
+        m8Authorization:prepared=>prepared===memory.preparedM8}):base;
+      const currentOpinionOnly=()=>m8Ready&&opinionOnly.opinionReferences.length>0&&
+        memory.opinionCurrent(opinionOnly.opinionReferences,opinionOnly.opinionStamp)===true
+        ?opinionOnly:base;
       const mode=config.dialogueKnowledge?.mode??'off',ps=runtime.intelligence?.runtime;
       let reason=mode==='off'?'disabled':'unsupported_contract',preview=null;
-      if(mode!=='off' && config.provider==='openai' && runtime.dialogueKnowledgeBuildSupported && ps?.observerIndexVersion===1 && ps?.observerSituationVersion===1 && ps?.hostContext?.hostContextVersion===1) {
+      if(!safeOnly && mode!=='off' && config.provider==='openai' && runtime.dialogueKnowledgeBuildSupported && ps?.observerIndexVersion===1 && ps?.observerSituationVersion===1 && ps?.hostContext?.hostContextVersion===1) {
         reason=runtime.intelligence.assertKnowledgeCurrent(turn.knowledgeInputs);
         if(!reason && !turn.knowledgeInputs?.ownerPendingProof) {
           try {preview=renderKnowledge({...args,...memoryArgs,includePerceived:true});}
@@ -432,7 +511,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       }
       // Only explicit active mode with the matching build/live contracts may
       // select the candidate. Off/shadow always send the same hardened base.
-      let selected=mode==='active' && !reason && preview?preview:memoryBase;
+      let selected=safeOnly?base:mode==='active' && !reason && preview?preview:memoryBase;
       // SELF contributors require independent payload acceptance; baseline PS4
       // mode alone never grants activation. Optional failures preserve selection.
       let health=null;try{health=services.capabilityHealth?.();}catch{}
@@ -441,8 +520,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const dialogueReady=selfCurrent && !!turn.knowledgeInputs?.dialogueInputs && !assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities);
       const includeActivityFacts=activityReady && config.dialogueKnowledge?.activityFacts==='active' && health?.['ps.activity_facts']?.active===true;
       const includeDialogueReceipts=dialogueReady && config.dialogueKnowledge?.dialogueReceipts==='active' && health?.['ps.dialogue_receipts']?.active===true;
-      if(mode==='active' && preview && (includeActivityFacts || includeDialogueReceipts))try{selected=renderKnowledge({...args,...memoryArgs,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts,includeDialogueReceipts});}catch{}
-      if(preview && (activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts) || dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)))try{preview=renderKnowledge({...args,...memoryArgs,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts:activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts),includeDialogueReceipts:dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)});}catch{}
+      if(!safeOnly && mode==='active' && preview && (includeActivityFacts || includeDialogueReceipts))try{selected=renderKnowledge({...args,...memoryArgs,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts,includeDialogueReceipts});}catch{}
+      if(!safeOnly && preview && (activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts) || dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)))try{preview=renderKnowledge({...args,...memoryArgs,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts:activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts),includeDialogueReceipts:dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)});}catch{}
       turn.knowledgeMode=mode;
       turn.knowledgePreview=preview?Object.freeze({selectedObservations:preview.delivery.length,frameBytes:preview.diagnostics.bytes,frameHash:createHash('sha256').update(JSON.stringify(preview.modelAllocation)).digest('hex')}):null;
       turn.knowledgeFallbackReason=reason;
@@ -455,24 +534,25 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       ) || ((frame.activityReferences?.length??0)>0?assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities,frame.activityReferences):null) || ((frame.dialogueReferences?.length??0)>0?assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities,frame.dialogueReferences):null);
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,
         verifyPrepared:()=>memory?.verifyPrepared?.()??false,
+        pruneMemory:()=>currentOpinionOnly(),
         recallCurrent:(refs,stamp)=>recallReady&&memory.recallCurrent(refs,stamp),
         memoryCurrent:(stamp,{requestSent=false}={})=>(journalReady||recallReady||commandsReady)&&
           (requestSent?(memory.sendCurrentInFlight?.()??memory.sendCurrent()):memory.sendCurrent())&&!!stamp&&
           Object.keys(journalStamp).length===Object.keys(stamp).length&&
           Object.keys(journalStamp).every(key=>journalStamp[key]===stamp[key]),
-        opinionCurrent:(refs,stamp)=>recallReady&&memory.opinionCurrent(refs,stamp),
+        opinionCurrent:(refs,stamp,{requestSent=false}={})=>(recallReady||m8Ready)&&memory.opinionCurrent(refs,stamp,{requestSent}),
         pruneOpinion:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>true,()=>false),
         pruneRecall:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>false),
         isCurrent:()=>(pausedAtFrame||memoryPause.current(memoryEpoch))&&runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
         prune:frame=>(frame.memoryStamp &&
           !((journalReady||recallReady||commandsReady)&&memory.sendCurrent()&&journalStamp&&
             Object.keys(journalStamp).length===Object.keys(frame.memoryStamp).length&&
-            Object.keys(journalStamp).every(key=>journalStamp[key]===frame.memoryStamp[key])))?base:pruneKnowledgeFrame(frame,
+            Object.keys(journalStamp).every(key=>journalStamp[key]===frame.memoryStamp[key])))?currentOpinionOnly():pruneKnowledgeFrame(frame,
           item=>!validateKnowledge({delivery:[item]}),
           item=>!validateKnowledge({delivery:[],activityReferences:[item]}),
           item=>!validateKnowledge({delivery:[],dialogueReferences:[item]}),
           ()=>recallReady&&memory.recallCurrent([],memory.preparedRecall?.stamp)===true,
-          refs=>recallReady&&memory.opinionCurrent([refs],memory.preparedM8?.stamp)),
+          refs=>(recallReady||m8Ready)&&memory.opinionCurrent([refs],memory.preparedM8?.stamp)),
         validate:validateKnowledge,
         onStale:diagnostic=>{try{
           // Never log player text, character identities, or database fence values.
@@ -485,6 +565,13 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
           });
         }catch{}},
         onRequest:frame=>{
+          if(m8Ready){
+            interpretationState.requestAttempted=true;
+            interpretationState.contributed=(frame.opinionReferences?.length??0)>0&&
+              memory.opinionCurrent(frame.opinionReferences,frame.opinionStamp,{requestSent:true})===true;
+            if(interpretationState.contributed&&!interpretationState.validation)
+              interpretationState.validation=journalOutcome('ready');
+          }
           if(!journalReady&&!recallReady&&!commandsReady)return;
           const authenticated=!!frame.memoryStamp&&memory.sendCurrent();
           if(commandsReady){
@@ -534,6 +621,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   };
   const runtime = {
     config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,memoryPause,
+    voiceActivity,
     separateKnowledgeInstruction,
     captureNormalizedActor: (actor,raw,shape)=>actorPresence.capture(actor,raw,shape),
     actorSourcePresence: actor=>actorPresence.read(actor),
@@ -563,7 +651,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       // turn after exact current ownership returns, before P1/STT/D03 capture.
       if(!profile||journalActivation.mode!=='on'||!runtime.intelligence||
          journalStore?.timelineSelectionConfirmed!==true)return;
-      const ready=await awaitFreshMemorySource({signal,deadlineAt,
+      let ready=false;
+      try{ready=await awaitFreshMemorySource({signal,deadlineAt,
+        // Optional native readiness cannot consume the whole STT/model/TTS budget.
+        maxWaitMs:Math.max(0,Math.min(350,deadlineAt-performance.now()-2500)),
         isCurrent:()=>runtime.host.isCurrent(turn.identity),
         ready:()=>{
           if(journalStore.timelineWritable!==true)return false;
@@ -572,11 +663,13 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
           if(!lease)return false;
           runtime.memoryD02.revokeLease(lease);
           return true;
-        }});
-      if(!ready){
+        }});}catch{ready=false;}
+      if(!ready&&!signal.aborted&&runtime.host.isCurrent(turn.identity)){
         try{telemetry?.emit?.('memory_journal_not_committed',turn.identity,turn.source,
           {role:'player',reason:'d03_native_readiness_timeout'});}catch{}
-        throw new Error('memory_source_unavailable');
+        turn.memoryDisabledForTurn='native_memory_source_timeout';
+        // P1 identity is still independently validated by prepareIdentity.
+        // Never synthesize a native ownership/memory receipt here.
       }
     },
     captureCharacterInputs(identity,actor) {

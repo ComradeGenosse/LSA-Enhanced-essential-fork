@@ -168,6 +168,7 @@ export async function createRuntimeForBundle(options = {}) {
       'memory.journalContext':runtime.services.memoryJournalDiagnostics(),
       'memory.recall':runtime.services.memoryRecallDiagnostics(),
       'memory.commands':runtime.services.memoryCommandDiagnostics(),
+      'memory.interpretation':runtime.services.memoryInterpretationDiagnostics(),
       'memory.deterministic':runtime.services.memoryRetentionDiagnostics(),
       ...(runtime.memoryD02?{'authority.d02':Object.freeze({requestedMode:'on',
         state:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
@@ -221,7 +222,7 @@ export async function createRuntimeForBundle(options = {}) {
       'memory.recall':typeof runtime.services.memoryRecallDiagnostics==='function',
       'memory.commands':typeof runtime.services.memoryCommandDiagnostics==='function',
       'memory.deterministic':!!runtime.retention,
-      'memory.interpretation':typeof runtime.services.prepareLiveTurnMemory==='function',
+      'memory.interpretation':typeof runtime.services.memoryInterpretationDiagnostics==='function',
     };
     const environment=Object.freeze({
       source:Object.freeze({
@@ -473,17 +474,16 @@ export async function createRuntimeForBundle(options = {}) {
       try { console.warn('[ACT] optional_channel_unavailable'); } catch {}
     }
   }
-  // Cosmetic conversation reactions (default off). A separate one-way pipe: a
-  // failure here can only cost a gesture, never an ACT lease or a turn.
+  // Cosmetic gestures are default off and cannot veto a normal conversation.
   if (config.reactions?.mode === 'shadow' || config.reactions?.mode === 'on') {
     const checkpoint = owner.checkpoint();
     try {
       owner.starting('reactions');
       const report = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data); } catch {} };
-      const reactionClient = new ReactionClient(config.reactions, { ...options.reactionOptions, onEvent: report });
-      runtime.services.reactions = createReactionService({ config: config.reactions, client: reactionClient, report });
-      owner.own('reactions', reactionClient, value => value.stop());
-      reactionClient.start();
+      const client = new ReactionClient(config.reactions, { ...options.reactionOptions, onEvent: report });
+      runtime.services.reactions = createReactionService({ config: config.reactions, client, report });
+      owner.own('reactions', client, value => value.stop());
+      client.start();
     } catch {
       const cleanup = await owner.rollback(checkpoint);
       if (cleanup.failures.length) throw runtimeCleanupError(owner, cleanup.failures);
@@ -501,6 +501,7 @@ export async function createRuntimeForBundle(options = {}) {
       runtime.memoryInspectorControls=createInspectorControls({runtime,configPath:options.configPath,env});
       runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath,
         inspectorControls:runtime.memoryInspectorControls,
+        voiceStatus:()=>runtime.voiceActivity?.snapshot()??{v:1,phase:'unavailable'},
         diagnostics:()=>({
           source:runtime.intelligence?.operationalStates?.()??null,
           owner:runtime.memoryD02?.status?.()??null,
