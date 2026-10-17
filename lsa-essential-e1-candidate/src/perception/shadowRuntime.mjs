@@ -14,7 +14,16 @@ export const OWNER_STALL_BOUNDS = Object.freeze({ startMs: 1500, resetMs: 60000 
 // Per-event PS2/PS3 traces are rate-bounded: no per-frame logging. Events
 // involving an owned (P2) observer get the larger budget.
 export const PERCEPTION_TRACE_BOUNDS = Object.freeze({ windowMs: 10000, owned: 20, other: 6, radio: 16 });
-const TRACED_KINDS = new Set(['firing','damage','death','injury_state']);
+const TRACED_KINDS = new Set(['firing','damage','death','injury_state',
+  'vehicle_damage','body_discovered','presence_changed','location_changed',
+  'activity_changed','vehicle_transition']);
+// Closed, bounded event types; no capture refs, names, dialogue or raw signals
+// enter aggregate diagnostics. Counts persist across stream resets.
+const OWNED_EVENT_KINDS = Object.freeze([
+  'character_present','location_changed','activity_changed','vehicle_transition',
+  'action_observed','radio_heard','speech_heard',
+  'firing_burst','vehicle_impact','injury','death_seen','body_found','threat',
+]);
 const RESPONSE_ORDER = Object.freeze({ not_evaluated: -1, none: 0, eligible: 1, urgent: 2 });
 const PS3_REASON_COUNTERS = Object.freeze({
   safety_self_danger:'safetySelfDanger',
@@ -27,7 +36,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 });
 
 export class ShadowRuntime {
-  constructor({ mode='off', radio='off', radioCatalog=null, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null, m9Events=null, trace=null, stall=null }={}) {
+  constructor({ mode='off', radio='off', radioCatalog=null, ambientSpeech=false, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null, m9Events=null, trace=null, stall=null }={}) {
     this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
     this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
@@ -53,7 +62,7 @@ export class ShadowRuntime {
     this.episodes=ps2?new EpisodeStore({now,current:ref=>this.current(ref)}):null;
     this.correlator=ps2?new EpisodeCorrelator({episodes:this.episodes,observations:this.observations,now,current:ref=>this.current(ref),anchor:ref=>this.anchors.get(ref)}):null;
     this.transcripts=ps2?new SharedTranscriptStore({now,current:ref=>this.current(ref)}):null;
-    this.salience=ps3?new SalienceCache({now}):null;
+    this.salience=ps3?new SalienceCache({now,ambientSpeech}):null;
     this.ps2Diagnostics={correlated:0,witnessed:0,ownedWitnessed:0,duplicates:0,dropped:0,speechGate:'unsupported_capture_receipt'};
     // M3 opt-in synchronous acceptance tap. Off by default. It may enqueue a
     // frozen receipt, never do async SQLite or let an exception break PS2.
@@ -61,7 +70,15 @@ export class ShadowRuntime {
     this.memoryTapDiagnostics={delivered:0,rejected:0,faults:0};
     // M9 is construction-time only and never reachable without PS2.
     this.m9Events=ps2&&m9Events&&typeof m9Events.ingest==='function'?m9Events:null;
-    this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0,ownedDecisions:0,ownedEligible:0,ownedUrgent:0,reasons:Object.fromEntries(Object.values(PS3_REASON_COUNTERS).map(k=>[k,0]))};
+    this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0,
+      ownedDecisions:0,ownedEligible:0,ownedUrgent:0,
+      reasons:Object.fromEntries(Object.values(PS3_REASON_COUNTERS).map(k=>[k,0])),
+      ownedReasons:Object.fromEntries(['ambient_direct_witness','routine_low_relevance',
+        'situation_occupied','situation_conversation','repetition_suppressed',
+        'suppression_capacity','evidence_uncertain','evidence_expired',
+        'safety_nearby_threat','safety_player_harm','safety_self_danger',
+        'other'].map(k=>[k,0])),
+      ownedByEvent:Object.fromEntries(OWNED_EVENT_KINDS.map(k=>[k,{decisions:0,none:0,eligible:0,urgent:0}]))};
   }
   #tapAcceptedObservation(observation) {
     if(!this.acceptedObservationTap)return;
@@ -639,6 +656,14 @@ export class ShadowRuntime {
         stats.ownedDecisions=Math.min(MAX_COUNTER,stats.ownedDecisions+1);
         if(decision.response==='urgent') stats.ownedUrgent=Math.min(MAX_COUNTER,stats.ownedUrgent+1);
         else if(decision.response==='eligible') stats.ownedEligible=Math.min(MAX_COUNTER,stats.ownedEligible+1);
+        const row=stats.ownedByEvent[observation.eventType];
+        if(row){this.bump(row,'decisions');this.bump(row,decision.response);}
+        // Count every selected reason separately; first reason alone can be a
+        // novelty tag, hiding the actual suppressing policy. Closed vocabulary.
+        for(const reason of decision.reasons){
+          const key=Object.hasOwn(stats.ownedReasons,reason)?reason:'other';
+          this.bump(stats.ownedReasons,key);
+        }
       }
       if(decision.reasons.some(reason=>reason==='repetition_suppressed'||reason==='revision_stale'||reason==='suppression_capacity')) stats.suppressed=Math.min(MAX_COUNTER,stats.suppressed+1);
       for(const reason of decision.reasons) {
