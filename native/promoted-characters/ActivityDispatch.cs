@@ -281,6 +281,16 @@ namespace LSA.PromotedCharacters
                     // Supersede only our own held Essential modes before installing this ACT-owned task.
                     if (state.FollowPlayerOnFoot) { NpcActions.ClearFollowFlags(state); FollowBehavior.StopFollowTarget(state); }
                     if (state.SitOnGroundMode) ComplianceBehavior.StopSitOnGround(state);
+                    if (capability == "drive_to") {
+                        // Essential's free-drive mode is persistent: simply issuing the
+                        // GTA route task leaves its background reissuer alive, which can
+                        // overwrite ACT6 navigation every few seconds. Clear that stock
+                        // vehicle mode using Essential's own registered stop API BEFORE
+                        // installing our single owner-scoped navigation task. This is a
+                        // transfer of task ownership, not a repeated per-tick reset.
+                        VehicleBehavior.StopAllVehicleCommands(ped,state);
+                        state.StayUnderLsaControl = true;
+                    }
                     var dest = new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z);
                     if (capability == "walk_to")
                         NativeFunction.CallByName<int>("TASK_FOLLOW_NAV_MESH_TO_COORD",ped,dest.X,dest.Y,dest.Z,1.0f,-1,2.5f,0,0f);
