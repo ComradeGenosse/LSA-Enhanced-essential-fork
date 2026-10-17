@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {renderDirectorSocialContext} from '../src/perception/directorSocialContext.mjs';
 import {projectConversation} from '../src/context/knowledgeRenderer.mjs';
+import {DialogueHistory} from '../src/memory/dialogueHistory.mjs';
 import {assembleDirectorSocialConversation,prepareDirectorSocialConversationHistory,
   combineDirectorSocialMemory} from '../src/memory/h1ConversationHistory.mjs';
 
@@ -165,4 +166,49 @@ test('Scene invitations can initiate a new unrelated topic with no history and w
   const projected=projectConversation([],null,'special_event',x.turn.context.internalEvent,empty);
   assert.equal(projected.messages.length,1);
   assert.match(projected.messages[0].content,/You may introduce an unrelated topic/);
+});
+
+test('Standalone spontaneous speech is available only after real native playback completion',async()=>{
+  const x=fixture(),hist=new DialogueHistory();
+  const identity={pedId:'1a',turnId:'social-1',generationId:1,sessionNonce:21};
+  const proof={characterId:x.scope.characterId,worldProfileId:x.scope.worldProfileId,
+    timelineId:x.scope.timelineId,hostRunId:x.ticket.hostRunId,
+    worldEpoch:2,ownerIncarnationId:x.ticket.ownerIncarnationId,
+    speakerCaptureRef:x.ticket.speakerCaptureRef,privacyFence:x.store.memoryReadFence};
+  hist.stage({identity,spokenReply:'Sun is shining.',socialProof:proof});
+  assert.deepEqual(hist.readCompletedSocialForSession(identity.pedId,21,proof),[]);
+  hist.markModelAndTtsSucceeded(identity);
+  const playback={...identity,type:'playback_ended',reason:'completed',
+    wasInterrupted:false,hadAudio:true,playbackStarted:true,playbackSucceeded:true};
+  assert.equal(hist.acceptPlaybackResult(playback),true);
+  assert.equal(hist.readCompletedSocialForSession(identity.pedId,21,proof).length,1);
+  const h=await prepareDirectorSocialConversationHistory({...x.args,
+    nowUtc:new Date(Date.now()+1000).toISOString(),
+    readVerifiedSocialSpeech:()=>hist.readCompletedSocialForSession(identity.pedId,21,proof)});
+  assert.equal(h.status,'ready'); // No D03 reply-to-player row was necessary.
+  assert.deepEqual(h.conversationJournal.recent,
+    [{role:'assistant',content:'Sun is shining.'}]);
+  assert.equal((await h.verifyPrepared()).status,'ready');
+  // Different NPC/session/privacy state cannot see that utterance.
+  assert.deepEqual(hist.readCompletedSocialForSession(identity.pedId,22,proof),[]);
+  assert.deepEqual(hist.readCompletedSocialForSession(identity.pedId,21,
+    {...proof,privacyFence:proof.privacyFence+1}),[]);
+  assert.deepEqual(hist.readCompletedSocialForSession(identity.pedId,21,
+    {...proof,characterId:U()}),[]);
+});
+
+test('Interrupted playback never becomes social conversation history',()=>{
+  const hist=new DialogueHistory(),identity={pedId:'1b',turnId:'social-2',
+    generationId:2,sessionNonce:3};
+  const proof={privacyFence:1,characterId:U()};
+  hist.stage({identity,spokenReply:'I was about to repeat myself.',socialProof:proof});
+  hist.markModelAndTtsSucceeded(identity);
+  assert.equal(hist.acceptPlaybackResult({...identity,type:'playback_ended',
+    reason:'interrupted',wasInterrupted:true,hadAudio:true,playbackStarted:true,
+    playbackSucceeded:false}),false);
+  assert.deepEqual(hist.readCompletedSocialForSession('1b',3,proof),[]);
+  // An unfinished/staged line never enters the history either.
+  hist.stage({identity:{...identity,turnId:'social-3'},spokenReply:'Never played.',
+    socialProof:proof});
+  assert.deepEqual(hist.readCompletedSocialForSession('1b',3,proof),[]);
 });
