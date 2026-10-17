@@ -259,30 +259,30 @@ static class Program {
         Assert(!o.HasActiveTurn,"new world completes normally");
         // Despawned and recycled actors.
         Reset();
-        Start(npc,"n","d",2);o.Update(2,300);o.Update(2,350);
+        Start(npc,"n","d",2);o.Update(3,300);o.Update(3,350);
         Rage.Native.NativeFunction.Commands.Clear();
-        npc.Existing=false;o.Update(2,400);
+        npc.Existing=false;o.Update(3,400);
         Assert(!o.HasActiveTurn&&!Sent("PLAY_FACIAL_ANIM"),"despawned ped gets no native call");
         npc.Existing=true;
-        var recycled=NewPed(41,4100);Start(recycled,"n","r",3);o.Update(2,500);o.Update(2,550);
+        var recycled=NewPed(41,4100);Start(recycled,"n","r",3);o.Update(3,500);o.Update(3,550);
         Rage.Native.NativeFunction.Commands.Clear();
-        recycled.Handle=77;o.Update(2,600);
+        recycled.Handle=77;o.Update(3,600);
         Assert(!o.HasActiveTurn&&!Sent("PLAY_FACIAL_ANIM"),"recycled handle gets no native call");
         // Authored cutscene: suppress, do not touch facial state.
         Reset();
         var fresh=NewPed(51,5100);levels.Set(fresh,0.3f);
         Rage.Native.NativeFunction.Cutscene=true;
-        Start(fresh,"n","c",4);o.Update(2,700);o.Update(2,750);
+        Start(fresh,"n","c",4);o.Update(3,700);o.Update(3,750);
         Assert(!Sent("PLAY_FACIAL_ANIM"),"authored cutscene suppresses the overlay");
         Rage.Native.NativeFunction.Cutscene=false;
         // Application shutdown while the mouth is open.
         Reset();
-        o.Update(2,800);o.Update(2,1200);
+        o.Update(3,800);o.Update(3,1200);
         Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")>=1,"mouth open before shutdown");
         Rage.Native.NativeFunction.Commands.Clear();
         o.Dispose();
         Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==1,"shutdown closes the face exactly once");
-        Start(fresh,"n","late",5);o.Update(2,1300);
+        Start(fresh,"n","late",5);o.Update(3,1300);
         Assert(!o.HasActiveTurn&&!Sent("PLAY_FACIAL_ANIM:mic"),"events after shutdown are ignored");
     }
 
