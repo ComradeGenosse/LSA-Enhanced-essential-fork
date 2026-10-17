@@ -104,10 +104,17 @@ function physical(name) {
 }
 export function essentialBindings(text) {
   if(typeof text!=='string') return null;
-  const result={};
+  const required=['TalkKey','TextKey','MarkPedKey','MarkedPedTalkKey'];
+  const result=Object.fromEntries(required.map(key=>[key,undefined]));
+  const seen=new Set();
   for(const line of text.split(/\r?\n/)) {
     const m=/^\s*(TalkKey|TextKey|MarkPedKey|MarkedPedTalkKey)\s*=\s*([^#;\s]+)\s*$/i.exec(line);
-    if(m) result[(['TalkKey','TextKey','MarkPedKey','MarkedPedTalkKey'].find(x=>x.toLowerCase()===m[1].toLowerCase()))]=/^(none)$/i.test(m[2])?null:physical(m[2]);
+    if(!m) continue;
+    const key=required.find(x=>x.toLowerCase()===m[1].toLowerCase());
+    if(seen.has(key)) {result[key]=undefined;continue;}
+    seen.add(key);
+    const parsed=/^none$/i.test(m[2])?null:physical(m[2]);
+    result[key]=parsed===null&&!/^none$/i.test(m[2])?undefined:parsed;
   }
   return result;
 }
