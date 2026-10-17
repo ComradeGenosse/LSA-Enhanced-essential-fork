@@ -305,7 +305,7 @@ test('status text, knowledge and registry aliases cover ACT3 without inventing c
   const fact = { factVersion: 1, factId: id(), characterId: character, activityId: id(), goalId: id(), kind: 'started', intent: 'leave_scene', evidence: 'handler_only', reason: null, placeLabel: null, atMs: 1, provenance: { ...binding_.hostContext, encounterId: encounter, incarnationId: incarnation } };
   const known = projectActivityKnowledge({ binding: binding_, facts: [fact], reason: null, ownerPendingProof: false });
   for (const item of known.facts) assert.equal(/undefined/.test(item.text), false);
-  const unknown = projectActivityKnowledge({ binding: binding_, facts: [{ ...fact, intent: 'go_to_place' }], reason: null, ownerPendingProof: false });
+  const unknown = projectActivityKnowledge({ binding: binding_, facts: [{ ...fact, intent: 'invent_a_task' }], reason: null, ownerPendingProof: false });
   assert.equal(unknown.facts.length, 0);
   assert.equal(registry.namesFor('enter_vehicle_seat').includes('EnterDriverSeatOfTargetVehicle'), true);
   assert.equal(registry.namesFor('grab_item').includes('GrabItem'), true);
