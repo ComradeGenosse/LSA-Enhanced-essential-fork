@@ -93,7 +93,16 @@ async function plan(game,files) {
   check.problems.push(...findDisabledFeatures(raw,generated,master.approvals||{}));
   check.ok=check.problems.length===0;
   const differences=Object.fromEntries(['e1','promoted','enhanced'].map(name=>[name,relativeChanges(raw[name],generated[name])]));
-  const nextTexts=Object.fromEntries(['e1','promoted','enhanced'].map(name=>[name,JSON.stringify(raw[name])===JSON.stringify(generated[name])?texts[name]:json(generated[name])]));
+  const nextTexts=Object.fromEntries(['e1','promoted','enhanced'].map(name=>{
+    if(JSON.stringify(raw[name])===JSON.stringify(generated[name])) return [name,texts[name]];
+    let result=json(generated[name]);
+    if(name==='enhanced'&&Buffer.byteLength(result)>16384) result=JSON.stringify(generated[name])+'\n';
+    if(name==='promoted'&&result.length>4096) result=JSON.stringify(generated[name])+'\n';
+    return [name,result];
+  }));
+  if(Buffer.byteLength(nextTexts.enhanced)>16384) check.problems.push({code:'NATIVE_FILE_SIZE',detail:'Enhanced runtime file exceeds 16384-byte parser limit'});
+  if(nextTexts.promoted.length>4096) check.problems.push({code:'NATIVE_FILE_SIZE',detail:'Promoted native runtime file exceeds 4096-character parser limit'});
+  check.ok=check.problems.length===0;
   return {master,raw,texts,generated,check,differences,nextTexts,conflicts,ok:!conflicts.length&&check.ok};
 }
 function statePaths(files) {
