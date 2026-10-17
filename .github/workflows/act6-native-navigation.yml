@@ -2,16 +2,18 @@ name: ACT6 native navigation — integrated offline gates
 on:
   push:
     branches:
-      - feature/act6-native-navigation-20261017
+      - fix/act6-natural-language-navigation-20261017
     paths:
       - 'native/activities/**'
       - 'native/promoted-characters/**'
       - 'lsa-essential-e1-candidate/src/activities/**'
+      - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
       - 'lsa-essential-e1-candidate/tests/activities-act*.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/activity-act4.test.mjs'
       - '.github/workflows/act6-native-navigation.yml'
   pull_request:
     branches:
-      - integration/act3-act4-act5-unified-20261017
+      - main
     paths:
       - 'native/activities/**'
       - 'native/promoted-characters/**'
@@ -36,6 +38,8 @@ jobs:
           node --check lsa-essential-e1-candidate/src/activities/activityValidator.mjs
           node --check lsa-essential-e1-candidate/src/activities/activityEngine.mjs
           node --check lsa-essential-e1-candidate/src/activities/act5Dialogue.mjs
+          node --check lsa-essential-e1-candidate/src/activities/activityKnowledge.mjs
+          node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
       - name: ACT2–ACT6 focused regression
         run: |
           node --test --test-concurrency=1 \
