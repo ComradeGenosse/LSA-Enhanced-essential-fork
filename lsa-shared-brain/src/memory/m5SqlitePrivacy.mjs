@@ -6,7 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { isUuid } from '../util/identity.mjs';
-import { detectExplicitMemoryCommands, compoundCommandId } from './explicitCommands.mjs';
+import { detectExplicitMemoryCommands, compoundCommandId, parseNaturalPetNameCorrection, replaceNamedPetFact } from './explicitCommands.mjs';
 import { stableM5CommandId } from './m5RuntimeCoordinator.mjs';
 import { normalizeCorrectionMode, readCorrectionRows, supersededTargetIds,isPrivatelyCorrectableFact } from './correctionSemantics.mjs';
 import {readInspectorPage} from './inspectorProjection.mjs';
@@ -273,7 +273,16 @@ function m5Apply(db,s,line,o){
    normalizeCorrectionMode(o.correctionMode);
    if(o.correctionMode==='fact_revision')fail('memory_privileged_correction_required');
  }
- if(o.operation==='correct'&&o.correctionMode==='transcript'){
+  if(o.operation==='correct'&&o.correctionMode==='player_fact'){
+    const original=db.prepare('SELECT content,source,speaker,delivery FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+      .get(target,s.worldProfileId,s.characterId,s.timelineId);
+    const grammar=parseNaturalPetNameCorrection(line.content);
+    if(!grammar||!original||original.speaker!=='player'||
+      original.delivery!=='accepted'||!['typed','stt'].includes(original.source)||
+      replaceNamedPetFact(original.content,grammar)!==o.content||superseded(db,s,target))
+      fail('m5_player_fact_source_invalid');
+  }
+  if(o.operation==='correct'&&o.correctionMode==='transcript'){
    const original=db.prepare('SELECT source,speaker,delivery,protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
       .get(target,s.worldProfileId,s.characterId,s.timelineId);
    if(!original||original.source!=='stt'||original.speaker!=='player'||
@@ -304,7 +313,7 @@ function m5Apply(db,s,line,o){
    db.prepare('INSERT INTO memory_corrections(command_id,character_id,world_profile_id,timeline_id,target_id,preferred_text,content_sha256,created_at_utc,correction_mode) VALUES(?,?,?,?,?,?,?,?,?)')
      .run(o.commandId,s.characterId,s.worldProfileId,s.timelineId,target,o.content,o.contentHash,at,o.correctionMode);
    // Only a superseding transcript correction withdraws offered evidence.
-   if(o.correctionMode==='transcript')revokePendingClarifications(db,s,new Set([target]));
+   if(o.correctionMode==='transcript'||o.correctionMode==='player_fact')revokePendingClarifications(db,s,new Set([target]));
  }
  const receipt={commandId:o.commandId,requestedByLineId:line.recordId,operation:o.operation,
    status:'committed',durableCommit:true,memoryId:o.commandId,evidenceRecordIds:o.evidenceRecordIds};
