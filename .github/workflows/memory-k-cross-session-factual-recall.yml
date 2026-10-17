@@ -2,7 +2,7 @@ name: Memory K cross-session factual recall
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
-    branches: [integration/memory-k-ea-preservation-20261017]
+    branches: [main]
     paths:
       - 'lsa-shared-brain/src/memory/**'
       - 'lsa-essential-e1-candidate/src/memory/**'
