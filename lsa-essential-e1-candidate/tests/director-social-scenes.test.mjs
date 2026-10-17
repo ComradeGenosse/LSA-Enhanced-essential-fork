@@ -6,6 +6,7 @@ import {renderDirectorSocialContext} from '../src/perception/directorSocialConte
 import {DirectorObservationPump} from '../src/perception/directorProduction.mjs';
 import {SceneDirectorSpeech} from '../src/perception/sceneDirectorOrchestrator.mjs';
 import {DirectorSpeechReservations} from '../src/perception/sceneDirectorAdmission.mjs';
+import {IntelligenceClient} from '../src/perception/intelligenceClient.mjs';
 
 const fixture=()=>{
   const speaker=randomUUID(),player=randomUUID(),scene=randomUUID(),owner=randomUUID(),host=randomUUID();
@@ -177,4 +178,44 @@ test('native-reserved social ticket can finish hydration after scene initiation 
   }),true);
   admission.cancel(ticket.ticketId);
   assert.equal(admission.reserve(proposal,f.stamp),null);
+});
+
+test('expired social opportunities never become new grants, but verified reserved ticket stays pinned',()=>{
+  const f=fixture(),ticket=randomUUID(),at=17000;
+  const source=Object.freeze({
+    source:'native_director_social',hostRunId:f.host,worldEpoch:1,
+    speakerCaptureRef:f.speaker,playerCaptureRef:f.player,
+    ownerIncarnationId:f.owner,proofRevision:1,
+    observationId:f.scene,observationRevision:1,
+    decisionKey:f.proposal.decisionKey,policyVersion:1,
+    expiresAtMonotonicMs:f.proposal.expiresAtMonotonicMs,ageMs:200,
+  });
+  const client=Object.create(IntelligenceClient.prototype);
+  client.closed=false;
+  client.config={mode:'shadow'};
+  client.socket={destroyed:false,writable:true};
+  client.directorNativeReserved=new Set();
+  client.directorOwnerReservations=new Map([[ticket,{
+    source,stamp:f.stamp,proposal:f.proposal,nativeReservedAt:12000,
+  }]]);
+  client.runtime={
+    epoch:'connected',directorRequestVersion:1,
+    now:()=>at,current:()=>true,directorSocialEntitlementFor:()=>null,
+    directorOwnerProofFor:()=>f.stamp,
+    directorPriority:{experimentalEnabled:true,hostRunId:f.host,
+      worldEpoch:1,playerTurnVersion:2,receivedAt:at},
+    socialScenes:new Map([[f.speaker,{sceneId:f.scene}]]),
+  };
+  assert.equal(client.directorOriginalEntitlement(f.proposal,f.stamp),null);
+  assert.equal(client.directorOriginalEntitlement(f.proposal,f.stamp,ticket),null);
+  client.directorNativeReserved.add(ticket);
+  assert.equal(client.directorOriginalEntitlement(f.proposal,f.stamp,ticket),source);
+  client.runtime.directorPriority.playerTurnVersion=3;
+  assert.equal(client.directorOriginalEntitlement(f.proposal,f.stamp,ticket),null);
+  client.runtime.directorPriority.playerTurnVersion=2;
+  client.runtime.socialScenes.set(f.speaker,{sceneId:randomUUID()});
+  assert.equal(client.directorOriginalEntitlement(f.proposal,f.stamp,ticket),null);
+  client.runtime.socialScenes.set(f.speaker,{sceneId:f.scene});
+  client.directorNativeReserved.delete(ticket);
+  assert.equal(client.directorOriginalEntitlement(f.proposal,f.stamp,ticket),null);
 });
