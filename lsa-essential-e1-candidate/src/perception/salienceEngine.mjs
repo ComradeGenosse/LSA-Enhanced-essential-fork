@@ -625,7 +625,12 @@ export class SalienceCache {
     }
     const key = familyKey(observation);
     const family = this.families.get(key);
-    const trackFamily = grant || decision.memory === 'stage' || Boolean(existing?.consumed) || Boolean(existing?.memoryStaged) || Boolean(family?.consumed) || Boolean(family?.memoryStaged);
+    // Ambient presence/scene grants are short-lived and already separately
+    // paced by Director. Do not turn every passerby into a ten-minute family
+    // entry; otherwise busy play can exhaust 1024 family slots and block
+    // unrelated danger responses via suppression_capacity.
+    const ambientGrant=decision.reasons.includes('ambient_direct_witness');
+    const trackFamily = (grant && !ambientGrant) || decision.memory === 'stage' || Boolean(existing?.consumed && !ambientGrant) || Boolean(existing?.memoryStaged) || Boolean(family?.consumed) || Boolean(family?.memoryStaged);
     if (trackFamily && (family || this.families.size < SALIENCE_BOUNDS.suppression)) {
       this.families.set(key, {
         severity: Math.max(draft.severity, family?.severity || 0),
