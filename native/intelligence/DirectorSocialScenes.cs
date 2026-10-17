@@ -89,9 +89,9 @@ namespace LSA.Intelligence
                 var state=owner.DirectorOwner?.Invoke();
                 if(state==null||state.Suspended||state.Revision<=0)continue;
                 Track track;
-                if(!actors.TryGetValue(anchor.CaptureRef,out track) || track.Owner!=owner.Lifetime) {
+                if(!actors.TryGetValue(owner.Lifetime,out track) || track.Owner!=owner.Lifetime) {
                     track=new Track{Owner=owner.Lifetime,NearSince=now,IdleSince=now,TripSince=now};
-                    actors[anchor.CaptureRef]=track;
+                    actors[owner.Lifetime]=track;
                 }
                 double distance;
                 try{distance=ped.Position.DistanceTo(playerPed.Position);}catch{continue;}
@@ -155,7 +155,8 @@ namespace LSA.Intelligence
                 // relation (same vehicle or physical proximity) is current.
                 if(track.Current!=null) {
                     var valid=track.Current.Vehicle!=null?sharedCar&&actorCar==track.Current.Vehicle:near&&!sharedCar;
-                    if(!valid || track.Current.Expires<=now &&
+                    if(!valid || track.Current.Speaker!=anchor.CaptureRef ||
+                       track.Current.Expires<=now &&
                        (track.Current.ClaimedTicket==null ||
                         now-track.Current.ClaimedAt>120000) ||
                        track.Current.OwnerRevision!=state.Revision) {
@@ -208,9 +209,9 @@ namespace LSA.Intelligence
             var state=owner?.DirectorOwner?.Invoke();
             if(state==null || state.Suspended || state.Revision<=0)return null;
             Track track;
-            if(!actors.TryGetValue(anchor.CaptureRef,out track) || track.Owner!=owner.Lifetime) {
+            if(!actors.TryGetValue(owner.Lifetime,out track) || track.Owner!=owner.Lifetime) {
                 track=new Track{Owner=owner.Lifetime,Near=true,NearSince=now,IdleSince=now,TripSince=now};
-                actors[anchor.CaptureRef]=track;
+                actors[owner.Lifetime]=track;
             }
             // Explicit user action can initiate a fresh opportunity, but a
             // duplicate click cannot queue overlapping native scenes.
