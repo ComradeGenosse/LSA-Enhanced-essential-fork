@@ -263,6 +263,19 @@ export async function createRuntimeForBundle(options = {}) {
   if(knowledgeContract===undefined)knowledgeContract=capabilityManifest?.dialogueKnowledgeContract;
   if(knowledgePerceptionContract===undefined)knowledgePerceptionContract=capabilityManifest?.perceptionContract;
   runtime.dialogueKnowledgeBuildSupported=dialogueKnowledgeContractSupported(knowledgeContract,knowledgePerceptionContract);
+  // Keep PS4 fail-closed but disclose which *build* prerequisite is absent.
+  // A live native hello or a radio catalog is not a substitute for the
+  // source/hash-verified build payload.
+  runtime.dialogueKnowledgeBuildFailure=runtime.dialogueKnowledgeBuildSupported?null:
+    !knowledgeContract?'missing_dialogue_knowledge_contract':
+    knowledgeContract.available!==true?'native_payload_unavailable':
+    !perceptionContractSupported(knowledgePerceptionContract)?'perception_contract_mismatch':
+    'dialogue_contract_mismatch';
+  if(config.dialogueKnowledge.mode==='active'&&!runtime.dialogueKnowledgeBuildSupported) {
+    try { console.warn('[PS4] Perceived knowledge unavailable ('+
+      runtime.dialogueKnowledgeBuildFailure+
+      '): rebuild matching native and companion payloads with npm run build:ps4.'); } catch {}
+  }
   if(config.intelligence.mode==='shadow') {
     let contract=options.perceptionContract;
     if(contract===undefined) try {contract=JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).perceptionContract;}catch{}
