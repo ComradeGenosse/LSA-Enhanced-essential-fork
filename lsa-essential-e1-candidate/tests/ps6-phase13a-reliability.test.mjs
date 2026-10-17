@@ -119,6 +119,21 @@ test('spent top-ranked event does not starve another independently PS3-granted e
  pump.stop();
 });
 
+test('new PS6 trace kinds, reason and ambient category survive closed telemetry sanitization',async()=>{
+ const {sanitizeTelemetryData}=await import('../src/observability/eventContract.mjs');
+ assert.deepEqual(sanitizeTelemetryData({
+   eventType:'character_present',signalKind:'presence_changed',
+   ps3Reason:'ambient_direct_witness',reason:'deferred_ambient_cadence',
+   observerCaptureRef:'private-actor',dialogue:'private words',
+ }),{
+   eventType:'character_present',signalKind:'presence_changed',
+   ps3Reason:'ambient_direct_witness',reason:'deferred_ambient_cadence',
+ });
+ assert.deepEqual(sanitizeTelemetryData({
+   eventType:'made-up-thought',ps3Reason:'unknown-private-reason',signalKind:'unknown_private',
+ }),{});
+});
+
 test('selection diagnostic distinguishes non-13a chatter, unqualified witness and stale evidence without granting speech',async()=>{
  const {directorCandidateBlockReason}=await import('../src/perception/directorProduction.mjs');
  assert.equal(directorCandidateBlockReason([evidence('radio_heard')],facts),'unsupported_director_event');
