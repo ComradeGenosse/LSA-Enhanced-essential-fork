@@ -150,9 +150,11 @@ function playerPetFactBoost(row,petNamesQuestion){
   // Questions about a fact, including the current user's older questions,
   // must not crowd out statements actually supplying that fact.
   if(content.includes('?'))return 0;
-  if(PET_NAME_ASSERTIONS.some(pattern=>pattern.test(content))||
-     (row.contextAnchorId&&RELATED_NAME_LIST.test(content)))return 24;
-  return 4; // Other player statements still outrank an NPC's retelling at equal relevance.
+  if(PET_NAME_ASSERTIONS.some(pattern=>pattern.test(content)))return 24;
+  // A nearby bare name list is relevant but must not outrank the directly
+  // matching dog/pet assertion that authenticates its context.
+  if(row.contextAnchorId&&RELATED_NAME_LIST.test(content))return 6;
+  return 0;
 }
 function emptyBundle(query,status) {
   return sealRecallBundle({version:1,characterId:query.characterId,worldProfileId:query.worldProfileId,timelineId:query.timelineId,kind:'recall_bundle',queryId:query.queryId,status,items:[],coverage:{status,returnedCount:0,matchedCount:0},totalBytes:0},query.maxBytes);
