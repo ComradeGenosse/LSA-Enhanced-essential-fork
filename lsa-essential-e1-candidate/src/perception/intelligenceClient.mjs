@@ -236,7 +236,7 @@ export class IntelligenceClient {
        !this.runtime.directorPriority?.experimentalEnabled ||
        !this.socket || this.socket.destroyed || !this.socket.writable ||
        this.socket.writableLength>BOUNDS.frameBytes)return false;
-    const line=JSON.stringify({version:1,type:'director.social_manual',operation:'start'})+'\\n';
+    const line=JSON.stringify({version:1,type:'director.social_manual',operation:'start'})+'\n';
     try {this.socket.write(line);return true;}catch{return false;}
   }
   sendDirectorPreview(args) {
