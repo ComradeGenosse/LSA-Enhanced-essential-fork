@@ -366,7 +366,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     },
     // Captured at the original runner's stage and queried only after native
     // playback completion. A new privacy fence, host or speaker retires it.
-    socialPlaybackProof:turn=>verifiedSocialPlaybackProof(turn),
+    socialPlaybackProof:turn=>{try{return verifiedSocialPlaybackProof(turn);}catch{return null;}} ,
     readDirectorCompletedSpeech({turn}={}){
       const proof=verifiedSocialPlaybackProof(turn);
       if(!proof)return [];
