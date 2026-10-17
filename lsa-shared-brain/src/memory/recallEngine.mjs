@@ -5,10 +5,29 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
 const SHA=/^[0-9a-f]{64}$/;
 const INTENTS=new Set(['recent_fact','exact_quote','open_recall','spontaneous']);
 const SOURCES=new Set(['dialogue_line','journal_event','permanent_memory','canon']);
-const STOP=new Set('a all an and are as at be before can did do does for from had has have how i in is it just me my of on or our say said she so that the their there these this those to us was were what when where which who why with would you your about happened happen remember recall tell told please every each list thing things something anything ever again more then ago very we they him her his he yesterday today last latest recent first earliest oldest minute minutes hour hours week weeks past'.split(' '));
+const STOP=new Set('a all an and are as at be before can did do does for from had has have how i in is it just me my of on or our say said she so that the their there these this those to us was were what when where which who why with would you your about happened happen remember recall tell told please every each list thing things something anything ever again more then ago very we they him her his he yesterday today last latest recent first earliest oldest minute minutes hour hours week weeks past name names named'.split(' '));
 const jsonBytes=recallJsonBytes;
 const tokenize=value=>(String(value??'').toLowerCase().match(/[\p{L}\p{N}]+/gu)??[]);
 const compactTerms=value=>[...new Set(tokenize(value).filter(t=>t.length>=2&&!STOP.has(t)))].slice(0,12);
+// Bounded, deterministic lexical aliases only; no guessed identities or learned claims.
+const PET_GROUPS=[
+  ['dog','dogs','puppy','puppies','corgi','corgis','pomsky','pomskies'],
+  ['pet','pets','dog','dogs','cat','cats','puppy','puppies','corgi','corgis','pomsky','pomskies']
+];
+function relatedVocabulary(terms) {
+  const output=new Set(terms);
+  for(const term of terms){
+    const group=['pet','pets'].includes(term)?PET_GROUPS[1]:
+      PET_GROUPS[0].includes(term)?PET_GROUPS[0]:null;
+    if(group)for(const word of group)output.add(word);
+  }
+  for(const term of terms){
+    if(term.length>3&&term.endsWith('ies'))output.add(term.slice(0,-3)+'y');
+    else if(term.length>3&&term.endsWith('s')&&!term.endsWith('ss'))output.add(term.slice(0,-1));
+    else if(term.length>3)output.add(term+'s');
+  }
+  return [...output].slice(0,12);
+}
 const validTime=value=>typeof value==='string'&&Number.isFinite(Date.parse(value));
 const utc=value=>new Date(value).toISOString();
 const fenceKeys=['characterId','worldProfileId','timelineId'];
@@ -51,7 +70,7 @@ function findSpeaker(question) {
 function kindForQuestion(query) {
   const quote=query.intent==='exact_quote'||/\b(quote|exact words|word for word|what did (i|you) say|what (i|you) said|tell you)\b/i.test(query.question);
   if(quote)return 'dialogue_line';
-  if(/\b(saw|see|heard|hear|witness|gunshot|gunfire|crash|rollover|shot|shoot|killed|dead|event|happened|explosion|police)\b/i.test(query.question))return 'journal_event';
+  if(/\b(saw|see|heard|hear|witness|gunshot|gunfire|crash|rollover|shot|shoot|killed|dead|event|explosion|police)\b/i.test(query.question))return 'journal_event';
   return null;
 }
 function isFollowup(question) {
@@ -95,23 +114,24 @@ function supportedRow(row,scope) {
   }
   return {...row,mode,content,atMs:Date.parse(row.atUtc)};
 }
-function similarity(row,terms,nowMs,focusKind,speaker,anchoredIds) {
+function similarity(row,terms,searchTerms,nowMs,focusKind,speaker,anchoredIds) {
   if(speaker&&row.envelope?.speaker!==speaker&&!(speaker==='player'&&row.isCorrectionOverlay===true))return -Infinity;
   if(focusKind&&row.sourceKind!==focusKind&&!(focusKind==='dialogue_line'&&row.isCorrectionOverlay===true))return -Infinity;
-  const txt=tokenize(row.sourceKind==='dialogue_line'?row.envelope.content:row.content);
-  const hay=new Set(txt);
-  const matches=terms.filter(t=>hay.has(t)).length;
+  const hay=new Set(tokenize(row.sourceKind==='dialogue_line'?row.envelope.content:row.content));
+  const exact=terms.filter(t=>hay.has(t)).length;
+  const related=searchTerms.filter(t=>!terms.includes(t)&&hay.has(t)).length;
   const age=Math.max(0,nowMs-row.atMs);
   const recency=Math.max(0,3-Math.log2(1+age/3600000));
-  // Neighbors must link to an authenticated lexical anchor; they are candidate
-  // quotes, not an inferred fact. Score below *any* lexical hit, even
-  // with twelve query terms, so unrelated neighbors cannot displace anchors.
-  if(terms.length&&!matches)return row.sourceKind==='dialogue_line'&&
-    anchoredIds.has(row.contextAnchorId)&&Number.isSafeInteger(row.contextDistance)&&
-    row.contextDistance>=1&&row.contextDistance<=2
-    ?1-row.contextDistance*.1+recency:-Infinity;
-  const ratio=terms.length?matches/terms.length:0;
-  return (terms.length?12*ratio+matches:0)+recency+(row.sourceKind==='dialogue_line'&&focusKind==='dialogue_line'?2:0);
+  if(terms.length&&!exact&&!related){
+    if(row.sourceKind!=='dialogue_line')return -Infinity;
+    if(anchoredIds.has(row.relatedAnchorId))return 3+recency*.2;
+    if(anchoredIds.has(row.contextAnchorId)&&Number.isSafeInteger(row.contextDistance)&&
+      row.contextDistance>=1&&row.contextDistance<=2)
+      return 1-row.contextDistance*.1+recency*.2;
+    return -Infinity;
+  }
+  const lexical=exact?12*exact/Math.max(1,terms.length)+exact:6+Math.min(related,2);
+  return lexical+recency+(row.sourceKind==='dialogue_line'&&focusKind==='dialogue_line'?2:0);
 }
 function emptyBundle(query,status) {
   return sealRecallBundle({version:1,characterId:query.characterId,worldProfileId:query.worldProfileId,timelineId:query.timelineId,kind:'recall_bundle',queryId:query.queryId,status,items:[],coverage:{status,returnedCount:0,matchedCount:0},totalBytes:0},query.maxBytes);
@@ -164,13 +184,15 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
     if(/\bbefore that\b/i.test(query.question))window.toUtc=!window.toUtc||followup.anchorUtc<window.toUtc?followup.anchorUtc:window.toUtc;
     if(/\bafter that\b/i.test(query.question))window.fromUtc=!window.fromUtc||followup.anchorUtc>window.fromUtc?followup.anchorUtc:window.fromUtc;
   }
+  const searchTerms=relatedVocabulary(terms);
   const focusKind=kindForQuestion(query)??(follow?followup.sourceKind??null:null);
   const speaker=focusKind==='dialogue_line'?findSpeaker(query.question)??(follow?followup.speaker??null:null):null;
   const expandDialogueContext=terms.length>0&&focusKind===null&&speaker===null&&
-    /\b(?:all|every|each|list|names?|which)\b/i.test(query.question);
+    /\b(?:all|every|each|list|names?|which|remember.*(?:dogs?|pets?))\b/i.test(query.question);
+  const expandRelatedFacts=expandDialogueContext&&!window.fromUtc&&!window.toUtc;
   let result;
-  try{result=await readAdapter.read({scope,terms,fromUtc:window.fromUtc,toUtc:window.toUtc,
-    sourceKind:focusKind,speaker,limit:384,expandDialogueContext});}
+  try{result=await readAdapter.read({scope,terms:searchTerms,fromUtc:window.fromUtc,toUtc:window.toUtc,
+    sourceKind:focusKind,speaker,limit:384,expandDialogueContext,expandRelatedFacts});}
   catch{return {bundle:emptyBundle(query,'unavailable'),continuation:null};}
   if(!result||!Array.isArray(result.rows)||result.rows.length>384)return {bundle:emptyBundle(query,'unavailable'),continuation:null};
   const nowMs=Date.parse(nowUtc);
@@ -178,14 +200,27 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
   let rows=result.rows.map(r=>supportedRow(r,scope)).filter(Boolean)
     .filter(r=>r.atMs<=nowMs+60000&&(!window.fromUtc||r.atUtc>=window.fromUtc)&&(!window.toUtc||r.atUtc<window.toUtc));
   const anchoredIds=new Set(rows.filter(row=>row.sourceKind==='dialogue_line'&&
-    terms.some(t=>tokenize(row.content).includes(t))).map(row=>row.recordId));
+    searchTerms.some(t=>tokenize(row.content).includes(t))).map(row=>row.recordId));
   const sortRecent=/\b(last|latest|most recent|just|earlier today)\b/i.test(query.question);
   const sortOldest=/\b(first|earliest|oldest)\b/i.test(query.question);
-  rows=rows.map(row=>({...row,score:similarity(row,terms,nowMs,focusKind,speaker,anchoredIds)}))
+  rows=rows.map(row=>({...row,score:similarity(row,terms,searchTerms,nowMs,focusKind,speaker,anchoredIds)}))
     .filter(row=>Number.isFinite(row.score))
     .sort((a,b)=>(sortRecent||sortOldest?0:b.score-a.score)||(sortOldest?a.atMs-b.atMs:b.atMs-a.atMs)||a.recordId.localeCompare(b.recordId));
   const distinct=new Set();rows=rows.filter(r=>{if(distinct.has(r.recordId))return false;distinct.add(r.recordId);return true;});
   const matchedCount=rows.length;
+  if(expandRelatedFacts&&rows.some(r=>r.relatedAnchorId)){
+    // Give authenticated cross-session supporting lines a place in the 4 KiB
+    // answer budget without letting them outrank their lexical anchors.
+    const explicit=rows.filter(r=>!r.relatedAnchorId);
+    const related=rows.filter(r=>r.relatedAnchorId);
+    const ordered=[];
+    for(let i=0;explicit.length||related.length;i++){
+      if(explicit.length)ordered.push(explicit.shift());
+      if(i<4&&related.length)ordered.push(related.shift());
+      if(!explicit.length&&i>=4)ordered.push(...related.splice(0));
+    }
+    rows=ordered;
+  }
   const status=matchedCount?'matched':!rejectedEvidence&&result.coverageComplete===true?'not_recorded':'unavailable';
   const bundle=emptyBundle(query,status);
   bundle.coverage.matchedCount=matchedCount;
