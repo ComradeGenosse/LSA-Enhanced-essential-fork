@@ -127,12 +127,12 @@ function safeTime(clock) {
   if (!Number.isFinite(value)) throw new TypeError('ElevenLabs needs a monotonic clock.');
   return value;
 }
-export function decodePcmAudio(encoded, maxBytes) {
+export function decodePcmAudio(encoded, maxBytes, {allowOddLength=false}={}) {
   if (typeof encoded !== 'string' || !encoded.length || encoded.length > Math.ceil(maxBytes * 4 / 3) + 4 ||
       encoded.length % 4 !== 0 || !BASE64.test(encoded))
     throw fault('elevenlabs_invalid_audio');
   const pcm = Buffer.from(encoded, 'base64');
-  if (!pcm.length || pcm.length % 2 || pcm.length > maxBytes ||
+  if (!pcm.length || (!allowOddLength && pcm.length % 2) || pcm.length > maxBytes ||
       pcm.toString('base64') !== encoded)
     throw fault('elevenlabs_invalid_audio');
   return pcm;
@@ -178,6 +178,8 @@ export function createElevenLabsSpeechProvider({
       let completed = false, failed = null, closed = false, generatedBytes = 0;
       let chunks = 0, firstAudioAt = null, forwardedBytes = 0, forwardedChunks = 0;
       let queueBytes = 0, drained = false, wake = null;
+      // WS frames can split a PCM16 sample; only whole samples reach native.
+      let pendingPcmByte = null;
       let resolveFinished, rejectFinished;
       const finished = new Promise((resolve, reject) => { resolveFinished = resolve; rejectFinished = reject; });
       finished.catch(() => {}); // suppress unhandled rejection during streaming.
@@ -264,9 +266,27 @@ export function createElevenLabsSpeechProvider({
             throw fault('elevenlabs_invalid_message');
           if (message.error || message.detail?.status === 'error' || message.type === 'error')
             throw fault(classifyElevenLabsError(message));
-          if (message.audio !== undefined && message.audio !== null)
-            enqueue(decodePcmAudio(message.audio, Math.min(maxBytes - generatedBytes, MAX_AUDIO_BYTES)));
+          if (message.audio !== undefined && message.audio !== null) {
+            // An empty final audio value is a control marker; malformed or
+            // empty nonfinal frames still fail closed.
+            if (message.audio === '' && message.is_final !== true)
+              throw fault('elevenlabs_invalid_audio');
+            if (message.audio !== '') {
+              const pcm = decodePcmAudio(message.audio,
+                Math.min(maxBytes - generatedBytes - (pendingPcmByte === null ? 0 : 1), MAX_AUDIO_BYTES),
+                {allowOddLength:true});
+              let aligned = pendingPcmByte === null ? pcm :
+                Buffer.concat([Buffer.from([pendingPcmByte]), pcm]);
+              pendingPcmByte = null;
+              if (aligned.length % 2) {
+                pendingPcmByte = aligned[aligned.length - 1];
+                aligned = aligned.subarray(0, aligned.length - 1);
+              }
+              if (aligned.length) enqueue(aligned);
+            }
+          }
           if (message.is_final === true) {
+            if (pendingPcmByte !== null) throw fault('elevenlabs_invalid_audio');
             if (failed) return;
             completed = true;
             signalWake();
