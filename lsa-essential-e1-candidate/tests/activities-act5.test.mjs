@@ -399,7 +399,8 @@ test('native on-foot ACT3 proposals never appear without an inspected owner snap
   const h=nativeHarness();
   h.setOffer({safe:false});
   const ctx=await h.dialogue.prepare(turn(),'player_text');
-  assert.deepEqual(ctx.intents,['hold_position','resume_previous']);
+  assert.deepEqual(ctx.intents,[]);
+  assert.equal(validateAct5Choice(choice('hold_position'),['hold_position'],{}),false);
 });
 
 test('native seated actor never offers to sit down or follow on foot', async () => {
