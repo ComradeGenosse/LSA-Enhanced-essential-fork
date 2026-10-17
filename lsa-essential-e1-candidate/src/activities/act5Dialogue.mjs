@@ -50,7 +50,7 @@ export const ACT5_SLOTS = Object.freeze(Object.fromEntries(
 
 const clean = value => String(value || '').trim().toLowerCase()
   .replace(/[’]/g, "'").replace(/[.,!?;:]+/g, ' ')
-  .replace(/\b(let's|we're|i'm|you're)\b/g, word => word.replace("'", ''))
+  .replace(/'/g, '')
   .replace(/\s+/g, ' ').trim();
 const replyKind = (response, intent) => {
   if (NO.has(response) || CANCEL.has(response)) return 'decline';
