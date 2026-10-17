@@ -12,7 +12,7 @@ export const REASON_CODES = Object.freeze([
   'involvement_self', 'involvement_player',
   'relationship_close', 'relationship_conflict',
   'prior_memory', 'novelty_escalation', 'novelty_material',
-  'situation_occupied', 'situation_conversation', 'trait_policy', 'environment_requested', 'routine_low_relevance',
+  'situation_occupied', 'situation_conversation', 'trait_policy', 'environment_requested', 'routine_low_relevance', 'ambient_direct_witness',
 ]);
 export const TRAIT_POLICIES = Object.freeze(['protective', 'cautious', 'loyal', 'bold']);
 export const SALIENCE_POLICY_VERSION = 1;
@@ -29,6 +29,11 @@ const ACTIVITIES = new Set(['unknown', 'idle', 'driving', 'passenger', 'in_vehic
 const CLOSE = new Set(['friend', 'trusted']);
 const OCCUPIED = new Set(['driving', 'passenger', 'in_vehicle']);
 const ROUTINE_EVENTS = new Set(['character_present', 'location_changed', 'activity_changed', 'speech_heard', 'radio_heard', 'action_observed', 'vehicle_transition']);
+// Opt-in, low-stakes opportunities: only witnessed native scene changes; no
+// transcripts, radio chatter, reports, synthetic timers or NPC commands.
+export const PS6_AMBIENT_EVENTS = Object.freeze(['character_present','location_changed','activity_changed','vehicle_transition']);
+const AMBIENT_EVENTS = new Set(PS6_AMBIENT_EVENTS);
+const AMBIENT_KINDS = new Set(['presence','location']);
 const HARM_EVENTS = new Set(['injury', 'death_seen', 'body_found', 'vehicle_impact', 'threat']);
 const SEVERITY = Object.freeze({ routine: 0, notable: 1, danger: 2, critical: 3 });
 const RESPONSE_RANK = Object.freeze({ none: 0, eligible: 1, urgent: 2 });
@@ -195,7 +200,7 @@ export function situationFromCharacterView(view = {}) {
   });
 }
 
-function classify(observation, situation) {
+function classify(observation, situation, ambientSpeech=false) {
   const reasons = [];
   if (!situation.lifetimeCurrent) reasons.push('evidence_lifetime_ended');
   if (!situation.channelHealthy) reasons.push('evidence_channel_unhealthy');
@@ -229,6 +234,13 @@ function classify(observation, situation) {
   const firing = observation.eventType === 'firing_burst' || kindOf('firing');
   const routineEvent = ROUTINE_EVENTS.has(observation.eventType) && !selfHarm && !playerHarm && !death && !injury && !firing;
   const remembered = situation.memories.some(memory => memory.relatedCharacterIds.some(id => hits.some(hit => hit.characterId === id)));
+  // Native PS2 must have carried a supported, direct observer claim. A
+  // companion-transcribed report or an old PS3 contextual candidate cannot
+  // create its own unsolicited conversation opportunity.
+  const ambientWitness = ambientSpeech && AMBIENT_EVENTS.has(observation.eventType) &&
+    observation.severity==='routine' && Boolean(playerRef) &&
+    situation.activity!=='conversation' && supported.some(claim=>
+      AMBIENT_KINDS.has(claim.kind) && ['self','visual'].includes(claim.evidence.channel));
   let context = 'omit', memory = 'none', response = 'none';
 
   if (selfHarm) {
@@ -265,6 +277,11 @@ function classify(observation, situation) {
     reasons.push('safety_nearby_threat');
     if (close.length) reasons.push('relationship_close');
     else if (conflict.length) reasons.push('relationship_conflict');
+  } else if (ambientWitness) {
+    // ACT/P2/Essential native admission and the Director's separate long
+    // ambient cadence still decide whether Nathan may actually speak.
+    context = 'candidate'; response = 'eligible';
+    reasons.push('ambient_direct_witness');
   } else if (playerInvolved) {
     context = 'candidate';
     reasons.push('involvement_player');
@@ -288,7 +305,7 @@ function classify(observation, situation) {
     context = 'must_include';
     if (response === 'none') response = 'eligible';
     reasons.push('safety_nearby_threat');
-  } else if (OCCUPIED.has(situation.activity) && routineEvent) {
+  } else if (OCCUPIED.has(situation.activity) && routineEvent && !ambientWitness) {
     context = remembered ? 'candidate' : 'omit';
     response = 'none'; memory = 'none';
     reasons.push('situation_occupied');
@@ -361,7 +378,7 @@ export function evaluateSalience(observation, situationInput = {}, cache = null)
   const situation = situationInput?.nowMonotonicMs !== undefined && Object.isFrozen(situationInput) && situationInput.traitPolicies
     ? situationInput
     : normalizeSalienceSituation(situationInput);
-  const draft = applyLedger(classify(observation, situation), observation, situation, cache);
+  const draft = applyLedger(classify(observation, situation,cache?.ambientSpeech===true), observation, situation, cache);
   const decision = blank(observation, situation.nowMonotonicMs, draft);
   if (cache && !draft.closed) cache.remember(observation, situation, decision, draft);
   else if (cache && draft.closed) cache.rememberClosed(observation, situation, decision);
@@ -398,8 +415,8 @@ export function orderSalienceDecisions(entries) {
 }
 
 export class SalienceCache {
-  constructor({ now = () => 0 } = {}) {
-    this.now = now;
+  constructor({ now = () => 0,ambientSpeech=false } = {}) {
+    this.now = now;this.ambientSpeech=ambientSpeech===true;
     this.decisions = new Map();
     this.order = [];
     this.ledger = new Map();
