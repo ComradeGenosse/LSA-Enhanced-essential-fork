@@ -28,8 +28,12 @@ import { createDialogueTrace, createNoopDialogueTrace } from './observability/di
 import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
 import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
 import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
-import {createMemoryKRuntimeComposition,memoryKDialogueActivation,memoryKM6Activation,runtimeCleanupError} from './memory/runtimeComposition.mjs';
+import {createMemoryKRuntimeComposition,memoryKDialogueActivation,memoryKM6Activation,memoryKM7Activation,runtimeCleanupError} from './memory/runtimeComposition.mjs';
 import {createM6RuntimeRetention} from './memory/m6RuntimeRetention.mjs';
+import {createM7RuntimeCuration} from './memory/m7RuntimeCuration.mjs';
+import {createM7IdleProofSource} from './memory/m7IdleProofSource.mjs';
+import {createNativeMemoryAuthority} from './memory/nativeMemoryAuthority.mjs';
+import {resolveLivePromotedProfile} from './memory/livePromotedProfile.mjs';
 import {memoryKSourceActivation} from './memory/sourceActivation.mjs';
 import {bindTrustedTimelineSource} from './characters/timelineSourceBridge.mjs';
 import {memoryKM3Activation,unavailableM3States} from './memory/m3Activation.mjs';
@@ -162,11 +166,34 @@ export async function createRuntimeForBundle(options = {}) {
       const retentionStore=runtime.memoryPause.optionalStore(runtime.characterService.store);
       const retention=createM6RuntimeRetention({store:retentionStore,
         isPaused:()=>runtime.memoryPause.paused||runtime.closed===true,
+        // M6 may append durable jobs for M7 only when M7 is independently on.
+        cloudQueue:memoryKM7Activation(config).mode==='on',
         ...options.m6RetentionOptions});
       owner.own('memory.retention',retention,value=>value.dispose());
       runtime.retention=retention;
       retention.start();
     }catch{owner.failed('memory.retention');runtime.retention=null;try{console.warn('[M6] retention_runtime_unavailable');}catch{}}
+  }
+  // M7 Luna cloud curation over the SAME P2 store. Default off. It is independent
+  // of M2/M3/M4/H1/M8 and of whether M6 runs: it processes whatever authorized
+  // jobs the durable queue holds. It performs no network request until persisted
+  // consent, supported Luna pricing and a native idle proof all hold.
+  if(memoryKM7Activation(config).mode==='on'&&!runtime.memoryPause.paused&&
+     config.promotedCharacters?.storageMode==='sqlite'&&runtime.characterService?.ready===true){
+    try{
+      const cloudStore=runtime.memoryPause.optionalStore(runtime.characterService.store);
+      const cloudCuration=createM7RuntimeCuration({config,store:cloudStore,
+        isPaused:()=>runtime.memoryPause.paused||runtime.closed===true,
+        subscribePause:listener=>runtime.memoryPause.subscribe(listener),
+        // W07: the joined native + original-backend proof source (m7IdleProofSource),
+        // registered once the authenticated native channel exists. Absent => blocked.
+        nativeIdleSource:()=>options.m7NativeIdleSource??runtime.m7IdleSource??null,
+        fetchImpl:options.fetchImpl??globalThis.fetch,
+        ...options.m7CloudCurationOptions});
+      owner.own('memory.cloudCuration',cloudCuration,value=>value.dispose());
+      runtime.cloudCuration=cloudCuration;
+      cloudCuration.start();
+    }catch{owner.failed('memory.cloudCuration');runtime.cloudCuration=null;try{console.warn('[M7] cloud_curation_runtime_unavailable');}catch{}}
   }
   runtime.services.memoryKRuntimeDiagnostics=()=>withLearnedMemoryPause(composition.snapshot(Object.fromEntries(
     Object.entries(runtime.services.memoryKCapabilities()).map(([id,row])=>[id,row.registrationStatus])),{
@@ -179,6 +206,7 @@ export async function createRuntimeForBundle(options = {}) {
       'memory.commands':runtime.services.memoryCommandDiagnostics(),
       'memory.interpretation':runtime.services.memoryInterpretationDiagnostics(),
       'memory.deterministic':runtime.services.memoryRetentionDiagnostics(),
+      'memory.cloudCuration':runtime.services.memoryCloudCurationDiagnostics(),
       ...(runtime.memoryD02?{'authority.d02':Object.freeze({requestedMode:'on',
         state:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
         effectiveMode:runtime.closed?'off':runtime.memoryD02.status().settled?'on':null,
@@ -231,6 +259,7 @@ export async function createRuntimeForBundle(options = {}) {
       'memory.recall':typeof runtime.services.memoryRecallDiagnostics==='function',
       'memory.commands':typeof runtime.services.memoryCommandDiagnostics==='function',
       'memory.deterministic':!!runtime.retention,
+      'memory.cloudCuration':!!runtime.cloudCuration,
       'memory.interpretation':typeof runtime.services.memoryInterpretationDiagnostics==='function',
     };
     const environment=Object.freeze({
@@ -257,9 +286,10 @@ export async function createRuntimeForBundle(options = {}) {
         acceptedObservationObserved:'unverified',
         dialoguePersisted:'unverified',
       }),
-      // No persisted-consent read, idle proof or worker admission is performed.
+      // Registration only. Persisted consent, budget and idle evidence are read by
+      // the M7 worker itself at each tick; see memoryCloudCurationDiagnostics().
       cloud:Object.freeze({
-        workerRegistered:false,consent:'unverified',budget:'unverified',idle:'unverified',
+        workerRegistered:!!runtime.cloudCuration,consent:'unverified',budget:'unverified',idle:'unverified',
       }),
     });
     return Object.freeze({capabilities:resolveMemoryKCapabilities({config,available:registered}),environment});
@@ -396,6 +426,41 @@ export async function createRuntimeForBundle(options = {}) {
             onSafeFailure:()=>runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'})});
           owner.own('storage.source',source,binding=>binding.close());
         }
+        // M7: a changed host run/world epoch or any world boundary aborts in-flight
+        // cloud work. Only a CHANGE counts; repeated samples of the same host do not.
+        if(runtime.cloudCuration){
+          let m7Host=null;
+          owner.own('m7.host',runtime.intelligence.subscribeVerifiedHostContext(host=>{
+            const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
+            if(stamp!==m7Host){m7Host=stamp;try{runtime.cloudCuration?.invalidate();}catch{}}
+          }),unsubscribe=>unsubscribe());
+          owner.own('m7.boundary',runtime.intelligence.subscribeWorldBoundary(()=>{
+            try{runtime.cloudCuration?.invalidate();}catch{}
+          }),unsubscribe=>unsubscribe());
+          // W07 idle proof: authenticated native diagnostic joined to the ORIGINAL
+          // backend turn timeline. Needs only P2 + the native owner ledger; it uses
+          // no M3/M4/H1/M8 state and no PS3 ticket, receipt or Director grant.
+          try{
+            const idleStore=runtime.memoryPause.optionalStore(runtime.characterService.store);
+            const idleAuthority=createNativeMemoryAuthority({
+              subscribeAuthenticatedNativeFrames:(onFrame,onRetire)=>
+                runtime.intelligence.subscribeAuthenticatedNativeMemoryAuthority(onFrame,onRetire),
+              profileForAlias:alias=>resolveLivePromotedProfile(idleStore,alias)});
+            owner.own('m7.idleAuthority',idleAuthority,value=>value.close());
+            const idleSource=createM7IdleProofSource({intelligence:runtime.intelligence,store:idleStore,
+              resolveOwner:input=>idleAuthority.resolveNativeOwner(input),
+              backend:Object.freeze({
+                sample:()=>runtime.host.directorTurnPrioritySnapshot(),
+                observe:observer=>runtime.observeOriginalTurnTransitions(observer),
+                leaseActive:()=>runtime.originalTurnLeaseActive()}),
+              // A configured Director whose state cannot be read counts as busy.
+              directorBusy:()=>config.spontaneousSpeech.mode==='off'?false:
+                (runtime.spontaneousSpeechBusy?.()??true),
+              ...options.m7IdleSourceOptions});
+            owner.own('m7.idleSource',idleSource,value=>value.dispose());
+            runtime.m7IdleSource=idleSource;
+          }catch{runtime.m7IdleSource=null;try{console.warn('[M7] idle_proof_source_unavailable');}catch{}}
+        }
         runtime.intelligence.start();
       }catch{
         const cleanup=await owner.rollback(checkpoint);
@@ -505,6 +570,7 @@ export async function createRuntimeForBundle(options = {}) {
       },
     });
     runtime.director=pump;
+    runtime.spontaneousSpeechBusy=()=>admission.active!==null&&admission.active!==undefined;
     owner.own('director.pump',pump,value=>value.stop());
     runtime.services.spontaneousSpeechStatus=()=>Object.freeze({
       requested:config.spontaneousSpeech.mode,

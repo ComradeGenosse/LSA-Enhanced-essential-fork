@@ -42,7 +42,7 @@ import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
-import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation,memoryKM6Activation,memoryKM8Activation} from '../memory/runtimeComposition.mjs';
+import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation,memoryKM6Activation,memoryKM7Activation,memoryKM8Activation} from '../memory/runtimeComposition.mjs';
 import {prepareIndependentM8} from '../memory/m8IndependentInterpretation.mjs';
 import {createLearnedMemoryPause} from '../memory/learnedMemoryPause.mjs';
 
@@ -52,6 +52,7 @@ export const MEMORY_K_COMPOSITION_VERSION=1;
 export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner, memoryNativeAuthority = null, deferCharacterInitialization = false, verifiedProtagonistAuthority = null } = {}) {
   const actorPresence=new ActorPresenceStore();
   const originalTurnTimeline=new OriginalEssentialTurnTimeline();
+  const originalTurnObservers=new Set();
   dialogueTrace ||= createNoopDialogueTrace();
   const history = new DialogueHistory({ maxMessages: config.maxHistoryMessages, onMetric: (event, data) => telemetry?.emit(event, null, null, data) });
   const connections = new Set();
@@ -82,6 +83,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const recallActivation=memoryKH2Activation(config);
   const commandActivation=memoryKM5Activation(config);
   const retentionActivation=memoryKM6Activation(config);
+  const cloudCurationActivation=memoryKM7Activation(config);
   const interpretationActivation=memoryKM8Activation(config);
   const recallState={preparation:null,validation:null,contributed:false,requestAttempted:false};
   const journalState={preparation:null,validation:null,contributed:false,requestAttempted:false};
@@ -181,6 +183,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     bindM2Turn({turn,isCurrent}={}) {
       dialogueResults.player=null;
       try{runtime.retention?.noteForeground();}catch{} // M6 yields to any live turn
+      try{runtime.cloudCuration?.noteForeground();}catch{} // M7 aborts in-flight cloud work
 
       if(!dialogueActivation.player||runtime.closed||memoryPause.paused||turn?.memoryDisabledForTurn) return null;
       const characterId=journalCharacter(turn);
@@ -235,6 +238,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         }catch{}
       };
       try{runtime.retention?.noteForeground();}catch{}
+      try{runtime.cloudCuration?.noteForeground();}catch{}
       if(runtime.closed||memoryPause.paused)return null;
       for(const state of [journalState,recallState,commandState,interpretationState]){
         state.preparation=null;state.validation=null;state.contributed=false;state.requestAttempted=false;
@@ -424,7 +428,23 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         effectiveMode:state==='ready'?'on':state==='stopped'?'off':null,
         operationalState:state,
         reason:activationReason??environmentReason??detail?.lastReason??(state==='waiting'?'timeline_confirmation_required':null),
-        retention:mode==='on'?detail:null,cloudCuration:'off',restartRequired:true});
+        retention:mode==='on'?detail:null,cloudCuration:cloudCurationActivation.mode==='on'?'queueing':'off',restartRequired:true});
+    },
+    // M7 Luna cloud curation status. Privacy-safe: counters and codes only, never
+    // memory text, ids, prompts or credentials.
+    memoryCloudCurationDiagnostics() {
+      const {requestedMode,mode,reason:activationReason}=cloudCurationActivation;
+      const detail=runtime.cloudCuration?.diagnostics()??null;
+      const environmentReason=runtime.closed?'runtime_stopped':
+        config.promotedCharacters?.storageMode!=='sqlite'||!characterService?.ready?'p2_sqlite_unavailable':
+        !detail?'cloud_curation_runtime_unavailable':null;
+      const state=mode!=='on'?'stopped':environmentReason==='runtime_stopped'?'stopped':
+        environmentReason?'unavailable':detail.state;
+      return Object.freeze({requestedMode,state,
+        effectiveMode:state==='idle'||state==='processing'?'on':state==='stopped'||state==='paused'?'off':null,
+        operationalState:state,
+        reason:activationReason??environmentReason??detail?.reason??null,
+        cloudCuration:mode==='on'?detail:null,restartRequired:true});
     },
     memoryJournalDiagnostics() {
       const {requestedMode,mode,reason:activationReason,legacy}=journalActivation;
@@ -751,7 +771,21 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // These callbacks execute on the original backend's single JS event loop,
     // at source-pinned turn intake/terminal/session entrypoints. No actor
     // effect, turn creation, artificial terminal or stock scheduling.
-    originalTurnTransition:(event,ticketId)=>originalTurnTimeline.transition(event,ticketId),
+    originalTurnTransition:(event,ticketId)=>{
+      try{return originalTurnTimeline.transition(event,ticketId);}
+      finally{
+        // M7 idle fence: synchronous, read-only notification on the stock path.
+        // Observers cannot alter the transition, throw into it or see its ticket.
+        for(const observer of [...originalTurnObservers])try{observer(event);}catch{}
+      }
+    },
+    observeOriginalTurnTransitions(observer) {
+      if(typeof observer!=='function'||originalTurnObservers.size>=8)throw new TypeError('original_turn_observer_invalid');
+      originalTurnObservers.add(observer);
+      return ()=>originalTurnObservers.delete(observer);
+    },
+    // True while a Director reservation holds the original backend lease.
+    originalTurnLeaseActive:()=>originalTurnTimeline.leaseCount>0,
     awaitDirectorNativeBinding:ticket=>runtime.intelligence?.awaitDirectorNativeBinding?.(ticket) ?? Promise.resolve(false),
     beginDirectorOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.beginDirector(ticketId,snapshot),
     directorOriginalPhase:ticketId=>originalTurnTimeline.directorPhase(ticketId),

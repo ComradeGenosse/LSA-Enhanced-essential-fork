@@ -4,7 +4,15 @@ export const inspectorHtml=()=>`<section id="memoryControls"><h2>Memory K runtim
 <button id="refreshCapabilities" type="button">Refresh runtime status</button>
 <p id="pauseStatus" role="status"></p><details><summary>Capability settings and operational states</summary>
 <p>Capability changes are saved for the next companion restart. Dependencies are never activated automatically.</p>
-<div id="capabilityRows"></div></details></section>`;
+<div id="capabilityRows"></div></details>
+<details id="cloudCuration"><summary>Cloud memory curation (Luna)</summary>
+<p>Optional. While you are idle, Luna can review memories your NPCs already saved. If you approve, the saved memory summaries are sent to OpenAI, off-turn, up to the spend limits below. Nothing is sent without this approval, and you can withdraw it at any time.</p>
+<label>Daily limit USD <input id="cloudDaily" type="number" min="0.01" max="100" step="0.01" value="0.50"></label>
+<label>Monthly limit USD <input id="cloudMonthly" type="number" min="0.01" max="1000" step="0.01" value="5"></label>
+<label>Per-batch limit USD <input id="cloudBatch" type="number" min="0.001" max="100" step="0.001" value="0.05"></label>
+<button id="cloudGrant" type="button">Approve cloud curation</button>
+<button id="cloudWithdraw" type="button">Withdraw approval</button>
+<p id="cloudStatus" role="status"></p></details></section>`;
 export const inspectorDetailHtml=()=>`<details open><summary>Stored learned memory inspector (P2 SQLite)</summary>
 <p>Private local administration. Raw conversations, reported claims, interpretations and witnessed events retain their original evidence labels.</p>
 <p id="inspectorScope"></p><select id="inspectorKind" aria-label="Memory category">
@@ -39,6 +47,11 @@ async function loadCapabilities(){
     if(row.blockers.length){const details=document.createElement('details'),summary=document.createElement('summary'),reasons=document.createElement('small');summary.textContent='Policy checks (not operation receipts)';reasons.textContent=row.blockers.join('; ');details.append(summary,reasons);block.append(details);}
     $('capabilityRows').append(block);
   }
+  const cloud=capabilityView.cloudCuration;
+  // Always expose the withdrawal control: approval persists when M7 is off.
+  $('cloudStatus').textContent='Approval: '+cloud.consent.state+(cloud.consent.limits?' · limits $'+cloud.consent.limits.dailyUsd+'/day, $'+cloud.consent.limits.monthlyUsd+'/month, $'+cloud.consent.limits.maxBatchUsd+'/batch':'')+
+    ' · worker: '+(cloud.runtime?.operationalState??'unavailable')+(cloud.runtime?.reason?' ('+cloud.runtime.reason+')':'')+'.';
+  $('cloudGrant').disabled=cloud.requestedMode!=='on'||cloud.consent.state==='unavailable';
   const pause=capabilityView.pause;
   $('pauseStatus').textContent='Learned memory: '+pause.operationalState+' · persisted pause '+pause.requested+
     (pause.restartRequired?' · '+(pause.requested?'pause':'resume')+' pending companion restart':'')+'. Existing data and authenticated privacy administration are preserved.';
@@ -98,6 +111,14 @@ $('inspectExport').onclick=()=>run(async()=>{
   a.href=url;a.download='lsa-private-memories.json';a.click();URL.revokeObjectURL(url);
 });
 $('refreshCapabilities').onclick=()=>run(loadCapabilities);
+$('cloudGrant').onclick=()=>run(async()=>{
+  if(!confirm('Send your NPCs saved memory summaries to OpenAI while you are idle, within the spend limits shown? You can withdraw this at any time.'))return;
+  capabilityView=await api('inspector_control',{operation:'cloud_consent',action:'grant',confirmation:'approve_off_turn_evidence_upload',
+    dailyUsd:Number($('cloudDaily').value),monthlyUsd:Number($('cloudMonthly').value),maxBatchUsd:Number($('cloudBatch').value)});await loadCapabilities();
+});
+$('cloudWithdraw').onclick=()=>run(async()=>{
+  await api('inspector_control',{operation:'cloud_consent',action:'withdraw'});await loadCapabilities();
+});
 $('pauseLearned').onclick=()=>run(async()=>{
   if(!confirm('Pause optional learned-memory activity now and after restart? Active turns will be cancelled. No data is deleted. Resuming requires an explicit companion restart.'))return;
   try{await api('inspector_control',{operation:'pause',paused:true,revision:capabilityView.revision});}finally{await loadCapabilities();}

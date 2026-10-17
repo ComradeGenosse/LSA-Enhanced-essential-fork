@@ -173,6 +173,27 @@ export class IntelligenceClient {
   retireAuthenticatedNativeMemoryAuthority() {
     for(const sub of [...this.memoryAuthoritySubscriptions])try{sub.onRetire();}catch{}
   }
+  // W07: source-authenticated partial native diagnostic, NOT an M7 idle permit.
+  subscribeAuthenticatedNativeM7Diagnostic(listener,onRetire=()=>{}) {
+    if(typeof listener!=='function'||typeof onRetire!=='function'||
+       this.m7DiagnosticSubscriptions.size>=8)
+      throw new TypeError('m7_diagnostic_subscriber_invalid');
+    const item=Object.freeze({listener,onRetire});
+    this.m7DiagnosticSubscriptions.add(item);
+    return ()=>this.m7DiagnosticSubscriptions.delete(item);
+  }
+  retireAuthenticatedNativeM7Diagnostic() {
+    this.m7LastDiagnostic=null;
+    for(const item of [...this.m7DiagnosticSubscriptions])
+      try{item.onRetire();}catch{}
+  }
+  m7NativeIdleDiagnostics() {
+    const age=this.m7LastDiagnostic?
+      this.runtime.now()-this.m7LastDiagnostic.receivedAt:null;
+    return Object.freeze({state:age!==null&&age>=0&&age<=3000?
+      'partial_native_evidence':'native_evidence_unavailable',
+      verifiedIdleAvailable:false,missingGlobalTurnFields:4});
+  }
   // D02 subscription is read-only and is invoked only after successful
   // authenticated socket intake. It never accepts caller-supplied frames.
   subscribeAuthenticatedNativeOwnerPlayer(listener,onRetire=()=>{}) {
@@ -620,7 +641,7 @@ export class IntelligenceClient {
   }
 
   constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,radioCatalog,consumers=null,acceptedObservationTap=null,m9Events=null,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.memoryAuthoritySubscriptions=new Set();this.currentOwnerPlayerSubscriptions=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,acceptedObservationTap,consumers,m9Events,
+    this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.memoryAuthoritySubscriptions=new Set();this.currentOwnerPlayerSubscriptions=new Set();this.m7DiagnosticSubscriptions=new Set();this.m7LastDiagnostic=null;this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,acceptedObservationTap,consumers,m9Events,
       // Bounded fixed-vocabulary diagnostics only (see ShadowRuntime.emitTrace).
       trace:(event,record)=>this.persist(event,record),
       stall:info=>this.persist('intelligence_status',{stage:info.stage==='stalled'?'owner_stalled':'owner_resumed',durationMs:info.stallMs})});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
@@ -717,7 +738,7 @@ export class IntelligenceClient {
           // persistent diagnostics. A strict invalid frame stays invalid.
           const allowed=['hello','anchors','retire','retire_batch','observer_index',
             'observer_situation','world_epoch','director_priority','director_response',
-            'memory_authority','memory_current_owner_player','protagonist_model','m9_sample','signal','diagnostics'];
+            'memory_authority','memory_current_owner_player','memory_m7_idle_diagnostic','protagonist_model','m9_sample','signal','diagnostics'];
           const frameType=allowed.includes(v?.type)?v.type:'other';
           const reason=this.runtime.counters.malformed>before.malformed?'invalid_contract':
             this.runtime.counters.gaps>before.gaps?'sequence_gap':
@@ -736,6 +757,10 @@ export class IntelligenceClient {
           sawLiveFrame=true;this.emptyHelloStreak=0;
         }
         if(accepted&&(v?.type==='hello'||v?.type==='world_epoch'))this.retireAuthenticatedNativeMemoryAuthority();
+        // anchors/observer_index are periodic roster re-sends, so they must not retire a
+        // still-valid sample: the M7 source re-verifies the exact observer on every frame.
+        if(!accepted||['hello','world_epoch','retire','retire_batch'].includes(v?.type))
+          this.retireAuthenticatedNativeM7Diagnostic();
         // Any source/protocol fault, anchor/owner change or epoch boundary
         // invalidates in-flight leases, not merely the next TTL refresh.
         if(!accepted || v?.type==='hello')
@@ -747,10 +772,15 @@ export class IntelligenceClient {
           this.retireAuthenticatedNativeOwnerPlayer('roster',
             v.type==='retire'?[v.payload.captureRef]:
             v.type==='retire_batch'?v.payload:[]);
-        const sourceReceipt=accepted&&['memory_authority','memory_current_owner_player'].includes(v?.type)
+        const sourceReceipt=accepted&&['memory_authority','memory_current_owner_player','memory_m7_idle_diagnostic'].includes(v?.type)
           ?Object.freeze({frame:immutableSnapshot(v)}):null;
         if(accepted&&v?.type==='memory_authority')for(const sub of [...this.memoryAuthoritySubscriptions]){
           try{sub.listener(sourceReceipt);}catch{try{sub.onRetire();}catch{}}
+        }
+        if(accepted&&v?.type==='memory_m7_idle_diagnostic'){
+          this.m7LastDiagnostic=Object.freeze({receivedAt:this.runtime.now(),receipt:sourceReceipt});
+          for(const item of [...this.m7DiagnosticSubscriptions])
+            try{item.listener(sourceReceipt);}catch{try{item.onRetire();}catch{}}
         }
         if(accepted&&v?.type==='memory_current_owner_player')
           for(const item of [...this.currentOwnerPlayerSubscriptions])
@@ -812,7 +842,7 @@ export class IntelligenceClient {
     socket.on('close',()=>{
       if(hello) this.emitReport(true);
       this.persist('intelligence_status',{stage:'disconnected'});
-      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.#revokeNative();this.retireAuthenticatedNativeMemoryAuthority();this.retireAuthenticatedNativeOwnerPlayer();this.publishHostContext(null);this.notifyKnowledgeInvalidation();
+      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.#revokeNative();this.retireAuthenticatedNativeMemoryAuthority();this.retireAuthenticatedNativeOwnerPlayer();this.retireAuthenticatedNativeM7Diagnostic();this.publishHostContext(null);this.notifyKnowledgeInvalidation();
       // While GTA is paused, hello may succeed but no owner-fiber data arrive.
       // The runtime tolerates a bounded owner stall (OWNER_STALL_BOUNDS) and
       // resets beyond it; only bound empty-handshake retry churn here.
@@ -834,7 +864,7 @@ export class IntelligenceClient {
   stop() {
     if(this.closed&&!this.socket)return;
     this.#revokeNative();
-    this.retireAuthenticatedNativeMemoryAuthority();this.retireAuthenticatedNativeOwnerPlayer();
+    this.retireAuthenticatedNativeMemoryAuthority();this.retireAuthenticatedNativeOwnerPlayer();this.retireAuthenticatedNativeM7Diagnostic();
     this.cancelDirectorRequests();this.closed=true;clearTimeout(this.retry);clearInterval(this.watch);clearTimeout(this.helloDeadline);if(this.work) clearImmediate(this.work);
     if(this.socket) this.socket.destroy(); else if(this.runtime.epoch) {this.emitReport(true);this.runtime.reset('disconnect');this.#revokeNative();this.retireAuthenticatedNativeMemoryAuthority();this.retireAuthenticatedNativeOwnerPlayer();this.publishHostContext(null);this.notifyKnowledgeInvalidation();}
   }
