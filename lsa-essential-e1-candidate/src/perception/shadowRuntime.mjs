@@ -29,7 +29,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 export class ShadowRuntime {
   constructor({ mode='off', radio='off', radioCatalog=null, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null, m9Events=null, trace=null, stall=null }={}) {
     this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
-    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialScenes=new Map();this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -132,7 +132,7 @@ export class ShadowRuntime {
     const kind=['initialization','disconnect','fault','timeout','manual'].includes(reason)?reason:'manual';
     this.lastResetReason='reset_'+kind;
     for(const ref of this.anchors.keys())this.recordMissingRef(ref,this.lastResetReason);
-    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.m9Events?.reset();this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.m9Events?.reset();this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialScenes.clear();
     this.anchors.clear();this.signals=[];this.producers.clear();this.observations?.clear();this.episodes?.clear();this.correlator?.clear();this.salience?.clear();this.transcripts?.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.leaseBase=0;this.stallNotified=false;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
   }
@@ -177,7 +177,7 @@ export class ShadowRuntime {
     this.episodes?.expire();
     this.salience?.expire(this.now());
   }
-  retire(ref,reason='retire') { if(this.anchors.has(ref))this.recordMissingRef(ref,reason);this.salience?.releaseReference(ref);this.anchors.delete(ref);this.observerIndex.delete(ref);this.observerSituations.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations?.expire();this.episodes?.expire(); }
+  retire(ref,reason='retire') { if(this.anchors.has(ref))this.recordMissingRef(ref,reason);this.salience?.releaseReference(ref);this.anchors.delete(ref);this.observerIndex.delete(ref);this.observerSituations.delete(ref);this.socialScenes.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations?.expire();this.episodes?.expire(); }
   retainSignal(value,critical,expires) {
     if(!critical && this.signals.filter(x=>!x.critical).length>=192) {
       const index=this.signals.findIndex(x=>!x.critical);
@@ -282,6 +282,19 @@ export class ShadowRuntime {
       catch {this.count('dropped');}
       // An ignored/disabled optional sample must never look like a transport
       // fault: a false return would retire the D02 native owner-player leases.
+      return true;
+    }
+    if(v.type==='director_social') {
+      const p=v.payload,owner=this.directorOwnerProofFor(p.speakerCaptureRef);
+      if(!this.hostContext || p.hostRunId!==this.hostContext.hostRunId ||
+         p.worldEpoch!==this.hostContext.worldEpoch ||
+         !owner || owner.ownerIncarnationId!==p.ownerIncarnationId ||
+         owner.proofRevision!==p.ownerProofRevision ||
+         !this.current(p.playerCaptureRef) ||
+         this.anchors.get(p.playerCaptureRef)?.kind!=='player'){
+        this.count('stale');return true;
+      }
+      this.socialScenes.set(p.speakerCaptureRef,Object.freeze({...p,receivedAt:this.now()}));
       return true;
     }
     if(v.type==='director_priority') {
@@ -476,6 +489,60 @@ export class ShadowRuntime {
       speakerCaptureRef:observerRef,
       ownerIncarnationId:index.incarnationId,
       proofRevision:row.ownerProofRevision,
+    });
+  }
+  // Native-social source is independently sampled by the native owner fiber,
+  // not inferred from a PS3 salience candidate, a player utterance or an
+  // arbitrary JS prompt. It is never itself permission to speak.
+  directorSocialFor(speaker) {
+    const sample=this.socialScenes.get(speaker),now=this.now();
+    if(!sample || !Number.isSafeInteger(now) ||
+       now<sample.receivedAt || now-sample.receivedAt>9000 ||
+       !this.epoch || !this.hostContext ||
+       sample.hostRunId!==this.hostContext.hostRunId ||
+       sample.worldEpoch!==this.hostContext.worldEpoch ||
+       !this.current(sample.playerCaptureRef))return null;
+    const owner=this.directorOwnerProofFor(speaker);
+    if(!owner || owner.ownerIncarnationId!==sample.ownerIncarnationId ||
+       owner.proofRevision!==sample.ownerProofRevision)return null;
+    return Object.freeze({
+      kind:'speech',source:'native_director_social',
+      speakerCaptureRef:speaker,playerCaptureRef:sample.playerCaptureRef,
+      observationId:sample.sceneId,observationRevision:1,
+      decisionKey:'social:'+sample.sceneId,policyVersion:1,
+      urgency:['shared_vehicle_entry','reunion','manual'].includes(sample.sceneType)?'urgent':'routine',
+      sceneType:sample.sceneType,role:sample.role,
+      expiresAtMonotonicMs:sample.receivedAt+9000,
+    });
+  }
+  directorSocialEntitlementFor(proposal,stamp) {
+    if(proposal?.source!=='native_director_social' ||
+       !stamp || proposal.speakerCaptureRef!==stamp.speakerCaptureRef ||
+       proposal.playerCaptureRef!==stamp.playerCaptureRef ||
+       proposal.policyVersion!==stamp.policyVersion ||
+       stamp.hostRunId!==this.hostContext?.hostRunId ||
+       stamp.worldEpoch!==this.hostContext?.worldEpoch)return null;
+    const native=this.directorSocialFor(proposal.speakerCaptureRef);
+    if(!native || native.observationId!==proposal.observationId ||
+       native.decisionKey!==proposal.decisionKey ||
+       native.urgency!==proposal.urgency ||
+       native.sceneType!==proposal.sceneType ||
+       native.role!==proposal.role)return null;
+    const owner=this.directorOwnerProofFor(proposal.speakerCaptureRef);
+    if(!owner || owner.ownerIncarnationId!==stamp.ownerIncarnationId ||
+       owner.proofRevision!==stamp.proofRevision)return null;
+    return Object.freeze({
+      source:'native_director_social',
+      hostRunId:stamp.hostRunId,worldEpoch:stamp.worldEpoch,
+      speakerCaptureRef:proposal.speakerCaptureRef,
+      playerCaptureRef:proposal.playerCaptureRef,
+      ownerIncarnationId:stamp.ownerIncarnationId,
+      proofRevision:stamp.proofRevision,
+      observationId:proposal.observationId,
+      observationRevision:proposal.observationRevision,
+      decisionKey:proposal.decisionKey,policyVersion:1,
+      expiresAtMonotonicMs:proposal.expiresAtMonotonicMs,
+      ageMs:Math.min(2000,Math.max(0,this.now()-(this.socialScenes.get(proposal.speakerCaptureRef)?.receivedAt??0))),
     });
   }
   // Companion-local ORIGINAL PS2 observation + PS3 ledger authorization.
