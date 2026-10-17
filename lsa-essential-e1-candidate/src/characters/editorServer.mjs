@@ -91,11 +91,13 @@ $('memories').replaceChildren();for(const memory of profile.memories){const bloc
 async function refresh(id=current?.characterId){profiles=await api('list');$('list').replaceChildren();for(const profile of profiles){const button=document.createElement('button');button.textContent=profile.name+' · '+profile.runtimeStatus;button.onclick=()=>select(profile);$('list').append(button);}const profile=profiles.find(item=>item.characterId===id);if(profile)select(profile);else {$('detail').hidden=true;current=null;inspectorReset();}}
 function editMemory(memory){editingMemory=memory.memoryId;const form=$('memory');form.elements.text.value=memory.text;form.elements.category.value=memory.category;form.elements.importance.value=memory.importance;form.elements.selected.checked=memory.selectedForContext;form.querySelector('button').textContent='Save memory';form.scrollIntoView({behavior:'smooth'});}
 $('promote').onclick=()=>run(async()=>{const profile=await api('promote');await refresh(profile.characterId);});$('refresh').onclick=()=>run(()=>refresh());
-$('socialStart').onclick=()=>run(async()=>{
-  const result=await api('director_social_manual');
-  if(!result.queued)throw Error('native_director_unavailable');
-  status('Manual invitation queued for native validation. In GTA, select the promoted NPC and watch the Director diagnostics for admission or rejection.');
-});
+$('socialStart').onclick=async()=>{
+  try{
+    const result=await api('director_social_manual');
+    if(!result.queued)throw Error('native_director_unavailable');
+    status('Invitation queued; native Director must still authorize the conversation. Select the promoted NPC in GTA.');
+  }catch(error){status(error.message.replaceAll('_',' '));}
+};
 for(const operation of ['summon','follow','wait','dismiss','despawn']){const button=document.createElement('button');button.textContent=operation[0].toUpperCase()+operation.slice(1);button.onclick=()=>operation==='summon'?summon(button):run(async()=>{await api('control',{characterId:current.characterId,operation});await refresh(current.characterId);});$('controls').append(button);}
 async function summon(button){if(summonPending||!current)return;const characterId=current.characterId;summonPending=true;button.disabled=true;status('Waiting for GTA — return to gameplay to complete summon (up to '+Math.ceil(summonWaitMs/1000)+' seconds).');try{await api('control',{characterId,operation:'summon'});await refresh(characterId);status('Character summoned.');}catch(error){status(error.message==='summon_wait_timeout'?'Summon timed out. Return to gameplay, then try Summon again.':error.message.replaceAll('_',' '));}finally{summonPending=false;button.disabled=false;}}
 $('profile').onsubmit=event=>{event.preventDefault();run(async()=>{const f=event.target.elements;await api('edit',{characterId:current.characterId,expectedRevision:current.revision,patch:{name:f.name.value.trim(),nicknames:lines(f.nicknames.value),biography:f.biography.value,personality:{description:f.personality.value,traits:lines(f.traits.value)},relationship:{state:f.relationshipState.value,description:f.relationship.value},playerNotes:f.playerNotes.value,status:f.availability.value}});await refresh();});};
