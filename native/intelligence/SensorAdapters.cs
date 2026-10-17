@@ -179,9 +179,10 @@ namespace LSA.Intelligence
             if(same && (string.IsNullOrEmpty(current.Vehicle) || current.Station.Length==0 ||
                 now<nextRadioRevalidate && !newQualifiedListener)) return null;
             bool establishing=previous==null;
-            // Keep three-sample debounce but let first actual native
-            // in-car radio track qualify after stabilization.
-            if(establishing && (string.IsNullOrEmpty(current.Vehicle) || current.Station.Length==0)) {radioBaseline=current;return null;}
+            // Preserve the established baseline-only first sample. On the
+            // following live sample, verified new listeners can receive an
+            // immediate source-time receipt without waiting 60 seconds.
+            if(establishing) {radioBaseline=current;return null;}
             if(!same && current.Station.Length>0 && current.Vehicle!=null) {
                 bool pendingSame=pendingRadio!=null && pendingRadio.Vehicle==current.Vehicle &&
                     pendingRadio.Station==current.Station && pendingRadio.SoundHash==current.SoundHash &&
