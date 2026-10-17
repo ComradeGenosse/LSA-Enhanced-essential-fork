@@ -74,6 +74,7 @@ test('ACT4 mode evidence and physical completion require distinct verified facts
  f.engine.facts.record({characterId:f.binding.characterId,activityId:activity.activityId,
   goalId:activity.goalId,intent:activity.template,kind:'mode_established',evidence:'mode_flag'},
   {...f.binding.hostContext,encounterId:f.binding.encounterId,incarnationId:f.binding.incarnationId});
+ activity.act4ModeStepId=activity.steps[activity.cursor].stepId;
  assert.equal(f.engine.stateForCharacter(f.binding).modeObserved,true);
  assert.match(projectActivityKnowledge(f.captured()).facts[0].text,/does not establish arrival/);
  activity.status='completed';activity.terminal={status:'completed',reason:'already_satisfied',atMs:1000};
@@ -82,6 +83,7 @@ test('ACT4 mode evidence and physical completion require distinct verified facts
  f.engine.facts.record({characterId:f.binding.characterId,activityId:activity.activityId,
   goalId:activity.goalId,intent:activity.template,kind:'completed',evidence:'world_strong'},
   {...f.binding.hostContext,encounterId:f.binding.encounterId,incarnationId:f.binding.incarnationId});
+ activity.act4CompletedStepId=activity.steps[activity.cursor].stepId;
  assert.equal(f.engine.stateForCharacter(f.binding).physicallyCompleted,true);
  assert.match(projectActivityKnowledge(f.captured()).facts[0].text,/physically completed with supporting native evidence/);
 });
@@ -119,4 +121,38 @@ test('ACT4 P0 capture preserves the original owner state and rejects a later nat
  f.engine.pause(f.binding.characterId);
  assert.equal(released.state.status,'admitting'); // No post-P0 mutation/refill.
  assert.equal(assertActivityKnowledgeCurrent(released,f.activities),'participant_retired');
+});
+
+test('ACT4 honors ACT3 step evidence boundaries and narrates supported intent names',()=>{
+ const f=fixture(),activity=f.engine.activities.at(-1);
+ const previous=activity.steps[0];
+ const next={...previous,stepId:randomUUID(),capability:'stop_and_face',status:'pending'};
+ activity.steps=[previous,next];activity.template='approach_and_face';activity.leaseEpoch=2;
+ activity.cursor=1;activity.status='running';
+ activity.act4ModeStepId=previous.stepId; // Previous step's mode must not leak.
+ activity.act4CompletedStepId=previous.stepId; // Previous physical completion is not the whole plan.
+ const active=f.engine.stateForCharacter(f.binding);
+ assert.equal(active.intent,'approach_and_face');
+ assert.equal(active.capability,'stop_and_face');
+ assert.equal(active.modeObserved,false);
+ assert.match(projectActivityKnowledge(f.captured()).facts[0].text,/come over and face the player/);
+ activity.act4ModeStepId=next.stepId;
+ assert.equal(f.engine.stateForCharacter(f.binding).modeObserved,true);
+ activity.status='completed';
+ activity.terminal={status:'completed',reason:'already_satisfied',atMs:1000};
+ assert.equal(f.engine.stateForCharacter(f.binding).physicallyCompleted,false);
+ activity.act4CompletedStepId=next.stepId; // Only matching final-step strong receipt qualifies.
+ assert.equal(f.engine.stateForCharacter(f.binding).physicallyCompleted,true);
+});
+
+test('ACT4 never infers whole-plan completion from an earlier ACT3 step receipt',()=>{
+ const f=fixture(),activity=f.engine.activities.at(-1);
+ const first=activity.steps[0];
+ activity.steps=[first,{...first,stepId:randomUUID(),capability:'hold_position',status:'pending'}];
+ activity.template='exit_vehicle_and_hold';activity.cursor=0;
+ activity.act4CompletedStepId=first.stepId;
+ activity.cursor=1;
+ activity.status='completed';
+ activity.terminal={status:'completed',reason:'already_satisfied',atMs:1000};
+ assert.equal(f.engine.stateForCharacter(f.binding).physicallyCompleted,false);
 });
