@@ -11,7 +11,7 @@ This is **not ACT3 physical execution, ACT5 model-proposed actions, or PS7 socia
 ## Activation and deployment
 
 - Deploy source/build from this PR through the normal E1 candidate process; do not copy the test code into GTA.
-- Existing opt-ins still apply: `activities.mode: "on"`, `dialogueKnowledge.mode: "active"`, and `dialogueKnowledge.activityFacts: "active"`, a valid PS4 contract, a healthy native ACT channel, and a currently owned promoted NPC. No setting is auto-enabled or rewritten.
+- Existing opt-ins still apply: `activities.mode: "on"`, `dialogueKnowledge.mode: "active"`, and `dialogueKnowledge.activityFacts: "active"`, a valid PS4 contract, a healthy native ACT channel, and a currently owned promoted NPC. The existing `ps.activity_facts` capability-health validation receipt must also match the deployed payload hash; source code alone does not bypass this gate. No setting is auto-enabled or rewritten.
 - Default-off/shadow/non-owned sessions do not receive model-visible ACT4 activity state.
 
 ## Verification
