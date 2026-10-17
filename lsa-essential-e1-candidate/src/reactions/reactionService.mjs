@@ -10,8 +10,8 @@ import { DELIVERY_VALUES } from '../voice/emotion/deliveryContract.mjs';
 //   validated AND Essential reported that this exact turn's audio really began
 //   playing. A line that fails validation, is rejected, is cancelled or never
 //   plays therefore never produces a frame.
-// - The turn's trusted speech-delivery value (ElevenLabs/Luna intent already
-//   resolved elsewhere) can only veto a gesture whose tone it contradicts.
+// - Trusted speech-delivery values from every resolved segment (ElevenLabs/Luna
+//   intent) can only veto a gesture whose tone they contradict.
 // - Every method is best effort: nothing here can delay, fail or alter a turn.
 // - Reports carry the reaction name and a reason code only, never line text.
 
@@ -29,15 +29,17 @@ export function createReactionService({ config, client, report = null } = {}) {
     openTurn({ identity, source, signal = null, isCurrent = () => true } = {}) {
       if (!identity || !REACTION_SOURCES.includes(String(source))) return null;
       counters.turns += 1;
-      let selection = null; let started = false; let ended = false; let sent = false; let released = false; let deliveryValue = null;
+      let selection = null; let started = false; let ended = false; let sent = false; let released = false;
+      const deliveryValues = new Set(); // bounded by the closed DELIVERY_VALUES vocabulary
 
       const maybeSend = () => {
         if (sent || released || ended || !started || !selection || selection.reaction === 'none') return;
         if (signal?.aborted || !isCurrent()) return;
         sent = true;
-        if (!deliveryAllows(selection.reaction, deliveryValue)) {
+        const veto = [...deliveryValues].find(value => !deliveryAllows(selection.reaction, value));
+        if (veto !== undefined) {
           counters.vetoed += 1;
-          emit('reaction_dropped', { reaction: selection.reaction, reason: 'delivery_veto', delivery: deliveryValue });
+          emit('reaction_dropped', { reaction: selection.reaction, reason: 'delivery_veto', delivery: veto });
           return;
         }
         const ok = client.send({
@@ -58,10 +60,11 @@ export function createReactionService({ config, client, report = null } = {}) {
           emit('reaction_selected', { reaction: selection.reaction, reason: selection.reason, score: selection.score });
           maybeSend();
         },
-        // First trusted delivery value of the turn (a validated enum, never text).
+        // All trusted segment delivery values can veto; none can select or strengthen.
+        // Never change a frame after it was already sent or rejected.
         delivery(value) {
-          if (released || deliveryValue !== null) return;
-          if (typeof value === 'string' && DELIVERY_VALUES.includes(value)) deliveryValue = value;
+          if (released || sent || ended) return;
+          if (typeof value === 'string' && DELIVERY_VALUES.includes(value)) deliveryValues.add(value);
         },
         native(event) {
           if (released || !event || typeof event.type !== 'string') return;
