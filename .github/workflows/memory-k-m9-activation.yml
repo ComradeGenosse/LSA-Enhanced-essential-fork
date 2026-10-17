@@ -1,0 +1,90 @@
+name: Memory K M9 activation (events, callbacks, native sampler)
+on:
+  push:
+    branches: [feature/memory-k-m9-activation-20261016]
+  pull_request:
+    paths:
+      - 'lsa-essential-e1-candidate/src/memory/m9*.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/**'
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
+      - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
+      - 'lsa-essential-e1-candidate/tests/m9-*.mjs'
+      - 'lsa-shared-brain/src/events/**'
+      - 'native/intelligence/**'
+      - 'native/promoted-characters/PromotedCharacters.csproj'
+      - 'tools/memory-k-verification/registrations/m9-activation.json'
+      - 'docs/plans/memory-k-m9-activation-20261016.md'
+      - '.github/workflows/memory-k-m9-activation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  node:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build Windows source-only harness used by the Node regression
+        if: runner.os == 'Windows'
+        run: dotnet build native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
+      - name: M9 runtime, callbacks, Director hook, bootstrap and policy tests
+        run: >
+          node --test --test-concurrency=1
+          lsa-essential-e1-candidate/tests/m9-events-runtime.test.mjs
+          lsa-essential-e1-candidate/tests/m9-callbacks.test.mjs
+          lsa-essential-e1-candidate/tests/m9-director-turn-hook.test.mjs
+          lsa-essential-e1-candidate/tests/m9-bootstrap.test.mjs
+          lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs
+          lsa-essential-e1-candidate/tests/memory-m9-completion.test.mjs
+          lsa-essential-e1-candidate/tests/memory-agent-b-events.test.mjs
+          lsa-essential-e1-candidate/tests/memory-k-native-source-only.test.mjs
+      - name: Shared brain M9 admission (owner alias regression)
+        working-directory: lsa-shared-brain
+        run: node --test tests/m9-production-source-admission.test.mjs
+      - name: Test inventory and packaging policy
+        run: node --test tools/memory-k-verification/tests/discovery.test.mjs tools/memory-sim/tests/w09-packaging-policy.test.mjs
+  native-portable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Mono runtime for the net481 harness
+        run: sudo apt-get update && sudo apt-get install -y mono-runtime libmono-system-web-extensions4.0-cil
+      - name: Producer policy and witness assertions
+        run: dotnet run --project native/intelligence/producer-policy-tests/ProducerPolicyTests.csproj --configuration Release
+      - name: M9 native sampler harness (isolated, no GTA or RPH)
+        run: |
+          dotnet build native/intelligence/m9-tests/M9NativeTests.csproj --configuration Debug
+          mono native/intelligence/m9-tests/bin/Debug/net481/M9NativeTests.exe --m9-wire
+      - name: Real native payloads satisfy the JS m9_sample contract
+        run: node --test lsa-essential-e1-candidate/tests/m9-native-wire.test.mjs
+  native-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: M9 native harness and JS wire contract
+        run: |
+          dotnet build native/intelligence/m9-tests/M9NativeTests.csproj --configuration Debug
+          node --test lsa-essential-e1-candidate/tests/m9-native-wire.test.mjs
+      - name: Integration (default build, M9 glue not compiled)
+        run: dotnet run --project native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
+      - name: Integration compiles with the opt-in M9 glue
+        run: dotnet build native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug -p:LsaM9Native=true

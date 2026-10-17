@@ -141,7 +141,8 @@ export function memoryKConsumersAllowed(config) {
   const backgroundRequested=requests['memory.deterministic']==='on'||
     requests['memory.cloudCuration']==='on';
   return Object.keys(requests).every(id=>id==='memory.deterministic'||
-    id==='memory.cloudCuration'||(id==='memory.inspector'&&backgroundRequested));
+    id==='memory.cloudCuration'||id==='memory.callbacks'||id.startsWith('events.')||
+    (id==='memory.inspector'&&backgroundRequested));
 }
 
 // Restart-required recording switches. Unspecified siblings in an explicit

@@ -90,7 +90,16 @@ async function plan(game,files) {
   for(const name of ['e1','promoted','enhanced']) if(digest(texts[name])!==master.metadata.baselines[name]) conflicts.push({code:'EXTERNAL_EDIT',detail:name+' changed since import/last apply. Re-import deliberately; no writes made.'});
   const generated=generate(master,raw);
   const essentialText=await essentialFile(game);
-  const check=validateConfigs(generated,master,essentialText);
+  // Imported, pre-existing overlaps can be preserved only while the
+  // read-only Essential bindings still match their import-time fingerprint.
+  // An older master lacking that fingerprint uses strict validation.
+  const essentialBaseline=master.metadata.essentialBindingsBaseline;
+  const importedEssentialUnchanged=typeof essentialBaseline==='string'&&
+    /^[0-9a-f]{64}$/.test(essentialBaseline)&&essentialText!==null&&
+    digest(essentialText)===essentialBaseline;
+  const check=validateConfigs(generated,master,essentialText,{
+    installedEnhanced:importedEssentialUnchanged?raw.enhanced:null,
+  });
   check.problems.push(...findDisabledFeatures(raw,generated,master.approvals||{}));
   check.ok=check.problems.length===0;
   const differences=Object.fromEntries(['e1','promoted','enhanced'].map(name=>[name,relativeChanges(raw[name],generated[name])]));
@@ -190,7 +199,8 @@ export async function run(command,{game,masterPath,activate=false,replace=false}
     if(command==='import') {
       if(!replace&&await exists(files.master)) throw new Error('Master already exists; import --replace deliberately if needed');
       const {raw,texts}=await readTargets(files);
-      const m={version:1,metadata:{active:false,importedAt:new Date().toISOString(),baselines:baselines(texts)},approvals:{},sections:importSections(raw)};
+      const essentialText=await essentialFile(game);
+      const m={version:1,metadata:{active:false,importedAt:new Date().toISOString(),baselines:baselines(texts),essentialBindingsBaseline:essentialText===null?null:digest(essentialText)},approvals:{},sections:importSections(raw)};
       assertNoSecrets(m);
       if(replace&&await exists(files.master)) {
         const importBackup=files.master+'.imports';

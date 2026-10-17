@@ -13,7 +13,7 @@ const player='24846870-fdcc-444f-9aca-7487d4c01048';
 const observationId='c9f50874-c003-4437-a944-9200cf6e30e5';
 const candidate={
  entitlementCurrent:true,observedAtMonotonicMs:9900,
- observation:{observationId,revision:1,observer:{captureRef:speaker,kind:'ped'},
+ observation:{observationId,revision:1,eventType:'firing_burst',observer:{captureRef:speaker,kind:'ped'},
    expiresAtMonotonicMs:15000,claims:[{certainty:'supported',evidence:{channel:'visual'}}]},
  decision:{observationId,revision:1,decisionKey:'original-ps3-decision',
    policyVersion:1,response:'eligible',expiresAtMonotonicMs:15000},
@@ -41,7 +41,7 @@ test('live PS3 candidate pump attempts only original owned candidates, once per 
  };
  const pump=new DirectorObservationPump({client:{runtime},coordinator:{
    attempt:async input=>{attempts.push(input);return {status:'shadow'};}
- },onResult:outcome=>results.push(outcome.status)});
+ },stampFor:()=>({}),onResult:outcome=>results.push(outcome.status)});
  assert.equal((await pump.tick()).status,'shadow');
  assert.equal(attempts.length,1);
  assert.equal(attempts[0].facts.speakerCaptureRef,speaker);

@@ -20,7 +20,22 @@ test('D2 producer policy is included in actual native production and affected ha
     assert.equal((text.match(/Compile Include="[^"]*NativeProducerPolicy.cs/g)??[]).length,1,project);
   }
   const production=await readFile(new URL('../../native/promoted-characters/PromotedCharacters.csproj',import.meta.url),'utf8');
-  assert.equal(production.includes('intelligence/m9/'),false,'M9 families remain unregistered');
+  // M9 native sources are never compiled by default: the only reference is an
+  // explicit LsaM9Native opt-in import, and no Compile item names an M9 file.
+  const compiled=[...production.matchAll(/<Compile Include="([^"]+)"/g)].flatMap(x=>x[1].split(';'));
+  assert.equal(compiled.some(x=>/intelligence\/m9\/|IntelligenceIntegration\.M9\.cs/.test(x)),false,'M9 families remain unregistered by default');
+  const imports=[...production.matchAll(/<Import [^>]*>/g)].map(x=>x[0]).filter(x=>x.includes('m9'));
+  assert.equal(imports.length,1);
+  assert.match(imports[0],/Condition="'\$\(LsaM9Native\)'=='true'"/);
+  const props=await readFile(new URL('../../native/intelligence/m9/M9Native.props',import.meta.url),'utf8');
+  assert.match(props,/LSA_M9_NATIVE/);
+  for(const file of ['M9NativeDamageAdapter','M9NativeFrameAdapter','M9OriginalVehicleCollisionProducer','M9StateSampler'])
+    assert.ok(props.includes(file+'.cs'),file);
+  const glue=await readFile(new URL('../../native/intelligence/IntelligenceIntegration.M9.cs',import.meta.url),'utf8');
+  assert.ok(glue.startsWith('#if LSA_M9_NATIVE'),'glue is wholly conditional');
+  assert.ok(glue.trimEnd().endsWith('#endif'));
+  const policy=await readFile(new URL('../../native/intelligence/NativeProducerPolicy.cs',import.meta.url),'utf8');
+  assert.match(policy,/m9Mode="off"/,'M9 native request defaults off');
 });
 
 test('D2 real native source-only wire is admitted by D1 strict private intake and current D02 port',async t=>{

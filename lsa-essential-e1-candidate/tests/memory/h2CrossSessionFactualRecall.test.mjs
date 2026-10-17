@@ -141,3 +141,32 @@ test('H2 preserves the actual player dog-name statements despite repeated incomp
   assert.equal(await h2.verifyPrepared(),true);
   assert.equal(h2.sendCurrent(),true);
 });
+
+test('H2 retrieves the original dog names when player repeats after failed audio playback',async st=>{
+  const f=await p2Fixture(st);
+  const dog=await f.say('Prana is our dog.',{at:ago(9000),sessionNonce:'old-prana'});
+  const corgis=await f.say('Our corgis are Koba and Nora.',{at:ago(8000),sessionNonce:'old-corgis'});
+  const vlad=await f.say("Vladimir's the Pomsky.",{at:ago(7000),sessionNonce:'old-pomsky'});
+  const first=await f.ask('do you remember my dogs names');
+  assert.equal(first.h2.status,'ready');
+  // Deliberately never commit an NPC playback receipt for that first attempt.
+  const second=await f.ask('wait what were they you got cut off');
+  const visible=delivered(second.h2);
+  for(const source of [dog,corgis,vlad])
+    assert(visible.some(row=>row.recordId===source.recordId),
+      'repeat must recover every original verified player fact');
+  for(const name of ['Prana','Koba','Nora','Vladimir'])
+    assert(visible.some(row=>row.content.includes(name)),name+' missing on repeated query');
+  assert.equal(await second.h2.verifyPrepared(),true);
+  assert.equal(second.h2.sendCurrent(),true);
+});
+
+test('H2 does not reinterpret an unrelated or expired repeat request as an old topic',async st=>{
+  const f=await p2Fixture(st);
+  await f.say('Prana is our dog.',{at:ago(9000),sessionNonce:'old-dogs'});
+  await f.say('I am drinking coffee.',{at:ago(3),sessionNonce:'coffee'});
+  const {h2}=await f.ask('wait what were they you got cut off');
+  const selected=h2.preparedRecall?.contribution?.items??[];
+  assert(!selected.some(row=>row.content.includes('Prana')),'unrelated dog memory is not reintroduced');
+  assert.equal(await h2.verifyPrepared(),true);
+});

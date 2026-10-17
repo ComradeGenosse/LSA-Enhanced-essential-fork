@@ -131,7 +131,8 @@ test('PS4 PERCEIVED uses salience but memory callbacks use sole PS4 assembler', 
   assert.ok(!callback['memory.callbacks'].missingDependencies.includes('ps4.perceived'));
   assert.ok(!callback['memory.callbacks'].dependencies.includes('ps4.perceived'));
   assert.equal(callback['ps4.assembler'].requestedMode,'on');
-  assert.equal(callback['memory.callbacks'].state,'unavailable'); // callback not wired
+  assert.equal(callback['memory.callbacks'].state,'unverified'); // registered seam; policy alone proves nothing
+  assert.equal(callback['memory.callbacks'].effectiveMode,null);
   const assemblerMissing=resolveMemoryKCapabilities({
     config:{capabilities:{'ps4.perceived':'on'}},
     available:{...registered,'ps4.assembler':false}
@@ -181,8 +182,16 @@ test('background workers and producer policy are independent of active capture/c
   // M7 now has a production runtime but, like M6, policy alone never proves operation.
   assert.equal(state['memory.cloudCuration'].state,'unverified');
   assert.equal(state['memory.cloudCuration'].effectiveMode,null);
-  assert.equal(state['events.rollover'].state,'unavailable'); // no compiled producer
+  // M9 families now exist but need the PS1/PS2 pipeline, never memory.events.
+  assert.equal(state['events.rollover'].state,'blocked');
+  assert.ok(state['events.rollover'].missingDependencies.includes('ps1.producers'));
   assert.equal(state['events.rollover'].effectiveMode,null);
+  const ready=resolve({'events.rollover':'on','ps1.producers':'on','ps2.observations':'on'});
+  assert.equal(ready['events.rollover'].state,'unverified');
+  assert.ok(ready['events.rollover'].blockers.includes('m9_native_sample_and_witness_unverified'));
+  assert.ok(!ready['events.rollover'].dependencies.includes('memory.events'));
+  for (const id of ['events.crash','events.airborne','events.water','events.wanted','events.wasted','events.busted'])
+    assert.ok(MEMORY_K_CAPABILITIES.some(row=>row.id===id),id);
   const blocked=resolve({'memory.callbacks':'on','ps6.speech':'on'});
   assert.ok(blocked['memory.callbacks'].missingDependencies.includes('memory.events'));
   assert.ok(blocked['memory.callbacks'].missingDependencies.includes('ps3.salience'));

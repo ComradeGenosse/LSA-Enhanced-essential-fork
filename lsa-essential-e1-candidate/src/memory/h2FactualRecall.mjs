@@ -34,6 +34,20 @@ const validAccepted=e=>e?.kind==='dialogue_line'&&UUID.test(e.recordId)&&
   Number.isFinite(Date.parse(e.committedAtUtc))&&e.speaker==='player'&&
   e.delivery==='accepted'&&['typed','stt'].includes(e.source);
 const ms=n=>Math.round(n*1000)/1000;
+// Reconstruct only a RECENT, authentic player question after an audio cutoff.
+ // Never use an unplayed NPC response as an asserted fact.
+ const REPEAT_UNHEARD=/\b(?:got cut off|you (?:cut out|were cut off)|didn['’]t hear|couldn['’]t hear|repeat (?:that|it|yourself)|say (?:that|it) again|what (?:were|are) they|what did you (?:just )?say)\b/i;
+ const QUESTION_LIKE=/\?|\b(?:what|who|where|when|why|how|which|do you remember|tell me|remind me|can you|could you)\b/i;
+ function repeatQuestionSource(rows,line,scope,input,hiddenIds){
+   if(input.length>220||!REPEAT_UNHEARD.test(input))return null;
+   const prior=rows.filter(row=>row.recordId!==line.recordId&&validAccepted(row)&&
+     matchesScope(row,scope)).sort((a,b)=>Date.parse(b.committedAtUtc)-Date.parse(a.committedAtUtc))[0];
+   if(!prior||hiddenIds.has(prior.recordId)||!QUESTION_LIKE.test(prior.content)||
+      REPEAT_UNHEARD.test(prior.content))return null;
+   const age=Date.parse(line.committedAtUtc)-Date.parse(prior.committedAtUtc);
+   return age>=0&&age<=120000?prior:null;
+ }
+
 
 function refuse(status,reason,timings=null){
   return Object.freeze({status,reason,preparedRecall:null,timings,
@@ -120,10 +134,14 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
       if(!current())throw Error('memory_source_revoked');
       return new Set([...ids,...corrections.filter(x=>x.supersedesTarget!==false).map(x=>x.targetId)]);
     };
+const repeatHidden=REPEAT_UNHEARD.test(input)?await hidden():null;
+    if(!current())return done(refuse('blocked','memory_source_revoked',timings));
+    const repeatSource=repeatHidden?repeatQuestionSource(rows,line,scope,input,repeatHidden):null;
+    const recallQuestion=repeatSource?.content??input;
     const query={version:1,kind:'recall_query',queryId,characterId,
       worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
-      turnIdentityHash:line.turnIdentityHash,question:input,
-      intent:/\b(quote|exact words|word for word)\b/i.test(input)?'exact_quote':'open_recall',
+      turnIdentityHash:line.turnIdentityHash,question:recallQuestion,
+      intent:/\b(quote|exact words|word for word)\b/i.test(recallQuestion)?'exact_quote':'open_recall',
       maxBytes:4096};
     const sourceReader=createP2IntegratedRecallAdapter(store);
     // One read path for first preparation and revalidation. The current accepted
@@ -239,6 +257,9 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
         if(!current())return fail();
         // The accepted line itself must be byte-identical (not forgotten/corrected).
         if(JSON.stringify(freshRows.find(r=>r.recordId===line.recordId))!==JSON.stringify(line))return fail();
+        if(repeatSource&&(freshHidden.has(repeatSource.recordId)||
+          JSON.stringify(freshRows.find(r=>r.recordId===repeatSource.recordId))!==JSON.stringify(repeatSource)))
+          return fail();
         if(labelled.items.some(x=>freshHidden.has(x.recordId)))return fail();
         const fresh=await runRecall();
         if(fresh.failed)return fail();

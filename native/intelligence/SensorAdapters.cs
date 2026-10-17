@@ -21,7 +21,8 @@ namespace LSA.Intelligence
     {
         readonly NativeProducerPolicy policy;
         public SensorAdapters(NativeProducerPolicy policy=null) {this.policy=policy??new NativeProducerPolicy(radioMode:"shadow");}
-        public bool Allows(string producer)=>policy.Allows(producer);
+        // The M9 state sampler has its own m9_sample frame; it can never be a signal producer.
+        public bool Allows(string producer)=>producer!=NativeProducerPolicy.M9Producer&&policy.Allows(producer);
         readonly object gate=new object();
         readonly LinkedList<RawSignal> queue=new LinkedList<RawSignal>();
         readonly Dictionary<string,long> sequences=new Dictionary<string,long>();
@@ -30,6 +31,7 @@ namespace LSA.Intelligence
         readonly Dictionary<string,VehicleSample> vehicles=new Dictionary<string,VehicleSample>();
         readonly Dictionary<string,long> received=new Dictionary<string,long>();
         public Func<RawSignal,List<WitnessReceipt>> WitnessEvaluator {get;set;}
+        public Action<RawSignal> OriginalVehicleCollision {get;set;}
         public Dictionary<string,long> Counters {get {lock(gate) return new Dictionary<string,long>(received);}}
         readonly Dictionary<string,long> damageCallbacks=new Dictionary<string,long>{{"ped_damage",0},{"player_damage",0},{"vehicle_damage",0}};
         public Dictionary<string,long> DamageCallbacks {get {lock(gate) return new Dictionary<string,long>(damageCallbacks);}}
@@ -94,7 +96,24 @@ namespace LSA.Intelligence
             var signal=new RawSignal {producer=producer,kind=producer=="vehicle_damage"?"vehicle_damage":"damage",target=target,source=attacker,gameTick=tick,receivedMs=now,Critical=critical};
             signal.facts.Add("damage",damage); signal.facts.Add("armour",armour);
             signal.facts.Add("classification",classification??"unknown"); if(collision!=null) signal.facts.Add("collision",collision);
+            // M9 provenance: the exact RawSignal object created by this original
+            // DamageTracker callback is staged BEFORE it becomes observable to
+            // any other consumer. Staging cannot veto or alter the P2 path.
+            if(producer=="vehicle_damage" && classification=="collision")
+                try {OriginalVehicleCollision?.Invoke(signal);} catch {}
             return Enqueue(signal);
+        }
+        // Strictly verified actual corpse visible on current owner-fiber tick.
+        // Damage callbacks cannot invoke this path.
+        public bool BodyDiscovered(string target,WitnessReceipt witness,uint tick,long now)
+        {
+            if(!Enabled||!Allows("state")||String.IsNullOrEmpty(target)||
+                witness==null||witness.Status!="witnessed"||
+                witness.Channel!="visual"||witness.Basis!="sampled_state"||
+                witness.SampledGameTick!=tick||String.IsNullOrEmpty(witness.Observer))return false;
+            return Enqueue(new RawSignal {producer="state",kind="body_discovered",target=target,
+                gameTick=tick,receivedMs=now,Critical=false,
+                witnessReceipts=new List<WitnessReceipt>{witness}});
         }
         RawSignal Prepare(RawSignal signal)
         {try {signal.witnessReceipts=WitnessEvaluator?.Invoke(signal)??new List<WitnessReceipt>();}catch {signal.witnessReceipts=new List<WitnessReceipt>();}return signal;}
