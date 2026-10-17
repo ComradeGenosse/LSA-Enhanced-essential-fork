@@ -24,7 +24,7 @@ namespace LSA.Intelligence
             public int Vehicle;
             public bool Near,WasShared,EntryPending;
             public string Activity;
-            public long NearSince,IdleSince,TripSince,LastSeen,LastSharedExit;
+            public long NearSince,IdleSince,TripSince,LastSeen,LastSharedExit,NextPublish;
             public long LastTransition=-90000;
             public long LastGreeting=-600000,LastEntry=-600000,LastIdle=-600000,LastTravel=-600000;
             public int LastEntryVehicle;
@@ -63,7 +63,8 @@ namespace LSA.Intelligence
                 Owner=owner,OwnerRevision=revision,Host=host,World=world,
                 Role=role,Vehicle=vehicle,Revision=1,Created=now,Expires=now+10000
             };
-            track.Current=scene;scenes[scene.Id]=scene;return scene;
+            if(track.Current!=null)scenes.Remove(track.Current.Id);
+            track.Current=scene;track.NextPublish=now;scenes[scene.Id]=scene;return scene;
         }
         public object[] Sample(IEnumerable<EntityAnchor> current,
               IEnumerable<OwnedParticipant> roster,string host,int world,uint gameTick) {
@@ -135,25 +136,35 @@ namespace LSA.Intelligence
                 // relation (same vehicle or physical proximity) is current.
                 if(track.Current!=null) {
                     var valid=track.Current.Vehicle!=0?sharedCar&&actorCar==track.Current.Vehicle:near&&!sharedCar;
-                    if(!valid || track.Current.OwnerRevision!=state.Revision) {
+                    if(!valid || track.Current.Expires<=now ||
+                       track.Current.OwnerRevision!=state.Revision) {
                         scenes.Remove(track.Current.Id);track.Current=null;
                     }
                 }
-                if(kind==null)continue;
-                var scene=Emit(track,kind,anchor.CaptureRef,playerAnchor.CaptureRef,
+                if(kind!=null)Emit(track,kind,anchor.CaptureRef,playerAnchor.CaptureRef,
                     owner.Lifetime,state.Revision,host,world,actorCar,
                     Role(ped,playerPed,actorCar),now);
-                output.Add(new {
-                    socialVersion=1,hostRunId=host,worldEpoch=world,sampledGameTick=gameTick,
-                    sceneId=scene.Id,sceneType=scene.Kind,speakerCaptureRef=scene.Speaker,
-                    playerCaptureRef=scene.Player,ownerIncarnationId=scene.Owner,
-                    ownerProofRevision=scene.OwnerRevision,role=scene.Role
-                });
+                // A native social frame may arrive just before the companion
+                // receives the fresh observer situation. Replay the SAME
+                // source scene ID at a bounded cadence, never create a
+                // second opportunity or a second speech ticket.
+                if(track.Current!=null && track.Current.ClaimedTicket==null &&
+                   now>=track.NextPublish) {
+                    output.Add(Frame(track.Current,gameTick));
+                    track.NextPublish=now+1000;
+                }
             }
             foreach(var key in actors.Where(x=>x.Value.LastSeen<now-30000).Select(x=>x.Key).ToArray())
                 actors.Remove(key);
             return output.ToArray();
         }
+        static object Frame(Scene scene,uint gameTick)=>new {
+            socialVersion=1,hostRunId=scene.Host,worldEpoch=scene.World,
+            sampledGameTick=gameTick,sceneId=scene.Id,sceneType=scene.Kind,
+            speakerCaptureRef=scene.Speaker,playerCaptureRef=scene.Player,
+            ownerIncarnationId=scene.Owner,ownerProofRevision=scene.OwnerRevision,
+            role=scene.Role
+        };
         // Explicit user debug invitation uses the identical scene ledger and
         // native C-06/Essential stock path as automatic opportunities. The
         // current Essential-selected promoted NPC, not arbitrary user-supplied
@@ -186,11 +197,7 @@ namespace LSA.Intelligence
             var scene=Emit(track,"manual",anchor.CaptureRef,player.CaptureRef,
                 owner.Lifetime,state.Revision,host,world,shared?car:0,
                 Role(selected,local,shared?car:0),now);
-            return new {socialVersion=1,hostRunId=host,worldEpoch=world,
-                sampledGameTick=gameTick,sceneId=scene.Id,sceneType=scene.Kind,
-                speakerCaptureRef=scene.Speaker,playerCaptureRef=scene.Player,
-                ownerIncarnationId=scene.Owner,
-                ownerProofRevision=scene.OwnerRevision,role=scene.Role};
+            return Frame(scene,gameTick);
         }
         public bool Current(DirectorAdmission.Request request) {
             if(request==null || string.IsNullOrEmpty(request.DecisionKey) ||
