@@ -156,7 +156,7 @@ namespace LSA.Intelligence
             this.memoryCurrentOwnerPlayerSample=memoryCurrentOwnerPlayerSample;
             this.directorShadow=this.producerPolicy.Any&&(directorShadow || directorExperimental);
             this.directorExperimental=this.directorShadow&&directorExperimental;
-            this.protagonistEvidenceEnabled=protagonistEvidenceEnabled&&this.directorShadow;
+            this.protagonistEvidenceEnabled=protagonistEvidenceEnabled&&(directorShadow||directorExperimental);
             ps3Receipts=new DirectorPs3Receipts(()=>this.host.MonotonicMs,()=>this.host.HostRunId,()=>this.host.WorldEpoch);
             originalTurns=new DirectorOriginalTurnReceipts(()=>this.host.MonotonicMs,
                 ()=>this.host.HostRunId,()=>this.host.WorldEpoch,
@@ -190,7 +190,7 @@ namespace LSA.Intelligence
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
             if(channel?.Send("world_epoch",new {epoch,reason})!=true) {
-                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,memoryCurrentOwnerPlayerSample!=null);channel.Start();connectionVersion=0;
+                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow||protagonistEvidenceEnabled,memoryCurrentOwnerPlayerSample!=null);channel.Start();connectionVersion=0;
             }
             nextRefresh=nextDiscovery=nextState=nextShot=0;
             LogStatus("[PS] clock_reset");
@@ -212,7 +212,7 @@ namespace LSA.Intelligence
                  if(directorShadow)LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Attach();
                 anchors.Retired+=OnRetired;anchors.Retirement+=OnRetirement;
                 InitializeProducerAdapters();
-                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,memoryCurrentOwnerPlayerSample!=null);channel.Start();
+                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow||protagonistEvidenceEnabled,memoryCurrentOwnerPlayerSample!=null);channel.Start();
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
                 if(radioEnabled)Game.LogTrivial("[PS] radio_shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
@@ -721,7 +721,7 @@ namespace LSA.Intelligence
         // invokes kb/Essential, or consumes any PS3 response entitlement.
         void DrainDirectorPreview()
         {
-            if(!directorShadow || channel==null)return;
+            if(!(directorShadow||protagonistEvidenceEnabled)||channel==null)return;
             for(int n=0;n<4 && channel.TryTakeDirectorFrame(out var frame);n++) {
                 if(protagonistEvidenceEnabled&&
                    channel.AcceptProtagonistConsumer(frame,host.HostRunId,host.WorldEpoch)){
