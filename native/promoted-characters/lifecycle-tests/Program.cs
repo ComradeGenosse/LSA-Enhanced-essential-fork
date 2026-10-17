@@ -126,6 +126,49 @@ class Program
         var wire=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(new JavaScriptSerializer().Serialize(follow));
         Check(wire.Count==3 && (string)wire["owner"]=="essential_residual" && (string)wire["mode"]=="follow" && Convert.ToUInt32(wire["since"])==30);
     }
+    static void CompatibleActSpeechProof()
+    {
+        // Use the real P2 roster reader and real StepRunner live-execution
+        // table; no ACT request, GTA task, or new speech authority is created.
+        var integration=Create(out _);
+        var ped=new Ped{Handle=91,MemoryAddress=new IntPtr(91)};
+        var encounter=(Encounter)typeof(PromotedCharactersIntegration).GetMethod(
+            "EncounterFor",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(integration,new object[]{ped});
+        encounter.OwnerAlias="promoted."+Guid.NewGuid().ToString("D");
+        encounter.Registration=SessionIdentityIntegration.Current.Owner.Register(ped,encounter.OwnerAlias,WorldId);
+        encounter.Owner=PrimaryBehaviorOwner.Transition(encounter.Owner,"act","activity",100);
+        var runner=new LSA.Activities.StepRunner(LSA.Activities.CapabilityTable.LoadEmbedded());
+        typeof(PromotedCharactersIntegration).GetField("activityRunner",BindingFlags.Instance|BindingFlags.NonPublic)
+            .SetValue(integration,runner);
+        var executions=(Dictionary<string,LSA.Activities.LiveExecution>)typeof(LSA.Activities.StepRunner)
+            .GetField("active",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(runner);
+        var step=new LSA.Activities.LiveExecution{
+            EncounterId=encounter.Id,IncarnationId=encounter.Registration.IncarnationId,
+            Capability="follow_person",State="DISPATCHED",LostSince=-1
+        };
+        executions.Add(encounter.Id,step);
+        try {
+            var owner=integration.PerceptionRoster().Single(x=>x.Lifetime==encounter.Registration.IncarnationId);
+            Check(owner.DirectorOwner().SpeechActivityCapability==null); // queued task is not speech-safe
+            step.State="HANDLER_ACCEPTED";Check(owner.DirectorOwner().SpeechActivityCapability==null);
+            step.State="MODE_ESTABLISHED";Check(owner.DirectorOwner().SpeechActivityCapability=="follow_person");
+            step.LostSince=10;Check(owner.DirectorOwner().SpeechActivityCapability==null);
+            step.LostSince=-1;step.ModeHealth="lost";Check(owner.DirectorOwner().SpeechActivityCapability==null);
+            step.ModeHealth="healthy";step.Capability="approach_person";step.State="HANDLER_ACCEPTED";
+            Check(owner.DirectorOwner().SpeechActivityCapability==null);
+            step.ProgressSeen=true;Check(owner.DirectorOwner().SpeechActivityCapability=="approach_person");
+            step.IncarnationId=Guid.NewGuid().ToString("D");
+            Check(owner.DirectorOwner().SpeechActivityCapability==null);
+            step.IncarnationId=encounter.Registration.IncarnationId;step.Terminal=true;
+            Check(owner.DirectorOwner().SpeechActivityCapability==null);
+            step.Terminal=false;encounter.Owner=PrimaryBehaviorOwner.Transition(encounter.Owner,"essential_residual","unknown",101);
+            Check(owner.DirectorOwner().SpeechActivityCapability==null);
+            encounter.Owner=PrimaryBehaviorOwner.Transition(encounter.Owner,"act","activity",102);
+            encounter.Registration=null;
+            Check(owner.DirectorOwner()==null); // retired incarnation is never rebased
+        } finally {executions.Clear();integration.Shutdown();}
+    }
+
     static void NativeOwnerSamples()
     {
         // Exercise production refresh rather than only its pure token helper.
@@ -181,7 +224,7 @@ class Program
     static void Main()
     {
         try {
-            MicReadFailure(); PrimaryOwnerTruth(); NativeOwnerSamples(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); RegisteredWrapperContinuity(); DialogueActorResolution(); DialogueObserverLifetime(); TalkRecipientResolution();
+            MicReadFailure(); PrimaryOwnerTruth(); NativeOwnerSamples(); CompatibleActSpeechProof(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); RegisteredWrapperContinuity(); DialogueActorResolution(); DialogueObserverLifetime(); TalkRecipientResolution();
             Console.WriteLine("P2 production clock recovery and Windows pipe cancellation: " + count + " assertions passed; no game assemblies loaded.");
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name + ": " + error.Message); Environment.ExitCode = 1; }
     }
