@@ -496,13 +496,15 @@ export async function createRuntimeForBundle(options = {}) {
       // PS3 grants expire during ordinary TTS; native verifies the original
       // bound Core tuple and current player-priority epoch at playback end.
       if(stage==='complete')return true;
-      return client.directorOriginalEntitlement(proposal,stamp)?.source===
-        'original_companion_ps2_ps3';
+      return ['original_companion_ps2_ps3','native_director_social'].includes(
+        client.directorOriginalEntitlement(proposal,stamp)?.source);
     };
     const admission=new DirectorSpeechReservations({
       now,enabled:experimental,checkCurrent:sourceCheck,
       limits:directorSpeechLimitsForPreset(config.spontaneousSpeech.preset),
       acknowledge:(decisionKey,consumer,outcome,proposal)=>
+        consumer==='ps6_ticket' && outcome==='delivered' && proposal?.decisionKey===decisionKey &&
+          proposal?.source==='native_director_social' ? true :
         consumer==='ps6_ticket' && outcome==='delivered' && proposal?.decisionKey===decisionKey
           ? client.runtime.salience.acknowledgeDirectorCompletion(proposal,client.runtime.epoch)
           : false,
