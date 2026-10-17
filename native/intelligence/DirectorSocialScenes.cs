@@ -154,6 +154,44 @@ namespace LSA.Intelligence
                 actors.Remove(key);
             return output.ToArray();
         }
+        // Explicit user debug invitation uses the identical scene ledger and
+        // native C-06/Essential stock path as automatic opportunities. The
+        // current Essential-selected promoted NPC, not arbitrary user-supplied
+        // PedId or character text, determines the receiver.
+        public object Manual(IEnumerable<EntityAnchor> current,
+            IEnumerable<OwnedParticipant> roster,Ped selected,string host,int world,uint gameTick) {
+            var now=clock();
+            var player=current.FirstOrDefault(a=>a.Kind=="player");
+            var local=player?.Entity as Ped;
+            if(!Live(selected) || !Live(local) ||
+               selected.Position.DistanceTo(local.Position)>20)return null;
+            var anchor=current.FirstOrDefault(a=>a.Kind=="ped" && a.Observer &&
+                a.OwnerLifetime!=null && ReferenceEquals(a.Entity,selected));
+            if(anchor==null)return null;
+            var owner=roster.FirstOrDefault(o=>o!=null && o.Current?.Invoke()==true &&
+                ReferenceEquals(o.Ped,selected)&&o.Lifetime==anchor.OwnerLifetime);
+            var state=owner?.DirectorOwner?.Invoke();
+            if(state==null || state.Suspended || state.Revision<=0)return null;
+            Track track;
+            if(!actors.TryGetValue(anchor.CaptureRef,out track) || track.Owner!=owner.Lifetime) {
+                track=new Track{Owner=owner.Lifetime,Near=true,NearSince=now,IdleSince=now,TripSince=now};
+                actors[anchor.CaptureRef]=track;
+            }
+            // Explicit user action can initiate a fresh opportunity, but a
+            // duplicate click cannot queue overlapping native scenes.
+            if(track.Current!=null && track.Current.Expires>now &&
+               track.Current.Kind=="manual")return null;
+            var car=VehicleHandle(selected),playerCar=VehicleHandle(local);
+            var shared=car!=0 && car==playerCar;
+            var scene=Emit(track,"manual",anchor.CaptureRef,player.CaptureRef,
+                owner.Lifetime,state.Revision,host,world,shared?car:0,
+                Role(selected,local,shared?car:0),now);
+            return new {socialVersion=1,hostRunId=host,worldEpoch=world,
+                sampledGameTick=gameTick,sceneId=scene.Id,sceneType=scene.Kind,
+                speakerCaptureRef=scene.Speaker,playerCaptureRef=scene.Player,
+                ownerIncarnationId=scene.Owner,
+                ownerProofRevision=scene.OwnerRevision,role=scene.Role};
+        }
         public bool Current(DirectorAdmission.Request request) {
             if(request==null || string.IsNullOrEmpty(request.DecisionKey) ||
                !request.DecisionKey.StartsWith("social:",StringComparison.Ordinal))return false;
