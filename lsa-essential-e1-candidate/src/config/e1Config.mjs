@@ -7,6 +7,7 @@ import { normalizeIdentityConfig } from '../identity/identityContract.mjs';
 import { normalizeCharacterConfig } from '../characters/characterService.mjs';
 import { normalizePerceptionConfig } from '../perception/contracts.mjs';
 import { normalizeActivityConfig } from '../activities/contracts.mjs';
+import { normalizeReactionConfig } from '../reactions/reactionConfig.mjs';
 import { normalizeDialogueLoggingConfig } from '../observability/dialogueTrace.mjs';
 import { normalizeMemoryKConfig } from '../memory/capabilityPolicy.mjs';
 
@@ -188,6 +189,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     spontaneousSpeech: Object.freeze({mode:speechMode,preset:speechPreset}),
     dialogueKnowledge: normalizeDialogueKnowledge(input.dialogueKnowledge),
     activities: normalizeActivityConfig(input.activities),
+    reactions: normalizeReactionConfig(input.reactions),
     dialogueLogging: normalizeDialogueLoggingConfig(input.dialogueLogging, boundedInteger),
     reasoningModel, reasoningEffort, transcriptionModel, ttsModel, ttsVoice,
     speechVoices: Object.freeze(speechVoices), speechVoiceProfiles, voiceAssignment, ttsSpeed, actingEnabled, speechInstructionsSupported,

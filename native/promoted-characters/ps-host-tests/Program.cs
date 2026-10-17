@@ -55,6 +55,16 @@ static class Program
 
 namespace Rage
 {
+    public sealed class Ped
+    {
+        public uint Handle;
+        // Match the real RAGE Ped members used by RuntimeEntry's fail-closed
+        // gesture ownership check. Keep production checks intact.
+        public bool Alive = true, IsDead;
+        public bool Exists()=>Alive;
+        public override bool Equals(object value) => value is Ped other && other.Handle==Handle;
+        public override int GetHashCode()=> (int)Handle;
+    }
     public static class Game {public static readonly List<string> Logs=new List<string>();public static void LogTrivial(string text)=>Logs.Add(text);}
     public static class GameFiber {public static Action<int> OnSleep;public static void StartNew(Action work,string name)=>work();public static void Yield(){}public static void Sleep(int ms)=>OnSleep(ms);}
 }
@@ -71,6 +81,10 @@ namespace LosSantosAlive.Integrations
 }
 namespace LSA.PromotedCharacters
 {
+    internal sealed class PrimaryBehaviorOwner
+    {
+        public string owner,mode;
+    }
     public sealed class PromotedCharactersIntegration:LosSantosAlive.Integrations.IIntegration
     {
         public static PromotedCharactersIntegration Instance;public bool IsAvailable{get;private set;}public int ShutdownCalls;internal string UnavailabilityReason{get;private set;}="none";
@@ -97,7 +111,7 @@ namespace LSA.PromotedCharacters
 namespace LSA.Intelligence
 {
     public static class DirectorAdmission {public const int NormalMaxAttempts=4,TestingMaxAttempts=12;}
-    public sealed class OwnedParticipant { }
+    public sealed class OwnedParticipant { public Rage.Ped Ped; public Func<object> PrimaryOwner; public Func<bool> Current; }
     public sealed class IntelligenceIntegration:LosSantosAlive.Integrations.IIntegration
     {
         public static IntelligenceIntegration Instance;public bool IsAvailable{get;private set;}public long UpdateCalls;public int ShutdownCalls;public string ShutdownReason="none";
@@ -110,5 +124,31 @@ namespace LSA.Intelligence
         internal void Shutdown(string reason){ShutdownCalls++;ShutdownReason=reason;IsAvailable=false;}
         internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls;
         internal static void LogStatus(string text)=>Rage.Game.LogTrivial(text);
+    }
+}
+
+namespace LSA.Reactions
+{
+    // Compile-only optional host facade. Native reactions are exercised by
+    // native/reactions/tests; PS host's existing scenarios leave them off.
+    public sealed class ReactionOptions
+    {
+        public string Mode;
+        public bool AllowDuringOwnedBehavior;
+        public readonly HashSet<string> Disabled=new HashSet<string>();
+    }
+    public static class ReactionCatalog
+    {
+        public static bool IsKnown(string name)=>name=="facepalm" || name=="middle_finger";
+    }
+    public sealed class ReactionIntegration:LosSantosAlive.Integrations.IIntegration
+    {
+        public ReactionIntegration(ReactionOptions options,string pipeName,string hostRunId,
+            Func<int> epoch,Func<long> now,Func<Rage.Ped,bool> owns) { }
+        public bool IsAvailable=>false;
+        public void Initialize() { }
+        public void Update() { }
+        public void WorldChanged(string reason) { }
+        public void RequestShutdown() { }
     }
 }

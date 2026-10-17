@@ -68,6 +68,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   const isPlayer = PLAYER_SOURCES.has(source);
   const dialogueTurn = services.dialogueTrace?.beginTurn(identity, source);
   let observation;
+  let reaction = null;
   let state = 'bound';
   let terminalReason = '';
   let underlyingNativeCause = null;
@@ -205,6 +206,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   try {
     check();
     host.assertCapabilities();
+    try { reaction = services.reactions?.openTurn({ identity, source, signal: controller.signal, isCurrent: valid }) ?? null; }
+    catch { reaction = null; }
     observation = host.observe(identity, controller.signal, event => {
       const reason = terminalForNativeEvent(event);
       if (event.type === 'playback_ended' && endSent && event.reason === 'completed' &&
@@ -217,6 +220,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       if (!controller.signal.aborted) controller.abort(new Error(reason));
     }, event => {
       try { speech?.native(event); } catch { /* evidence only */ }
+      try { reaction?.native(event); } catch { /* cosmetic only */ }
       notifyVoice('nativePlayback', identity, event.type);
       const map = {
         audio_turn_accepted: 'native_authorization_accepted',
@@ -541,6 +545,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     try { speech?.planned(decision.dialogue); } catch { /* evidence only */ }
     metrics?.event('decision_validated', { inputChars: String(decision.dialogue || '').length, attempts: validated.actionCount || 0, outcome: validated.actionCount ? 'accepted' : 'normal' });
     dialogueTurn?.decision({ dialogue: decision.dialogue, command: decision.command, internalTranscript: validated.internalTranscript });
+    try { reaction?.validated({ dialogue: decision.dialogue, command: decision.command, actionCount: validated.actionCount }); }
+    catch { /* cosmetic only */ }
     history.stage({ identity, spokenReply: decision.dialogue });
     metrics?.count('assistantStageCount');
     metrics?.event('assistant_history_staged', { outputChars: String(decision.dialogue || '').length });
@@ -660,6 +666,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     try { acceptance?.release(); } catch {}
     try{turn.m2Capture?.retire();}catch{}
     try { speech?.release(); } catch {}
+    try { reaction?.release(); } catch {}
     history.discard(identity);
     observation?.dispose();
     turn.knowledgeDelivery?.dispose();
