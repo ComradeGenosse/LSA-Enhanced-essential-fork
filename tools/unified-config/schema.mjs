@@ -168,6 +168,25 @@ function checkEnhanced(e,problems) {
   } else if(has(i,'bindings')) problems.push(issue('ENHANCED_SCHEMA','input.bindings must be array'));
   if(Buffer.byteLength(JSON.stringify(e),'utf8')>16384) problems.push(issue('ENHANCED_SCHEMA','Enhanced settings exceed native 16 KiB limit'));
 }
+export function findDisabledFeatures(before,after,approvals={}) {
+  const allowed=new Set(Array.isArray(approvals.allowDisable)?approvals.allowDisable:[]);
+  const problems=[];
+  const activeMode=value=>['on','shadow','experimental'].includes(value);
+  function walk(oldValue,newValue,where) {
+    if(object(oldValue)&&object(newValue)) {
+      for(const [key,value] of Object.entries(oldValue)) if(has(newValue,key)) walk(value,newValue[key],where+'.'+key);
+      return;
+    }
+    const tail=where.split('.').at(-1);
+    const turningOff=(oldValue===true&&newValue===false&&(/enabled$/i.test(tail)||tail==='mouthEnabled'||tail==='actingEnabled'||tail==='dialogueReceipts'))
+      || (activeMode(oldValue)&&newValue==='off')
+      || (where==='e1.speechProvider'&&oldValue==='elevenlabs'&&newValue!=='elevenlabs')
+      || (where==='e1.ttsVolume'&&typeof oldValue==='number'&&oldValue>0&&newValue===0);
+    if(turningOff&&!allowed.has(where)) problems.push(issue('DISABLE_GUARD',where+' would disable existing functionality; add approvals.allowDisable entry to confirm'));
+  }
+  for(const source of ['e1','promoted','enhanced']) walk(before[source],after[source],source);
+  return problems;
+}
 export function validateConfigs(raw,master,essentialText) {
   const problems=[],warnings=[];
   assertNoSecrets(master);
