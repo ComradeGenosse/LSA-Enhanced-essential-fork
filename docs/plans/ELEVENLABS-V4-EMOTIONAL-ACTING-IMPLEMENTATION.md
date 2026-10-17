@@ -1,3 +1,5 @@
+> **2026-10-17 implementation reconciliation:** This is the **original technical design**, not a "plan only" account of canonical main. EA0–EA9 and ElevenLabs integration were promoted with Memory K by [#224](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/224); [#229](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/229) later repaired split-PCM and interrupted factual recall. The original EA matrix is earlier offline evidence; current exact-build GTA audio/acting, provider cancellation and long-soak acceptance remain open. Consult [current status](../IMPLEMENTATION-STATUS-20261017.md#foundation), [roadmap](../ROADMAP.md) and [EA9 GTA gate](../ea9/GTA-ACCEPTANCE.md). Do not restart completed EA design stages from this document's older PR #54 baseline.
+
 # ElevenLabs v4 Turbo emotional acting — code-level implementation plan
 
 **Status:** Implementation plan ONLY. No runtime feature is enabled by this document.

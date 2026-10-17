@@ -1,3 +1,7 @@
+> **CURRENT-STATUS NOTICE — October 17, 2026:** This 1,399-line file is a preserved, dated implementation **checkpoint ledger**, **not** the current mainline status or active work queue. The latest reviewed main is c9ad717a (merged #231). [Canonical roadmap](ROADMAP.md) · [Current evidence matrix](IMPLEMENTATION-STATUS-20261017.md) · [Agent-ready tasks/dependencies](NEXT-PHASES-20261017.md). Memory K, ElevenLabs EA, radio and later native recovery integrations reached main through #224 and #229–#231; older entries saying #32 is open or Memory K is not mainline are historical. Keep source- and build-specific acceptance results below intact; do not promote them into current GTA release acceptance. In particular #230 M7, #231 D03 corrections, #213 M9 and #214 added native event callbacks still need independent physical verification.
+
+---
+
 # Unified intelligence implementation status
 
 **Mainline status reconciliation — October 11, 2026.** The history below began October 8 on `feature/unified-intelligence-implementation-20261008` from `main@d423125`. These original checkpoints are preserved as *dated progress evidence*, not a live next-work queue. [PR #23](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/23) merged the bounded **Phase 6 C-05/C-06 + PS4 + Phase 13a/PS6 experimental integration baseline** on October 10. One *genuine* supported gunfire PS4→Luna requested-turn response was heard in GTA, but full PS4 automated/GTA audit and reliable end-to-end spontaneous speech were not declared accepted.

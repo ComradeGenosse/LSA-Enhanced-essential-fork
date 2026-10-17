@@ -1,3 +1,5 @@
+> **Mainline update — 2026-10-17:** This file documents the original radio-v2 branch and test design, not current merge status. Radio R0–R5/v2 is now **in main** via #32 with October 17 native revalidation/repair merged in #223. The user has reported working live radio after fixes; the full GTA negative/regression matrix on the latest exact build remains open. See [current status](IMPLEMENTATION-STATUS-20261017.md#perception-context-and-autonomous-speech), [roadmap](ROADMAP.md) and [next tasks](NEXT-PHASES-20261017.md). Original “not merged / branch only” paragraphs below are historical snapshots.
+
 # Radio track perception v2 — text-ID reconciliation
 
 Status: **implemented in code on `feature/radio-track-perception-v2-text-id`; offline build/test and GTA Enhanced acceptance pending.**
