@@ -91,7 +91,7 @@ async function plan(game,files) {
   const generated=generate(master,raw);
   const check=validateConfigs(generated,master,await essentialFile(game));
   const differences=Object.fromEntries(['e1','promoted','enhanced'].map(name=>[name,relativeChanges(raw[name],generated[name])]));
-  const nextTexts=Object.fromEntries(['e1','promoted','enhanced'].map(name=>[name, json(generated[name])]));
+  const nextTexts=Object.fromEntries(['e1','promoted','enhanced'].map(name=>[name,JSON.stringify(raw[name])===JSON.stringify(generated[name])?texts[name]:json(generated[name])]));
   return {master,raw,texts,generated,check,differences,nextTexts,conflicts,ok:!conflicts.length&&check.ok};
 }
 function statePaths(files) {
@@ -110,6 +110,7 @@ async function safeRecover(files) {
   if(path.resolve(j.backupDir)!==path.resolve(expectedDir)) throw new Error('Invalid journal backup location');
   for(const name of names) if(!j.items?.[name]||path.resolve(j.items[name].path)!==path.resolve(files[name])) throw new Error('Invalid transaction file target');
   if(j.phase==='committed') {
+    for(const name of names) if(digest(await originalText(files[name]))!==j.post[name]) throw new Error('Completed transaction modified externally: '+name);
     if(j.kind==='apply') await atomicWrite(state.last,json({id:j.id,backupDir:j.backupDir,post: j.post,kind:'apply'}));
     else await fs.unlink(state.last).catch(e=>{if(e.code!=='ENOENT') throw e;});
     await fs.unlink(state.journal);
@@ -129,16 +130,18 @@ async function safeRecover(files) {
   await fs.unlink(state.journal);
   return {recovered:true,action:'restored'};
 }
-async function transaction(files,kind,changes) {
+async function transaction(files,kind,changes,expected=null) {
   const state=statePaths(files),id=new Date().toISOString().replace(/[:.]/g,'-')+'-'+randomUUID();
   const dir=path.join(state.backups,id);
   await fs.mkdir(dir,{recursive:true,mode:0o700});
   const items={},post={};
   for(const name of ['e1','promoted','enhanced','master']) {
     const before=await originalText(files[name]),after=changes[name];
+    if(expected&&expected[name]&&digest(before)!==expected[name]) throw new Error('Concurrent modification detected during '+kind+': '+name);
     items[name]={path:files[name],before:digest(before),after:digest(after)};
     post[name]=digest(after);
-    await fs.writeFile(path.join(dir,name+'.json'),before,{flag:'wx',mode:0o600});
+    const backup=await fs.open(path.join(dir,name+'.json'),'wx',0o600);
+    try {await backup.writeFile(before,'utf8');await backup.sync();}finally{await backup.close();}
   }
   const journal={version:1,id,kind,phase:'prepared',backupDir:dir,items,post};
   await atomicWrite(state.journal,json(journal));
@@ -168,6 +171,11 @@ export async function run(command,{game,masterPath,activate=false,replace=false}
       const {raw,texts}=await readTargets(files);
       const m={version:1,metadata:{active:false,importedAt:new Date().toISOString(),baselines:baselines(texts)},approvals:{},sections:importSections(raw)};
       assertNoSecrets(m);
+      if(replace&&await exists(files.master)) {
+        const importBackup=files.master+'.imports';
+        await fs.mkdir(importBackup,{recursive:true,mode:0o700});
+        await atomicWrite(path.join(importBackup,randomUUID()+'.json'),await originalText(files.master));
+      }
       await atomicWrite(files.master,json(m));
       return {ok:true,master:files.master,active:false,imported:['e1','promoted','enhanced'],note:'Import does not modify runtime configuration; review and explicitly activate'};
     }
@@ -186,7 +194,7 @@ export async function run(command,{game,masterPath,activate=false,replace=false}
       const oldMaster=jsonObject(changes.master,'saved master');
       const restored={...oldMaster,metadata:{...oldMaster.metadata,active:true,baselines:baselines(changes)},sections:importSections(raw)};
       changes.master=json(restored);
-      const tx=await transaction(files,'rollback',changes);
+      const tx=await transaction(files,'rollback',changes,last.post);
       return {ok:true,rolledBack:true,backupDir:tx.backupDir};
     }
     if(!['status','validate','diff','apply'].includes(command)) throw new Error('Unknown command '+command);
@@ -202,7 +210,10 @@ export async function run(command,{game,masterPath,activate=false,replace=false}
     // Even initial activation must be intentional. Import captured current installed values.
     const newMaster={...p.master,metadata:{...p.master.metadata,active:true,appliedAt:new Date().toISOString(),baselines:baselines(p.nextTexts)}};
     const changes={...p.nextTexts,master:json(newMaster)};
-    const tx=await transaction(files,'apply',changes);
+    const currentMaster=await originalText(files.master);
+    if(JSON.stringify(jsonObject(currentMaster,'master'))!==JSON.stringify(p.master)) throw new Error('Master changed during apply; refusing write');
+    const targetHashes=baselines(p.texts);
+    const tx=await transaction(files,'apply',changes,{...targetHashes,master:digest(currentMaster)});
     return {...report,ok:true,active:true,applied:true,backupDir:tx.backupDir};
   };
   return mutates?lock(files.master,action):action();
