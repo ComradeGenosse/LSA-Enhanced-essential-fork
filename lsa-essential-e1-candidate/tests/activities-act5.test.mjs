@@ -200,3 +200,17 @@ test('ACT6 explicit player waypoint request stages one publication-bound ACT goa
   assert.equal(committed.ok,true);
   assert.equal(h.commands.filter(frame=>frame.type==='actor.acquire').length,1);
 });
+
+// ACT6 stop words cancel any currently owned trip (including player UX), not merely
+// the last conversation-admitted ACT5 offer.
+test('ACT6 spoken stop cancels an active UX-assigned trip and respects the owned character', async () => {
+  const h=harness({act6Capabilities:['drive_to'],extraProbes:['NV1','NV2','D1','D2','D3','SVE1','L1','Q2']});
+  const t=turn();
+  const context=await h.dialogue.prepare(t,'player_mic');
+  assert.ok(context?.owner);
+  const driver=h.engine.assign({proposalVersion:1,proposalId:id(),source:'player_ux',subject:{characterId:actor},intent:'vehicle_trip',slots:{place:{kind:'waypoint'}},priority:'player_direct',origin:{},proposedAtMs:10000},context.owner.binding);
+  assert.equal(driver.ok,true);
+  const response=await h.dialogue.onPlayerInput(t,'Stop driving',context,()=>true);
+  assert.equal(response?.kind,'cancelled');
+  assert.equal(h.engine.activities[0].status,'cancelled');
+});

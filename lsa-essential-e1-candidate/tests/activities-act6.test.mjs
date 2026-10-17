@@ -105,9 +105,13 @@ test('ACT6 place frame accepts bounded waypoint and named query, refuses injecte
 
 test('ACT6 player language is closed to real named locations and waypoint, never hallucinated coordinates', () => {
   assert.deepEqual(parseAct6PlayerRequest('Go to the waypoint'),{intent:'go_to_place',slots:{place:{kind:'waypoint'}}});
+  assert.deepEqual(parseAct6PlayerRequest('Head over to my map marker'),{intent:'go_to_place',slots:{place:{kind:'waypoint'}}});
+  assert.deepEqual(parseAct6PlayerRequest('Get us to the gps marker'),{intent:'vehicle_trip',slots:{place:{kind:'waypoint'}}});
+  assert.deepEqual(parseAct6PlayerRequest('Take us to Del Perro Pier'),{intent:'vehicle_trip',slots:{place:{kind:'named',query:'del perro pier'}}});
   assert.deepEqual(parseAct6PlayerRequest('Drive us to the airport!'),{intent:'vehicle_trip',slots:{place:{kind:'named',query:'airport'}}});
   assert.deepEqual(parseAct6PlayerRequest('Walk to the Vespucci Beach and wait'),{intent:'move_to_and_hold',slots:{place:{kind:'named',query:'vespucci beach'}}});
   assert.equal(parseAct6PlayerRequest('Drive us to the airport and wait'),null);
   assert.equal(parseAct6PlayerRequest('Walk over to that building'),null);
   assert.equal(parseAct6PlayerRequest('Go to 244 -66 9'),null);
+  assert.equal(parseAct6PlayerRequest('Get us to a random building'),null);
 });
