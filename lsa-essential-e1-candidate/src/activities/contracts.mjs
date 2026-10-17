@@ -84,7 +84,7 @@ export function normalizeActivityConfig(value = {}) {
   const act3Capabilities = valid && Array.isArray(value.act3Capabilities)
     ? Object.freeze([...new Set(value.act3Capabilities.filter(item => typeof item === 'string' && ACT3_CAPABILITY_IDS.includes(item)))])
     : [];
-  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Activities.v1', passedProbes, dialogue: false,...(act3Capabilities.length?{act3Capabilities}:{}),...(valid && value.dialogueReceipts===true?{dialogueReceipts:true}:{}) });
+  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Activities.v1', passedProbes, dialogue: false, act5: valid && value.act5 === true,...(act3Capabilities.length?{act3Capabilities}:{}),...(valid && value.dialogueReceipts===true?{dialogueReceipts:true}:{}) });
 }
 
 function refSlot(value) {

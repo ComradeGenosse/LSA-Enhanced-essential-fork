@@ -339,6 +339,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       finally{clearTimeout(timer);}
     };
     const reasoningContext=()=>({...context,source,
+      ...(turn.act5Reply?{systemInstruction:context.systemInstruction+'\n[ACT5 PLAYER REPLY]\n'+JSON.stringify(turn.act5Reply)+'\nRespond naturally; an admitted activity is only queued, not physically complete. Do not issue a stock DO action or another activity for this confirmation.'}:{}),
       ...(turn.memoryDisabledForTurn?{systemInstruction:context.systemInstruction+
         '\n[MEMORY AVAILABILITY] Learned memory is unavailable for this turn. Do not claim to have saved, corrected or forgotten a memory unless a verified durable outcome was supplied. Do not invent prior memories.'}:{})});
     recoverPreRequest=async(reason,stage)=>{
@@ -456,6 +457,24 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     turn.knowledgeDelivery?.watch(listener=>services.subscribeKnowledgeInvalidation?.(listener) ?? (()=>{}),error=>controller.abort(error));
     const recordReasoningSuccess=decision=>{check();turn.knowledgeDelivery?.success(decision);};
+    // ACT5 offers are derived from a source-pinned ACT2 registry + present native
+    // owner, never a model-authored capability list. Player acknowledgements are
+    // consumed only after original accepted input reached the history boundary.
+    let act5Context = null;
+    if (isPlayer && services.act5 && valid()) {
+      try {
+        act5Context = await services.act5.prepare(turn, source);
+        check();
+        if (act5Context) {
+          const reply = await services.act5.onPlayerInput(turn, finalInput, act5Context, valid);
+          check();
+          if (reply) {
+            turn.act5Reply = reply;
+            act5Context = Object.freeze({ ...act5Context, intents: Object.freeze([]), pendingIntent: null });
+          }
+        }
+      } catch { act5Context = null; }
+    }
     let decision;
     let streamedSegments = [];
     const spokenTtsSegments = []; // exact accepted speech-provider source strings
@@ -465,11 +484,14 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const lunaDeliveryVersion=services.config.expressiveDelivery?.mode==='experimental'
       ?services.config.expressiveDelivery.lunaDeliveryVersion??0:0;
     if (services.config.structuredStreamingEnabled === true) {
-      const allowEarlyTts = services.config.earlyTtsEnabled === true;
+      // ACT5 decisions can carry an activity only at EOF; hold ALL candidate
+      // speech until the final schema and authorization have been verified.
+      const allowEarlyTts = services.config.earlyTtsEnabled === true && !act5Context;
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
         identity, context: reasoningContext(), source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
         lunaDeliveryVersion,
+        activityContext: act5Context,
       });
       if (!allowEarlyTts) {
         const result = await performProvider('model', services.providerStack.reasoning.id, modelOptions);
@@ -549,7 +571,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           ({ signal, timeoutMs, telemetry, isActive, dialogueAttempt }) => services.providerStack.decideStreaming({
             identity, context: reasoningContext(), source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
             input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
-             lunaDeliveryVersion,
+             lunaDeliveryVersion, activityContext: act5Context,
             onSegment: async (segment, mode) => {
               if (!isActive()) throw new Error('provider_attempt_inactive');
               check();
@@ -587,7 +609,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     } else {
       decision = await performProvider('model', services.providerStack?.reasoning.id || 'openai.reasoning',
         ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: reasoningContext(), source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
-          input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt }));
+          input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt, activityContext: act5Context }));
     }
     // Validate the PS6 passive-speech restriction before the stock action
     // validator or output_transcript, which can synchronously dispatch effects.
@@ -598,7 +620,19 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const validateSpan = metrics?.startSpan('decision_validation');
     let validated;
     try {
-      validated = await host.validateDecision(decision, context, identity);
+      if (turn.act5Reply && decision.command) throw new TypeError('ACT5 confirmation cannot run a parallel stock DO command.');
+      if (act5Context) {
+        const {validateAct5Choice} = await import('../activities/act5Dialogue.mjs');
+        if (!Object.hasOwn(decision, 'activity') ||
+            !validateAct5Choice(decision.activity, act5Context.intents) ||
+            (decision.activity !== null && (decision.command || streamMode && streamMode !== 'buffered_action')))
+          throw new TypeError('ACT5 decision rejected before stock publication.');
+      } else if (Object.hasOwn(decision, 'activity')) {
+        throw new TypeError('Unsolicited ACT5 activity field.');
+      }
+      // Stock Essential knows exactly the legacy {dialogue,command} shape.
+      validated = await host.validateDecision(act5Context
+        ? {dialogue:decision.dialogue, command:decision.command} : decision, context, identity);
       validateSpan?.('finished');
     } catch (error) {
       validateSpan?.('failed', { code: 'invalid_decision' });
@@ -626,6 +660,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     await emit({ type: 'output_transcript', text: validated.internalTranscript });
     check();
+    if (turn.act5Reply?.kind === 'approval_pending') {
+      const accepted = await services.act5?.commitApproved(turn, valid);
+      check();
+      if (!accepted?.ok) throw new Error('act5_confirmation_not_admitted');
+      metrics?.event('act5_goal_accepted', { outcome:'accepted' });
+    }
     transition('tts_running');
     let audio = earlyAudio?.bytes > 0 ? earlyAudio : null;
     const successfulEarlySpeech = !!audio && spokenTtsSegments.length>0;
@@ -683,6 +723,15 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     chooseTerminal('completed');
     if (!history.acceptPlaybackResult({ ...result, playbackSucceeded: true })) throw new Error('history_commit_rejected');
     playbackCommitted=true;
+    // An audible invitation is recorded only after exact native playback success,
+    // not merely after TTS or transcript publication. No physical command here.
+    if (act5Context && decision.activity && !turn.act5Reply) {
+      try {
+        const published = await services.act5?.publish(turn, decision, act5Context, valid);
+        metrics?.event(published ? 'act5_proposal_published' : 'act5_proposal_not_published',
+          { intent: decision.activity.intent, reason: published ? 'completed_audio' : 'source_unavailable' });
+      } catch { metrics?.event('act5_proposal_not_published', {reason:'source_unavailable'}); }
+    }
     try { speech?.historyAccepted(result); } catch { /* evidence only */ }
     for(const {delivery,providerResult} of renderedDeliveries)expressiveDelivery.synthesized(delivery,result,providerResult);
     expressiveDelivery.complete(result,{historyAccepted:true});
