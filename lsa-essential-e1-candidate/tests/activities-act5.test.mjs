@@ -46,7 +46,7 @@ function harness({ enabled = true, act3Capabilities = [], extraProbes = [] } = {
     ? {ownerAlias, encounterId: currentEncounter}
     : {ownerAlias, encounterId: currentEncounter, ownershipToken:currentToken,
       claim: {incarnationId:currentIncarnation}} };
-  const activities = { engine, client: {runtime: {ready:true, ...host, hostContext:host, nativeRun, adapterEpoch}},
+  const activities = { engine, client: {clientRun:id(),runtime: {ready:true, ...host, hostContext:host, nativeRun, adapterEpoch}},
     status: characterId => engine.status(characterId),
     cancel: characterId => engine.cancel(characterId) };
   const dialogue = new Act5Dialogue({ activities, characterService: {native}, now:()=>now, id });
@@ -58,9 +58,11 @@ function harness({ enabled = true, act3Capabilities = [], extraProbes = [] } = {
       engine.noteHello({...hello,adapterEpoch:nextEpoch});
     },
     reconnect: () => {
+      activities.client.clientRun = id();
       engine.noteHello({...hello,clientRestart:true});
       engine.noteHello(hello);
-    }};
+    },
+    sessionChange: () => { activities.client.clientRun = id(); }};
 }
 
 test('ACT5 is opt-in and never advertises contract-only ACT3 native verbs', async () => {
@@ -288,4 +290,31 @@ test('receipt correlation rejects a mismatched activity, step, actor, capability
   assert.equal(h.engine.cancel(actor).ok,true);
   h.engine.ingest({type:'receipt',receipt:{...frame,sequence:2}});
   assert.equal(activity.status,'cancelled','terminal goal never resurrected');
+});
+
+test('client-session replacement without native epoch rotation invalidates prior consent', async () => {
+  const h=harness(), proposed=turn(), context=await h.dialogue.prepare(proposed,'player_text');
+  await h.dialogue.publish(proposed,decision(choice('sit_here')),context,()=>true);
+  const yes=turn(), previous=await h.dialogue.prepare(yes,'player_text');
+  h.sessionChange(); // Same nativeRun and adapterEpoch; only the authenticated pipe session changed.
+  assert.equal(await h.dialogue.onPlayerInput(yes,'yes',previous,()=>true),null);
+  assert.equal(h.engine.goals.goals.length,0);
+});
+
+test('ACT5 cancel never cancels a newer non-ACT5 activity', async () => {
+  const h=harness(), t=turn(), context=await h.dialogue.prepare(t,'player_text');
+  await h.dialogue.publish(t,decision(choice('hold_position')),context,()=>true);
+  const yes=turn(), ctx=await h.dialogue.prepare(yes,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(yes,'sure',ctx,()=>true)).kind,'approval_pending');
+  assert.equal((await h.dialogue.commitApproved(yes,()=>true)).ok,true);
+  const old=h.engine.activities.at(-1);
+  h.engine.cancel(actor);
+  const newOwner={characterId:actor,ownerAlias,ownershipToken:'native-token',encounterId:encounter,incarnationId:incarnation};
+  const fresh={proposalVersion:1,proposalId:id(),source:'player_ux',subject:{characterId:actor},
+    intent:'sit_here',slots:{},priority:'player_direct',origin:{},proposedAtMs:10000};
+  assert.equal(h.engine.assign(fresh,newOwner).ok,true);
+  const stop=turn(), prepared=await h.dialogue.prepare(stop,'player_text');
+  assert.equal(await h.dialogue.onPlayerInput(stop,'stop',prepared,()=>true),null);
+  assert.equal(old.status,'cancelled');
+  assert.notEqual(h.engine.activities.at(-1).status,'cancelled');
 });
