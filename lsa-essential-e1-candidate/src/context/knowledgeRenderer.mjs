@@ -55,7 +55,7 @@ export function projectConversation(history,input,source,directorEventContext=nu
  const current=directorEvent
    ? 'No player utterance was received. Native-verified witnessed event: '+directorEventContext
    : socialScene
-     ? 'No player utterance was received. Native-verified social scene invitation: '+directorEventContext
+     ? 'No player utterance was received. Native-verified social scene invitation: '+directorEventContext+' If earlier dialogue appears above, consider what was actually said: avoid repeating a recent greeting, question, or observation unless something changed. You may introduce an unrelated topic. Do not invent a shared conversation.'
      : ['player_text','player_mic'].includes(source)?String(input??'').toWellFormed()
        :'No player utterance was received. Respond only to supported current context.';
  if(current.length>12000)throw new RangeError('knowledge_current_input_units');
