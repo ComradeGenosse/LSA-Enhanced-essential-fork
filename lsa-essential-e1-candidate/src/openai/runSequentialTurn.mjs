@@ -343,7 +343,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const vehicleIntent = isPlayer ? drivingIntentKind(finalInput) : null;
     // ACT4 state is source-qualified by the same P2 owner/host knowledge boundary.
     // This advisory cannot authorize driving; it only prevents stock takeover.
-    const act6OwnsDrive = isPlayer && activeAct6Driving(turn.knowledgeInputs?.activityInputs?.state);
+    const vehicleActivityEvidence = turn.knowledgeInputs?.activityInputs;
+    let act6OwnsDrive = isPlayer && !turn.knowledgeInputs?.reason &&
+      !turn.knowledgeInputs?.ownerPendingProof && !vehicleActivityEvidence?.reason &&
+      !vehicleActivityEvidence?.ownerPendingProof &&
+      activeAct6Driving(vehicleActivityEvidence?.state,vehicleActivityEvidence?.binding);
     if (vehicleIntent) metrics?.event('vehicle_request_classified',{kind:vehicleIntent});
     const reasoningContext=()=>{
       const activity=turn.act5Reply;
@@ -509,6 +513,14 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           }
         }
       } catch { act5Context = null; }
+    }
+    // ACT5's live owner inspection is another read-only, owner-fenced signal.
+    // Never trust a stale ACT4 state for a different actor/incarnation.
+    if (isPlayer && !act6OwnsDrive && act5Context?.owner?.binding) {
+      try {
+        const ownerState=services.act5?.activities?.stateForCharacter?.(act5Context.owner.binding);
+        act6OwnsDrive=activeAct6Driving(ownerState,act5Context.owner.binding);
+      } catch { /* no proof: native ACT ownership still guards execution */ }
     }
     // When ACT5 is off, native is disconnected, or owner inspection failed,
     // still recognize an explicit navigation order so Luna does not invent
