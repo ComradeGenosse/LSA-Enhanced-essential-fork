@@ -24,6 +24,11 @@ namespace LSA.Intelligence
     public sealed class BodyDiscoveryLedger
     {
         public const long MinimumAgeMs=1500, MaximumAgeMs=30000;
+        // At most 256 live native anchors and 16 observer slots. Keep the
+        // first-death tombstone for the entire anchor lifetime: deleting it
+        // at 30s would let an old, retained corpse be "rediscovered".
+        // Retirement/world reset reclaims the capacity deterministically.
+        public const int MaxRetainedBodies=256, MaxWitnessPairs=MaxRetainedBodies*16;
         readonly Dictionary<string,long> firstDead=new Dictionary<string,long>();
         readonly HashSet<string> seen=new HashSet<string>();
         static string Key(string observer,string body)=>observer+":"+body;
@@ -33,7 +38,7 @@ namespace LSA.Intelligence
         {
             if(String.IsNullOrEmpty(body)||now<0)return false;
             if(firstDead.ContainsKey(body))return true;
-            if(firstDead.Count>=128)return false;
+            if(firstDead.Count>=MaxRetainedBodies)return false;
             firstDead.Add(body,now);return true;
         }
         public bool CanDiscover(string observer,string body,long now)
@@ -41,7 +46,7 @@ namespace LSA.Intelligence
             return !String.IsNullOrEmpty(observer)&&!String.IsNullOrEmpty(body)&&
                 firstDead.TryGetValue(body,out var first)&&now>=first&&
                 now-first>=MinimumAgeMs&&now-first<=MaximumAgeMs&&
-                !seen.Contains(Key(observer,body))&&seen.Count<1024;
+                !seen.Contains(Key(observer,body))&&seen.Count<MaxWitnessPairs;
         }
         public bool MarkSeen(string observer,string body)
         {
@@ -49,7 +54,7 @@ namespace LSA.Intelligence
                 !firstDead.ContainsKey(body))return false;
             var key=Key(observer,body);
             if(seen.Contains(key))return true;
-            if(seen.Count>=1024)return false;
+            if(seen.Count>=MaxWitnessPairs)return false;
             seen.Add(key);return true;
         }
         public void Retire(string captureRef)
