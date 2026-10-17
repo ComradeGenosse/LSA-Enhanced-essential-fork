@@ -42,6 +42,7 @@ export class Act5Dialogue {
     this.cooldown = new Map();
     this.lastAccepted = new Map();
     this.seenTurns = new Set();
+    this.approvals = new Map();
   }
 
   #ready() {
@@ -173,11 +174,39 @@ export class Act5Dialogue {
       this.report('act5_rejected', { reason: 'owner_or_activity_changed' });
       return Object.freeze({ kind: 'unavailable', intent: pending.activity.intent });
     }
-    const result = this.activities.engine.assign(pending.proposal, owner.binding, { playerApproved: true });
-    if (result?.ok) this.lastAccepted.set(characterId, result.activityId);
-    this.report(result?.ok ? 'act5_admitted' : 'act5_rejected', { intent: pending.activity.intent, reason: result?.reason || null });
-    return Object.freeze({ kind: result?.ok ? 'admitted' : 'unavailable', intent: pending.activity.intent, reason: result?.reason || null });
+    // Consent is captured here but dispatch waits for the existing validated
+    // output_transcript publication boundary. A malformed Luna reply never acts.
+    const turnKey = keyFor(turn.identity) + ':' + turn.identity.turnId + ':' + turn.identity.generationId;
+    this.approvals.set(turnKey, {pending, owner});
+    if (this.approvals.size > 32) this.approvals.delete(this.approvals.keys().next().value);
+    return Object.freeze({ kind: 'approval_pending', intent: pending.activity.intent });
   }
 
-  clear() { this.pending.clear(); this.lastAccepted.clear(); this.cooldown.clear(); this.seenTurns.clear(); }
+  async commitApproved(turn, isCurrent) {
+    const turnKey = keyFor(turn?.identity) + ':' + turn?.identity?.turnId + ':' + turn?.identity?.generationId;
+    const staged = this.approvals.get(turnKey);
+    if (!staged) return {ok:false,reason:'no_pending_approval'};
+    this.approvals.delete(turnKey);
+    const {pending,owner} = staged;
+    if (!isCurrent?.() || this.now() >= pending.expiresAt) return {ok:false,reason:'stale_player_turn'};
+    const current = await this.#owner(turn);
+    const characterId = owner.binding.characterId;
+    if (!current || !isCurrent() ||
+        current.binding.characterId !== owner.binding.characterId ||
+        current.binding.encounterId !== owner.binding.encounterId ||
+        current.binding.incarnationId !== owner.binding.incarnationId ||
+        current.binding.ownershipToken !== owner.binding.ownershipToken ||
+        current.nativeRun !== owner.nativeRun || current.adapterEpoch !== owner.adapterEpoch ||
+        current.sessionKey !== owner.sessionKey ||
+        this.activities.status(characterId).status !== 'none') {
+      this.report('act5_rejected',{reason:'owner_or_activity_changed'});
+      return {ok:false,reason:'owner_or_activity_changed'};
+    }
+    const result = this.activities.engine.assign(pending.proposal,current.binding,{playerApproved:true});
+    if (result?.ok) this.lastAccepted.set(characterId,result.activityId);
+    this.report(result?.ok?'act5_admitted':'act5_rejected',{intent:pending.activity.intent,reason:result?.reason||null});
+    return result;
+  }
+
+  clear() { this.pending.clear(); this.lastAccepted.clear(); this.cooldown.clear(); this.seenTurns.clear(); this.approvals.clear(); }
 }
