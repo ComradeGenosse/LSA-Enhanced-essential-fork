@@ -1,3 +1,4 @@
+import {isDirectorSocialContext} from '../perception/directorSocialContext.mjs';
 import {projectDialogueActionKnowledge} from '../activities/dialogueActionKnowledge.mjs';
 import {projectActivityKnowledge} from '../activities/activityKnowledge.mjs';
 import {immutableSnapshot} from './turnSnapshot.mjs';
@@ -50,10 +51,13 @@ export function projectConversation(history,input,source,directorEventContext=nu
  const directorEvent=source==='special_event' &&
    typeof directorEventContext==='string' && directorEventContext.length<=160 &&
    /^You (?:heard|seen|personally experienced) (?:gunfire|someone injured|a witnessed death|a body found|a nearby threat|a vehicle impact|an observed action|a location change|an activity change|a vehicle movement|someone nearby|speech overheard|a reported event) \((?:routine|notable|danger|critical), (?:sound|firing|injured|dead|attack|location|action|presence)(?:, (?:action (?:followtarget|waithere)|location [A-Z0-9_]{1,16}))?\)\. React briefly in character to this event; dialogue only, no actions\.$/.test(directorEventContext);
+ const socialScene=source==='special_event' && isDirectorSocialContext(directorEventContext);
  const current=directorEvent
    ? 'No player utterance was received. Native-verified witnessed event: '+directorEventContext
-   : ['player_text','player_mic'].includes(source)?String(input??'').toWellFormed()
-     :'No player utterance was received. Respond only to supported current context.';
+   : socialScene
+     ? 'No player utterance was received. Native-verified social scene invitation: '+directorEventContext
+     : ['player_text','player_mic'].includes(source)?String(input??'').toWellFormed()
+       :'No player utterance was received. Respond only to supported current context.';
  if(current.length>12000)throw new RangeError('knowledge_current_input_units');
  const currentMessage={role:'user',content:current};if(jsonBytes(currentMessage)>KNOWLEDGE_LIMITS.currentBytes)throw new RangeError('knowledge_current_input_bytes');
  // Durable, source-verified P2 history replaces RAM when available. The
