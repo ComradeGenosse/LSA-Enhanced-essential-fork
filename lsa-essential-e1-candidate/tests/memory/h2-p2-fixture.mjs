@@ -34,7 +34,7 @@ export async function p2Fixture(t,{characters=2,profiles=[]}={}){
   const timelineId=await store.createTimeline({label:'H2 isolated source simulation'});
   let host={hostContextVersion:1,hostRunId:id(),worldEpoch:1};
   store.setVerifiedHostContext(host);
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const recorder=createConversationJournalRecorder(store);
   const f={store,chars,filePath,recorder,live:true,calls:0,
     get host(){return host;},timelineId,

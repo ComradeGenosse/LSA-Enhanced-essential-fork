@@ -18,7 +18,7 @@ async function fixture(t){
 }
 test('pause suspends writes; exact authenticated run/epoch resumes selection but never queued old work',async t=>{
   const {store,host,timeline}=await fixture(t);
-  await store.confirmTimeline(timeline);
+  await store.confirmTimeline(timeline,{confirmation:timeline});
   let written=0;
   const old=store.withTimelineWrite(timeline,()=>++written);
   store.setVerifiedHostContext(null);
@@ -34,7 +34,7 @@ test('pause suspends writes; exact authenticated run/epoch resumes selection but
 test('explicit confirmation while paused applies only to the previously observed authenticated run/epoch',async t=>{
   const {store,host,timeline}=await fixture(t);
   store.setVerifiedHostContext(null);
-  await store.confirmTimeline(timeline);
+  await store.confirmTimeline(timeline,{confirmation:timeline});
   assert.equal(store.timelineWritable,false);
   store.setVerifiedHostContext(host);
   assert.equal(store.timelineWritable,true);
@@ -46,11 +46,11 @@ test('explicit confirmation while paused applies only to the previously observed
 });
 test('different host and ambiguous boundaries always require new confirmation',async t=>{
   const {store,host,timeline}=await fixture(t);
-  await store.confirmTimeline(timeline);
+  await store.confirmTimeline(timeline,{confirmation:timeline});
   store.setVerifiedHostContext(null);
   store.setVerifiedHostContext({...host,hostRunId:randomUUID()});
   assert.equal(store.timelineWritable,false);
-  await store.confirmTimeline(timeline);
+  await store.confirmTimeline(timeline,{confirmation:timeline});
   store.onBoundary({reason:'clock_regression'});
   store.setVerifiedHostContext(null);
   store.setVerifiedHostContext(host);
