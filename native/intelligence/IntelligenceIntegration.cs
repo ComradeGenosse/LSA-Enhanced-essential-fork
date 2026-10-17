@@ -1453,7 +1453,7 @@ namespace LSA.Intelligence
                 events=directorPlaybackEvents.ToArray();
                 directorPlaybackEvents.Clear();
             }
-            if(overflow) {director.Reset();return;}
+            if(overflow) {director.Reset();socialScenes.Reset();return;}
             foreach(var e in events) {
                 // Don't emit diagnostics for unrelated Core playback.
                 if(!director.HasActive)continue;
@@ -1614,7 +1614,7 @@ namespace LSA.Intelligence
             try{damage?.Dispose();}catch{}damage=null;
             ShutdownM9();
             if(playback) {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}playback=false;}
-            director.Disable();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;anchors.Retirement-=OnRetirement;host.WorldChanged-=WorldChanged;
+            director.Disable();ps3Receipts.Reset();socialScenes.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;anchors.Retirement-=OnRetirement;host.WorldChanged-=WorldChanged;
             if(ownsHost) host.Shutdown();sensors.Reset();bodyDiscovery.Reset();UpdateIndexes();
         }
     }
