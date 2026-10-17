@@ -348,6 +348,9 @@ export async function createRuntimeForBundle(options = {}) {
           }catch{m9Events=null;runtime.m9Events=null;try{console.warn('[M9] event_runtime_unavailable');}catch{}}
         }
         const intelligenceOptions={radioCatalog,situationFor:ref=>runtime.situationFor(ref),m9Events,
+          // Ambient PS3 grants are opt-in through the existing spontaneous
+          // speech mode; disabling Director restores the prior PS3 behavior.
+          ambientSpeech:config.spontaneousSpeech.mode!=='off',
           directorProductionRequired:config.spontaneousSpeech.mode==='experimental',
           // Original stock A turn/mic/output stores; every missing bridge or
           // source read fails closed before native Director reserve/submit.
