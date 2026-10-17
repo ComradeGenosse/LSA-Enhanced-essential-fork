@@ -351,7 +351,7 @@ Do not treat merged code, a schema declaration, a passing offline test or an ins
 - [docs/UX4-talk-targeting-status.md](docs/UX4-talk-targeting-status.md) and [docs/UX4-talk-targeting-gta-acceptance.md](docs/UX4-talk-targeting-gta-acceptance.md) — merged UX4 behavior and its remaining GTA gates.
 - [docs/PS3-deterministic-salience-status.md](docs/PS3-deterministic-salience-status.md) and [docs/ux4-ps3-run-analysis-20261005.md](docs/ux4-ps3-run-analysis-20261005.md) — current PS3 implementation and live-run evidence.
 - [docs/ACT0-ACT1-status.md](docs/ACT0-ACT1-status.md) and [docs/ACT2-status.md](docs/ACT2-status.md) — merged activity foundation, October 6 GTA smoke record and remaining capability gates.
-- [docs/radio-track-perception-r0-r2-status.md](docs/radio-track-perception-r0-r2-status.md) — early radio sampler history; current unmerged integration is draft PR #32.
+- [docs/radio-track-perception-r0-r2-status.md](docs/radio-track-perception-r0-r2-status.md) — early radio sampler history; historical sampler notes; the radio v2 integration (#32) and native recovery (#223) are now in main.
 - [docs/plans/conversation-gaze-engagement/](docs/plans/conversation-gaze-engagement/) — bounded CGE head/eye attention plan.
 - [docs/research/system-convergence-architecture.md](docs/research/system-convergence-architecture.md), [dependency graph](docs/research/system-convergence-dependency-graph.md), [contract register](docs/research/system-contract-register.md), and [risk register](docs/research/system-convergence-risks.md) — forward system architecture and dependency constraints.
 - [docs/controller-setup.md](docs/controller-setup.md) — current controller/shared-Talk setup.
