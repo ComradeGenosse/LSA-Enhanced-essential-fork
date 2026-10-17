@@ -14,7 +14,11 @@ permissions:
 jobs:
   focused:
     name: Factual recall and PS4
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4

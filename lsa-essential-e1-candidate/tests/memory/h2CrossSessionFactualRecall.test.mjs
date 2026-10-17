@@ -96,3 +96,16 @@ test('H2 never treats a bounded list page as an exact quantity',async t=>{
   assert.equal(projectPreparedRecall(h2.preparedRecall).evidence.length,0);
   assert.equal(projectPreparedRecall(h2.preparedRecall).earlierArchivedConversation.length,0);
 });
+
+test('H2 corrects an earlier dog relationship without resurrecting the old name',async t=>{
+  const f=await p2Fixture(t);
+  const old=await f.say('My corgis are Koba and Nora.',{at:ago(18000),sessionNonce:'former-names'});
+  await f.correct(old.recordId,'My corgis are Koba and Mina.');
+  const {h2}=await f.ask('Which dogs are corgis?');
+  const visible=delivered(h2);
+  const text=visible.map(x=>x.content).join(' | ');
+  assert(!visible.some(x=>x.recordId===old.recordId),'superseded line excluded');
+  assert(!text.includes('Nora'),'old identity is not presented as current evidence');
+  assert(text.includes('Mina'),'correction evidence reaches PS4');
+  assert.equal(await h2.verifyPrepared(),true);
+});

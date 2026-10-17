@@ -81,6 +81,7 @@
     "lsa-essential-e1-candidate/tests/memory-m9-completion.test.mjs",
     "lsa-essential-e1-candidate/tests/memory/d01OpenAIAcceptance.test.mjs",
     "lsa-essential-e1-candidate/tests/memory/d03OriginalDialogueJoin.test.mjs",
+    "lsa-essential-e1-candidate/tests/memory/h2CrossSessionFactualRecall.test.mjs",
     "lsa-essential-e1-candidate/tests/memory/memoryFallbackReliability.test.mjs",
     "lsa-essential-e1-candidate/tests/memory/nativeC01Authority.test.mjs",
     "lsa-essential-e1-candidate/tests/memory/nativeCurrentOwnerAuthenticatedIntake.test.mjs",
