@@ -317,7 +317,8 @@ export async function prepareDirectorSocialConversationHistory({
       verifiedFence=null;
       try{
         const fresh=await snapshot();
-        if(!fresh||JSON.stringify(fresh.journal)!==seal)
+        if(!fresh||fresh.fence!==initial.fence||
+           JSON.stringify(fresh.journal)!==seal)
           return invalidated('history_changed');
         verifiedFence=fresh.fence;
         verifiedRequestFence=store.memoryRequestFence??fresh.fence;
