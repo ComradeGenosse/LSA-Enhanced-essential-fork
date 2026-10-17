@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "files": [
+    "lsa-essential-e1-candidate/tests/npc-player-addressing-identity.test.mjs"
+  ]
+}
