@@ -1,4 +1,9 @@
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
+import {scalePcm16} from '../voice/pcmVolume.mjs';
+import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
+const ELEVENLABS_MAX_NATIVE_LEAD_MS=900;
+const ELEVENLABS_PACE_POLL_MS=50;
+const PCM_BYTES_PER_MS=24_000*2/1_000;
 const PLAYER_SOURCES = new Set(['player_text', 'player_mic']);
 const RECOVERABLE_PRE_SEND = new Set(['memory_stale','recall_stale','opinion_stale']);
 // Only optional context invalidation may cause a rebuilt request. Identity,
@@ -76,6 +81,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   let authorization;
   let retired = false;
   let endSent = false;
+  let nativePlaybackStartedAt = null;
+  let playbackCommitted = false;
   let providerTimer = null;
   const metrics = host.telemetry?.beginTurn(identity, source, { inputChars: String(input || '').length, bytes: pcm?.byteLength || 0, sampleRate: sampleRate || 0 }) || null;
 
@@ -84,6 +91,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   const transition = next => { state = next; metrics?.stage(next); notifyVoice('stage', identity, next); host.log?.(identity, next, { source }); };
   const chooseTerminal = reason => { if (!terminalReason) terminalReason = reason; return terminalReason; };
   const valid = () => !retired && !controller.signal.aborted && host.isCurrent(identity);
+  const expressiveDelivery = createSpeechDeliveryResolver({
+    config: services.config, identity, source, turn,
+    adapter: services.emotionalActing, telemetry: metrics, isActive: valid,
+  });
+  const renderedDeliveries = [];
   const check = () => {
     if (valid()) return;
     if (!controller.signal.aborted && !host.isCurrent(identity)) chooseTerminal('superseded');
@@ -167,6 +179,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     } catch { try { metrics?.event('memory_journal_not_committed', { role: 'npc' }); } catch {} }
   };
   let nativeHandoffStarted = false;
+  // ElevenLabs text submission can bill before PCM. No automatic retry.
+  const canRetryTts=()=>!nativeHandoffStarted && services.config.speechProvider!=='elevenlabs';
   let pcmBytesTotal = 0;
   let pcmChunksTotal = 0;
   const forwardPcm = async (chunk, isActive = () => true) => {
@@ -176,6 +190,17 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (services.config.structuredStreamingEnabled === true && services.config.earlyTtsEnabled === true &&
         pcmBytesTotal + chunk.byteLength > services.config.streamingMaxPcmBytes) {
       throw Object.assign(new Error('streaming_pcm_limit'), { code: 'streaming_pcm_limit' });
+    }
+    if(services.config.speechProvider==='elevenlabs') {
+      while(true) {
+        if(!isActive())throw new Error('provider_attempt_inactive');
+        check();
+        const playedMs=nativePlaybackStartedAt===null?0:Math.max(0,performance.now()-nativePlaybackStartedAt);
+        const aheadMs=pcmBytesTotal/PCM_BYTES_PER_MS-playedMs;
+        if(aheadMs<=ELEVENLABS_MAX_NATIVE_LEAD_MS)break;
+        await new Promise(resolve=>setTimeout(resolve,
+          Math.max(1,Math.min(ELEVENLABS_PACE_POLL_MS,aheadMs-ELEVENLABS_MAX_NATIVE_LEAD_MS))));
+      }
     }
     if (!nativeHandoffStarted) {
       nativeHandoffStarted = true;
@@ -197,7 +222,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     await authorization;
     check();
-    await emit({ type: 'audio', chunk });
+    await emit({ type: 'audio', chunk:scalePcm16(chunk,services.config.ttsVolume??1) });
     pcmBytesTotal += chunk.byteLength;
     pcmChunksTotal += 1;
     metrics?.audioPcm(chunk.byteLength);
@@ -230,6 +255,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       };
       const type = map[event.type];
       if (!type) return;
+      if(event.type==='playback_started')nativePlaybackStartedAt=performance.now();
       dialogueTurn?.native({ type: event.type, reason: event.reason || null, wasInterrupted: event.wasInterrupted ?? null, hadAudio: event.hadAudio ?? null, playbackStarted: event.playbackStarted ?? null });
       const key = type === 'native_playback_started' ? 'playbackStartedCount' : type === 'native_playback_ended' ? 'playbackEndedCount' : type === 'native_authorization_accepted' ? 'authorizationAcceptedCount' : 'authorizationRejectedCount';
       metrics?.count(key);
@@ -406,16 +432,21 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const spokenTtsSegments = []; // exact accepted speech-provider source strings
     let streamMode = null;
     let earlyAudio = null;
+    let bufferedLunaHint=null;
+    const lunaDeliveryVersion=services.config.expressiveDelivery?.mode==='experimental'
+      ?services.config.expressiveDelivery.lunaDeliveryVersion??0:0;
     if (services.config.structuredStreamingEnabled === true) {
       const allowEarlyTts = services.config.earlyTtsEnabled === true;
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
         identity, context: reasoningContext(), source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
+        lunaDeliveryVersion,
       });
       if (!allowEarlyTts) {
         const result = await performProvider('model', services.providerStack.reasoning.id, modelOptions);
         decision = result.decision;
         streamMode = result.mode;
+        if(result.segments?.length===1)bufferedLunaHint=result.segments[0].delivery??null;
       } else {
         let queueClosed = false;
         let queueFailure = null;
