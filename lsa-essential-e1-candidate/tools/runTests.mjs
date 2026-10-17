@@ -1,16 +1,15 @@
-// Offline suite: providers must use explicit test doubles.
-globalThis.fetch = async () => { throw new Error('Network access is disabled in E1 tests.'); };
-import test from 'node:test';
-import { readdir } from 'node:fs/promises';
+// Use the same isolated, inventoried source harness as combined verification.
+// It includes nested memory tests and supplies original-scenario evidence paths;
+// mandatory source-blocked gates retain their failing exit status.
+import {spawnSync} from 'node:child_process';
+import {mkdtempSync} from 'node:fs';
+import {tmpdir} from 'node:os';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-
-const testsDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../tests');
-const files = (await readdir(testsDirectory)).filter(name => name.endsWith('.test.mjs')).sort();
-for (const file of files) {
-  try {
-    await import(pathToFileURL(path.join(testsDirectory, file)).href);
-  } catch (error) {
-    test(`load ${file}`, () => { throw error; });
-  }
-}
+import {fileURLToPath} from 'node:url';
+const root=fileURLToPath(new URL('../../',import.meta.url));
+const output=mkdtempSync(path.join(tmpdir(),'lsa-essential-tests-'));
+const result=spawnSync(process.execPath,[path.join(root,'tools/memory-k-verification/run.mjs'),
+  '--profile','essential','--output',output],{cwd:root,stdio:'inherit',env:process.env});
+console.log('Essential verification evidence: '+output);
+if(result.error)throw result.error;
+process.exitCode=result.status??1;
