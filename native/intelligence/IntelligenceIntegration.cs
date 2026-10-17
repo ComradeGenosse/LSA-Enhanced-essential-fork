@@ -809,8 +809,8 @@ namespace LSA.Intelligence
             if(reading.Rejected) line+=" rejected=station_grammar len="+Math.Min(Math.Max(reading.RejectedLength,0),9999)+" classes="+reading.RejectedClasses;
             try { Game.LogTrivial(line); } catch {}
         }
-        List<WitnessReceipt> CaptureWitnesses(RawSignal signal)=>CaptureWitnesses(signal,signal.gameTick);
-        List<WitnessReceipt> CaptureWitnesses(RawSignal signal,uint sampledTick)
+        List<WitnessReceipt> CaptureWitnesses(RawSignal signal)=>CaptureWitnessesAtTick(signal,signal.gameTick);
+        List<WitnessReceipt> CaptureWitnessesAtTick(RawSignal signal,uint sampledTick)
         {
             var result=new List<WitnessReceipt>();
             if(signal==null) return result;
@@ -1017,7 +1017,7 @@ namespace LSA.Intelligence
                    (signal.kind!="vehicle_damage" ||
                     (Object.Equals(signal.facts["classification"],"collision")&&
                      signal.facts.ContainsKey("collision"))))
-                    signal.witnessReceipts=CaptureWitnesses(signal,callbackTick);
+                    signal.witnessReceipts=CaptureWitnessesAtTick(signal,callbackTick);
             }
             if(now-signal.receivedMs>=30000) {staleRejected++;return;}
             if((signal.source!=null && anchors.Resolve(signal.source)==null) || (signal.target!=null && anchors.Resolve(signal.target)==null)) {staleRejected++;return;}
