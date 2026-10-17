@@ -33,6 +33,9 @@ test('start, stop, and ACT6 owner are independent, with no disguised stock takeo
   assert.equal(activeAct6Driving({stateVersion:1,intent:'vehicle_trip',status:'running'}),true);
   assert.equal(activeAct6Driving({stateVersion:1,intent:'go_to_place',status:'running'}),false);
   assert.equal(activeAct6Driving({stateVersion:1,intent:'vehicle_trip',status:'completed'}),false);
+  const owner={characterId:'c',encounterId:'e',incarnationId:'i'};
+  assert.equal(activeAct6Driving({stateVersion:1,intent:'vehicle_trip',status:'running',...owner},owner),true);
+  assert.equal(activeAct6Driving({stateVersion:1,intent:'vehicle_trip',status:'running',...owner,incarnationId:'old'},owner),false);
   assert.equal(reconcileDrivingDecision({dialogue:'Cruising.',command:'DO BeginDriving V001'}, {kind:'start'}).decision.command,'DO BeginDriving V001');
   assert.equal(reconcileDrivingDecision({dialogue:'Okay',command:'DO BeginDriving V001'}, {kind:'stop'}).decision.command,'');
   assert.equal(reconcileDrivingDecision({dialogue:'Okay',command:'DO DriveNormally'}, {kind:'stop'}).decision.command,'');
