@@ -19,7 +19,10 @@ export function m3CoverageDiagnostic(stage,detail){
   ...(typeof detail?.reason==='string'?{nativeReason:detail.reason}:{}),
   ...(typeof detail?.code==='string'?{code:detail.code}:{}),
   ...(typeof detail?.errorType==='string'?{errorType:detail.errorType}:{}),
-  ...(typeof detail?.retryable==='boolean'?{retryable:detail.retryable}:{})};
+  ...(typeof detail?.retryable==='boolean'?{retryable:detail.retryable}:{}),
+  ...(typeof detail?.hadCheckpoint==='boolean'?{hadCheckpoint:detail.hadCheckpoint}:{}),
+  ...(Number.isSafeInteger(detail?.abandoned)?{abandoned:Math.min(detail.abandoned,2147483647)}:{}),
+  ...(Number.isSafeInteger(detail?.gapsAbandoned)?{gapsAbandoned:Math.min(detail.gapsAbandoned,2147483647)}:{})};
 }
 export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthority=null,
     telemetry=null,attribution='observation_time',coverage={},authorityOptions={},
