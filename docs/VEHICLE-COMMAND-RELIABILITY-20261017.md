@@ -4,8 +4,10 @@
 
 - The companion classifies only bounded, **whole player utterances**. A continuation
   (“keep going”) cannot turn into `DriveEvasively` or a new `BeginDriving` publication.
-  “Drive faster” is not silently treated as the stock `DriveEvasively` alias.
-  Explicit evasive driving still uses Essential's allowlist and driver preconditions.
+  “Drive faster,” “speed up,” and “floor it” retain Essential's supported
+  `DriveEvasively` faster-driving alias, subject to Essential's current action
+  allowlist and verified driver preconditions. This changes the driving style,
+  not a numeric speed setting. Slowing down is handled independently.
 - A source-qualified ACT6 `vehicle_trip` blocks competing stock driving-mode DO
   publication for that player turn. ACT6's independent owner, lease, capability
   probes, and native task evidence still govern actual driving.
@@ -44,9 +46,10 @@ task-family-level and cannot establish full per-invocation GTA task ownership.
    capture the original Essential vehicle logs and task status before/after each.
 2. Say “keep going” during sustained movement. Confirm no new free-drive
    command is published and no `DriveEvasively` is dispatched.
-3. Say “drive faster,” “floor it,” then “drive evasively.” Only the explicit
-   evasive request may send the available stock aggressive-mode action; no
-   unsupported precise speed adjustment is claimed.
+3. Say “drive faster,” “floor it,” then “drive evasively.” With a verified
+   NPC driver and available Essential action, all three may issue the stock
+   `DO DriveEvasively` faster/aggressive mode. Verify movement changes and
+   avoid claiming a specific numeric speed. “Slow down” must never accelerate.
 4. Opt into ACT6 with native drive probes, set a valid waypoint, and request
    “drive to the waypoint.” Verify Essential free-drive cleanup happens once
    before the ACT6 task and that no residual stock task overwrites it at the
