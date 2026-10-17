@@ -45,6 +45,7 @@ jobs:
         run: |
           node --check tools/elevenlabs/voice_smoke.mjs
           node --test tests/elevenlabs-provider.test.mjs tests/elevenlabs-smoke-benchmark.test.mjs
+          node --test tests/npc-player-addressing-identity.test.mjs tests/knowledge-renderer.test.mjs tests/decisions-and-requests.test.mjs
           node --check src/perception/sceneDirector.mjs
           node --check src/perception/sceneDirectorAdmission.mjs
           node --check src/perception/directorWire.mjs
