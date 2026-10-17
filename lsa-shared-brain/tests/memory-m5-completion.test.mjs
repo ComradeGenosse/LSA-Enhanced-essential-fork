@@ -247,3 +247,58 @@ test('H: trash invalidates pending frozen clarification when offered evidence is
    assert.equal(await m5.getClarification({scope:x.scope,commandId:cid}),null);
  }finally{await m5.close();await x.store.close();}
 });
+
+
+test('M5 natural name correction: exact player source replaces only Nora, persists after reopen, and is idempotent',async t=>{
+ const x=await setup(t);
+ const old=await x.record('Our corgis are Koba and Nora.','original-dogs');
+ await x.record('Prana is our dog.','prana');
+ await x.record("Vladimir is our Pomsky.",'vladimir');
+ const accepted=await x.record('Her name is actually Nara, not Nora.','correct-name');
+ let m5=createM5SqliteServices({store:x.store,filePath:x.filePath,authorize:allowed});
+ await m5.ready(x.scope);
+ const commandId=id();
+ try{
+   const action=await handleExplicitMemoryCommand({line:accepted,scope:x.scope,
+     commandId,store:m5.bindCommands()});
+   assert.equal(action.outcome,'corrected');
+   assert.equal(action.durableCommit,true);
+   const correction=(await x.store.readCorrectionOverlays(x.scope))
+     .find(row=>row.targetId===old.recordId);
+   assert.equal(correction?.correctionMode,'player_fact');
+   assert.equal(correction?.envelope?.content.includes('Koba and Nara'),true);
+   assert.equal((await x.store.findCandidates({scope:x.scope})).some(row=>row.recordId===old.recordId),false);
+   const already=await handleExplicitMemoryCommand({line:accepted,scope:x.scope,
+     commandId,store:m5.bindCommands()});
+   assert.equal(already.outcome,'corrected');
+   const persisted=await x.store.withP2SqliteRead(x.scope,db=>({
+     commands:db.prepare('SELECT count(*) AS total FROM memory_commands WHERE command_id=?').get(commandId).total,
+     corrections:db.prepare('SELECT count(*) AS total FROM memory_corrections WHERE command_id=?').get(commandId).total
+   }));
+   assert.deepEqual(persisted,{commands:1,corrections:1});
+   await m5.close();
+   m5=createM5SqliteServices({store:x.store,filePath:x.filePath,authorize:allowed});
+   await m5.ready(x.scope);
+   assert.equal((await x.store.readCorrectionOverlays(x.scope)).some(row=>
+     row.targetId===old.recordId&&row.envelope.content.includes('Koba and Nara')),true);
+ }finally{await m5.close();await x.store.close();}
+});
+
+test('M5 natural corrections clarify duplicate verified targets, and cannot update unrelated Nora evidence',async t=>{
+ const x=await setup(t);
+ const unrelated=await x.record('Nora is my colleague, not my dog.','office');
+ await x.record('Our corgis are Koba and Nora.','dogs-a');
+ await x.record('My dogs are Koba and Nora.','dogs-b');
+ const accepted=await x.record('Her name is actually Nara, not Nora.','correction');
+ const m5=createM5SqliteServices({store:x.store,filePath:x.filePath,authorize:allowed});
+ try{
+   await m5.ready(x.scope);
+   const commandId=id();
+   const action=await handleExplicitMemoryCommand({line:accepted,scope:x.scope,
+     commandId,store:m5.bindCommands()});
+   assert.equal(action.outcome,'clarify','two matching player facts must never auto-correct');
+   assert.equal(await x.store.verifyCommand({scope:x.scope,commandId}),null);
+   assert((await x.store.findCandidates({scope:x.scope})).some(row=>row.recordId===unrelated.recordId));
+   assert.equal((await x.store.readCorrectionOverlays(x.scope)).length,0);
+ }finally{await m5.close();await x.store.close();}
+});
