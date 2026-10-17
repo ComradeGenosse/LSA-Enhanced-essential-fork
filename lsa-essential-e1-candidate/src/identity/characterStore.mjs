@@ -26,7 +26,9 @@ export function validateStore(value, worldProfileId) {
     }
     const voice = record.voiceAssignment;
     if (voice !== null && (!exactObject(voice, ['assignmentVersion','profileId','provider','voice','poolVersion']) ||
-        voice.assignmentVersion !== 1 || !/^vp_[a-f0-9]{20}$/.test(voice.profileId) || voice.provider !== 'openai' ||
+        !((voice.assignmentVersion === 1 && voice.provider === 'openai') ||
+        (voice.assignmentVersion === 2 && voice.provider === 'faster-qwen3-tts') ||
+        (voice.assignmentVersion === 3 && voice.provider === 'elevenlabs')) || !/^vp_[a-f0-9]{20}$/.test(voice.profileId) ||
         !/^[a-z][a-z0-9_-]{0,31}$/.test(voice.voice) || !/^[a-f0-9]{64}$/.test(voice.poolVersion))) invalid();
   }
   if (Buffer.byteLength(JSON.stringify(value)) > MAX_STORE_BYTES) invalid();

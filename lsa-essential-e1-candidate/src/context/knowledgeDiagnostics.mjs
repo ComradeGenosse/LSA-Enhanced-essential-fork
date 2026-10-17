@@ -7,7 +7,7 @@ export function summarizeKnowledgeSelection(inputs,frame) {
     captureMissingReason:inputs?.missingReason??'none',
     captureResetReason:inputs?.lastResetReason??'none',
     captureEventFiring:0,captureEventDeath:0,captureEventImpact:0,
-    captureEventInjury:0,captureEventOther:0,
+    captureEventInjury:0,captureEventOther:0,captureEventRadio:0,selectedRadio:0,
     captureContextOmit:0,captureContextCandidate:0,
     captureContextMustInclude:0,captureResponseEligible:0,
     captureResponseUrgent:0,
@@ -22,6 +22,7 @@ export function summarizeKnowledgeSelection(inputs,frame) {
       event==='vehicle_impact'?'captureEventImpact':
       event==='injury'?'captureEventInjury':'captureEventOther';
     counts[group]++;
+    if(event==='radio_heard')counts.captureEventRadio++;
     const context=pair?.decision?.context;
     if(context==='omit')counts.captureContextOmit++;
     else if(context==='candidate')counts.captureContextCandidate++;
@@ -29,6 +30,9 @@ export function summarizeKnowledgeSelection(inputs,frame) {
     if(pair?.decision?.response==='eligible')counts.captureResponseEligible++;
     else if(pair?.decision?.response==='urgent')counts.captureResponseUrgent++;
   }
+  // Radio facts reach the model only for a direct player radio question.
+  const radioKeys=new Set(pairs.filter(pair=>pair?.observation?.eventType==='radio_heard').map(pair=>pair.decision?.decisionKey));
+  counts.selectedRadio=(Array.isArray(frame?.delivery)?frame.delivery:[]).filter(item=>radioKeys.has(item?.decisionKey)).length;
   const o=frame?.diagnostics?.omissions || {};
   const safe=value=>Number.isSafeInteger(value)&&value>=0?Math.min(value,2147483647):0;
   counts.perceivedUnsupportedClaims=safe(o.unsupported_claim_detail);

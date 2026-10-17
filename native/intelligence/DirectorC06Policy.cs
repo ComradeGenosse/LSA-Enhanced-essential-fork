@@ -37,7 +37,30 @@ namespace LSA.Intelligence
             public long SpecialTurnVersion=-1;
             public bool EssentialTurnKnown,EssentialTurnIdle,PlaybackKnown,PlaybackIdle;
             public bool ScriptStateKnown,ScriptSafe,ActorReflexKnown,ActorReflexIdle;
+            // Closed native veto classification, never a script/mission title.
+            public string ScriptUnsafeReason;
             public bool ObservationReceiptCurrent,ResponseGrantCurrent;
+        }
+
+        // The pinned Essential Core aliases current-speaker to its selected
+        // conversation target. Keeping the same target selected after a turn
+        // must not indefinitely veto Director, but selection cannot grant
+        // authority either. Permit it ONLY with a stable exact speaker and
+        // independently authenticated current quiet/backend and native idle
+        // proofs. A new player turn or unreadable signal stays a hard veto.
+        internal static bool RetainedTargetIdle(Snapshot s,bool exactSpeaker,bool stableSelection)
+        {
+            return s!=null && exactSpeaker && stableSelection &&
+                s.ConversationStateKnown &&
+                s.PlayerTurnSourceCurrent && s.PlayerTurnIdle &&
+                s.EssentialTurnKnown && s.EssentialTurnIdle &&
+                s.MicStateKnown && s.MicIdle &&
+                s.TextInputKnown && s.TextInputIdle &&
+                s.ControlsInputKnown && s.ControlsInputIdle &&
+                s.PlaybackKnown && s.PlaybackIdle &&
+                s.OwnerProofCurrent && s.OwnerIdle &&
+                s.ActorReflexKnown && s.ActorReflexIdle &&
+                s.ScriptStateKnown && s.ScriptSafe;
         }
 
         // Read-only diagnosis of the FIRST already-enforced C-06 veto.
@@ -67,7 +90,7 @@ namespace LSA.Intelligence
             if(!s.ControlsInputKnown)return "controls_input_unknown";
             if(!s.ControlsInputIdle)return "controls_input_busy";
             if(!s.ScriptStateKnown)return "script_state_unknown";
-            if(!s.ScriptSafe)return "script_state_unsafe";
+            if(!s.ScriptSafe)return s.ScriptUnsafeReason??"script_state_unsafe";
             if(!s.ActorReflexKnown)return "actor_reflex_unknown";
             if(!s.ActorReflexIdle)return "actor_reflex_busy";
             if(occupied)return "occupied_playback_unclassified";

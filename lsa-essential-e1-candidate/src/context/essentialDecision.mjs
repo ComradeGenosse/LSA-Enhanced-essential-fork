@@ -2,6 +2,13 @@ import {renderKnowledge} from './knowledgeRenderer.mjs';
 import {captureReferenceMap} from './turnSnapshot.mjs';
 import {composeKnowledgeInstruction,separateKnowledgeInstruction,KNOWLEDGE_GROUNDING} from './knowledgeInstructions.mjs';
 import {KNOWLEDGE_LIMITS,jsonBytes} from './knowledgeSelector.mjs';
+// Wire contract: delivery hints are proposed acting direction, never dialogue or evidence.
+// Version zero is the unchanged legacy {text} segment protocol.
+export const LUNA_SEGMENT_DELIVERY_V1 = Object.freeze([
+  'neutral', 'whisper', 'excited', 'fearful', 'angry',
+  'amused', 'sad', 'sarcastic', 'concerned',
+]);
+
 export const decisionSchema = Object.freeze({
   type: 'object',
   additionalProperties: false,
@@ -54,14 +61,20 @@ export function validateDecisionShape(decision) {
   return parseDecisionJson(JSON.stringify(decision));
 }
 
-export function buildRequest({ model, effort, systemInstruction, actor, listener, world, contextText, internalEvent, source, input, history = [], maxOutputTokens = 300, structuredSegments = false, knowledgeProjection }) {
+export function buildRequest({ model, effort, systemInstruction, actor, listener, world, contextText, internalEvent, source, input, history = [], maxOutputTokens = 300, structuredSegments = false, lunaDeliveryVersion = 0, knowledgeProjection }) {
+  if (lunaDeliveryVersion !== 0 && lunaDeliveryVersion !== 1)
+    throw new RangeError('Unsupported Luna segment delivery protocol version.');
+  if (lunaDeliveryVersion === 1 && !structuredSegments)
+    throw new TypeError('Luna delivery hints require structured segments.');
   const projection=knowledgeProjection ?? renderKnowledge({actor,listener,world,referenceMap:captureReferenceMap(actor),history,input,source:source||'player_text'});
   const allocation=projection.modelAllocation;
   if(!allocation || projection.frameVersion!==1)throw new TypeError('knowledge_projection_shape');
   const scene=allocation.scene;
   const boundedHistory=allocation.messages.slice(0,-1);
   const outputRules = structuredSegments
-    ? 'Return one strict JSON object with exactly three fields in this order: mode, segments, command. mode is dialogue_only only when no action is needed; otherwise buffered_action. Each segments item contains exactly text and must be a complete short spoken phrase/sentence. command is empty or exactly one currently available Essential DO action. Never put DO commands in speech. Do not claim an action already happened. The mode is fixed and may not change; dialogue_only requires an empty final command.'
+    ? (lunaDeliveryVersion === 1
+      ? 'Return one strict JSON object with exactly three fields in this order: mode, segments, command. mode is dialogue_only only when no action is needed; otherwise buffered_action. Every segments item must contain exactly two fields in this order: delivery, text. delivery is a single acting-intent enum: neutral, whisper, excited, fearful, angry, amused, sad, sarcastic, concerned. Use neutral when unsure; never imply you witnessed events without verified evidence. Do not output bracketed audio tags or stage directions. text must be a complete short spoken phrase/sentence of at most 200 characters. Use multiple segments for longer speech (maximum six); keep combined speech under 1200 characters. command is empty or exactly one available Essential DO action. Never put DO commands in speech; never claim an action already happened. dialogue_only requires an empty command; mode cannot change.'
+      : 'Return one strict JSON object with exactly three fields in this order: mode, segments, command. mode is dialogue_only only when no action is needed; otherwise buffered_action. Each segments item contains exactly text and must be a complete short spoken phrase/sentence of at most 200 characters. For longer speech, use multiple segments (maximum six total); do not put the whole long reply in one item. Keep combined speech under 1200 characters. command is empty or exactly one currently available Essential DO action. Never put DO commands in speech. Do not claim an action already happened. The mode is fixed and may not change; dialogue_only requires an empty final command.')
     : 'Return one JSON object with exactly two fields: dialogue and command. dialogue contains only brief spoken words for the player, never a DO command. command is empty or exactly one currently available Essential DO action. Do not chain actions. Do not invent targets, vehicles, weapons, or destinations.';
   const trustedInstruction=`${separateKnowledgeInstruction(systemInstruction)}\n\n[C-04 CONTEXT RULES]\n${KNOWLEDGE_GROUNDING}\n\n[E1 OUTPUT RULES]\n${outputRules}`;
   if(jsonBytes(trustedInstruction)>KNOWLEDGE_LIMITS.instructionBytes)throw new RangeError('knowledge_instruction_bytes');
@@ -71,8 +84,8 @@ export function buildRequest({ model, effort, systemInstruction, actor, listener
     reasoning: { effort },
     stream: false,
     max_output_tokens: maxOutputTokens,
-    text: { format: { type: 'json_schema', name: structuredSegments ? 'e1_segmented_decision' : 'e1_decision', strict: true,
-      schema: structuredSegments ? segmentedDecisionSchema : decisionSchema } },
+    text: { format: { type: 'json_schema', name: structuredSegments ? (lunaDeliveryVersion === 1 ? 'e1_segmented_delivery_v1' : 'e1_segmented_decision') : 'e1_decision', strict: true,
+      schema: structuredSegments ? (lunaDeliveryVersion === 1 ? segmentedDeliveryV1Schema : segmentedDecisionSchema) : decisionSchema } },
     input: [
       { role: 'system', content: composeKnowledgeInstruction(systemInstruction,scene,outputRules) },
       ...boundedHistory,
@@ -95,6 +108,24 @@ const segmentedDecisionSchema = Object.freeze({
     mode: { type: 'string', enum: ['dialogue_only', 'buffered_action'] },
     segments: { type: 'array', items: {
       type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string' } },
+    } },
+    command: { type: 'string' },
+  },
+});
+
+// EA3 opt-in strict schema. Strict Responses schemas require all fields, so
+// neutral is explicit. Delivery precedes text for early segment release.
+export const segmentedDeliveryV1Schema = Object.freeze({
+  type: 'object', additionalProperties: false,
+  required: ['mode', 'segments', 'command'],
+  properties: {
+    mode: { type: 'string', enum: ['dialogue_only', 'buffered_action'] },
+    segments: { type: 'array', items: {
+      type: 'object', additionalProperties: false, required: ['delivery', 'text'],
+      properties: {
+        delivery: { type: 'string', enum: [...LUNA_SEGMENT_DELIVERY_V1] },
+        text: { type: 'string' },
+      },
     } },
     command: { type: 'string' },
   },

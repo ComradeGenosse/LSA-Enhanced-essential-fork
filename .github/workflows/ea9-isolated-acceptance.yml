@@ -1,0 +1,26 @@
+name: EA9 Isolated Deploy and Rollback Acceptance
+on:
+  push:
+    branches:
+      - fix/ea9-isolated-deploy-acceptance-20261012
+  pull_request:
+    branches:
+      - integration/elevenlabs-emotional-acting-final-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-rollback:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Reversible isolated GTA artifact rollback and fail-closed preflight
+        working-directory: lsa-essential-e1-candidate
+        run: node --test tests/ea9-release.test.mjs
