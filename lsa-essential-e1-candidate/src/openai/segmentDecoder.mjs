@@ -1,5 +1,7 @@
 import { parseDecisionJson, LUNA_SEGMENT_DELIVERY_V1 } from '../context/essentialDecision.mjs';
 
+import { validateAct5Choice } from '../activities/act5Dialogue.mjs';
+
 const MAX_JSON_DEPTH = 32;
 
 export function parseJsonNoDuplicateKeys(source) {
@@ -16,6 +18,7 @@ export function createSegmentDecoder({
   maxDialogueChars = 1200,
   maxResponseChars = 32_768,
   lunaDeliveryVersion = 0,
+  act5Intents = null,
 } = {}) {
   if (lunaDeliveryVersion !== 0 && lunaDeliveryVersion !== 1)
     throw new TypeError('Unsupported Luna segment delivery protocol version.');
@@ -53,7 +56,7 @@ export function createSegmentDecoder({
     },
     finish() {
       const decision = parseJsonNoDuplicateKeys(source);
-      const normalized = validateDecision(decision, { maxSegments, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion });
+      const normalized = validateDecision(decision, { maxSegments, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion, act5Intents });
       if (normalized.length !== emitted || normalized.some((segment, i) =>
         segment.text !== emittedSegments[i]?.text ||
         (lunaDeliveryVersion === 1 && segment.delivery !== emittedSegments[i]?.delivery))) {
@@ -67,7 +70,7 @@ export function createSegmentDecoder({
           ...(lunaDeliveryVersion === 1 ? { delivery: segment.delivery } : {}),
         }))),
         reflowedSegments: normalized.length - decision.segments.length,
-        decision: parseDecisionJson(JSON.stringify({ dialogue, command: decision.command })),
+        decision: parseDecisionJson(JSON.stringify({ dialogue, command: decision.command, ...(Array.isArray(act5Intents) ? {activity:decision.activity} : {}) }), {act5Intents}),
       });
     },
     get mode() { return extractMode(source); },
@@ -138,7 +141,12 @@ function normalizeSegments(segments, limits) {
   return normalized;
 }
 function validateDecision(value, limits) {
-  assertExactKeys(value, ['mode', 'segments', 'command'], 'decision');
+  assertExactKeys(value, Array.isArray(limits.act5Intents) ? ['mode', 'segments', 'command', 'activity'] : ['mode', 'segments', 'command'], 'decision');
+  if (Array.isArray(limits.act5Intents)) {
+    if (!validateAct5Choice(value.activity, limits.act5Intents)) throw new Error('ACT5 activity is malformed or unavailable.');
+    if (value.activity !== null && (value.mode !== 'buffered_action' || value.command.trim()))
+      throw new Error('ACT5 requires buffered_action and no stock command.');
+  }
   if (!['dialogue_only', 'buffered_action'].includes(value.mode)) throw new Error('Decision mode is invalid.');
   if (!Array.isArray(value.segments) || value.segments.length < 1 || value.segments.length > limits.maxSegments)
     throw segmentFailure('segment_budget_exceeded', 'Decision segment count is invalid.');
