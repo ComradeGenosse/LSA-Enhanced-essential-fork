@@ -22,8 +22,10 @@ namespace LSA.Intelligence
         {
             public string Owner;
             public int Vehicle;
-            public bool Near;
-            public long NearSince,IdleSince,TripSince,LastSeen;
+            public bool Near,WasShared,EntryPending;
+            public string Activity;
+            public long NearSince,IdleSince,TripSince,LastSeen,LastSharedExit;
+            public long LastTransition=-90000;
             public long LastGreeting=-600000,LastEntry=-600000,LastIdle=-600000,LastTravel=-600000;
             public int LastEntryVehicle;
             public Rage.Vector3 LastPlayer,LastActor;
@@ -93,26 +95,24 @@ namespace LSA.Intelligence
                 var movement=track.LastSeen>0 && track.LastSeen>=now-1200 &&
                     (ped.Position.DistanceTo(track.LastActor)>0.3f ||
                      playerPed.Position.DistanceTo(track.LastPlayer)>0.3f);
-                if(track.Vehicle!=actorCar || !sharedCar)track.TripSince=now;
+                if(!sharedCar && track.WasShared)track.LastSharedExit=now;
+                if(sharedCar && !track.WasShared) {
+                    track.TripSince=now;track.EntryPending=true;
+                }
                 if(!near){track.Near=false;track.NearSince=now;track.IdleSince=now;}
                 else if(!track.Near){track.Near=true;track.NearSince=now;track.IdleSince=now;}
                 if(movement||sharedCar||!near)track.IdleSince=now;
                 string kind=null;
                 // Boarding is an edge, not a per-tick prompt. Brief re-entry
                 // into the same vehicle never creates a second opening.
-                if(sharedCar && track.Vehicle!=actorCar &&
-                   now-track.LastEntry>20000 || sharedCar && track.LastEntryVehicle!=actorCar &&
-                   track.Vehicle!=actorCar && now-track.LastEntry>20000) {
-                    // Wait until both are settled; next sample will qualify.
-                    track.TripSince=now;
-                }
-                if(sharedCar && now-track.TripSince>=700 &&
+                if(sharedCar && track.EntryPending && now-track.TripSince>=700 &&
                    now-track.LastEntry>=20000 &&
-                   (track.Vehicle!=actorCar || track.LastEntryVehicle!=actorCar)) {
+                   (track.LastEntryVehicle!=actorCar || now-track.LastEntry>=90000)) {
                     kind="shared_vehicle_entry";track.LastEntry=now;track.LastEntryVehicle=actorCar;
+                    track.EntryPending=false;
                 }
                 if(kind==null && near && !sharedCar && now-track.NearSince>=1200 &&
-                   now-track.LastGreeting>=300000 && track.LastSeen<=track.NearSince+1000) {
+                   now-track.LastGreeting>=300000 && track.LastGreeting<track.NearSince) {
                     kind="reunion";track.LastGreeting=now;
                 }
                 if(kind==null && near && !sharedCar &&
@@ -123,7 +123,13 @@ namespace LSA.Intelligence
                    now-track.TripSince>=45000 && now-track.LastTravel>=150000) {
                     kind="travel";track.LastTravel=now;
                 }
-                track.Vehicle=actorCar;
+                if(kind==null && near && !sharedCar && track.Activity!=null &&
+                   track.Activity!=state.Mode && now-track.LastTransition>=90000 &&
+                   (state.Mode=="follow" || state.Mode=="wait")) {
+                    kind="activity_transition";track.LastTransition=now;
+                }
+                track.Activity=state.Mode;
+                track.WasShared=sharedCar;track.Vehicle=actorCar;
                 track.LastSeen=now;track.LastActor=ped.Position;track.LastPlayer=playerPed.Position;
                 // Existing scene remains admissible only while its source
                 // relation (same vehicle or physical proximity) is current.
