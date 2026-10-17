@@ -2,7 +2,7 @@
 // never a fixed line or an invented relationship/memory. Essential/Luna choose
 // the words in the NPC's existing character voice.
 const SOCIAL_CONTEXT=Object.freeze({
-  shared_vehicle_entry:'You and the player have just settled into the same vehicle. Initiate a natural conversation about the new journey.',
+  shared_vehicle_entry:'You and the player have just boarded together. Start a natural conversation about the trip.',
   reunion:'You have just rejoined the player after time apart. Greet them naturally in character.',
   shared_idle:'You and the player have spent quiet time together. Start a natural, potentially unrelated conversation.',
   travel:'You and the player are traveling together. Initiate a casual conversation; avoid repetitive destination questions.',
