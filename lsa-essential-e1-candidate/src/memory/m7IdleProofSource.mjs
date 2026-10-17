@@ -43,7 +43,8 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
     throw new TypeError('m7_idle_source_ports_required');
   const mono=monotonicNow??(()=>runtime.now());
 
-  let streak=null,generation=0,reason='native_diagnostic_missing',disposed=false,watchdog=null;
+  let streaks=new Map(),selectedRef=null,lastSelectedRef=null,generation=0,
+    reason='native_diagnostic_missing',disposed=false,watchdog=null;
   const listeners=new Set();
   const minted=new WeakMap();
   const unsubscribers=[];
@@ -51,9 +52,16 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
   function notify(){for(const listener of [...listeners])try{listener();}catch{}}
   /** Any loss of continuity: forget the streak and abort in-flight cloud work NOW. */
   function invalidate(code){
-    generation++;streak=null;
+    generation++;streaks.clear();selectedRef=null;
     reason=SAFE_CODE.test(code)?code:'idle_invalidated';
     notify();
+  }
+  // An unrelated owner's bad sample must not abort a valid selected owner's
+  // cloud operation. A selected-owner interruption still cancels immediately.
+  function dropCandidate(ref,code){
+    if(ref===selectedRef)return invalidate(code);
+    streaks.delete(ref);
+    if(selectedRef===null)reason=SAFE_CODE.test(code)?code:'idle_invalidated';
   }
 
   // Original backend: quiet AND source-current, from a fresh synchronous read.
@@ -111,59 +119,81 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
     const f=receipt?.frame,p=f?.payload;
     if(f?.type!=='memory_m7_idle_diagnostic'||!p||f.streamId!==runtime.stream||
        f.adapterEpoch!==runtime.epoch)return invalidate('native_frame_not_current');
-    if(!identityFor(p))return invalidate('native_identity_unverified');
-    // A frame that is not entirely quiet is a busy edge: drop and abort at once.
+    const ref=p.observerCaptureRef;
+    if(!identityFor(p))return dropCandidate(ref,'native_identity_unverified');
     if(!M7_NATIVE_CORE_QUIET_FIELDS.every(k=>p.priorityEvidence?.[k]===true))
-      return invalidate('native_not_quiet');
+      return dropCandidate(ref,'native_not_quiet');
     const backendView=readBackend();
     if(backendView.reason)return invalidate(backendView.reason);
     const t=mono();
-    if(streak&&(!sameStream(streak,f,p)||f.sequence<=streak.sequence||
-       backendView.sourceRun!==streak.sourceRun||backendView.revision!==streak.revision||
-       p.sampledGameTick<=streak.lastTick||t<streak.lastNativeAt||
-       t-streak.lastNativeAt>maxNativeAgeMs)){
-      invalidate('continuity_lost'); // aborts work bound to the old streak; restart below
+    let s=streaks.get(ref);
+    if(s&&(!sameStream(s,f,p)||f.sequence<=s.sequence||
+       backendView.sourceRun!==s.sourceRun||backendView.revision!==s.revision||
+       p.sampledGameTick<=s.lastTick||t<s.lastNativeAt||
+       t-s.lastNativeAt>maxNativeAgeMs)){
+      dropCandidate(ref,'continuity_lost');
+      s=null;
     }
-    if(!streak){
-      streak={streamId:f.streamId,adapterEpoch:f.adapterEpoch,hostRunId:p.hostRunId,
-        worldEpoch:p.worldEpoch,observerCaptureRef:p.observerCaptureRef,
+    if(!s){
+      s={streamId:f.streamId,adapterEpoch:f.adapterEpoch,hostRunId:p.hostRunId,
+        worldEpoch:p.worldEpoch,observerCaptureRef:ref,
         incarnationId:p.incarnationId,encounterId:p.encounterId,sourceRun:backendView.sourceRun,
-        revision:backendView.revision,startedAt:t,firstTick:p.sampledGameTick};
+        revision:backendView.revision,startedAt:t,firstTick:p.sampledGameTick,samples:0};
+      streaks.set(ref,s);
       reason='idle_window_not_elapsed';
     }
-    streak.sequence=f.sequence;streak.lastTick=p.sampledGameTick;
-    streak.lastNativeAt=t;streak.lastWallMs=wallNow();streak.evidence=p.priorityEvidence;
+    s.samples++;
+    s.sequence=f.sequence;s.lastTick=p.sampledGameTick;
+    s.lastNativeAt=t;s.lastWallMs=wallNow();s.evidence=p.priorityEvidence;
   }
 
-  /** Synchronous. Null unless every gate below holds right now. */
-  function snapshot(){
-    if(disposed||!streak)return null;
-    const s=streak,t=mono();
-    if(!Number.isFinite(t)||t<s.lastNativeAt||t-s.lastNativeAt>maxNativeAgeMs){
-      invalidate('native_sample_stale');return null;
-    }
-    const idleForMs=s.lastNativeAt-s.startedAt;
-    if(idleForMs<minIdleMs){reason='idle_window_not_elapsed';return null;}
-    // The game clock must have advanced with real time over the observed span.
-    if(s.lastTick-s.firstTick<idleForMs*minGameTimeRatio){invalidate('game_clock_stalled');return null;}
-    const backendView=readBackend();
-    if(backendView.reason){invalidate(backendView.reason);return null;}
-    if(backendView.sourceRun!==s.sourceRun||backendView.revision!==s.revision){
-      invalidate('backend_activity');return null;
-    }
-    const payloadLike={hostRunId:s.hostRunId,worldEpoch:s.worldEpoch,
-      observerCaptureRef:s.observerCaptureRef,incarnationId:s.incarnationId,encounterId:s.encounterId};
-    const who=identityFor(payloadLike);
+  function candidateReady(s,t,backendView){
+    if(!s||!Number.isFinite(t)||t<s.lastNativeAt||
+       t-s.lastNativeAt>maxNativeAgeMs)return 'native_sample_stale';
+    if(s.samples<3||s.lastNativeAt-s.startedAt<minIdleMs)return 'idle_window_not_elapsed';
+    if(s.lastTick-s.firstTick<(s.lastNativeAt-s.startedAt)*minGameTimeRatio)
+      return 'game_clock_stalled';
+    if(backendView.sourceRun!==s.sourceRun||backendView.revision!==s.revision)
+      return 'backend_activity';
+    const who=identityFor(s);
     if(!who||who.host.hostRunId!==s.hostRunId||runtime.stream!==s.streamId||
-       runtime.epoch!==s.adapterEpoch){invalidate('native_identity_unverified');return null;}
+       runtime.epoch!==s.adapterEpoch)return 'native_identity_unverified';
+    return null;
+  }
+
+  /** Synchronous. Select one eligible NPC and hold that choice throughout a
+   * checkpoint. All NPCs maintain independent native streaks, so sampling another
+   * owner cannot inadvertently revoke the selected owner's proof. */
+  function snapshot(){
+    if(disposed||streaks.size===0)return null;
+    const t=mono(),backendView=readBackend();
+    if(backendView.reason){invalidate(backendView.reason);return null;}
     if(typeof store.worldProfileId!=='string'||typeof store.activeTimelineId!=='string'||
        !store.activeTimelineId)return null;
+    if(selectedRef===null){
+      const refs=[...streaks.keys()].sort();
+      const previous=refs.indexOf(lastSelectedRef),offset=previous<0?-1:previous;
+      for(let i=1;i<=refs.length;i++){
+        const ref=refs[(offset+i)%refs.length],s=streaks.get(ref);
+        const problem=candidateReady(s,t,backendView);
+        if(problem){
+          if(problem!=='idle_window_not_elapsed')dropCandidate(ref,problem);
+          else reason=problem;
+          continue;
+        }
+        selectedRef=ref;lastSelectedRef=ref;break;
+      }
+    }
+    if(selectedRef===null)return null;
+    const s=streaks.get(selectedRef),problem=candidateReady(s,t,backendView);
+    if(problem){invalidate(problem);return null;}
+    const idleForMs=s.lastNativeAt-s.startedAt;
     const priorityEvidence=Object.freeze(Object.fromEntries(M7_PRIORITY_QUIET_FIELDS.map(k=>[k,
       M7_NATIVE_CORE_QUIET_FIELDS.includes(k)?s.evidence[k]===true:backendView.fields[k]===true])));
     const proof=Object.freeze({kind:M7_IDLE_PROOF_KIND,nativeVerified:true,
       hostRunId:s.hostRunId,worldEpoch:s.worldEpoch,sessionId:s.streamId,
       incarnationId:s.incarnationId,encounterId:s.encounterId,
-      observerIndex:runtime.observerIndexVersion??0,characterId:who.characterId,
+      observerIndex:runtime.observerIndexVersion??0,characterId:identityFor(s).characterId,
       worldProfileId:store.worldProfileId,timelineId:store.activeTimelineId,
       priorityEvidence,idle:true,micActive:false,playerSpeechActive:false,
       directorBusy:false,gamePaused:false,idleForMs,
@@ -172,11 +202,19 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
     reason=null;
     return proof;
   }
-  /** True only for a proof minted by THIS module in the current, unbroken streak. */
+  /** True only for a proof minted in the selected, still-current streak. */
   function verifyAuthenticatedSource(proof){
-    if(disposed||!streak||!proof||typeof proof!=='object'||minted.get(proof)!==generation)return false;
+    const s=selectedRef===null?null:streaks.get(selectedRef);
+    if(disposed||!s||!proof||typeof proof!=='object'||minted.get(proof)!==generation)return false;
     const t=mono();
-    return Number.isFinite(t)&&t>=streak.lastNativeAt&&t-streak.lastNativeAt<=maxNativeAgeMs;
+    return Number.isFinite(t)&&t>=s.lastNativeAt&&t-s.lastNativeAt<=maxNativeAgeMs;
+  }
+  /** Called only after the current scheduler checkpoint has settled. Fairly
+   * rotate the next checkpoint to another continuously sampled NPC. */
+  function advanceSelection(){
+    if(disposed)return;
+    selectedRef=null;
+    generation++; // retire the previous checkpoint's proofs
   }
   function stopWatchdog(){if(watchdog!==null){clearIntervalFn(watchdog);watchdog=null;}}
   /** While cloud work is in flight (subscribed), lost native frames abort it. */
@@ -185,7 +223,8 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
     listeners.add(listener);
     if(watchdog===null){
       watchdog=setIntervalFn(()=>{
-        if(streak&&mono()-streak.lastNativeAt>maxNativeAgeMs)invalidate('native_sample_stale');
+        const s=selectedRef===null?null:streaks.get(selectedRef);
+        if(s&&mono()-s.lastNativeAt>maxNativeAgeMs)invalidate('native_sample_stale');
       },watchdogMs);
       watchdog?.unref?.();
     }
@@ -200,9 +239,10 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
   unsubscribers.push(backend.observe(()=>invalidate('backend_activity')));
 
   function diagnostics(){
-    return Object.freeze({state:disposed?'stopped':streak?'tracking':'waiting',
+    const s=selectedRef===null?null:streaks.get(selectedRef);
+    return Object.freeze({state:disposed?'stopped':streaks.size?'tracking':'waiting',
       reason:disposed?'source_stopped':reason,
-      observedIdleMs:streak?streak.lastNativeAt-streak.startedAt:0});
+      observedIdleMs:s?s.lastNativeAt-s.startedAt:0});
   }
   function dispose(){
     if(disposed)return;
@@ -210,5 +250,5 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
     stopWatchdog();listeners.clear();
     for(const off of unsubscribers.splice(0))try{off?.();}catch{}
   }
-  return Object.freeze({snapshot,verifyAuthenticatedSource,subscribeInvalidation,diagnostics,dispose});
+  return Object.freeze({snapshot,verifyAuthenticatedSource,advanceSelection,subscribeInvalidation,diagnostics,dispose});
 }
