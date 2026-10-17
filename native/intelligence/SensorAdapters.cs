@@ -141,7 +141,7 @@ namespace LSA.Intelligence
             if(other) classes=classes.Length==0?"other":classes+"+other";
             return classes.Length==0?"empty":classes;
         }
-        public void Radio(string vehicle,string station,uint soundHash,int trackTextId,uint tick,long now)
+        public void Radio(string vehicle,string station,uint soundHash,int trackTextId,uint tick,long now,bool audienceChanged=false)
         {
             if(!Enabled||!Allows("radio")) return;
             if(!ValidRadioStation(station)) { station=""; soundHash=0; trackTextId=0; }
@@ -149,14 +149,18 @@ namespace LSA.Intelligence
             if(current.Station.Length==0) {current.SoundHash=0;current.TrackTextId=0;}
             var previous=radioBaseline;
             bool same=previous!=null && previous.Vehicle==current.Vehicle && previous.Station==current.Station && previous.SoundHash==current.SoundHash && previous.TrackTextId==current.TrackTextId;
-            // No synthetic radio event on an unchanged off/unknown state.
-            // The native owner just re-read this exact tuple from GTA; only a
-            // live in-vehicle track may be reconfirmed, at most once per 60s.
-            if(same && (string.IsNullOrEmpty(current.Vehicle) || current.Station.Length==0 || now<nextRadioRevalidate)) return;
+            // Every revalidation starts from a new native GTA radio sample.
+            // A newly qualified passenger or a reconnected listener must not
+            // wait up to 60s for the next unchanged-track confirmation.
+            // Never generate events from unchanged off/unknown states.
+            if(same && (string.IsNullOrEmpty(current.Vehicle) || current.Station.Length==0 ||
+                (!audienceChanged && now<nextRadioRevalidate))) return;
             bool establishing=previous==null;
             radioBaseline=current;
             nextRadioRevalidate=now+RadioRevalidateMs;
-            if(establishing) return;
+            // First live in-vehicle radio samples are real evidence, unlike
+            // initial no-radio baselines. Witnesses are still checked natively.
+            if(establishing && (string.IsNullOrEmpty(current.Vehicle) || current.Station.Length==0)) return;
             // Revalidation traverses the existing radio_changed / R3 witness
             // pipeline to renew bounded context. It is NOT a station/song edge;
             // no new speech, memory, or extra producer is authorized.
