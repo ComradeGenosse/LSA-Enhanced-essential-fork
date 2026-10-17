@@ -95,7 +95,10 @@ namespace LSA.Reactions
         public int PendingMs = 1500;                   // wait this long for native's own playback record
         public int MaxLateStartMs = 4000;              // never start a gesture this far into a line
         public bool AllowDuringOwnedBehavior = false;  // follow/wait/sit/activity owners
+        public bool Diagnostics = false;               // literal true: read-only [RX] probe/clip lines
         public readonly HashSet<string> Disabled = new HashSet<string>();
+        // Opt-in reactions (ReactionSpec.OptIn) run only when listed here.
+        public readonly HashSet<string> Enabled = new HashSet<string>();
         public bool Active => Mode == "shadow" || Mode == "on";
         public bool Mutates => Mode == "on";
     }
@@ -173,6 +176,7 @@ namespace LSA.Reactions
             if (frame.HostRunId != hostRunId || frame.WorldEpoch != worldEpoch) return reject("host_mismatch");
             if (!ReactionCatalog.IsKnown(frame.Reaction)) return reject("unknown_reaction");
             if (options.Disabled.Contains(frame.Reaction)) return reject("reaction_disabled");
+            if (ReactionCatalog.Get(frame.Reaction).OptIn && !options.Enabled.Contains(frame.Reaction)) return reject("reaction_not_enabled");
             long age = nowMs - receivedMs;
             if (age > options.FrameFreshMs) return reject("stale_frame");
             var playback = book.Active(frame.Key);
@@ -190,13 +194,19 @@ namespace LSA.Reactions
     {
         // Deterministic 500..1199 ms offset into the line, derived from the turn
         // identity (FNV-1a). No randomness, so a replay behaves identically.
-        public static int StartDelayMs(PlaybackKey key)
+        public static int StartDelayMs(PlaybackKey key) => StartDelayMs(key, 500, 700);
+
+        // Per-reaction window (ReactionSpec.StartMinMs/StartSpanMs); same hash.
+        public static int StartDelayMs(PlaybackKey key, ReactionSpec spec) =>
+            spec == null ? StartDelayMs(key) : StartDelayMs(key, spec.StartMinMs, spec.StartSpanMs);
+
+        static int StartDelayMs(PlaybackKey key, int minMs, int spanMs)
         {
             unchecked
             {
                 uint hash = 2166136261;
                 foreach (char c in key.TurnId + ":" + key.GenerationId) { hash ^= c; hash *= 16777619; }
-                return 500 + (int)(hash % 700);
+                return minMs + (int)(hash % (uint)spanMs);
             }
         }
     }

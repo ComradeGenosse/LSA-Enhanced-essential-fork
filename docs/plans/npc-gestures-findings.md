@@ -70,9 +70,11 @@ Only the dictionary/clip names were taken, as *candidates*, and are resolved at 
 
 The `anim@mp_player_intupper*` dictionaries are the upper-body variants and are tried first. The celebration/selfie variants are fallbacks that may animate more of the body; they are used with the same upper-body flag. The female dictionaries and the `selfiethe_bird` fallback are the least certain.
 
-## Facial expressions: skipped
+## Facial expressions: skipped (verdict: blocked)
 
-No facial-expression clip could be verified for Enhanced, and Essential lip-sync and PR #198 own the face while an NPC speaks. A facial layer that cannot be verified and that competes with mouth animation would be exactly the "continuous overwrite" the task forbids, so none was added. If Enhanced facial dictionaries are confirmed later, a facial reaction can be added as another catalog entry with a catalog-only change, but it must yield to lip-sync (apply only outside speech, or not at all).
+The G1 feasibility audit is in [npc-facial-acting-g1-verdict.md](npc-facial-acting-g1-verdict.md). Summary: ownership of the face cannot be proven (Essential `NpcLipSync` exposes no state, the #215 overlay's state is private), no mood clip is verified on Enhanced, and `PLAY_FACIAL_ANIM` has a single slot. Nothing facial was added beyond a read-only dictionary-existence probe.
+
+Original rationale: No facial-expression clip could be verified for Enhanced, and Essential lip-sync and PR #198 own the face while an NPC speaks. A facial layer that cannot be verified and that competes with mouth animation would be exactly the "continuous overwrite" the task forbids, so none was added. If Enhanced facial dictionaries are confirmed later, a facial reaction can be added as another catalog entry with a catalog-only change, but it must yield to lip-sync (apply only outside speech, or not at all).
 
 ## Verification
 
@@ -99,3 +101,100 @@ Suggested in-game order: set native `mode` to `shadow` and read the `[RX]` log l
 - Playing gestures recheck combat, current speaker, scenario and owner-state safety every owner-fiber update; loss of a condition ends only this clip.
 - Playback START has bounded per-ped generation high-watermarks, including after END; stale/equal-generation conflicting starts cannot supersede newer playback. World resets clear the generation scope.
 - Updated offline regression tests cover the previously missing paths. These do **not** constitute GTA V Enhanced acceptance.
+
+## Completion after #204 (plan #222: G0, G1, G2, G3)
+
+Status legend: **code** = implemented and covered by offline tests, **CI** = to be confirmed by the PR's checks, **GTA** = needs GTA V Enhanced and is **OPEN** for everything below.
+
+| #222 item | Result | Code | GTA |
+|---|---|---|---|
+| G0 diagnostics: dictionary exists / loaded, winning clip, duration, clip-scoped stop | `reactions.diagnostics: true` adds `[RX] probe …` (once per reaction and gender) and names the winning clip and duration on `[RX] played`. Reads only; catalog constants only, never dialogue. | done | OPEN |
+| G0 matrix on Enhanced (facepalm, middle finger) | Checklist below. Cannot be produced without the game. | n/a | **OPEN** |
+| G1 facial feasibility | Verdict **blocked**, no facial code. See the verdict doc. | n/a | OPEN (experiments listed there) |
+| G2 natural body language | `nod` and `shrug` added as **opt-in** reactions. Not facepalm-style defaults: both configs must list them in `reactions.enabled`. `square_up` and pointing stay out of scope as #222 requires. | done | **OPEN** |
+| G2 ElevenLabs / personality | The turn's trusted delivery value can only **veto** a contradicting gesture (see below). No second model call, no schema change, no M8 personality inference. | done | OPEN |
+| G3 config agreement, docs, checklist | Both example configs updated; this section; checklist below. | done | OPEN |
+
+### What changed in the code
+
+| Where | Change |
+|---|---|
+| `native/reactions/ReactionCatalog.cs` | `nod` and `shrug` specs (opt-in, own start window, short ceilings) and the facial probe dictionary list (existence only). |
+| `native/reactions/ReactionPolicy.cs` | `ReactionOptions.Enabled` / `Diagnostics`; admission refuses opt-in reactions that are not listed (`reaction_not_enabled`); per-spec start windows (`ReactionTiming.StartDelayMs(key, spec)`; default window unchanged). |
+| `native/reactions/ReactionExecutor.cs` | Uses the per-spec window; diagnostics probe; clip name on the `played` log when diagnostics is on. No new native is called. |
+| `native/promoted-characters/RuntimeEntry.cs` | Parses `reactions.enabled` and `reactions.diagnostics` (literal `true` only). Compile-only stubs in `runtime-tests`, `ps-host-tests` and `bridge-tests` follow the new members. |
+| `lsa-essential-e1-candidate/src/reactions/*` | `nod`/`shrug` names; `reactions.enabled` in config (opt-in names only); cue sets and the generalised selector; `deliveryAllows` veto table; service `delivery(value)` hook. |
+| `lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs` | Two more try/catch hooks, one after each `expressiveDelivery.forSegment` call, passing only the delivery *value*. The turn is unchanged whether the hook is absent, on, or throwing (tested). |
+
+### nod and shrug
+
+| Reaction | Candidates (male; female replaces the dictionary, then falls back to male) | Start window | Ceiling | Status |
+|---|---|---|---|---|
+| nod | `gestures@m@standing@casual` / `gesture_nod_yes_soft`, `gesture_nod_yes_hard` (female `gestures@f@standing@casual`) | 250–699 ms into the line | 1.4 s | **UNVERIFIED on Enhanced** |
+| shrug | `gestures@m@standing@casual` / `gesture_shrug_soft`, `gesture_shrug_hard` (female `gestures@f@standing@casual`) | 400–899 ms | 1.8 s | **UNVERIFIED on Enhanced** |
+
+They use the same fenced pipeline as the other two: exact `playback_started` for the turn, native speaker/identity check, the same preflight table re-checked every tick, finite upper-body secondary-slot clip, clip-scoped stop, same cooldowns (global 12 s, per ped 20 s, same reaction 60 s). Candidates are resolved at runtime, so a missing dictionary is a quiet `no_clip` skip, not a fault.
+
+**Cues (NPC's validated reply only, never the player's words):**
+
+- `nod`: a strong agreement phrase ("you got it", "sounds good", "fair enough", "that's right", "you're right", "I agree") or two weak ones (a sentence-opening "yeah/sure/okay/right," plus "got it", "exactly", "makes sense"). A bare "yeah" or "sure" stays `none`. A cue inside a question, a negation, reported speech or quotes is ignored.
+- `shrug`: "I don't know", "no idea", "beats me", "who knows", "I can't tell you", or two weak ones ("whatever", "I guess", "maybe", "not sure", "don't care"). Negation is part of these cues, so only quoting and reported speech suppress them.
+- Playful lines (`haha`, `just kidding`), command-bearing turns, non-player sources and two competing reactions all resolve to `none`. A disabled opt-in reaction is not even scanned, so it cannot change the result for facepalm or middle finger.
+
+### Delivery intent: veto only
+
+When the speech resolver attaches trusted delivery values to the turn's segments (ElevenLabs experimental delivery only), **any** contradicting segment can veto a gesture. Neutral or matching earlier segments do not conceal a later veto; the service waits for validated dialogue and native playback before sending a frame:
+
+| Reaction | Vetoed by |
+|---|---|
+| facepalm | whisper, fearful |
+| middle_finger | whisper, fearful, sad, amused, concerned, excited |
+| nod | sarcastic, angry, fearful |
+| shrug | fearful, excited, angry |
+
+`neutral`, a missing value and any untrusted or unknown value never veto. A delivery value **never selects or strengthens** a gesture: a tone hint is not witnessed emotion and not consent. Without ElevenLabs delivery, behavior is exactly the text-only selection.
+
+### Configuration additions
+
+Companion `e1.config.json`:
+
+```json
+"reactions": { "mode": "off", "pipeName": "LSA.Reactions.v1", "enabled": [] }
+```
+
+Native `LSA.PromotedCharacters.json`:
+
+```json
+"reactions": { "mode": "off", "pipeName": "LSA.Reactions.v1", "disabled": [], "enabled": [], "allowDuringOwnedBehavior": false, "diagnostics": false }
+```
+
+- `enabled` accepts only `nod` and `shrug`. It must be set in **both** files. Companion-side it controls what is selected; native-side it controls what may animate. A one-sided setting never produces motion (native answers `reaction_not_enabled`).
+- `diagnostics` needs the literal `true` and only adds log lines.
+- Nothing is enabled by installing or upgrading: defaults are unchanged and `mode` stays `off`.
+
+### Offline verification (this PR)
+
+- Native: `dotnet run --project native/reactions/tests/ReactionTests.csproj` — 41 tests (32 before). New: catalog, opt-in admission, per-spec timing, nod and shrug playback for both sexes, female-to-male fallback, quiet `no_clip`, shadow and unlisted refusals, clip-scoped stop, diagnostics (off by default, once per session, no dialogue, read-only in shadow).
+- Companion: `node --test lsa-essential-e1-candidate/tests/reactions*.test.mjs` — 38 tests (23 before), including production-runner tests with a real ElevenLabs delivery value, and a throwing delivery hook.
+- Compile-only checks of `RuntimeEntry.cs` against the three stub sets pass; their executables run in Windows CI.
+- **Not done:** the production `net481` build against the genuine installed RPH and Essential references (not available here), and **everything in GTA**.
+
+### GTA V Enhanced checklist (all OPEN)
+
+Report offline tests, production build and physical GTA results separately. Suggested order:
+
+1. Set native `reactions.mode: "shadow"`, `diagnostics: true`, `enabled: ["nod", "shrug"]` (and the same `enabled` in `e1.config.json`). Talk to a male and a female ordinary NPC. Read the `[RX] probe …` lines: which dictionaries exist on Enhanced? Record them in the matrix.
+2. Switch to `on` with `"disabled": ["middle_finger", "shrug"]` and test **facepalm** and **nod** alone, then enable the rest one at a time.
+3. For each reaction and sex (ordinary and promoted), record: clip that won, visual quality, upper-body only (legs and path unchanged), timing against the line, and whether the NPC's own look-at or Essential's turn-to-listener visibly fights a nod or shrug.
+4. States to exercise: idle, mid-sentence barge-in, walking, follow/wait/sit, scenario, vehicle, combat/flee, mission/cutscene, interrupted TTS, actor despawn, handle reuse, world reset, rapid turns. Any state that misbehaves means that reaction stays off for it.
+5. With ElevenLabs experimental delivery on, confirm a sarcastic or amused line does not nod or flip a finger when the words alone would.
+6. Fill in this matrix and keep any reaction that did not pass in `disabled` (or out of `enabled`):
+
+| Reaction | Male clip that played | Female clip that played | Upper body only | Coexists with look-at/turn | Barge-in stop clean | Verdict |
+|---|---|---|---|---|---|---|
+| facepalm | | | | | | |
+| middle_finger | | | | | | |
+| nod | | | | | | |
+| shrug | | | | | | |
+
+Rollback: set native `reactions.mode` to `off` (or remove the name from `enabled`) and restart the host. No other state is involved.

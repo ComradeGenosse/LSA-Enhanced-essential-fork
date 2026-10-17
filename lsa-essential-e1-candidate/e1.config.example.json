@@ -140,7 +140,8 @@
   },
   "reactions": {
     "mode": "off",
-    "pipeName": "LSA.Reactions.v1"
+    "pipeName": "LSA.Reactions.v1",
+    "enabled": []
   },
   "memoryK": {
     "capabilities": {}

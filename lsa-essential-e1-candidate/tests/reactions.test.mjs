@@ -15,7 +15,7 @@ import { normalizeConfig } from '../src/config/e1Config.mjs';
 const select = (dialogue, extra = {}) => selectReaction({ dialogue, source: 'player_text', ...extra });
 
 test('reactions: config is default-off and normalizes unsafe values', () => {
-  assert.deepEqual({ ...normalizeReactionConfig(undefined) }, { mode: 'off', pipeName: 'LSA.Reactions.v1' });
+  assert.deepEqual({ ...normalizeReactionConfig(undefined) }, { mode: 'off', pipeName: 'LSA.Reactions.v1', enabled: [] });
   assert.equal(normalizeReactionConfig({ mode: 'on' }).mode, 'on');
   assert.equal(normalizeReactionConfig({ mode: 'shadow' }).mode, 'shadow');
   assert.equal(normalizeReactionConfig({ mode: 'ON' }).mode, 'off');

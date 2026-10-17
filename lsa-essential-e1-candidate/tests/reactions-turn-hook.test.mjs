@@ -6,11 +6,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runSequentialTurn } from '../src/openai/runSequentialTurn.mjs';
 import { createReactionService } from '../src/reactions/reactionService.mjs';
+import { createDelivery } from '../src/voice/emotion/deliveryContract.mjs';
 
 const identity = Object.freeze({ pedId: '17', turnId: 'reaction-hook-turn', generationId: 3, sessionNonce: 1 });
 const ended = Object.freeze({ ...identity, type: 'playback_ended', reason: 'completed', playbackStarted: true, hadAudio: true, wasInterrupted: false, ok: true });
 
-async function run({ dialogue, command = '', actionCount = 0, reactions, nativeScript = 'normal', source = 'player_text' }) {
+async function run({ dialogue, command = '', actionCount = 0, reactions, nativeScript = 'normal', source = 'player_text', acting = null, startOnAudio = false }) {
   const handoffs = [];
   const controller = new AbortController();
   let observed = () => {}; let terminal = () => {};
@@ -19,7 +20,7 @@ async function run({ dialogue, command = '', actionCount = 0, reactions, nativeS
     observe(_id, _signal, onTerminal, onObserved) {
       observed = onObserved; terminal = onTerminal;
       return {
-        async authorization() { observed({ ...identity, type: 'audio_turn_accepted' }); observed({ ...identity, type: 'playback_started' }); return { ok: true }; },
+        async authorization() { observed({ ...identity, type: 'audio_turn_accepted' }); if (!startOnAudio) observed({ ...identity, type: 'playback_started' }); return { ok: true }; },
         async completion() {
           if (nativeScript === 'interrupt') {
             const event = { ...identity, type: 'interrupt', reason: 'player_barge_in' };
@@ -39,19 +40,25 @@ async function run({ dialogue, command = '', actionCount = 0, reactions, nativeS
     acceptPlaybackResult: () => true, discard: () => true,
   };
   const services = {
-    config: { structuredStreamingEnabled: false, providerWorkDeadlineMs: 10000, playbackCompletionMinMs: 1000, playbackCompletionMaxMs: 10000, playbackCompletionGraceMs: 1000 },
+    config: {
+      structuredStreamingEnabled: false, providerWorkDeadlineMs: 10000, playbackCompletionMinMs: 1000, playbackCompletionMaxMs: 10000, playbackCompletionGraceMs: 1000,
+      ...(acting ? { speechProvider: 'elevenlabs', elevenLabs: { modelId: 'eleven_v4_turbo' }, expressiveDelivery: { mode: 'experimental', intensity: 'subtle', maxTaggedSegmentsPerTurn: 2 } } : {}),
+    },
+    ...(acting ? { emotionalActing: { resolveDelivery: () => createDelivery({ value: acting, source: 'dialogue_cue', confidence: 'soft', intensity: 'subtle' }), getSceneEvidence: () => null } } : {}),
     providerStack: { reasoning: { id: 'test.reasoning' }, speech: { id: 'test.speech' } },
     decide: async () => ({ dialogue, command }),
-    async speak({ onPcm }) { await onPcm(Uint8Array.of(1, 2, 3, 4)); return { bytes: 4, chunks: 1 }; },
+    // With startOnAudio, native playback begins only once the first PCM exists (as in
+    // production), i.e. after this turn's delivery intent has been resolved.
+    async speak({ onPcm }) { if (startOnAudio) observed({ ...identity, type: 'playback_started' }); await onPcm(Uint8Array.of(1, 2, 3, 4)); return { bytes: 4, chunks: 1 }; },
     ...(reactions === undefined ? {} : { reactions }),
   };
   const outcome = await runSequentialTurn({ connection: { detachAbort() {} }, turn: { identity, source, input: 'Hey.', context: {} }, services, history, host, controller });
   return { outcome: { status: outcome.status, terminalReason: outcome.terminalReason }, handoffs };
 }
 
-function recorder() {
+function recorder(enabled = []) {
   const sent = [];
-  const service = createReactionService({ config: { mode: 'on' }, client: { send(frame) { sent.push(frame); return true; } } });
+  const service = createReactionService({ config: { mode: 'on', enabled }, client: { send(frame) { sent.push(frame); return true; } } });
   return { service, sent };
 }
 
@@ -92,4 +99,26 @@ test('turn hook: an interrupted turn still completes its terminal handling and d
   const result = await run({ dialogue: 'Fuck off.', reactions: service, nativeScript: 'interrupt' });
   assert.notEqual(result.outcome.status, 'completed');
   assert.equal(sent.length, 1, 'frame was sent when playback genuinely began, never again afterwards');
+});
+
+test('turn hook: the real ElevenLabs delivery intent of the turn can veto a contradicting gesture, and only veto', async () => {
+  // Tone matches the words: the nod is sent. Tone contradicts them: it is not.
+  const agree = recorder(['nod']);
+  await run({ dialogue: 'You got it, boss.', reactions: agree.service, acting: 'amused', startOnAudio: true });
+  assert.equal(agree.sent.length, 1);
+  const sarcastic = recorder(['nod']);
+  const result = await run({ dialogue: 'You got it, boss.', reactions: sarcastic.service, acting: 'sarcastic', startOnAudio: true });
+  assert.equal(result.outcome.status, 'completed');
+  assert.equal(sarcastic.sent.length, 0);
+  assert.equal(sarcastic.service.counters().vetoed, 1);
+  // A tone alone never creates a gesture from an unremarkable line.
+  const plain = recorder(['nod', 'shrug']);
+  await run({ dialogue: 'The diner is open late.', reactions: plain.service, acting: 'angry', startOnAudio: true });
+  assert.equal(plain.sent.length, 0);
+});
+
+test('turn hook: a throwing delivery hook cannot change the turn', async () => {
+  const baseline = await run({ dialogue: 'You got it, boss.', acting: 'sarcastic' });
+  const broken = await run({ dialogue: 'You got it, boss.', acting: 'sarcastic', reactions: { openTurn: () => ({ delivery() { throw new Error('d'); }, native() {}, validated() {}, release() {} }) } });
+  assert.deepEqual(broken, baseline);
 });
