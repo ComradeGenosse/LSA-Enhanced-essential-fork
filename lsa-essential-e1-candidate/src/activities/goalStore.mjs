@@ -29,7 +29,7 @@ export class GoalStore {
 export function makeGoal(proposal, id, now) {
   return {
     goalVersion: 1, goalId: id(), kind: 'instruction', subject: { characterId: proposal.subject.characterId },
-    intent: proposal.intent, slots: proposal.slots, source: 'player_ux', priority: 'player_direct', status: 'accepted',
+    intent: proposal.intent, slots: proposal.slots, source: proposal.source, priority: proposal.priority, status: 'accepted',
     resumePolicy: 'explicit_only', createdAtMs: now, acceptedAtMs: now, updatedAtMs: now, deadlineAtMs: now + GOAL_DEADLINE_MS,
     activityIds: [], terminalReason: null, commitmentId: null,
   };
