@@ -525,7 +525,7 @@ export class ShadowRuntime {
       decisionKey:'social:'+sample.sceneId,policyVersion:1,
       urgency:['shared_vehicle_entry','reunion','manual'].includes(sample.sceneType)?'urgent':'routine',
       sceneType:sample.sceneType,role:sample.role,
-      expiresAtMonotonicMs:sample.receivedAt+9000,
+      expiresAtMonotonicMs:sample.receivedAt+14000,
     });
   }
   directorSocialEntitlementFor(proposal,stamp) {
