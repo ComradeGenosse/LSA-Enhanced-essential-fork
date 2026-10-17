@@ -414,3 +414,17 @@ test('native seated actor never offers to sit down or follow on foot', async () 
   assert.equal(standing.intents.includes('sit_here'),true);
   assert.equal(standing.intents.includes('accompany'),true);
 });
+
+test('one native-published invitation cannot be repeated immediately after global cooldown', async () => {
+  const h=harness(),first=turn(),c1=await h.dialogue.prepare(first,'player_text');
+  assert.equal(await h.dialogue.publish(first,decision(choice('hold_position')),c1,()=>true),true);
+  const no=turn(),c2=await h.dialogue.prepare(no,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(no,'no',c2,()=>true)).kind,'declined');
+  h.advance(90_001);
+  let after=await h.dialogue.prepare(turn(),'player_text');
+  assert.equal(after.intents.includes('hold_position'),false);
+  assert.equal(after.intents.includes('accompany'),true);
+  h.advance(210_000);
+  after=await h.dialogue.prepare(turn(),'player_text');
+  assert.equal(after.intents.includes('hold_position'),true);
+});
