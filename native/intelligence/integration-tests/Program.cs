@@ -348,8 +348,21 @@ class Program
         actor.CurrentVehicle=null;
         clock=2200;sample();
         Check(!scenes.Current(request),"social vehicle departure invalidates old native grant");
-        Check(scenes.Manual(anchors.Current,roster,actor,host,1,(uint)clock)!=null,
+        var manual=scenes.Manual(anchors.Current,roster,actor,host,1,(uint)clock);
+        Check(manual!=null,
             "manual invitation creates a native-verified scene for current promoted actor");
+        var manualScene=(string)frame.GetValue(manual);
+        var manualRequest=new DirectorAdmission.Request{
+            Operation="reserve",TicketId=Guid.NewGuid().ToString("D"),
+            DecisionKey="social:"+manualScene,ObservationId=manualScene,
+            ObservationRevision=1,SpeakerCaptureRef=actorAnchor.CaptureRef,
+            PlayerCaptureRef=playerAnchor.CaptureRef,OwnerIncarnationId=ownerId,
+            ProofRevision=5,HostRunId=host,WorldEpoch=1
+        };
+        Check(scenes.Claim(manualRequest),"manual source can be claimed exactly once");
+        manualRequest.Operation="cancel";
+        Check(scenes.Release(manualRequest) && !scenes.Current(manualRequest),
+            "native social cancellation retires claimed scene permanently");
         actor.Existing=false;
         Check(scenes.Manual(anchors.Current,roster,actor,host,1,(uint)clock)==null,
             "manual invitation cannot select a retired actor");
