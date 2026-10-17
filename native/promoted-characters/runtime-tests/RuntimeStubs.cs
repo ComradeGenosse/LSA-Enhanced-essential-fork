@@ -137,7 +137,7 @@ namespace LSA.Intelligence
     public sealed class OwnedParticipant { public Rage.Ped Ped; public Func<object> PrimaryOwner; public Func<bool> Current; }
     public sealed class IntelligenceIntegration
     {
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null) { }
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null,bool protagonistEvidenceEnabled=false) { }
         public void OwnerRetired(string incarnationId) { }
         public void Shutdown() { }
         public void Shutdown(string reason) { }

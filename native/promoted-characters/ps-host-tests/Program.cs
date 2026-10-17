@@ -117,7 +117,7 @@ namespace LSA.Intelligence
         public static IntelligenceIntegration Instance;public bool IsAvailable{get;private set;}public long UpdateCalls;public int ShutdownCalls;public string ShutdownReason="none";
         public readonly LSA.PromotedCharacters.HostContext Host;
         public readonly NativeProducerPolicy ProducerPolicy;
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null){Instance=this;Host=host;ProducerPolicy=producerPolicy;}
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null,bool protagonistEvidenceEnabled=false){Instance=this;Host=host;ProducerPolicy=producerPolicy;}
         public void Initialize()=>IsAvailable=true;
         public void Update(){UpdateCalls++;}
         public void OwnerRetired(string lifetime){}
