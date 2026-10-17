@@ -81,7 +81,7 @@ export class SharedJournalRecallAdapter{
     this.store=store;
   }
   async read({scope,terms=[],fromUtc=null,toUtc=null,sourceKind=null,speaker=null,limit=384,
-     expandDialogueContext=false,excludeRecordId=null}={}){
+     expandDialogueContext=false,expandRelatedFacts=false,excludeRecordId=null}={}){
     if(!scope||!uuid.test(scope.characterId)||!uuid.test(scope.worldProfileId)||
        !uuid.test(scope.timelineId)||!['franklin','michael','trevor','unknown'].includes(scope.protagonistKey)||
        !Number.isSafeInteger(limit)||limit<1||limit>384)
@@ -93,7 +93,7 @@ export class SharedJournalRecallAdapter{
     // Retain journal fallback for older stores/tests without this capability.
     if(typeof this.store.readIntegratedRecall==='function')
       return this.store.readIntegratedRecall({scope,terms,fromUtc,toUtc,sourceKind,speaker,limit,
-         expandDialogueContext,excludeRecordId});
+         expandDialogueContext,expandRelatedFacts,excludeRecordId});
     const wanted=sourceKind===null?['dialogue_line','journal_event','permanent_memory']:[sourceKind];
     const unique=new Map();
     const suppressed=new Set(typeof this.store.listSuppressedMemoryIds==='function'
