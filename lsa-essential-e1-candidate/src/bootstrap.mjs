@@ -482,7 +482,7 @@ export async function createRuntimeForBundle(options = {}) {
     const client=runtime.intelligence;
     const now=()=>client.runtime.now();
     const experimental=config.spontaneousSpeech.mode==='experimental';
-    const sourceCheck=({proposal,stamp,stage})=>{
+    const sourceCheck=({proposal,stamp,stage,ticketId})=>{
       const live=client.runtime,owner=live.directorOwnerProofFor(proposal.speakerCaptureRef);
       const priority=live.directorPriority,at=now();
       if(!owner || !priority || !priority.experimentalEnabled ||
@@ -499,20 +499,22 @@ export async function createRuntimeForBundle(options = {}) {
       // PS3 grants expire during ordinary TTS; native verifies the original
       // bound Core tuple and current player-priority epoch at playback end.
       if(stage==='complete')return true;
-      return client.directorOriginalEntitlement(proposal,stamp)?.source===
-        'original_companion_ps2_ps3';
+      return ['original_companion_ps2_ps3','native_director_social'].includes(
+        client.directorOriginalEntitlement(proposal,stamp,ticketId)?.source);
     };
     const admission=new DirectorSpeechReservations({
       now,enabled:experimental,checkCurrent:sourceCheck,
       limits:directorSpeechLimitsForPreset(config.spontaneousSpeech.preset),
       acknowledge:(decisionKey,consumer,outcome,proposal)=>
+        consumer==='ps6_ticket' && outcome==='delivered' && proposal?.decisionKey===decisionKey &&
+          proposal?.source==='native_director_social' ? true :
         consumer==='ps6_ticket' && outcome==='delivered' && proposal?.decisionKey===decisionKey
           ? client.runtime.salience.acknowledgeDirectorCompletion(proposal,client.runtime.epoch)
           : false,
     });
     const coordinator=new SceneDirectorSpeech({
       admission,now,mode:experimental?'active':'shadow',
-      originalEntitlement:(proposal,stamp)=>client.directorOriginalEntitlement(proposal,stamp),
+      originalEntitlement:(proposal,stamp,ticketId)=>client.directorOriginalEntitlement(proposal,stamp,ticketId),
       nativeRequest:r=>client.requestDirector(r),
       dispatch:r=>client.dispatchDirector(r),
     });
@@ -567,6 +569,7 @@ export async function createRuntimeForBundle(options = {}) {
           // attempt to perception_trace and the native [PS] log lines.
           traceCode:outcome?.traceCode??null,urgency:outcome?.urgency??null,
           eventType:outcome?.eventType,
+          source:outcome?.source??'reactive',sceneType:outcome?.sceneType??null,
           configuredMode:config.spontaneousSpeech.mode,
           executionAvailable:experimental &&
             client.runtime.directorPriority?.experimentalEnabled===true,
@@ -576,6 +579,24 @@ export async function createRuntimeForBundle(options = {}) {
     runtime.director=pump;
     runtime.spontaneousSpeechBusy=()=>admission.active!==null&&admission.active!==undefined;
     owner.own('director.pump',pump,value=>value.stop());
+    runtime.services.directorManualStatus=()=>Object.freeze({
+      nativeResult:client.runtime.socialManualResult??null,
+      executionAvailable:experimental &&
+        client.runtime.directorPriority?.experimentalEnabled===true &&
+        client.runtime.directorRequestVersion===1,
+    });
+    runtime.services.initiateDirectorConversation=()=>Object.freeze({
+      queued:experimental && client.requestDirectorSocialManual()===true,
+      // Native admission/result is reported separately. Never claim
+      // actual Luna speech merely because a request entered the pipe.
+      nativeResult:client.runtime.socialManualResult?.reason??null,
+    });
+    // Dedicated extended diagnostics preserve the legacy status shape.
+    runtime.services.spontaneousSocialStatus=()=>Object.freeze({
+      source:client.runtime.socialDiagnostics?{...client.runtime.socialDiagnostics}:null,
+      activeScenes:client.runtime.socialScenes?.size??0,
+      lastManualResult:client.runtime.socialManualResult??null,
+    });
     runtime.services.spontaneousSpeechStatus=()=>Object.freeze({
       requested:config.spontaneousSpeech.mode,
       preset:config.spontaneousSpeech.preset,
@@ -649,6 +670,8 @@ export async function createRuntimeForBundle(options = {}) {
       runtime.memoryInspectorControls=createInspectorControls({runtime,configPath:options.configPath,env});
       runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath,
         inspectorControls:runtime.memoryInspectorControls,
+        socialConversation:()=>runtime.services.initiateDirectorConversation?.()??{queued:false},
+        socialStatus:()=>runtime.services.directorManualStatus?.()??{nativeResult:null,executionAvailable:false},
         voiceStatus:()=>runtime.voiceActivity?.snapshot()??{v:1,phase:'unavailable'},
         diagnostics:()=>({
           source:runtime.intelligence?.operationalStates?.()??null,

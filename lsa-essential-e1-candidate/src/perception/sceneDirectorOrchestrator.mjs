@@ -1,5 +1,6 @@
 import {selectDirectorIntent} from './sceneDirector.mjs';
 import {renderDirectorEventContext} from './directorContext.mjs';
+import {renderDirectorSocialContext} from './directorSocialContext.mjs';
 
 // Coordinator for the existing PS3 -> C-11 -> Essential seam. No world scan,
 // second executor, retry policy, provider, memory writer or TASK is created.
@@ -29,11 +30,13 @@ export class SceneDirectorSpeech {
     this.mode=mode;
     if(mode!=='active')this.admission.setEnabled(false);
   }
-  originalGrantCurrent(proposal,stamp) {
+  originalGrantCurrent(proposal,stamp,ticketId=null) {
     let record;
-    try {record=this.originalEntitlement(proposal,stamp);}
+    try {record=this.originalEntitlement(proposal,stamp,ticketId);}
     catch {return false;}
-    return record?.source==='original_companion_ps2_ps3' &&
+    return (proposal?.source==='native_director_social'
+      ?record?.source==='native_director_social'
+      :record?.source==='original_companion_ps2_ps3') &&
       record.hostRunId===stamp?.hostRunId &&
       record.worldEpoch===stamp?.worldEpoch &&
       record.speakerCaptureRef===proposal.speakerCaptureRef &&
@@ -51,21 +54,21 @@ export class SceneDirectorSpeech {
     if(this.mode!=='active' || typeof this.admission.pacingVeto!=='function')return null;
     return this.admission.pacingVeto(proposal);
   }
-  async attempt({candidates=[],facts,stamp}={}) {
+  async attempt({candidates=[],facts,stamp,socialProposal=null}={}) {
     if(this.mode==='off')return Object.freeze({status:'off'});
-    const proposal=selectDirectorIntent(candidates,facts);
+    const proposal=socialProposal??selectDirectorIntent(candidates,facts);
     if(!proposal)return Object.freeze({status:'no_eligible_evidence'});
     if(this.mode==='shadow')return Object.freeze({status:'shadow',observationId:proposal.observationId});
     // Resolve one exact, original PS2 observation to Luna-visible context.
     // The native stock Content parameter is never made from proposal IDs,
     // player free text, an inferred scene, or a stale alternative candidate.
-    const eventContext=renderDirectorEventContext(proposal,candidates);
+    const eventContext=socialProposal?renderDirectorSocialContext(proposal):renderDirectorEventContext(proposal,candidates);
     if(!eventContext)return Object.freeze({status:'event_context_unavailable'});
     // A real current companion PS3 observation+grant is independently
     // mandatory even if the caller injects an all-positive mock C-06.
     // Native still must independently authorize after this source check.
     if(!this.originalGrantCurrent(proposal,stamp))
-      return Object.freeze({status:'original_ps3_unavailable'});
+      return Object.freeze({status:socialProposal?'native_social_unavailable':'original_ps3_unavailable'});
     // Active is impossible with the current native preview-only endpoint; the
     // caller must supply an authenticated native submit and exact stock driver.
     const ticket=this.admission.reserve(proposal,stamp);
@@ -78,36 +81,41 @@ export class SceneDirectorSpeech {
     let failureStage='native_reserve';
     try {
       let receipt=await request('reserve');
-      if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='reserved')
+      if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='reserved') {
+        // A native BUSY receipt is the only retryable native reserve result;
+        // it cannot have claimed a PS3/social scene or submitted a turn.
+        if(socialProposal && receipt?.ticketId===ticket.ticketId && receipt.status==='busy')
+          this.admission.deferNativeBusy?.(ticket.ticketId);
         return Object.freeze({status:'native_rejected',nativeReason:nativeVeto(receipt)});
+      }
       // Distinguish PS3/P2 source changes from an independent C-11 ticket,
       // cooldown, expiry or player-priority fence. Never retry a spent ticket.
-      if(!this.originalGrantCurrent(proposal,stamp))
+      if(!this.originalGrantCurrent(proposal,stamp,ticket.ticketId))
         return Object.freeze({status:'stale_after_reserve',
           diagnosticReason:'original_ps3_entitlement_changed'});
       if(!this.admission.consume(ticket.ticketId,stamp))
         return Object.freeze({status:'stale_after_reserve',
           diagnosticReason:'reservation_recheck_veto'});
-      if(!this.originalGrantCurrent(proposal,stamp))
+      if(!this.originalGrantCurrent(proposal,stamp,ticket.ticketId))
         return Object.freeze({status:'stale_before_submit'});
       failureStage='native_submit';
       receipt=await request('submit');
       if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='submitted')
         return Object.freeze({status:'native_submit_rejected',nativeReason:nativeVeto(receipt)});
-      if(!this.originalGrantCurrent(proposal,stamp))
+      if(!this.originalGrantCurrent(proposal,stamp,ticket.ticketId))
         return Object.freeze({status:'stale_before_intake'});
       let hydrated=false,publication=false;
       const gates=Object.freeze({
-        hydrated:()=>hydrated=this.originalGrantCurrent(proposal,stamp) &&
+        hydrated:()=>hydrated=this.originalGrantCurrent(proposal,stamp,ticket.ticketId) &&
           this.admission.afterHydration(ticket.ticketId,stamp),
         publication:()=>publication=hydrated &&
-          this.originalGrantCurrent(proposal,stamp) &&
+          this.originalGrantCurrent(proposal,stamp,ticket.ticketId) &&
           this.admission.beforePublication(ticket.ticketId,stamp),
       });
       failureStage='stock_dispatch';
       const result=await this.dispatch(Object.freeze({
         ticket,proposal,stamp,gates,eventContext,
-        source:'scene_director',reason:'ps6_observer',
+        source:'scene_director',reason:socialProposal?'social_scene':'ps6_observer',
         faceListener:false,interruptExisting:false,delayMs:0,
       }));
       if(!hydrated || !publication || !result?.tuple || !result?.terminal) {

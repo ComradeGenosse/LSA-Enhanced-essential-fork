@@ -56,6 +56,7 @@ namespace LSA.Intelligence
         readonly bool directorShadow;
         readonly bool directorExperimental;
         readonly DirectorAdmission director;
+        readonly DirectorSocialScenes socialScenes;
         readonly DirectorSchedulerIntake stockScheduler;
         readonly DirectorPs3Receipts ps3Receipts;
         readonly DirectorOriginalTurnReceipts originalTurns;
@@ -113,7 +114,7 @@ namespace LSA.Intelligence
         int discoveryAllowance;
         long deferredDiscovery;
         uint previousTick,snapshotTick;
-        long nextDiscovery,nextState,nextShot,nextRadio,nextRefresh,nextDiagnostics,nextLog,nextM7IdleSample,snapshotChangedAt,snapshotCadence;
+        long nextDiscovery,nextState,nextShot,nextRadio,nextRefresh,nextDiagnostics,nextLog,nextM7IdleSample,nextSocialSample,snapshotChangedAt,snapshotCadence;
         readonly bool radioEnabled;
         RadioProbeState radioProbe;
         readonly HashSet<string> radioCoveredOwned=new HashSet<string>();
@@ -263,6 +264,8 @@ namespace LSA.Intelligence
             this.directorShadow=this.producerPolicy.Any&&(directorShadow || directorExperimental);
             this.directorExperimental=this.directorShadow&&directorExperimental;
             this.protagonistEvidenceEnabled=protagonistEvidenceEnabled&&(directorShadow||directorExperimental);
+            socialScenes=new DirectorSocialScenes(()=>this.host.MonotonicMs,
+                directorAttemptsPerMinute==DirectorAdmission.TestingMaxAttempts);
             ps3Receipts=new DirectorPs3Receipts(()=>this.host.MonotonicMs,()=>this.host.HostRunId,()=>this.host.WorldEpoch);
             originalTurns=new DirectorOriginalTurnReceipts(()=>this.host.MonotonicMs,
                 ()=>this.host.HostRunId,()=>this.host.WorldEpoch,
@@ -298,7 +301,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            director.Reset();ps3Receipts.Reset();originalTurns.Reset();bodyDiscovery.Reset();nextBodyDiscovery=0;bodyDiscoveryCursor=0;protagonistSensor.Revoke();protagonistConsumerConnection=0;protagonistConsumerWorld=0;lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();ResetM9();radioProbe=null;radioCoveredOwned.Clear();nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;ResetRadioRoutes();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
+            director.Reset();ps3Receipts.Reset();socialScenes.Reset();originalTurns.Reset();bodyDiscovery.Reset();nextBodyDiscovery=0;bodyDiscoveryCursor=0;protagonistSensor.Revoke();protagonistConsumerConnection=0;protagonistConsumerWorld=0;lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();ResetM9();radioProbe=null;radioCoveredOwned.Clear();nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;ResetRadioRoutes();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
@@ -431,6 +434,7 @@ namespace LSA.Intelligence
         public void OwnerRetired(string lifetime) {
             try {
                 ps3Receipts.Retire(lifetime);
+                socialScenes.Retire(lifetime);
                 if(director.RevokeOwner(lifetime))lock(directorPlaybackGate) {
                     directorPlaybackEvents.Clear();directorPlaybackOverflow=false;
                 }
@@ -467,7 +471,7 @@ namespace LSA.Intelligence
                 previousTick=tick;
                 lineOfSightBudget=8;
                 if(channel.ConnectionVersion!=connectionVersion) {
-                    ps3Receipts.Reset();director.Reset();ResetM9();bodyDiscovery.Reset();nextBodyDiscovery=0;bodyDiscoveryCursor=0;protagonistSensor.Revoke();
+                    ps3Receipts.Reset();director.Reset();socialScenes.Reset();ResetM9();bodyDiscovery.Reset();nextBodyDiscovery=0;bodyDiscoveryCursor=0;protagonistSensor.Revoke();
                     protagonistConsumerConnection=0;protagonistConsumerWorld=0;
                     connectionVersion=channel.ConnectionVersion;
                     lock(rosterGate){publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}
@@ -586,6 +590,15 @@ namespace LSA.Intelligence
                 }
                 bool refreshRoster=now>=nextRefresh;if(refreshRoster) nextRefresh=now+1000;
                 FlushControls(refreshRoster);
+                if(directorShadow && directorExperimental && channel?.Connected==true && now>=nextSocialSample) {
+                    nextSocialSample=now+250;
+                    try {
+                        foreach(var scene in socialScenes.Sample(anchors.Current,roster()??new OwnedParticipant[0],
+                            host.HostRunId,host.WorldEpoch,tick,
+                            LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read()))
+                            channel.Send("director_social",scene);
+                    }catch {LogDirectorVeto("social_sample","native_scene_read_failed");}
+                }
                 // Reuse this native owner-fiber tick and current P2 bindings.
                 // This source is diagnostic-only until backend terminal-idle proof exists.
                 if(memoryCurrentOwnerPlayerSample!=null && now>=nextM7IdleSample) {
@@ -814,6 +827,15 @@ namespace LSA.Intelligence
                     proof.ObservationReceiptCurrent=true;
                     proof.ResponseGrantCurrent=true;
                 }
+                else if(socialScenes.Current(r)) {
+                    // Independent native owner-fiber social opportunity, not a
+                    // forged PS3 event. All Core/player guards still apply.
+                    proof.ObservationId=r.ObservationId;
+                    proof.ObservationRevision=r.ObservationRevision;
+                    proof.DecisionKey=r.DecisionKey;
+                    proof.ObservationReceiptCurrent=true;
+                    proof.ResponseGrantCurrent=true;
+                }
                 // Source-verified, sealed original backend turn evidence must
                 // be delivered on the authenticated PS pipe BEFORE this exact
                 // native request. It is independently checked against the
@@ -865,8 +887,8 @@ namespace LSA.Intelligence
                 LogDirectorHandoff("native_intake","rejected","ticket_not_submitted");
                 return false;
             }
-            if(!ps3Receipts.IsReserved(original)) {
-                LogDirectorHandoff("native_intake","rejected","ps3_grant_not_reserved");
+            if(!(socialScenes.Current(original) || ps3Receipts.IsReserved(original))) {
+                LogDirectorHandoff("native_intake","rejected","source_grant_not_reserved");
                 return false;
             }
             if(originalTurns.OriginalFor(original)==null) {
@@ -912,7 +934,7 @@ namespace LSA.Intelligence
             var source=originalTurns.SealedForBinding(request);
             if(source==null || frame.SourceRun!=source.SourceRun ||
                frame.SourceRevision!=source.Revision ||
-               !ps3Receipts.IsReserved(request)) {
+               !(socialScenes.Current(request) || ps3Receipts.IsReserved(request))) {
                 LogDirectorHandoff("native_binding","rejected","original_source_or_grant_expired");
                 return false;
             }
@@ -985,12 +1007,31 @@ namespace LSA.Intelligence
                             TraceCode(sourceGrant.SignalId));
                     continue;
                 }
+                // An authenticated editor debug request is only an invitation
+                // to observe an actual selected promoted actor on this native
+                // owner fiber, never a fabricated speech ticket or idle grant.
+                if(frame=="{\"version\":1,\"type\":\"director.social_manual\",\"operation\":\"start\"}") {
+                    object emitted=null;
+                    try {
+                        emitted=socialScenes.Manual(anchors.Current,
+                            roster()??new OwnedParticipant[0],
+                            NpcTargeting.GetPlayerConversationPed(),
+                            host.HostRunId,host.WorldEpoch,unchecked((uint)Game.GameTime));
+                    }catch { }
+                    if(emitted!=null)channel.Send("director_social",emitted);
+                    channel.Send("director_social_manual_result",new {
+                        status=emitted!=null?"accepted":"rejected",
+                        reason=emitted!=null?"opportunity_created":"selected_promoted_npc_unavailable"
+                    });
+                    continue;
+                }
                 if(!DirectorFrameCodec.TryDecode(frame,out var request))continue;
                 var receipt=director.Handle(request);
                 // The original source proof can be reserved only with its
                 // exact one-use native reservation. The feature gate remains
                 // OFF, so the production endpoint never consumes a grant.
-                if(receipt.Status=="reserved" && !ps3Receipts.Reserve(request)) {
+                if(receipt.Status=="reserved" && !(request.DecisionKey.StartsWith("social:",StringComparison.Ordinal)
+                    ? socialScenes.Claim(request) : ps3Receipts.Reserve(request))) {
                     director.Handle(new DirectorAdmission.Request {
                         Version=request.Version,Operation="cancel",TicketId=request.TicketId,
                         DedupeKey=request.DedupeKey,HostRunId=request.HostRunId,
@@ -1003,7 +1044,7 @@ namespace LSA.Intelligence
                     });
                     receipt=new DirectorAdmission.Receipt(request.TicketId,"unsafe");
                 }
-                if(request.Operation=="cancel") {ps3Receipts.ClearGrant(request.TicketId);originalTurns.Retire(request.TicketId);}
+                if(request.Operation=="cancel") {socialScenes.Release(request);ps3Receipts.ClearGrant(request.TicketId);originalTurns.Retire(request.TicketId);}
                 channel.Send("director_response",new {
                     directorRequestVersion=1,ticketId=receipt.TicketId,status=receipt.Status
                 });
@@ -1414,7 +1455,7 @@ namespace LSA.Intelligence
                 events=directorPlaybackEvents.ToArray();
                 directorPlaybackEvents.Clear();
             }
-            if(overflow) {director.Reset();return;}
+            if(overflow) {director.Reset();socialScenes.Reset();return;}
             foreach(var e in events) {
                 // Don't emit diagnostics for unrelated Core playback.
                 if(!director.HasActive)continue;
@@ -1575,7 +1616,7 @@ namespace LSA.Intelligence
             try{damage?.Dispose();}catch{}damage=null;
             ShutdownM9();
             if(playback) {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}playback=false;}
-            director.Disable();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;anchors.Retirement-=OnRetirement;host.WorldChanged-=WorldChanged;
+            director.Disable();ps3Receipts.Reset();socialScenes.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;anchors.Retirement-=OnRetirement;host.WorldChanged-=WorldChanged;
             if(ownsHost) host.Shutdown();sensors.Reset();bodyDiscovery.Reset();UpdateIndexes();
         }
     }

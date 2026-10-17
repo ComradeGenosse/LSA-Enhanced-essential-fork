@@ -241,6 +241,19 @@ export class IntelligenceClient {
   // Preview-only in v1.0's unaccepted native stage: no PS6 decisions are
   // selected here and the native preview endpoint cannot admit Essential turns.
   // Future admitted requests MUST use the same closed v1 encoder.
+  // Debug-only editor initiation: the native owner fiber resolves Essential's
+  // actual selected promoted NPC and creates an ordinary verified scene.
+  // A successful write only queues an invitation; it is not a speech receipt.
+  requestDirectorSocialManual() {
+    if(this.closed || this.config.mode!=='shadow' ||
+       this.runtime.directorRequestVersion!==1 ||
+       !this.getNativeStream().authenticated ||
+       !this.runtime.directorPriority?.experimentalEnabled ||
+       !this.socket || this.socket.destroyed || !this.socket.writable ||
+       this.socket.writableLength>BOUNDS.frameBytes)return false;
+    const line=JSON.stringify({version:1,type:'director.social_manual',operation:'start'})+'\n';
+    try {this.socket.write(line);return true;}catch{return false;}
+  }
   sendDirectorPreview(args) {
     if(this.closed || this.runtime.directorRequestVersion!==1 ||
         !this.socket || this.socket.destroyed || !this.socket.writable ||
@@ -256,12 +269,52 @@ export class IntelligenceClient {
   // coordinator. Never trust entitlementCurrent or a request's copied
   // observation/grant IDs as proof. Channel, epoch and negotiated native
   // Director protocol must be current; this is NOT native authorization.
-  directorOriginalEntitlement(proposal,stamp) {
+  directorOriginalEntitlement(proposal,stamp,ticketId=null) {
     if(this.closed || this.config.mode!=='shadow' ||
        !this.socket || this.socket.destroyed || !this.socket.writable ||
        this.runtime.directorRequestVersion!==1 || !this.runtime.epoch)return null;
-    try{return this.runtime.directorOriginalEntitlementFor(proposal,stamp);}
-    catch{return null;}
+    try {
+      if(proposal?.source!=='native_director_social')
+        return this.runtime.directorOriginalEntitlementFor(proposal,stamp);
+      const current=this.runtime.directorSocialEntitlementFor(proposal,stamp);
+      if(current)return current;
+      // Expiry is the end of the window for initiating NEW speech, not
+      // permission to terminate a native-reserved, identity-pinned stock turn.
+      // Only an authenticated 'reserved' receipt for this exact ticket can
+      // retain the originally captured source for bounded generation time.
+      const record=typeof ticketId==='string'?this.directorOwnerReservations.get(ticketId):null;
+      const source=record?.source,at=this.runtime.now();
+      const owner=this.runtime.directorOwnerProofFor(proposal.speakerCaptureRef);
+      const priority=this.runtime.directorPriority;
+      if(!source || record.proposal.source!=='native_director_social' ||
+         !this.directorNativeReserved.has(ticketId) ||
+         !Number.isSafeInteger(at) || at<record.nativeReservedAt ||
+         at-record.nativeReservedAt>110000 ||
+         !owner || owner.hostRunId!==stamp.hostRunId ||
+         owner.worldEpoch!==stamp.worldEpoch ||
+         owner.ownerIncarnationId!==stamp.ownerIncarnationId ||
+         owner.proofRevision!==stamp.proofRevision ||
+         !priority || !priority.experimentalEnabled ||
+         priority.hostRunId!==stamp.hostRunId ||
+         priority.worldEpoch!==stamp.worldEpoch ||
+         priority.playerTurnVersion!==stamp.playerTurnVersion ||
+         !Number.isSafeInteger(priority.receivedAt) ||
+         at<priority.receivedAt || at-priority.receivedAt>1500 ||
+         !this.runtime.current(proposal.speakerCaptureRef) ||
+         !this.runtime.current(proposal.playerCaptureRef) ||
+         this.runtime.socialScenes.get(proposal.speakerCaptureRef)?.sceneId!==proposal.observationId ||
+         record.stamp.hostRunId!==stamp.hostRunId ||
+         record.stamp.worldEpoch!==stamp.worldEpoch ||
+         record.stamp.ownerIncarnationId!==stamp.ownerIncarnationId ||
+         record.stamp.proofRevision!==stamp.proofRevision ||
+         record.stamp.playerTurnVersion!==stamp.playerTurnVersion ||
+         record.proposal.decisionKey!==proposal.decisionKey ||
+         record.proposal.observationId!==proposal.observationId ||
+         source.decisionKey!==proposal.decisionKey ||
+         source.expiresAtMonotonicMs!==proposal.expiresAtMonotonicMs)
+         return null;
+      return source;
+    }catch{return null;}
   }
 
   // A genuine PS3-ledger read produces this sideband only on the negotiated
@@ -318,6 +371,7 @@ export class IntelligenceClient {
     if(args?.operation==='cancel' && typeof ticketId==='string') {
       this.directorOwnerReservations.delete(ticketId);
       this.directorNativeSubmitted.delete(ticketId);
+      this.directorNativeReserved.delete(ticketId);
       this.directorStockDispatched.delete(ticketId);
       this.directorStockContexts.delete(ticketId);
       this.directorStockClaims.delete(ticketId);
@@ -380,13 +434,15 @@ export class IntelligenceClient {
          !this.sendDirectorOwnerReceipt(args.ticket,args.stamp,owner)) {
         finish(null);return;
       }
-      if(args.operation==='reserve' && !this.sendDirectorPs3Receipt(args.ticket,original)) {
+      if(args.operation==='reserve' && original.source!=='native_director_social' &&
+         !this.sendDirectorPs3Receipt(args.ticket,original)) {
         finish(null);return;
       }
       if(!this.sendDirectorPreview(nativeArgs)) {finish(null);return;}
       if(args.operation==='reserve')this.directorOwnerReservations.set(ticketId,
         {run:owner.sourceRun,revision:owner.revision,stamp:args.stamp,
-         proposal:args.proposal,priority:args.ticket.priority});
+         source:Object.freeze({...original}),proposal:args.proposal,
+         priority:args.ticket.priority,nativeReservedAt:null});
     });
   }
   // Bounded 3A intake for a *previously native-submitted* ticket only.
@@ -398,7 +454,7 @@ export class IntelligenceClient {
        this.runtime.directorRequestVersion!==1 || !this.runtime.epoch ||
        !this.directorNativeSubmitted.has(id) || !record ||
        ticket.dedupeKey!==`ps:${id}` ||
-       !this.directorOriginalEntitlement(record.proposal,record.stamp)) {
+       !this.directorOriginalEntitlement(record.proposal,record.stamp,id)) {
       this.handoff('stock_intake','rejected','missing_source_or_submission');
       return false;
     }
@@ -449,7 +505,7 @@ export class IntelligenceClient {
        this.directorStockContexts.get(id)!==input.content ||
        !this.runtime.current(record.proposal.speakerCaptureRef) ||
        !this.runtime.current(record.proposal.playerCaptureRef) ||
-       !this.directorOriginalEntitlement(record.proposal,record.stamp))return null;
+       !this.directorOriginalEntitlement(record.proposal,record.stamp,id))return null;
     let proof;
     try {proof=this.originalBackendEvidence(this.originalTurnCurrent(id));}
     catch{return null;}
@@ -491,7 +547,7 @@ export class IntelligenceClient {
        String(hydrated?.targetContext?.pedId||'')!==claim.playerId) {
       this.handoff('post_hydration','rejected','hydrated_ped_mismatch');return false;
     }
-    if(!this.directorOriginalEntitlement(claim.record.proposal,claim.record.stamp)) {
+    if(!this.directorOriginalEntitlement(claim.record.proposal,claim.record.stamp,ticket.ticketId)) {
       this.handoff('post_hydration','rejected','original_grant_expired');return false;
     }
     let current;
@@ -558,7 +614,7 @@ export class IntelligenceClient {
        !this.runtime.epoch || claimed?.ticket!==ticket ||
        this.originalTurnPhase(id)!=='generation' ||
        !record || ticket.dedupeKey!==`ps:${id}` ||
-       !this.directorOriginalEntitlement(record.proposal,record.stamp) ||
+       !this.directorOriginalEntitlement(record.proposal,record.stamp,id) ||
        !this.socket || this.socket.destroyed || !this.socket.writable ||
        this.socket.writableLength>BOUNDS.frameBytes) {
       this.handoff('binding_emit','rejected','source_phase_or_pipe_denied');return false;
@@ -639,6 +695,13 @@ export class IntelligenceClient {
       submit:['submitted','busy','invalid','unsafe','stale'],
       cancel:['cancelled','not_found','invalid','unsafe','stale'],
     }[pending.operation];
+    if(pending.operation==='reserve' && payload.status==='reserved') {
+      const record=this.directorOwnerReservations.get(payload.ticketId);
+      if(record) {
+        record.nativeReservedAt=this.runtime.now();
+        this.directorNativeReserved.add(payload.ticketId);
+      }
+    }
     if(pending.operation==='submit' && payload.status==='submitted')
       this.directorNativeSubmitted.add(payload.ticketId);
     pending.resolve(allowed?.includes(payload.status) ?
@@ -652,7 +715,7 @@ export class IntelligenceClient {
     this.directorBindingPending.clear();
     for(const ticketId of this.directorOwnerReservations.keys())
       try {this.originalTurnRelease(ticketId);}catch{}
-    this.directorOwnerReservations.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
+    this.directorOwnerReservations.clear();this.directorNativeReserved.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
   }
 
   constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,ambientSpeech=false,now,situationFor,radioCatalog,consumers=null,acceptedObservationTap=null,m9Events=null,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
@@ -674,7 +737,7 @@ export class IntelligenceClient {
     this.directorPlaybacks=new DirectorPlaybackRegistry({
       onTimeout:code=>this.handoff('binding_wait','timeout',code),
     });
-    this.closed=false;this.socket=null;this.emptyHelloStreak=0;this.lastReport=0;this.frameRejections=new Map();this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
+    this.closed=false;this.socket=null;this.emptyHelloStreak=0;this.lastReport=0;this.frameRejections=new Map();this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeReserved=new Set();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   handoff(stage,status,code) {

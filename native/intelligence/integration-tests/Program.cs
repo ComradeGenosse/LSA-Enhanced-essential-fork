@@ -280,9 +280,99 @@ class Program
             integration.Shutdown();host.Shutdown();
         }
     }
+    static void SocialScenesCoverage()
+    {
+        long clock=0;
+        var scenes=new DirectorSocialScenes(()=>clock);
+        var anchors=new EntityAnchors();
+        var player=new Ped{Handle=911,MemoryAddress=new IntPtr(911)};
+        var actor=new Ped{Handle=912,MemoryAddress=new IntPtr(912)};
+        var car=new Vehicle{Handle=913,MemoryAddress=new IntPtr(913),Driver=player};
+        player.CurrentVehicle=car;actor.CurrentVehicle=car;
+        var playerAnchor=anchors.Retain(player,player.Handle,player.MemoryAddress,
+            "player",null,()=>player.Existing,clock);
+        var ownerId=Guid.NewGuid().ToString("D");
+        var owner=new OwnedParticipant{Ped=actor,Lifetime=ownerId,
+            Current=()=>actor.Existing,
+            DirectorOwner=()=>new DirectorOwnerSample{Owner="p2",Mode="follow",Revision=5}};
+        var actorAnchor=anchors.Retain(actor,actor.Handle,actor.MemoryAddress,
+            "ped",ownerId,()=>actor.Existing,clock);
+        anchors.SetObserverPriority(new[]{actorAnchor.CaptureRef});
+        var roster=new[]{owner};var host=Guid.NewGuid().ToString("D");
+        Func<object[]> sample=()=>scenes.Sample(anchors.Current,roster,host,1,(uint)clock);
+        Check(sample().Length==0,"social first car presence waits for settling");
+        clock=800;var first=sample();
+        Check(first.Length==1,"social shared car produces one source-backed scene");
+        var frame=first[0].GetType().GetProperty("sceneId");
+        var sceneId=(string)frame.GetValue(first[0]);
+        Check((string)first[0].GetType().GetProperty("sceneType").GetValue(first[0])==
+            "shared_vehicle_entry","social first opportunity is vehicle entry");
+        Check((string)first[0].GetType().GetProperty("role").GetValue(first[0])==
+            "passenger","social passenger role source is native GTA seat");
+        Check(sample().Length==0,"social 250ms polling does not spam duplicate frames");
+        clock=1900;var retry=sample();
+        Check(retry.Length==1 &&
+            (string)frame.GetValue(retry[0])==sceneId,
+            "social authenticated re-publication retains scene identity");
+        var request=new DirectorAdmission.Request{
+            Version=1,Operation="reserve",HostRunId=host,WorldEpoch=1,
+            SpeakerCaptureRef=actorAnchor.CaptureRef,
+            PlayerCaptureRef=playerAnchor.CaptureRef,
+            OwnerIncarnationId=ownerId,ProofRevision=5,
+            TicketId=Guid.NewGuid().ToString("D"),DedupeKey="placeholder",
+            ObservationId=sceneId,ObservationRevision=1,
+            DecisionKey="social:"+sceneId,PolicyVersion=1,PlayerTurnVersion=0,AgeMs=300
+        };
+        Check(scenes.Current(request),"social source validates exact owner and scene IDs");
+        Check(scenes.Claim(request) && !scenes.Claim(request),
+            "native social source reserves once and rejects duplicate tickets");
+        Check(!scenes.Current(new DirectorAdmission.Request{
+            DecisionKey=request.DecisionKey,ObservationId=request.ObservationId,
+            ObservationRevision=1,HostRunId=host,WorldEpoch=1,
+            SpeakerCaptureRef=request.SpeakerCaptureRef,PlayerCaptureRef=request.PlayerCaptureRef,
+            OwnerIncarnationId=Guid.NewGuid().ToString("D"),ProofRevision=5,
+            TicketId=request.TicketId}),"social source cannot borrow another owner");
+        // A fresh player conversation must suppress both the immediate
+        // boarding opening and stale delayed boarding after the first 10s.
+        long conversationClock=0;
+        var chatter=new DirectorSocialScenes(()=>conversationClock);
+        chatter.Sample(anchors.Current,roster,host,1,0,0);
+        conversationClock=100;
+        chatter.Sample(anchors.Current,roster,host,1,100,1);
+        conversationClock=1200;
+        Check(chatter.Sample(anchors.Current,roster,host,1,1200,1).Length==0,
+            "social greeting suppressed after a player turn");
+        conversationClock=11000;
+        Check(chatter.Sample(anchors.Current,roster,host,1,11000,1).Length==0,
+            "a missed boarding opening does not fire after travel began");
+        actor.CurrentVehicle=null;
+        clock=2200;sample();
+        Check(!scenes.Current(request),"social vehicle departure invalidates old native grant");
+        var manual=scenes.Manual(anchors.Current,roster,actor,host,1,(uint)clock);
+        Check(manual!=null,
+            "manual invitation creates a native-verified scene for current promoted actor");
+        var manualScene=(string)frame.GetValue(manual);
+        var manualRequest=new DirectorAdmission.Request{
+            Operation="reserve",TicketId=Guid.NewGuid().ToString("D"),
+            DecisionKey="social:"+manualScene,ObservationId=manualScene,
+            ObservationRevision=1,SpeakerCaptureRef=actorAnchor.CaptureRef,
+            PlayerCaptureRef=playerAnchor.CaptureRef,OwnerIncarnationId=ownerId,
+            ProofRevision=5,HostRunId=host,WorldEpoch=1
+        };
+        Check(scenes.Claim(manualRequest),"manual source can be claimed exactly once");
+        manualRequest.Operation="cancel";
+        Check(scenes.Release(manualRequest) && !scenes.Current(manualRequest),
+            "native social cancellation retires claimed scene permanently");
+        actor.Existing=false;
+        Check(scenes.Manual(anchors.Current,roster,actor,host,1,(uint)clock)==null,
+            "manual invitation cannot select a retired actor");
+        scenes.Reset();
+        Check(!scenes.Current(request),"world reset invalidates prior scene identities");
+    }
+
     static void Main(string[] args)
     {
-        try{Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
+        try{SocialScenesCoverage();Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
             if(args.Length==1&&args[0]=="--d2-source-only-wire")
                 foreach(var frame in SourceOnlyTests.WireFrames)Console.WriteLine("D2_WIRE "+new JavaScriptSerializer().Serialize(frame));
         }catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}

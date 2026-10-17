@@ -64,7 +64,10 @@ export class DirectorSpeechReservations {
         !stampValid(stamp,proposal) || !same(stamp,record?.stamp ?? stamp) ||
         // The source-time candidate must be fresh through native admission and
         // publication. Playback itself may outlast that candidate TTL.
-        (stage!=='complete' && proposal.expiresAtMonotonicMs<=this.now()))return false;
+        (stage!=='complete' && proposal.expiresAtMonotonicMs<=this.now() &&
+         !(proposal.source==='native_director_social' && record &&
+           ['consumed','bound'].includes(record.state) &&
+           ['hydrated','publication','bind'].includes(stage))))return false;
     // Optional subsystem failures and missing evidence cannot grant admission.
     try {return this.checkCurrent(Object.freeze({proposal,stamp,stage,ticketId:record?.id??null}))===true;}
     catch {return false;}
@@ -118,6 +121,8 @@ export class DirectorSpeechReservations {
     if(!text(id)) {this.lastReserveFailure='ticket_id_unavailable';return null;}
     const record={
       id,proposal:Object.freeze({...proposal}),stamp:Object.freeze({...stamp}),
+      previousSceneAt:this.sceneAt,
+      previousSpeakerAt:this.speakerAt.get(proposal.speakerCaptureRef),
       expiresAt:Math.min(at+this.limits.ticketTtlMs,proposal.expiresAtMonotonicMs),
       state:'reserved',tuple:null,
     };
@@ -131,6 +136,18 @@ export class DirectorSpeechReservations {
       priority:proposal.urgency==='urgent'?'director_urgent':'director_routine',
       expiresAtMonotonicMs:record.expiresAt,
     });
+  }
+  // Only an explicit native BUSY before source claim can restore local pacing.
+  // Attempt budget remains spent; no delivered/unsafe/stale ticket can retry.
+  deferNativeBusy(ticketId) {
+    const r=this.active;
+    if(!r || r.id!==ticketId || r.state!=='reserved')return false;
+    this.attemptedKeys.delete(r.proposal.decisionKey);
+    this.sceneAt=r.previousSceneAt;
+    if(r.previousSpeakerAt===undefined)this.speakerAt.delete(r.proposal.speakerCaptureRef);
+    else this.speakerAt.set(r.proposal.speakerCaptureRef,r.previousSpeakerAt);
+    this.active=null;
+    return true;
   }
   // Native must independently consume UUID exactly once and validate the same
   // original owner/world/player version before allocating an Essential tuple.

@@ -1,9 +1,6 @@
 import {selectDirectorIntent,DIRECTOR_SPEECH_LIMITS,PS6_13A_EVENTS,PS6_AMBIENT_EVENTS,isAmbientDirectorEvent} from './sceneDirector.mjs';
 
 const speechTypes=new Set([...PS6_13A_EVENTS,...PS6_AMBIENT_EVENTS]);
-// An ordinary scene change is never as important as genuine danger. At most
-// one attempted ambient remark per owned speaker per 90 seconds, in addition
-// to the existing native/global attempt limits. No wall-clock-only prompts.
 export const PS6_AMBIENT_ATTEMPT_GAP_MS=90_000;
 // Pure diagnostic classification only. Never creates witness evidence or a
 // Director grant; selection remains exclusively selectDirectorIntent().
@@ -56,9 +53,9 @@ export class DirectorObservationPump {
        typeof onResult!=='function' || typeof onDiagnostic!=='function')throw new TypeError('director_pump_dependencies');
     this.client=client;this.coordinator=coordinator;
     this.now=now;this.stampFor=stampFor;this.onResult=onResult;this.onDiagnostic=onDiagnostic;this.lastDiagnostic=null;
-    this.seen=new Map();this.ambientAt=new Map();this.epoch=null;this.world=null;this.inFlight=false;this.stopped=false;
+    this.seen=new Map();this.socialRetry=new Map();this.ambientAt=new Map();this.epoch=null;this.world=null;this.inFlight=false;this.stopped=false;
   }
-  stop() {this.stopped=true;this.seen.clear();this.ambientAt.clear();}
+  stop() {this.stopped=true;this.seen.clear();this.socialRetry.clear();this.ambientAt.clear();}
   diagnose(reason,eventType=null) {
     const at=this.now();
     if(this.lastDiagnostic?.reason===reason &&
@@ -100,7 +97,7 @@ export class DirectorObservationPump {
     const runtime=this.client.runtime,epoch=runtime.epoch;
     const world=runtime.hostContext?.worldEpoch??null;
     if(epoch!==this.epoch || world!==this.world){
-      this.seen.clear();this.ambientAt.clear();this.lastDiagnostic=null;this.epoch=epoch;this.world=world;
+      this.seen.clear();this.socialRetry.clear();this.ambientAt.clear();this.lastDiagnostic=null;this.epoch=epoch;this.world=world;
     }
     if(!epoch || runtime.directorRequestVersion!==1){this.diagnose('channel_or_protocol_unavailable');return null;}
     // A silent native owner fiber (text entry, pause) can still hold leases,
@@ -113,6 +110,8 @@ export class DirectorObservationPump {
     // Expire old attempted decisions; extended sessions must not permanently
     // exhaust a bounded 128-entry de-duplication table.
     for(const [key,at] of this.seen)if(at<=now-DIRECTOR_PUMP_SEEN_TTL_MS)this.seen.delete(key);
+    for(const [key,row] of this.socialRetry)
+      if(row.at<=now-DIRECTOR_PUMP_SEEN_TTL_MS)this.socialRetry.delete(key);
     // Native observer membership and P2 owner lifetime are prerequisite
     // evidence. Never infer ownership from the latest conversation target.
     const eligible=[];
@@ -141,6 +140,21 @@ export class DirectorObservationPump {
       }
       if(this.seen.has(proposal.decisionKey))continue;
       eligible.push({speaker,candidates:unattempted,facts,proposal});
+    }
+    // Social opportunities originate from authenticated native owner-fiber
+    // scene observations. They never need or manufacture a PS3 candidate.
+    // Reuse the same owner, player, priority, C-06 and stock speech gates.
+    for(const [speaker,index] of runtime.observerIndex) {
+      if(eligible.length>=32)break;
+      if(!index?.owned || index.kind!=='ped' ||
+         !runtime.current(speaker) || !runtime.directorOwnerProofFor(speaker))continue;
+      const proposal=runtime.directorSocialFor?.(speaker);
+      if(!proposal || proposal.playerCaptureRef!==player ||
+         (this.seen.has(proposal.decisionKey) ||
+         (this.socialRetry.get(proposal.decisionKey)?.nextAt??0)>now))continue;
+      eligible.push({speaker,candidates:[],facts:{
+        speakerCaptureRef:speaker,playerCaptureRef:player,nowMonotonicMs:now
+      },proposal,social:true});
     }
     eligible.sort((a,b)=>(b.proposal.urgency==='urgent')-(a.proposal.urgency==='urgent') ||
       Number(isAmbientDirectorEvent(a.candidates.find(c=>c.observation?.observationId===a.proposal.observationId)?.observation?.eventType))-
@@ -197,13 +211,31 @@ export class DirectorObservationPump {
     try {
       const outcome=await this.coordinator.attempt({
         candidates:selected.candidates,facts:selected.facts,stamp,
+        ...(selected.social?{socialProposal:selected.proposal}:{}),
       });
+      // Native BUSY did not claim a source. Permit one delayed recheck while
+      // the SAME native scene is still fresh; never retry unsafe or spent
+      // native tickets. Source/safety vetoes are also bounded, not spun.
+      if(selected.social && (outcome?.status==='native_rejected' && outcome.nativeReason==='busy' ||
+          outcome?.status==='not_admitted' &&
+          outcome.diagnosticReason==='source_or_safety_veto')) {
+        const key=selected.proposal.decisionKey;
+        const prior=this.socialRetry.get(key);
+        if(!prior || prior.count<1) {
+          this.seen.delete(key);
+          this.socialRetry.set(key,{count:(prior?.count??0)+1,at:now,nextAt:now+3000});
+        }
+      }
+      // A delivered social opening already covered this shared moment. Do
+      // not follow it with a duplicate PS3 ambient scene-change remark.
+      if(selected.social && outcome?.status==='delivered')this.ambientAt.set(selected.speaker,now);
       // A missing stamp previously appeared as a misleading PS3 grant failure.
       // Preserve the coordinator's status and execution behavior.
       const diagnosticReason=outcome?.status==='original_ps3_unavailable' ?
         (stamp?'original_ps3_entitlement_unverified':'stamp_unavailable'):null;
       try {this.onResult(Object.freeze({...outcome,...(diagnosticReason?{diagnosticReason}:{}),
         traceCode:trace,urgency:selected.proposal.urgency,
+        ...(selected.social?{sceneType:selected.proposal.sceneType,source:'social'}:{}),
          ...(speechTypes.has(eventType)?{eventType}:{})}));}catch{}
       return outcome;
     } catch {
