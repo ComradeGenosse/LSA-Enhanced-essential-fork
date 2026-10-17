@@ -1,4 +1,5 @@
 import {immutableSnapshot} from '../context/turnSnapshot.mjs';
+import {phrase} from './activityFacts.mjs';
 import {readHostContext,sameHostContext} from '../context/hostContext.mjs';
 import {isUuid,sameAssociation} from '../identity/identityContract.mjs';
 const INTENTS=Object.freeze({hold_position:'wait here',accompany:'follow',resume_previous:'resume an ambient activity',sit_here:'sit down'});
@@ -39,7 +40,7 @@ export function projectActivityKnowledge(inputs){
       ?'My request to '+verb+' was physically completed with supporting native evidence.'
       :'My request to '+verb+' was marked complete, but physical completion was not verified.';
    else text='My request to '+verb+' ended as '+state.status+
-     (state.reason?' ('+String(state.reason).replace(/_/g,' ')+')':'')+'. It is not currently running.';
+     (phrase(state.reason)?' ('+phrase(state.reason)+')':'')+'. It is not currently running.';
    facts.push({kind:'activity_state',evidence:state.modeObserved?'mode_flag':state.physicallyCompleted?'world_strong':'none',text});
    references.push({kind:'activity_state',snapshot:state});
   }
