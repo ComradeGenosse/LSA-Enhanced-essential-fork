@@ -483,9 +483,9 @@ namespace LSA.Intelligence
                     int age=capabilities["snapshot"]?(int)Math.Min(int.MaxValue,(long)unchecked(tick-snapshotTick)):int.MaxValue;
                     var signals=sensors.Counters;
                     var damageCallbacks=sensors.DamageCallbacks;
-                    var radio=new {samples=Clamp(sensors.RadioSamples),edges=Clamp(sensors.RadioEdges),nativeFailures=Clamp(sensors.RadioNativeFailures),witnessed=Clamp(radioWitnessed),witnessUnknown=Clamp(radioWitnessUnknown)};
+                    var radio=new {samples=Clamp(sensors.RadioSamples),edges=Clamp(sensors.RadioEdges),nativeFailures=Clamp(sensors.RadioNativeFailures),vehicleFailures=Clamp(sensors.RadioVehicleFailures),stationFailures=Clamp(sensors.RadioStationFailures),soundFailures=Clamp(sensors.RadioSoundFailures),textIdFailures=Clamp(sensors.RadioTextIdFailures),witnessed=Clamp(radioWitnessed),witnessUnknown=Clamp(radioWitnessUnknown)};
                     channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt",radio});
-                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" radio_witness="+radio.witnessed+":"+radio.witnessUnknown+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
+                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" radio_failures="+radio.vehicleFailures+":"+radio.stationFailures+":"+radio.soundFailures+":"+radio.textIdFailures+" radio_witness="+radio.witnessed+":"+radio.witnessUnknown+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
                 }
                 Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,host.MonotonicMs);
             } catch {LogStatus("[PS] optional_update_failed");Shutdown("update_failed");}
@@ -838,14 +838,32 @@ namespace LSA.Intelligence
         RadioProbeState ReadRadio(string vehicleRef)
         {
             var reading=new RadioProbeState {Vehicle=vehicleRef,InVehicle=true,Station="",RejectedClasses=""};
-            string raw=NativeFunction.CallByName("GET_PLAYER_RADIO_STATION_NAME",typeof(string)) as string;
+            // Radio station is required evidence. Try the stable GTA native
+            // hash if the RPH named native is unavailable on Enhanced.
+            string raw;
+            try {raw=NativeFunction.CallByName("GET_PLAYER_RADIO_STATION_NAME",typeof(string)) as string;}
+            catch {
+                try {raw=NativeFunction.CallByHash(0xF6D733C32076AD03UL,typeof(string)) as string;}
+                catch {sensors.NoteRadioNativeFailure("station");return reading;}
+            }
             if(!SensorAdapters.ValidRadioStation(raw)) {
                 if(!string.IsNullOrEmpty(raw)) { reading.Rejected=true; reading.RejectedLength=raw.Length; reading.RejectedClasses=SensorAdapters.RadioStationClasses(raw); }
                 return reading;
             }
             reading.Station=raw;
-            reading.SoundHash=unchecked((uint)NativeFunction.CallByName<int>("GET_CURRENT_TRACK_SOUND_NAME",raw));
-            reading.TrackTextId=NativeFunction.CallByName<int>("GET_AUDIBLE_MUSIC_TRACK_TEXT_ID");
+            // These two calls are independently fallible in Enhanced. A
+            // missing secondary sound-container hash must never discard the
+            // independently sampled station or primary song text ID.
+            try {reading.SoundHash=unchecked((uint)NativeFunction.CallByName<int>("GET_CURRENT_TRACK_SOUND_NAME",raw));}
+            catch {
+                try {reading.SoundHash=unchecked((uint)NativeFunction.CallByHash<int>(0x34D66BC058019CE0UL,raw));}
+                catch {reading.SoundHash=0;sensors.NoteRadioNativeFailure("sound");}
+            }
+            try {reading.TrackTextId=NativeFunction.CallByName<int>("GET_AUDIBLE_MUSIC_TRACK_TEXT_ID");}
+            catch {
+                try {reading.TrackTextId=NativeFunction.CallByHash<int>(0x50B196FC9ED6545BUL);}
+                catch {reading.TrackTextId=0;sensors.NoteRadioNativeFailure("text_id");}
+            }
             return reading;
         }
         void CommitRadio(RadioProbeState reading,uint tick,long now,bool forceRevalidation=false)
