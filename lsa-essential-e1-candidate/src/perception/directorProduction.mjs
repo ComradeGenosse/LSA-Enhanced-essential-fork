@@ -52,9 +52,9 @@ export class DirectorObservationPump {
        typeof onResult!=='function' || typeof onDiagnostic!=='function')throw new TypeError('director_pump_dependencies');
     this.client=client;this.coordinator=coordinator;
     this.now=now;this.stampFor=stampFor;this.onResult=onResult;this.onDiagnostic=onDiagnostic;this.lastDiagnostic=null;
-    this.seen=new Map();this.epoch=null;this.world=null;this.inFlight=false;this.stopped=false;
+    this.seen=new Map();this.socialRetry=new Map();this.epoch=null;this.world=null;this.inFlight=false;this.stopped=false;
   }
-  stop() {this.stopped=true;this.seen.clear();}
+  stop() {this.stopped=true;this.seen.clear();this.socialRetry.clear();}
   diagnose(reason,eventType=null) {
     const at=this.now();
     if(this.lastDiagnostic?.reason===reason &&
@@ -96,7 +96,7 @@ export class DirectorObservationPump {
     const runtime=this.client.runtime,epoch=runtime.epoch;
     const world=runtime.hostContext?.worldEpoch??null;
     if(epoch!==this.epoch || world!==this.world){
-      this.seen.clear();this.lastDiagnostic=null;this.epoch=epoch;this.world=world;
+      this.seen.clear();this.socialRetry.clear();this.lastDiagnostic=null;this.epoch=epoch;this.world=world;
     }
     if(!epoch || runtime.directorRequestVersion!==1){this.diagnose('channel_or_protocol_unavailable');return null;}
     // A silent native owner fiber (text entry, pause) can still hold leases,
@@ -109,6 +109,8 @@ export class DirectorObservationPump {
     // Expire old attempted decisions; extended sessions must not permanently
     // exhaust a bounded 128-entry de-duplication table.
     for(const [key,at] of this.seen)if(at<=now-DIRECTOR_PUMP_SEEN_TTL_MS)this.seen.delete(key);
+    for(const [key,row] of this.socialRetry)
+      if(row.at<=now-DIRECTOR_PUMP_SEEN_TTL_MS)this.socialRetry.delete(key);
     // Native observer membership and P2 owner lifetime are prerequisite
     // evidence. Never infer ownership from the latest conversation target.
     const eligible=[];
@@ -147,7 +149,8 @@ export class DirectorObservationPump {
          !runtime.current(speaker) || !runtime.directorOwnerProofFor(speaker))continue;
       const proposal=runtime.directorSocialFor?.(speaker);
       if(!proposal || proposal.playerCaptureRef!==player ||
-         this.seen.has(proposal.decisionKey))continue;
+         (this.seen.has(proposal.decisionKey) ||
+         (this.socialRetry.get(proposal.decisionKey)?.nextAt??0)>now))continue;
       eligible.push({speaker,candidates:[],facts:{
         speakerCaptureRef:speaker,playerCaptureRef:player,nowMonotonicMs:now
       },proposal,social:true});
@@ -201,6 +204,19 @@ export class DirectorObservationPump {
         candidates:selected.candidates,facts:selected.facts,stamp,
         ...(selected.social?{socialProposal:selected.proposal}:{}),
       });
+      // Native BUSY did not claim a source. Permit one delayed recheck while
+      // the SAME native scene is still fresh; never retry unsafe or spent
+      // native tickets. Source/safety vetoes are also bounded, not spun.
+      if(selected.social && (outcome?.status==='native_rejected' && outcome.nativeReason==='busy' ||
+          outcome?.status==='not_admitted' &&
+          outcome.diagnosticReason==='source_or_safety_veto')) {
+        const key=selected.proposal.decisionKey;
+        const prior=this.socialRetry.get(key);
+        if(!prior || prior.count<1) {
+          this.seen.delete(key);
+          this.socialRetry.set(key,{count:(prior?.count??0)+1,at:now,nextAt:now+3000});
+        }
+      }
       // A missing stamp previously appeared as a misleading PS3 grant failure.
       // Preserve the coordinator's status and execution behavior.
       const diagnosticReason=outcome?.status==='original_ps3_unavailable' ?
