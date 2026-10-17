@@ -22,7 +22,7 @@ async function fixture(t){
  const store=make();await store.initialize();
  const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'m8'});
  store.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:1});
- await store.confirmTimeline(timelineId);
+ await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const scope={characterId:npc.characterId,worldProfileId,timelineId,protagonistKey:'franklin'};
  const identity={pedId:101,generationId:'gen-m8',sessionNonce:'ws6'};
  const recorder=createConversationJournalRecorder(store);
@@ -136,7 +136,7 @@ test('correction/forget revokes previously prepared facts, including across rest
  const reopened=f.make();await reopened.initialize();
  try{
   reopened.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:2});
-  await reopened.confirmTimeline(f.scope.timelineId);
+  await reopened.confirmTimeline(f.scope.timelineId,{confirmation:f.scope.timelineId});
   const active={...a,hostRunId:reopened.verifiedHostContext.hostRunId,worldEpoch:2,
     incarnationId:uuid(),encounterId:uuid(),observerCaptureRef:uuid(),turnId:uuid()};
   const restored=createP2M8ProductionReader({store:reopened,

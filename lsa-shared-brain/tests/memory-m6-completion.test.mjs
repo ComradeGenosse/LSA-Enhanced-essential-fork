@@ -186,7 +186,7 @@ test('M6 real P2 SQLite migrates old avatar cursors without losing interleaved e
  const scope={characterId:promoted.characterId,worldProfileId:fixtureWorldId,
    timelineId,protagonistKey:'franklin'};
  original.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:3});
- await original.confirmTimeline(timelineId);
+ await original.confirmTimeline(timelineId,{confirmation:timelineId});
  const journal=createConversationJournalRecorder(original),ids=[];
  for(const [index,protagonist] of ['franklin','michael','trevor'].entries()){
    const recorded=await journal.recordPlayerAccepted({characterId:scope.characterId,
@@ -213,7 +213,7 @@ test('M6 real P2 SQLite migrates old avatar cursors without losing interleaved e
  await resumed.initialize();
  try{
    resumed.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:4});
-   await resumed.confirmTimeline(timelineId);
+   await resumed.confirmTimeline(timelineId,{confirmation:timelineId});
    const start=await resumed.readCommittedEvidenceCursor({...{scope,consumerId}});
    assert.equal(start.lastSequence,0);
    const replay=await resumed.readCommittedEvidencePage({
@@ -234,7 +234,7 @@ test('M6 real P2 SQLite migrates old avatar cursors without losing interleaved e
  await restarted.initialize();
  try{
    restarted.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:5});
-   await restarted.confirmTimeline(timelineId);
+   await restarted.confirmTimeline(timelineId,{confirmation:timelineId});
    for(const who of ['franklin','michael','trevor']){
      const current=await restarted.readCommittedEvidenceCursor({
        scope:{...scope,protagonistKey:who},consumerId});
@@ -255,7 +255,7 @@ test('M6 replay refuses forged historical protagonist attribution in its SQLite 
  const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'provenance'});
  const scope={characterId:npc.characterId,worldProfileId:fixtureWorldId,timelineId,protagonistKey:'michael'};
  store.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:1});
- await store.confirmTimeline(timelineId);
+ await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const row=await createConversationJournalRecorder(store).recordPlayerAccepted({
    characterId:npc.characterId,
    identity:{pedId:101,turnId:'turn-provenance',generationId:'gen-1',sessionNonce:'m6'},
@@ -267,7 +267,7 @@ test('M6 replay refuses forged historical protagonist attribution in its SQLite 
  const verify=create();await verify.initialize();
  try{
    verify.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:2});
-   await verify.confirmTimeline(timelineId);
+   await verify.confirmTimeline(timelineId,{confirmation:timelineId});
    await assert.rejects(verify.readCommittedEvidencePage({scope,limit:10}),
      /p2_replay_feed_protagonist_mismatch/);
  }finally{await verify.close();}

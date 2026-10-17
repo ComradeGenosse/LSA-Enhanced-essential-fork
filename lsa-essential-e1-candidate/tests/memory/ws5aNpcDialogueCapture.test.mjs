@@ -277,7 +277,7 @@ for(const [label,perturb,expectReason] of [
     await waitFor(()=>x.native.samples>=before+2,'two samples as Michael');},'d03_npc_continuity_lost'],
   ['a different timeline is confirmed before the reply is written',async x=>{
     const next=await x.store.createTimeline({label:'a diverging future'});
-    await x.store.confirmTimeline(next);
+    await x.store.confirmTimeline(next,{confirmation:next});
     x.restoreTimeline=true;},null],
 ])test(`WS-5a E2E stale: ${label} -> the reply is not journaled, the earlier player line stands`,{timeout:30000},async t=>{
   const x=await d01Harness(t),spy=npcSpy(x);
@@ -288,7 +288,7 @@ for(const [label,perturb,expectReason] of [
   assert.equal(spy.results[0].status,'not_stored',label);
   if(expectReason)assert.equal(spy.results[0].reason,expectReason);
   // Re-select the original timeline so its journal can be read back.
-  if(x.restoreTimeline)await x.store.confirmTimeline(x.timelineId);
+  if(x.restoreTimeline)await x.store.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
   const rows=(await x.journal()).rows;
   assert.deepEqual(rows.map(r=>r.speaker),['player'],label);
 });

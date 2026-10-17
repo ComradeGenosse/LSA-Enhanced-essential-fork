@@ -56,7 +56,7 @@ async function fixture(t,{events='on',coverage='on',ps2='on',ps1='on',storage='s
   };
   await establish();
   const timelineId=storage==='sqlite'?await store.createTimeline({label:'G bootstrap'}):null;
-  if(timelineId)await store.confirmTimeline(timelineId);
+  if(timelineId)await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const owner=()=>send('memory_authority',{memoryProofVersion:1,hostRunId:host.hostRunId,worldEpoch:1,sampledGameTick:clock,
     owners:[{ownerAlias:npc.promotion.ownerAlias,observerCaptureRef:ref,hostRunId:host.hostRunId,worldEpoch:1,
       incarnationId,encounterId,sampledGameTick:clock}],protagonist:null,acceptedTurns:[]});
@@ -73,7 +73,7 @@ async function fixture(t,{events='on',coverage='on',ps2='on',ps1='on',storage='s
       await owner();clock+=250;
     },
     async reconnect(){socket.destroy();streamId=id();adapterEpoch=id();seq=0;runtime.intelligence.start();
-      await establish();if(timelineId)await store.confirmTimeline(timelineId);},
+      await establish();if(timelineId)await store.confirmTimeline(timelineId,{confirmation:timelineId});},
     disconnect(){socket.destroy();}};
 }
 
@@ -205,9 +205,9 @@ for(const newTimeline of [false,true])test(`G already-purged pre-upgrade evidenc
   const readScope={...scope};
   if(newTimeline){
     readScope.timelineId=await store.createTimeline({label:'G unknown legacy provenance'});
-    await store.confirmTimeline(readScope.timelineId);
+    await store.confirmTimeline(readScope.timelineId,{confirmation:readScope.timelineId});
   }
-  await f.reconnect();await store.confirmTimeline(readScope.timelineId);
+  await f.reconnect();await store.confirmTimeline(readScope.timelineId,{confirmation:readScope.timelineId});
   await f.sample();await f.send('signal',signal);await hop();
   assert.equal(store.activeTimelineId,readScope.timelineId);
   assert.equal((await store.readJournalEvents(readScope)).length,0);
@@ -220,7 +220,7 @@ for(const legacy of [false,true])test(`G a previously admitted native receipt ca
   runtime.intelligence.runtime.acceptedObservationTap=r=>{receipt=r;return tap(r);};
   await f.sample();await f.send('signal',f.signal());await hop();
   assert.equal((await store.readJournalEvents({characterId:npc.characterId,timelineId})).length,1);
-  const next=await store.createTimeline({label:'G different lineage'});await store.confirmTimeline(next);
+  const next=await store.createTimeline({label:'G different lineage'});await store.confirmTimeline(next,{confirmation:next});
   tap(receipt);await hop();
   assert.equal((await store.readJournalEvents({characterId:npc.characterId,timelineId:next})).length,0);
 });

@@ -1,7 +1,8 @@
+import {bindHostContext} from './timelineAutoResume.mjs';
 // EA6 adapter. Only the authenticated C-13 IntelligenceClient subscriptions
 // are acceptable sources. This module never manufactures a host epoch or save ID.
 // Final integrator wires this at bootstrap before the native stream is started.
-export function bindTrustedTimelineSource({store,intelligenceClient}={}) {
+export function bindTrustedTimelineSource({store,intelligenceClient,autoResume=false,onSafeFailure=()=>{}}={}) {
   if (!store || typeof store.setVerifiedHostContext !== 'function' ||
       typeof store.onBoundary !== 'function' ||
       typeof intelligenceClient?.subscribeVerifiedHostContext !== 'function' ||
@@ -25,7 +26,10 @@ export function bindTrustedTimelineSource({store,intelligenceClient}={}) {
       if(!context || context.hostContextVersion!==1) {
         revoke('unknown_source');return;
       }
-      store.setVerifiedHostContext(context);
+      // Host callbacks represent accepted HELLO/epoch publications, not sensor
+      // refresh samples. A replacement can reuse the same run/epoch scalars.
+      if(lastTrustedHost)revoke('source_change');
+      void bindHostContext(store,context,{autoResume,onSafeFailure});
       lastTrustedHost=Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
     } catch {revoke('unknown_source');}
   };

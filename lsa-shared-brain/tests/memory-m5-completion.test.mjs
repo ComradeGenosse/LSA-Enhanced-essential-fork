@@ -26,7 +26,7 @@ async function setup(t){
  await store.initialize();
  const p=await store.create(profile()),timelineId=await store.createTimeline({label:'M5'});
  const host={hostContextVersion:1,hostRunId:id(),worldEpoch:1};
- store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId);
+ store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const scope={characterId:p.characterId,worldProfileId,timelineId,protagonistKey:'franklin'};
  const recorder=createConversationJournalRecorder(store);
  const record=async(text,n,protagonist='franklin')=>{

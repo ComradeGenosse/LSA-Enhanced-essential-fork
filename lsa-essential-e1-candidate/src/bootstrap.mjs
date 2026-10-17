@@ -31,7 +31,7 @@ import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
 import {createMemoryKRuntimeComposition,memoryKDialogueActivation,memoryKM6Activation,runtimeCleanupError} from './memory/runtimeComposition.mjs';
 import {createM6RuntimeRetention} from './memory/m6RuntimeRetention.mjs';
 import {memoryKSourceActivation} from './memory/sourceActivation.mjs';
-import {bindHostContext} from './characters/timelineAutoResume.mjs';
+import {bindTrustedTimelineSource} from './characters/timelineSourceBridge.mjs';
 import {memoryKM3Activation,unavailableM3States} from './memory/m3Activation.mjs';
 import {createInspectorControls} from './memory/inspectorControls.mjs';
 import {withLearnedMemoryPause} from './memory/learnedMemoryPause.mjs';
@@ -361,18 +361,11 @@ export async function createRuntimeForBundle(options = {}) {
           }catch{owner.failed('memory.m3');memoryIntake=null;connectedMemoryAuthority=null;try{console.warn('[M3] verified_owner_binder_unavailable');}catch{}}
         }
         if(config.promotedCharacters.storageMode==='sqlite' && runtime.characterService?.store?.onBoundary) {
-          owner.own('storage.host',runtime.intelligence.subscribeVerifiedHostContext(context=>{
-            const safeFailure=()=>runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'});
-            try {void bindHostContext(runtime.characterService.store,context,
-              {autoResume:config.memoryK.autoResumeSingleTimeline===true,onSafeFailure:safeFailure});}
-            catch {safeFailure();}
-          }),unsubscribe=>unsubscribe());
-          // Receive only post-validation C-13 native world epochs. No inference
-          // from a model turn, OS clock, gameplay timestamp or stale channel.
-          owner.own('storage.boundary',runtime.intelligence.subscribeWorldBoundary(boundary=>{
-            try {runtime.characterService.store.onBoundary({reason:boundary.reason});}
-            catch {runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'});}
-          }),unsubscribe=>unsubscribe());
+          const source=bindTrustedTimelineSource({store:runtime.characterService.store,
+            intelligenceClient:runtime.intelligence,
+            autoResume:config.memoryK.autoResumeSingleTimeline===true,
+            onSafeFailure:()=>runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'})});
+          owner.own('storage.source',source,binding=>binding.close());
         }
         runtime.intelligence.start();
       }catch{

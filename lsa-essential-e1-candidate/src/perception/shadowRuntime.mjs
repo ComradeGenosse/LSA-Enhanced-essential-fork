@@ -9,6 +9,7 @@ import { readHostContext } from '../context/hostContext.mjs';
 import { RadioTrackTextCatalog, normalizeRadioSignal } from './radioTrackTextCatalog.mjs';
 
 const MAX_COUNTER = 2147483647;
+export const OWNER_STALL_BOUNDS = Object.freeze({ startMs: 1500, resetMs: 60000 });
 const PS3_REASON_COUNTERS = Object.freeze({
   safety_self_danger:'safetySelfDanger',
   safety_player_harm:'safetyPlayerHarm',
@@ -31,6 +32,9 @@ export class ShadowRuntime {
     // Never persist these capture refs or infer replacement actors.
     this.missingRefReasons=new Map();this.lastResetReason='none';
     this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.diagnostics=null;
+    // Pause presentation leases during bounded native owner-fiber stalls.
+    // Memory authority continues to require its independent wall-clock proof.
+    this.leaseBase=0;this.stallNotified=false;this.stallDiagnostics={stalls:0,maxMs:0};
     this.consumerActivation=consumers;
     const ps2=mode==='shadow'&&(consumers===null||consumers.ps2?.enabled===true);
     const ps3=ps2&&(consumers===null||consumers.ps3?.enabled===true);
@@ -77,6 +81,28 @@ export class ShadowRuntime {
     }
   }
   bump(target,k) { target[k]=Math.min(MAX_COUNTER,(target[k]||0)+1); }
+  // Native-active time. While the owner fiber is silent beyond startMs the
+  // clock stands still, so anchor/situation leases neither expire nor renew.
+  leaseNow() {
+    const now=this.now();
+    if(!this.epoch) return now-this.leaseBase;
+    return now-this.leaseBase-Math.max(0,now-this.lastReceipt-OWNER_STALL_BOUNDS.startMs);
+  }
+  stalled() { return Boolean(this.epoch) && this.now()-this.lastReceipt>OWNER_STALL_BOUNDS.startMs; }
+  // Companion state equals native's last publication on this live stream.
+  // Negotiated Memory K evidence never inherits presentation stall tolerance.
+  sourceSilenceMs() { return this.memoryCurrentOwnerPlayerVersion===1||!this.observations?3000:OWNER_STALL_BOUNDS.resetMs; }
+  channelFresh() { return Boolean(this.epoch) && this.now()-this.lastReceipt<=this.sourceSilenceMs(); }
+  noteReceipt() {
+    const now=this.now(),silent=now-this.lastReceipt;
+    if(this.epoch && silent>OWNER_STALL_BOUNDS.startMs) {
+      this.leaseBase+=silent-OWNER_STALL_BOUNDS.startMs;
+      this.bump(this.stallDiagnostics,'stalls');
+      this.stallDiagnostics.maxMs=Math.max(this.stallDiagnostics.maxMs,Math.min(MAX_COUNTER,silent));
+      if(this.stallNotified) try {this.onStall?.(Object.freeze({stage:'resumed',stallMs:Math.min(MAX_COUNTER,silent)}));} catch {}
+    }
+    this.stallNotified=false;this.lastReceipt=now;
+  }
   count(k) { this.bump(this.counters,k); }
   recordMissingRef(ref,reason) {
     if(typeof ref!=='string')return;
@@ -95,13 +121,13 @@ export class ShadowRuntime {
     this.lastResetReason='reset_'+kind;
     for(const ref of this.anchors.keys())this.recordMissingRef(ref,this.lastResetReason);
     this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];
-    this.anchors.clear();this.signals=[];this.producers.clear();this.observations?.clear();this.episodes?.clear();this.correlator?.clear();this.salience?.clear();this.transcripts?.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
+    this.anchors.clear();this.signals=[];this.producers.clear();this.observations?.clear();this.episodes?.clear();this.correlator?.clear();this.salience?.clear();this.transcripts?.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.leaseBase=0;this.stallNotified=false;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
   }
-  current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.now() && this.epoch);}
+  current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.leaseNow() && this.epoch);}
   expire() {
-    if(this.epoch && this.now()-this.lastReceipt>3000) {this.reset('timeout');return;}
-    for(const [ref,a] of this.anchors) if(a.expires<=this.now()) this.retire(ref,'lease_expired');
+    if(this.epoch && this.now()-this.lastReceipt>this.sourceSilenceMs()) {this.reset('timeout');return;}
+    for(const [ref,a] of this.anchors) if(a.expires<=this.leaseNow()) this.retire(ref,'lease_expired');
     this.signals=this.signals.filter(s=>{ if(s.expires<=this.now()) {this.bump(this.historyDiagnostics,'expired');return false;} return true; });
     this.observations?.expire();
     this.episodes?.expire();
@@ -129,7 +155,7 @@ export class ShadowRuntime {
     if(v.adapterEpoch!==this.epoch || v.streamId!==this.stream) {this.count('stale');return false;}
     if(v.sequence<=this.sequence) {this.count('duplicate');return false;}
     if(v.sequence!==this.sequence+1) {this.count('gaps');this.reset('fault');return false;}
-    this.sequence=v.sequence;this.lastReceipt=this.now();
+    this.sequence=v.sequence;this.noteReceipt();
     if(v.type==='world_epoch') {
       if(!this.hostContext || v.payload.epoch<this.hostContext.worldEpoch || v.payload.epoch>this.hostContext.worldEpoch+1) {this.reset('fault');return false;}
       if(v.payload.epoch===this.hostContext.worldEpoch) return true;
@@ -203,7 +229,7 @@ export class ShadowRuntime {
       for(const a of v.payload) {
         const old=projected.get(a.captureRef);
         if(old && old.kind!==a.kind || !old && projected.size>=BOUNDS.anchors) {this.count('dropped');this.bump(this.dropDiagnostics,'anchorCapacity');this.reset('fault');return false;}
-        projected.set(a.captureRef,{...a,expires:this.now()+BOUNDS.anchorLeaseMs});
+        projected.set(a.captureRef,{...a,expires:this.leaseNow()+BOUNDS.anchorLeaseMs});
       }
       if([...projected.values()].filter(a=>a.observer).length>BOUNDS.observers) {this.bump(this.dropDiagnostics,'observerCapacity');this.reset('fault');return false;}
       // Commit a validated roster frame at once, so a paired demotion/promotion
@@ -225,7 +251,7 @@ export class ShadowRuntime {
              row.ownerProofRevision!=null && old.ownerProofRevision!=null &&
              row.ownerProofRevision<old.ownerProofRevision)) {this.reset('fault');return false;}
       }
-      for(const row of v.payload) this.observerSituations.set(row.captureRef,Object.freeze({...row,primaryOwner:readPrimaryBehaviorOwner(row.primaryOwner),expires:this.now()+BOUNDS.anchorLeaseMs}));
+      for(const row of v.payload) this.observerSituations.set(row.captureRef,Object.freeze({...row,primaryOwner:readPrimaryBehaviorOwner(row.primaryOwner),expires:this.leaseNow()+BOUNDS.anchorLeaseMs}));
       for(const row of v.payload)this.refreshSalience(row.captureRef);
       return true;
     }
@@ -298,7 +324,7 @@ export class ShadowRuntime {
   }
   situationFor(ref,playerCaptureRef=null) {
     let view={};try {view=this.situationProvider(ref)??{};} catch {}
-    const sample=this.observerSituations.get(ref),live=sample && sample.expires>this.now() && this.current(ref);
+    const sample=this.observerSituations.get(ref),live=sample && sample.expires>this.leaseNow() && this.current(ref);
     return situationFromCharacterView({...view,bindings:[],nowMonotonicMs:this.now(),lifetimeCurrent:this.current(ref),channelHealthy:Boolean(this.epoch),perceptionSupported:true,playerCaptureRef,activity:live?sample.activity:'unknown',primaryOwner:live?sample.primaryOwner:null,ownerProofRevision:live?sample.ownerProofRevision:0,situationRevision:live?sample.situationRevision:0});
   }
   // Native P2-origin, incarnation-scoped source revision. This is
@@ -311,7 +337,7 @@ export class ShadowRuntime {
     if(!this.hostContext || !this.current(observerRef) ||
        !index?.owned || index.kind!=='ped' || !index.incarnationId ||
        !this.anchors.get(observerRef)?.observer ||
-       !row || row.expires<=this.now() || !row.primaryOwner ||
+       !row || row.expires<=this.leaseNow() || !row.primaryOwner ||
        !Number.isSafeInteger(row.ownerProofRevision) ||
        row.ownerProofRevision<=0 || row.ownerProofRevision>2147483647)
       return null;

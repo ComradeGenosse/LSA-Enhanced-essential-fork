@@ -21,7 +21,7 @@ async function setup(t,journalLimits={}){
   await store.initialize();
   const owner=await store.create(profile());
   const timelineId=await store.createTimeline({label:'live'});
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const scope={worldProfileId,characterId:owner.characterId,timelineId,protagonistKey:'franklin'};
   const recorder=createConversationJournalRecorder(store);
   let seq=0;

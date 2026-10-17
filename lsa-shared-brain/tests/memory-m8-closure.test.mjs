@@ -233,7 +233,7 @@ test('M8 friendship and running-joke IDs survive all three avatars and real P2 S
  const playerScope={characterId:npc.characterId,worldProfileId:fixtureWorldId,
    timelineId,protagonistKey:'franklin'};
  store.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:1});
- await store.confirmTimeline(timelineId);
+ await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const recorder=createConversationJournalRecorder(store);
  const said=[];
  for(const [i,protagonist,text] of [
@@ -275,7 +275,7 @@ test('M8 friendship and running-joke IDs survive all three avatars and real P2 S
  await reopened.initialize();
  try{
    reopened.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:2});
-   await reopened.confirmTimeline(timelineId);
+   await reopened.confirmTimeline(timelineId,{confirmation:timelineId});
    const durable=compute(await collect(reopened),'trevor');
    assert.deepEqual(durable.relationship,friend.relationship);
    assert.deepEqual(durable.jokes,friend.jokes);
@@ -299,7 +299,7 @@ test('M8: friendship and running joke outlive 128 newer turns, avatar switch, re
  const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'deep history'});
  const scope={characterId:npc.characterId,worldProfileId:fixtureWorldId,timelineId,protagonistKey:'franklin'};
  store.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:1});
- await store.confirmTimeline(timelineId);
+ await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const recorder=createConversationJournalRecorder(store);
  const earliest=[];
  for(let i=0;i<140;i++){
@@ -329,7 +329,7 @@ test('M8: friendship and running joke outlive 128 newer turns, avatar switch, re
  const reopened=create();await reopened.initialize();
  try{
    reopened.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:2});
-   await reopened.confirmTimeline(timelineId);
+   await reopened.confirmTimeline(timelineId,{confirmation:timelineId});
    const durable=await createP2M8HistoryReader({store:reopened})({...scope,protagonistKey:'trevor'});
    assert.deepEqual(projection('trevor',durable).relationship,original.relationship);
    assert.deepEqual(projection('trevor',durable).jokes,original.jokes);

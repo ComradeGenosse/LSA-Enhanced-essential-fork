@@ -20,11 +20,11 @@ namespace LSA.PromotedCharacters {
         long lastLevelLogAt=-1;
         bool levelUnavailableLogged;
         bool attached,disposed,overflow;
-        Ped ped; IntPtr address; int handle,epoch;
+        Ped ped; IntPtr address; uint handle; int epoch;
         readonly string mode;
         internal bool HasActiveTurn=>state.Active;
         internal long ActiveGeneration=>state.ActiveKey.Generation;
-        internal int ActiveHandle=>handle;
+        internal uint ActiveHandle=>handle;
         sealed class Fact {internal bool Starting; internal Ped Speaker;internal VoicePresenceTurnTracker.Key Key;}
         // openLevel: Essential-RMS level (0..1) at which the mouth opens.
         // levelLog: opt-in, rate-limited read-only diagnostics for calibration.
@@ -111,7 +111,7 @@ namespace LSA.PromotedCharacters {
                     if(state.Active) mouth?.Close(ped); // close prior owner's overlay before replacing turn
                     if(state.Begin(f.Key,epoch,nowMs)) {
                         Remember(f.Key);
-                        ped=f.Speaker;address=ped.MemoryAddress;handle=ped.Handle;
+                        ped=f.Speaker;address=ped.MemoryAddress;handle=(uint)ped.Handle;
                     }
                 } else if(state.End(f.Key,epoch)) Clear();
             }

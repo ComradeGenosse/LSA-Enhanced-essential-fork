@@ -39,7 +39,7 @@ test('M1 only an authenticated ordered native epoch change can suspend timeline 
   try {
   await store.initialize();
   const id=await store.createTimeline({label:'A'});
-  await store.confirmTimeline(id);
+  await store.confirmTimeline(id,{confirmation:id});
 
   const socket=nativePipe(t);
   const client=new IntelligenceClient({mode:'shadow',radio:'off',pipeName:'m1-fixture'},{
@@ -66,7 +66,7 @@ test('M1 only an authenticated ordered native epoch change can suspend timeline 
   });
   assert.equal(store.timelineWritable,false);
   assert.throws(()=>store.assertTimelineWrite(id),/timeline_write_suspended/);
-  await store.confirmTimeline(id);assert.equal(store.timelineWritable,true);
+  await store.confirmTimeline(id,{confirmation:id});assert.equal(store.timelineWritable,true);
   // Invalid jump/ordering MUST NOT reach the memory boundary.
   send(frame(adapterEpoch,streamId,4,3));await settled();
   assert.equal(observed.length,1);
@@ -79,14 +79,14 @@ test('M1 retains an early verified rollback freeze across pending SQLite initial
   const primary=createEssentialMemoryStorage({filePath,worldProfileId});
   await primary.initialize();
   const id=await primary.createTimeline({label:'First save'});
-  await primary.confirmTimeline(id);await primary.close();
+  await primary.confirmTimeline(id,{confirmation:id});await primary.close();
   const next=createEssentialMemoryStorage({filePath,worldProfileId});
   next.onBoundary({reason:'timeline_change'});
   await next.initialize();
   assert.equal(next.activeTimelineId,id);
   assert.equal(next.timelineWritable,false);
   assert.equal(next.timelinePendingReason,'timeline_change');
-  await next.confirmTimeline(id);
+  await next.confirmTimeline(id,{confirmation:id});
   assert.equal(next.timelineWritable,true);
   await next.close();
 });
@@ -96,7 +96,7 @@ test('M1 does not suspend a previously selected timeline for harmless host reloa
   const store=createEssentialMemoryStorage({filePath,worldProfileId});
   await store.initialize();
   const id=await store.createTimeline({label:'Still active'});
-  await store.confirmTimeline(id);
+  await store.confirmTimeline(id,{confirmation:id});
   store.onBoundary({reason:'host_reload'});
   store.assertTimelineWrite(id);
   await store.close();
@@ -127,7 +127,7 @@ test('M1 verified native hello authorizes selection but disconnection revokes ti
     assert.equal(hosts.length,1);
     assert.equal(store.timelineWritable,false);
     assert.equal(store.timelineSourceStatus,'confirmation_required');
-    await store.confirmTimeline(id);
+    await store.confirmTimeline(id,{confirmation:id});
     let operations=0;
     await store.withTimelineWrite(id,()=>++operations);
     send(frame(epoch,stream,1,2,'timeline_change'));
@@ -135,7 +135,7 @@ test('M1 verified native hello authorizes selection but disconnection revokes ti
     assert.equal(store.timelineWritable,false);
     assert.equal(store.timelinePendingReason,'timeline_change');
     await assert.rejects(store.withTimelineWrite(id,()=>++operations),/timeline_write_suspended/);
-    await store.confirmTimeline(id);
+    await store.confirmTimeline(id,{confirmation:id});
     assert.equal(store.timelineWritable,true);
     socket.destroy();
     await settled();

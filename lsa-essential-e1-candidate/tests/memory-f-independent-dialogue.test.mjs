@@ -135,7 +135,7 @@ test('F streamed NPC stores exact delivered segments, never a differing final mo
  const parts=['Oh— ','fuck, ','café́ 🦊!'];
  x.h.runtime.services.providerStack={reasoning:{id:'openai.reasoning'},speech:{id:'openai.speech'},transcription:{id:'openai.transcription'},
   decideStreaming:async({onSegment})=>{
-   for(let i=0;i<parts.length;i++)await onSegment({sequence:i,text:parts[i]},'dialogue_only');
+   for(let i=0;i<parts.length;i++)await onSegment({sequence:i+1,text:parts[i]},'dialogue_only');
    return {decision:{dialogue:'NEVER SPOKEN FINAL DRAFT',command:''},mode:'dialogue_only'};
   }};
  const original=x.h.runtime.services.recordM2Npc;
@@ -183,7 +183,7 @@ for(const revoke of ['session','source','timeline','host'])test('F pending accep
  if(revoke==='timeline')x.store.onBoundary({reason:'timeline_change'});
  if(revoke==='host')x.h.runtime.retireOriginalAcceptanceSourceRun();
  await x.native.sample();await x.settled(turn);
- if(revoke==='timeline')await x.store.confirmTimeline(x.timelineId);
+ if(revoke==='timeline')await x.store.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
  assert.equal((await x.journal()).rows.length,0);
  if(revoke==='source'){
   assert.equal(status(x)['memory.dialogue.player'].state,'waiting');
@@ -219,7 +219,7 @@ test('F player-only retained lines unify avatars, remain scoped, durable after r
  try{await restarted.initialize();assert.equal(restarted.timelineWritable,false);
  await assert.rejects(restarted.readCommittedEvidencePage({scope:scope(x)}),/timeline_write_suspended/);
  restarted.setVerifiedHostContext({hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1});
- await restarted.confirmTimeline(x.timelineId);
+ await restarted.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
  assert.deepEqual((await restarted.readDialogueLines({...scope(x),limit:20})).map(r=>r.content),['Visible trevor','Visible michael','Suppressed secret']);
  const after=await restarted.readCommittedEvidencePage({scope:scope(x)});
  assert.equal(after.items.length,2);assert.ok(!JSON.stringify(after).includes('Suppressed secret'));
@@ -244,7 +244,7 @@ for(const player of ['off','on'])test('F bootstrap '+player+': recording subscri
  assert.ok(resources['authority.d02'],'existing independent source authority remains a prerequisite');
  assert.equal(runtime.intelligence.currentOwnerPlayerSubscriptions.size,1,'no extra recorder-owned D02 subscription');
  for(const id of ['acceptance.host','acceptance.boundary'])assert.equal(!!resources[id],player==='on',id);
- assert.ok(resources['storage.host']);assert.ok(resources['storage.boundary']);
+ assert.ok(resources['storage.source']);
  assert.equal(runtime.memoryM3,undefined);assert.equal(snapshot.capabilities['privacy.core'].state,'guarded');
  assert.equal(snapshot.capabilities['memory.dialogue.player'].state,player==='on'?'waiting':'stopped');
  assert.equal(snapshot.capabilities['memory.dialogue.npc'].effectiveMode,'off');

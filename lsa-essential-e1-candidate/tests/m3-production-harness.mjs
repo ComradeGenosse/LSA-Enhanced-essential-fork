@@ -38,7 +38,7 @@ export async function createHarness(t,{npcCount=2,limit,scheduler,coverage=true,
   const timelineId=await store.createTimeline({label:'ws5b'});
   const host={hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1};
   store.setVerifiedHostContext(host);
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
 
   const clock={ms:startMs};
   const adapterEpoch=randomUUID(),streamId=randomUUID(),playerRef=randomUUID();

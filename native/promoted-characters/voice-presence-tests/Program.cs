@@ -58,8 +58,8 @@ static class Program {
 
     // ---- Level-driven mouth (Essential playout level) -------------------------------
     sealed class FakeLevels : IPlayoutLevelSource {
-        public readonly System.Collections.Generic.Dictionary<int,float> Level=new System.Collections.Generic.Dictionary<int,float>();
-        public readonly System.Collections.Generic.Dictionary<int,bool> Audible=new System.Collections.Generic.Dictionary<int,bool>();
+        public readonly System.Collections.Generic.Dictionary<uint,float> Level=new System.Collections.Generic.Dictionary<uint,float>();
+        public readonly System.Collections.Generic.Dictionary<uint,bool> Audible=new System.Collections.Generic.Dictionary<uint,bool>();
         public readonly System.Collections.Generic.List<string> Requests=new System.Collections.Generic.List<string>();
         public bool Available {get;set;}=true;
         public bool Fail;
@@ -74,7 +74,7 @@ static class Program {
         public void Set(Rage.Ped p,float l,bool audible=true){Level[p.Handle]=l;Audible[p.Handle]=audible;}
     }
     static Rage.Ped NewPed(int handle,int address) =>
-        new Rage.Ped {Handle=handle,MemoryAddress=new IntPtr(address),Position=new Rage.Vector3(handle,0,0)};
+        new Rage.Ped {Handle=(uint)handle,MemoryAddress=new IntPtr(address),Position=new Rage.Vector3(handle,0,0)};
     static int Count(string cmd)=>Rage.Native.NativeFunction.Commands.Count(x=>x==cmd);
     static bool Sent(string prefix)=>Rage.Native.NativeFunction.Commands.Exists(x=>x.StartsWith(prefix));
     static void Reset() {

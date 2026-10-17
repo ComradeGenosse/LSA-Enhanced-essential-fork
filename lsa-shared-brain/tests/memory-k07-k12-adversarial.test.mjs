@@ -34,7 +34,7 @@ async function fixture(t){
  await open();
  const npc=await store.create(profile());
  const timelineId=await store.createTimeline({label:'K07 K12'});
- await store.confirmTimeline(timelineId);
+ await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const scopeFor=(avatar='franklin')=>({worldProfileId,characterId:npc.characterId,timelineId,protagonistKey:avatar});
  const scope=scopeFor();
  const wire=async()=>{
@@ -53,7 +53,7 @@ async function fixture(t){
   get store(){return store;},get service(){return service;},get commands(){return commands;},
   get runtime(){return runtime;},
   advance:ms=>{now+=ms;},
-  restart:async()=>{await store.close();await open();await store.confirmTimeline(timelineId);await wire();},
+  restart:async()=>{await store.close();await open();await store.confirmTimeline(timelineId,{confirmation:timelineId});await wire();},
   async accept(text,{avatar='franklin',source='typed'}={}){
    const r=await createConversationJournalRecorder(store).recordPlayerAccepted({characterId:npc.characterId,
     identity:{pedId:101,turnId:'k07-'+(++sequence),generationId:'g1',sessionNonce:'k07-session'},

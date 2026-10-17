@@ -472,7 +472,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     },
     config,
     dialogueTrace,
-    memoryCaptureEnabled:dialogueActivation.player,
+    memoryCaptureEnabled:dialogueActivation.player&&config.promotedCharacters?.storageMode==='sqlite',
     shouldWaitForMemoryCommand:input=>commandActivation.mode==='on'&&mayBeM5PlayerInput(input),
     finalizeKnowledgeFrame(turn,{input,history,source,forceNoMemory=false}) {
       const pausedAtFrame=memoryPause.paused,memoryEpoch=memoryPause.stamp();

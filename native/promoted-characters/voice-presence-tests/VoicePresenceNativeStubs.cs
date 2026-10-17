@@ -4,7 +4,7 @@ namespace Rage {
     public sealed class Ped {
         public static int Reads;
         public bool Existing=true,IsDead;
-        public int Handle;
+        public uint Handle;
         public IntPtr MemoryAddress;
         public Vector3 Position;
         public bool Exists() {Reads++;return Existing;}
@@ -22,6 +22,7 @@ namespace Rage.Native {
         public static readonly System.Collections.Generic.List<string> Commands=new System.Collections.Generic.List<string>();
         public static void CallByName(string name,params object[] args) {Commands.Add(name+":"+(args.Length>1?args[1]?.ToString():""));}
         public static T CallByName<T>(string name,params object[] args) {
+            if(typeof(T)==typeof(uint)){CallByName(name,args);return default(T);}
             if(name=="HAS_ANIM_DICT_LOADED"||name=="IS_PED_MALE")return (T)(object)true;
             if(name=="IS_CUTSCENE_ACTIVE"&&Cutscene)return (T)(object)true;
             return default(T);

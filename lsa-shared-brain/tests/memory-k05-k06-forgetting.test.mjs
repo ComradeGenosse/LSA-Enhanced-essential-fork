@@ -29,7 +29,7 @@ async function fixture(t){
  await open();
  const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'forgetting'});
  const scope={worldProfileId,characterId:npc.characterId,timelineId,protagonistKey:'franklin'};
- await store.confirmTimeline(timelineId);
+ await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const service=()=>privacy=createM5SqliteServices({store,filePath,clock:()=>new Date(now).toISOString(),
   authorize:({scope:s})=>s.worldProfileId===worldProfileId&&s.characterId===scope.characterId&&s.timelineId===timelineId});
  service();await privacy.ready(scope);
@@ -51,7 +51,7 @@ async function fixture(t){
  return {scope,host,filePath,say,command,proposal,
   get store(){return store;},get privacy(){return privacy;},
   advance:days=>{now+=days*DAY;},
-  restart:async()=>{await store.close();await open();await store.confirmTimeline(timelineId);service();await privacy.ready(scope);},
+  restart:async()=>{await store.close();await open();await store.confirmTimeline(timelineId,{confirmation:timelineId});service();await privacy.ready(scope);},
   recall:()=>store.readIntegratedRecall({scope,limit:384}),
   sql:fn=>store.withP2SqliteRead(scope,fn),
   write:fn=>store.withTimelineSqliteWrite(scope,fn),
@@ -175,9 +175,9 @@ test('K05 suppression is shared across avatars and isolated across NPCs and conf
  await x.privacy.trash({scope:x.scope,targetId:a.recordId});x.advance(8);await x.privacy.purgeExpired({scope:x.scope});
  for(const avatar of ['franklin','michael','trevor','unknown'])await assert.rejects(x.say(text,{avatar}),/memory_source_forgotten/);
  const npc=await x.store.create(profile());assert.ok(await x.say(text,{characterId:npc.characterId}));
- const timeline=await x.store.createTimeline({label:'separate future'});await x.store.confirmTimeline(timeline);
+ const timeline=await x.store.createTimeline({label:'separate future'});await x.store.confirmTimeline(timeline,{confirmation:timeline});
  assert.ok(await x.say(text));
- await x.store.confirmTimeline(x.scope.timelineId);await assert.rejects(x.say(text),/memory_source_forgotten/);
+ await x.store.confirmTimeline(x.scope.timelineId,{confirmation:x.scope.timelineId});await assert.rejects(x.say(text),/memory_source_forgotten/);
 });
 
 test('K05 legacy target-only tombstone upgrades to permanent source suppression before purge',async t=>{

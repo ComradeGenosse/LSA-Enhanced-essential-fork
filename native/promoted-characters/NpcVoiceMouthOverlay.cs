@@ -18,14 +18,14 @@ namespace LSA.PromotedCharacters
         const string TalkDict = "mp_facial", TalkAnim = "mic_chatter";
         Ped owned;
         IntPtr originalAddress;
-        int originalHandle;
+        uint originalHandle;
         long lastRefresh = -1, openedAt = -1, closedAt = -1;
         bool applied, disabled;
 
         internal bool Applied => applied;
         internal bool Disabled => disabled;
 
-        static bool SamePed(Ped ped, Ped original, int handle, IntPtr address)
+        static bool SamePed(Ped ped, Ped original, uint handle, IntPtr address)
         {
             try {
                 return ped != null && ReferenceEquals(ped, original) &&
@@ -68,18 +68,18 @@ namespace LSA.PromotedCharacters
 
             try
             {
-                NativeFunction.CallByName("REQUEST_ANIM_DICT", TalkDict);
+                NativeFunction.CallByName<uint>("REQUEST_ANIM_DICT", TalkDict);
                 // The neutral facial dictionaries must be ready before we take
                 // control so an early cancel can close our own facial overlay.
-                NativeFunction.CallByName("REQUEST_ANIM_DICT", "facials@gen_male@base");
-                NativeFunction.CallByName("REQUEST_ANIM_DICT", "facials@gen_female@base");
+                NativeFunction.CallByName<uint>("REQUEST_ANIM_DICT", "facials@gen_male@base");
+                NativeFunction.CallByName<uint>("REQUEST_ANIM_DICT", "facials@gen_female@base");
                 if (!NativeFunction.CallByName<bool>("HAS_ANIM_DICT_LOADED", TalkDict)) return;
                 bool male = NativeFunction.CallByName<bool>("IS_PED_MALE", ped);
                 string neutral = male ? "facials@gen_male@base" : "facials@gen_female@base";
                 if (!NativeFunction.CallByName<bool>("HAS_ANIM_DICT_LOADED", neutral)) return;
-                NativeFunction.CallByName("PLAY_FACIAL_ANIM", ped, TalkAnim, TalkDict);
+                NativeFunction.CallByName<uint>("PLAY_FACIAL_ANIM", ped, TalkAnim, TalkDict);
                 if (!applied) openedAt = now;
-                applied = true; owned = ped; originalHandle = ped.Handle;
+                applied = true; owned = ped; originalHandle = (uint)ped.Handle;
                 originalAddress = ped.MemoryAddress; lastRefresh = now;
             }
             catch
@@ -102,7 +102,7 @@ namespace LSA.PromotedCharacters
                 // never TASK_CLEAR, TASK_PLAY_ANIM, or override ped movement.
                 var dict = NativeFunction.CallByName<bool>("IS_PED_MALE", ped)
                     ? "facials@gen_male@base" : "facials@gen_female@base";
-                NativeFunction.CallByName("PLAY_FACIAL_ANIM", ped, "mood_normal_1", dict);
+                NativeFunction.CallByName<uint>("PLAY_FACIAL_ANIM", ped, "mood_normal_1", dict);
             }
             catch
             {

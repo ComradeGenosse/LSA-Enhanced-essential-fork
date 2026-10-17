@@ -59,7 +59,7 @@ async function boot(t,{root,capabilities,h=harness()}){
 }
 async function confirm(store,timelineId){
   store.setVerifiedHostContext({hostContextVersion:1,hostRunId:id(),worldEpoch:1});
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
 }
 async function exchange(store,characterId,label,sec,playerText,npcText){
   const journal=createConversationJournalRecorder(store);

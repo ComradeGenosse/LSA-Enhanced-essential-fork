@@ -68,7 +68,7 @@ export class P2SqliteProfileStore {
   }
   get activeTimelineId() { return this.#timeline.activeTimelineId; }
   get timelineSelectionConfirmed() {return this.#confirmedSource!==null;}
-  get timelineWritable() { return this.available&&this.loaded&&this.#sourceRequired&&this.#timeline.writable&&this.#sourceValid(); }
+  get timelineWritable() { return this.available&&this.loaded&&this.#timeline.writable&&this.#sourceValid(); }
   // Read-only source used for journal attribution; only verified/current after
   // an explicit timeline confirmation. No unverified native input is exposed.
   get verifiedHostContext() {
@@ -106,7 +106,6 @@ export class P2SqliteProfileStore {
     if (context === null) {
       ++this.#authorityGeneration;
       this.#sourceContext = null;
-      this.#confirmedSource = null;
       // Suspend all authority now. Remember only the user's selection stamp;
       // it may resume after fresh authentication of this exact run AND epoch.
       return false;
@@ -120,12 +119,17 @@ export class P2SqliteProfileStore {
     // confirmation even when the stored active timeline id remains unchanged.
     const sameSource = this.#sourceContext &&
       this.#sourceKey(context) === this.#sourceKey(this.#sourceContext);
-    // Every accepted native C-13 callback is a new proof generation even
-    // when run/epoch strings match after replacement or reconnect.
-    ++this.#authorityGeneration;
-    this.#confirmedSource=null;
-    this.#lastSourceKey=this.#sourceKey(context);
-    this.#sourceContext=Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
+    // Repeated samples from one live authenticated source are idempotent.
+    // Source replacement/ambiguity is revoked by onBoundary, even if run and
+    // epoch strings are reused. A temporary missing sample still fences queued
+    // operations; only a fresh sample of the exact confirmed source can recover.
+    if (!sameSource) {
+      ++this.#authorityGeneration;
+      const nextKey=this.#sourceKey(context);
+      if(this.#confirmedSource!==nextKey)this.#confirmedSource=null;
+      this.#lastSourceKey=nextKey;
+      this.#sourceContext=Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
+    }
     return true;
   }
   #serial(operation) {
@@ -249,7 +253,8 @@ export class P2SqliteProfileStore {
   }
   onBoundary(boundary) {
     const reason=boundary?.reason;
-    const sourceLoss=['native_disconnect','unknown_source','source_change','host_reload'].includes(reason);
+    const sourceLoss=['native_disconnect','unknown_source','source_change'].includes(reason)||
+      (this.#sourceRequired&&reason==='host_reload');
     const ambiguous=['clock_regression','timeline_change','save_fork','world_epoch'].includes(reason);
     if(sourceLoss||ambiguous){
       ++this.#authorityGeneration;

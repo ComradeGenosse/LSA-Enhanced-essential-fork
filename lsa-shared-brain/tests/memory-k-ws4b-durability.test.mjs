@@ -131,7 +131,7 @@ test('WS-4b recent free recall includes 200 player lines while older quotes stay
   try{
     const character=await store.create(profile());
     const timelineId=await store.createTimeline({label:'recent'});
-    await store.confirmTimeline(timelineId);
+    await store.confirmTimeline(timelineId,{confirmation:timelineId});
     const recorder=createConversationJournalRecorder(store);
     for(let i=0;i<210;i++)await recorder.recordPlayerAccepted({
       characterId:character.characterId,

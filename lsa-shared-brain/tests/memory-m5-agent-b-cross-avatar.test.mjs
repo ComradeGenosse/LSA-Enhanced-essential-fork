@@ -22,7 +22,7 @@ async function rig(t){
   await store.initialize();
   const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'agent-b'});
   store.setVerifiedHostContext({hostContextVersion:1,hostRunId:id(),worldEpoch:1});
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const who=protagonistKey=>({characterId:npc.characterId,worldProfileId,timelineId,protagonistKey});
   const recorder=createConversationJournalRecorder(store);
   let counter=0;

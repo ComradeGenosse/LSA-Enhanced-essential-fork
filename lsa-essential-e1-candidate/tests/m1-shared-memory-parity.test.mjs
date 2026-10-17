@@ -94,11 +94,11 @@ test('M1 SQLite explicit timeline confirmation is durable and freezes on rollbac
   await store.initialize();
   const id=await store.createTimeline({label:'Franklin run'});
   assert.equal(store.timelineWritable,false);
-  await store.confirmTimeline(id);
+  await store.confirmTimeline(id,{confirmation:id});
   store.assertTimelineWrite(id);
   assert.equal(store.onBoundary({reason:'clock_regression'}).writable,false);
   assert.throws(()=>store.assertTimelineWrite(id),/timeline_write_suspended/);
-  await store.confirmTimeline(id);
+  await store.confirmTimeline(id,{confirmation:id});
   store.assertTimelineWrite(id);
   await assert.rejects(store.confirmTimeline(randomUUID()),/timeline_unknown/);
   await store.close();

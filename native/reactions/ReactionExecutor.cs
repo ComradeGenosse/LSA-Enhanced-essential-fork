@@ -429,7 +429,7 @@ namespace LSA.Reactions
 
         // ------------------------------------------------------------- game reads
 
-        T Native<T>(string name, params object[] args)
+        T Native<T>(string name, params NativeArgument[] args) where T : struct
         {
             lastNative = name;
             return NativeFunction.CallByName<T>(name, args);

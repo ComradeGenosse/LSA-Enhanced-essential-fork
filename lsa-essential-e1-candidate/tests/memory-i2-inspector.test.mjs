@@ -245,7 +245,7 @@ test('I2 live pause blocks queued optional reads/writes, preserves admin, persis
 test('I2 startup pause is latched, inspection survives it, and source loss/reconfirmation rejects old requests',async t=>{
   const f=await setup(t,{pauseLearned:true});await f.say('retained before optional startup');
   assert.equal(f.runtime.memoryPause.paused,true);assert.equal((await f.inspect('conversations')).items.length,1);
-  const pending=f.inspect('conversations');f.newHost();await f.store.confirmTimeline(f.timelineId);
+  const pending=f.inspect('conversations');f.newHost();await f.store.confirmTimeline(f.timelineId,{confirmation:f.timelineId});
   await assert.rejects(pending,/scope|suspended|authorization/);
   assert.equal((await f.inspect('conversations')).items.length,1);
   f.store.setVerifiedHostContext(null);await assert.rejects(f.inspect(),/scope/);

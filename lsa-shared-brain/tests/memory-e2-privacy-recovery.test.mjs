@@ -23,13 +23,13 @@ async function rig(t){
  let store,now=Date.now(),sequence=0,authorized=true;
  const open=async()=>{store=createP2MemoryStorage({filePath,worldProfileId,sourceRequired:true});await store.initialize();};
  await open();const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'E2'});
- store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId);
+ store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const scope={worldProfileId,characterId:npc.characterId,timelineId,protagonistKey:'franklin'};
  const privacy=()=>createM5SqliteServices({store,filePath,clock:()=>new Date(now).toISOString(),authorize:()=>authorized});
  const x={root,filePath,scope,host,privacy,
   get store(){return store;},set authorized(value){authorized=value;},advance:ms=>{now+=ms;},
   sql:fn=>store.withTimelineSqliteWrite(scope,fn),
-  restart:async()=>{await store.close();await open();store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId);},
+  restart:async()=>{await store.close();await open();store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId,{confirmation:timelineId});},
   async accept(text,source='typed',avatar='franklin'){
    const r=await createConversationJournalRecorder(store).recordPlayerAccepted({characterId:npc.characterId,
     identity:{pedId:101,turnId:'e2-'+(++sequence),generationId:'g1',sessionNonce:'e2'},
@@ -123,7 +123,7 @@ test('E2 interrupted forget rolls back, durable retry survives process exit and 
  const script=crash=>`import {createP2MemoryStorage} from ${JSON.stringify(storeModule)};
  import {createM5SqliteServices} from ${JSON.stringify(privacyModule)};
  const scope=${JSON.stringify(x.scope)},store=createP2MemoryStorage({filePath:${JSON.stringify(x.filePath)},worldProfileId:scope.worldProfileId,sourceRequired:true});
- await store.initialize();store.setVerifiedHostContext(${JSON.stringify(x.host)});await store.confirmTimeline(scope.timelineId);
+ await store.initialize();store.setVerifiedHostContext(${JSON.stringify(x.host)});await store.confirmTimeline(scope.timelineId,{confirmation:scope.timelineId});
  ${crash?`await store.withTimelineSqliteWrite(scope,db=>{db.function('e2_crash',()=>process.exit(73));db.exec('CREATE TEMP TRIGGER e2_crash BEFORE INSERT ON m5_privacy_ops BEGIN SELECT e2_crash(); END');});`:''}
  await createM5SqliteServices({store,filePath:store.filePath,authorize:()=>true}).trash({scope,targetId:${JSON.stringify(line.recordId)},operationId:${JSON.stringify(operationId)}});process.exit(74);`;
  const aborted=spawnSync(process.execPath,['--input-type=module','-e',script(true)],{encoding:'utf8',timeout:20000});
@@ -181,7 +181,7 @@ test('E2 concurrent retries commit once, conflicting forgets and stale sources c
  const pending=p.restore({scope:x.scope,trashId:op,operationId:id()});
  x.store.setVerifiedHostContext(null);
  await assert.rejects(pending,/timeline_write_suspended/);
- x.store.setVerifiedHostContext(x.host);await x.store.confirmTimeline(x.scope.timelineId);
+ x.store.setVerifiedHostContext(x.host);await x.store.confirmTimeline(x.scope.timelineId,{confirmation:x.scope.timelineId});
  assert.ok((await x.store.listSuppressedMemoryIds(x.scope)).includes(line.recordId));
 });
 

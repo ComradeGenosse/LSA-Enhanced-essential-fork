@@ -20,7 +20,7 @@ test('M6 committed SQLite journal creates a permanent memory and replays exactly
  const timelineId=await store.createTimeline({label:'test'});
  const host={hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:4};
  store.setVerifiedHostContext(host);
- await store.confirmTimeline(timelineId);
+ await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const scope={characterId:p.characterId,worldProfileId,timelineId};
  const text='That was hilarious! The car completely flipped.';
  let originalId;
@@ -47,7 +47,7 @@ test('M6 committed SQLite journal creates a permanent memory and replays exactly
   await assert.rejects(createM6SelectionCoordinator({store:reopened,allowLegacyBoundedReplay:true})
    .recover({scope,atUtc:new Date(Date.now()+120000).toISOString()}),/m6_timeline_not_writable/);
   reopened.setVerifiedHostContext({...host,hostRunId:randomUUID(),worldEpoch:5});
-  await reopened.confirmTimeline(timelineId);
+  await reopened.confirmTimeline(timelineId,{confirmation:timelineId});
   const recovered=await createM6SelectionCoordinator({store:reopened,allowLegacyBoundedReplay:true})
    .recover({scope,atUtc:new Date(Date.now()+120000).toISOString()});
   assert.equal(recovered.saved.length,0);

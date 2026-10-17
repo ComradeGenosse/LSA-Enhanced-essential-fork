@@ -95,7 +95,7 @@ test('same saved character after a new host run: stale prepared recall latches i
   // A new launch/host run suspends the timeline until the user's explicit
   // confirmation (existing, intended behaviour; nothing here auto-resumes it).
   await assert.rejects(()=>f.say('anything',{at:new Date().toISOString()}),/timeline_write_suspended/);
-  await f.store.confirmTimeline(f.timelineId);
+  await f.store.confirmTimeline(f.timelineId,{confirmation:f.timelineId});
   const second=await f.ask(QUESTION,{nowUtc:new Date().toISOString()});
   assert.ok(items(second.h2).some(x=>x.recordId===soda.recordId&&x.content===SODA));
   assert.equal(await second.h2.verifyPrepared(),true);
