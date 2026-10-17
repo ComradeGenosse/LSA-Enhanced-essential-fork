@@ -14,7 +14,7 @@ namespace LSA.Intelligence
         {
             public string Id,Kind,Speaker,Player,Owner,Role,Host,Vehicle;
             public int World,Revision,OwnerRevision;
-            public long Created,Expires;
+            public long Created,Expires,ClaimedAt;
             public string ClaimedTicket;
         }
         sealed class Track
@@ -72,7 +72,8 @@ namespace LSA.Intelligence
         public object[] Sample(IEnumerable<EntityAnchor> current,
               IEnumerable<OwnedParticipant> roster,string host,int world,uint gameTick) {
             var now=clock();var output=new List<object>();
-            foreach(var id in scenes.Where(x=>x.Value.Expires<=now).Select(x=>x.Key).ToArray())
+            foreach(var id in scenes.Where(x=>x.Value.ClaimedTicket==null?
+                x.Value.Expires<=now : now-x.Value.ClaimedAt>120000).Select(x=>x.Key).ToArray())
                 scenes.Remove(id);
             var live=current.ToArray();
             var playerAnchor=live.FirstOrDefault(a=>a.Kind=="player");
@@ -139,7 +140,9 @@ namespace LSA.Intelligence
                 // relation (same vehicle or physical proximity) is current.
                 if(track.Current!=null) {
                     var valid=track.Current.Vehicle!=null?sharedCar&&actorCar==track.Current.Vehicle:near&&!sharedCar;
-                    if(!valid || track.Current.Expires<=now ||
+                    if(!valid || track.Current.Expires<=now &&
+                       (track.Current.ClaimedTicket==null ||
+                        now-track.Current.ClaimedAt>120000) ||
                        track.Current.OwnerRevision!=state.Revision) {
                         scenes.Remove(track.Current.Id);track.Current=null;
                     }
@@ -210,8 +213,10 @@ namespace LSA.Intelligence
                !request.DecisionKey.StartsWith("social:",StringComparison.Ordinal))return false;
             Scene scene;
             if(!scenes.TryGetValue(request.ObservationId??"",out scene) ||
-               scene.Expires<=clock() || scene.ClaimedTicket!=null &&
-               scene.ClaimedTicket!=request.TicketId)return false;
+               scene.ClaimedTicket==null && scene.Expires<=clock() ||
+               scene.ClaimedTicket!=null &&
+               (scene.ClaimedTicket!=request.TicketId ||
+                clock()-scene.ClaimedAt>120000))return false;
             return request.DecisionKey=="social:"+scene.Id &&
                request.ObservationRevision==scene.Revision &&
                request.SpeakerCaptureRef==scene.Speaker &&
@@ -224,7 +229,7 @@ namespace LSA.Intelligence
             if(!Current(request))return false;
             var scene=scenes[request.ObservationId];
             if(scene.ClaimedTicket!=null)return false;
-            scene.ClaimedTicket=request.TicketId;return true;
+            scene.ClaimedTicket=request.TicketId;scene.ClaimedAt=clock();return true;
         }
     }
 }
