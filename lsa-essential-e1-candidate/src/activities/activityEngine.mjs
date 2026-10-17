@@ -515,7 +515,7 @@ export class ActivityEngine {
     if (evidence === 'world_strong' && activity.cursor === activity.steps.length - 1)
       activity.act4CompletedStepId = step.stepId;
     step.status = 'done';
-    this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind: evidence === 'world_strong' ? 'completed' : 'step_completed', intent: activity.template, evidence: evidence === 'world_strong' ? 'world_strong' : 'mode_flag', placeLabel: activity.placeLabel || null, atMs: now });
+    this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind: evidence === 'world_strong' && activity.cursor === activity.steps.length - 1 ? 'completed' : 'step_completed', intent: activity.template, evidence: evidence === 'world_strong' ? 'world_strong' : 'mode_flag', placeLabel: activity.placeLabel || null, atMs: now });
     if (activity.cursor >= activity.steps.length - 1) return this.#finish(activity, 'completed', 'already_satisfied', now, 'detach');
     activity.cursor += 1;
     this.#preflight(activity);
