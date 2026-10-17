@@ -29,7 +29,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 export class ShadowRuntime {
   constructor({ mode='off', radio='off', radioCatalog=null, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null, m9Events=null, trace=null, stall=null }={}) {
     this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
-    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialManualResult=null;this.socialScenes=new Map();this.situationProvider=situationFor;
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialManualResult=null;this.socialScenes=new Map();this.socialDiagnostics={accepted:0,replayed:0,stale:0,manualAccepted:0,manualRejected:0};this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -132,7 +132,7 @@ export class ShadowRuntime {
     const kind=['initialization','disconnect','fault','timeout','manual'].includes(reason)?reason:'manual';
     this.lastResetReason='reset_'+kind;
     for(const ref of this.anchors.keys())this.recordMissingRef(ref,this.lastResetReason);
-    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.m9Events?.reset();this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialManualResult=null;this.socialScenes.clear();
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.m9Events?.reset();this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialManualResult=null;this.socialScenes.clear();this.socialDiagnostics={accepted:0,replayed:0,stale:0,manualAccepted:0,manualRejected:0};
     this.anchors.clear();this.signals=[];this.producers.clear();this.observations?.clear();this.episodes?.clear();this.correlator?.clear();this.salience?.clear();this.transcripts?.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.leaseBase=0;this.stallNotified=false;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
   }
@@ -286,6 +286,7 @@ export class ShadowRuntime {
     }
     if(v.type==='director_social_manual_result') {
       this.socialManualResult=Object.freeze({...v.payload,receivedAt:this.now()});
+      this.bump(this.socialDiagnostics,v.payload.status==='accepted'?'manualAccepted':'manualRejected');
       return true;
     }
     if(v.type==='director_social') {
@@ -296,12 +297,14 @@ export class ShadowRuntime {
          owner.proofRevision!==p.ownerProofRevision ||
          !this.current(p.playerCaptureRef) ||
          this.anchors.get(p.playerCaptureRef)?.kind!=='player'){
-        this.count('stale');return true;
+        this.count('stale');this.bump(this.socialDiagnostics,'stale');return true;
       }
       const old=this.socialScenes.get(p.speakerCaptureRef),at=this.now();
       // Replayed native scenes retain the first *accepted* source clock,
       // so their exact grant expiry never rebases during reserve/TTS.
-      const receivedAt=old?.sceneId===p.sceneId?old.receivedAt:at;
+      const replay=old?.sceneId===p.sceneId;
+      this.bump(this.socialDiagnostics,replay?'replayed':'accepted');
+      const receivedAt=replay?old.receivedAt:at;
       this.socialScenes.set(p.speakerCaptureRef,
         Object.freeze({...p,receivedAt,refreshedAt:at}));
       return true;
