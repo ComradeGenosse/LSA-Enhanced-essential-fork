@@ -342,18 +342,18 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       const activity=turn.act5Reply;
       const navigation=['go_to_place','vehicle_trip','move_to_and_hold'].includes(activity?.intent);
       const activityInstruction=activity
-        ? '\\n[ACTIVITY PLAYER REPLY]\\n'+JSON.stringify(activity)+(
+        ? '\n[ACTIVITY PLAYER REPLY]\n'+JSON.stringify(activity)+(
           navigation
             ? activity.kind==='approval_pending'
-              ? '\\nThis is a recognized navigation command, STAGED for native admission after transcript publication. No GTA movement has been verified. Do not issue a stock DO command or claim driving, progress, or arrival. Respond naturally with tentative intent.'
-              : '\\nThe player gave a navigation order, but ACT6 cannot execute it ('+String(activity.reason||'unavailable')+'). Explain the limitation plainly; a missing waypoint needs a map marker, driver_required needs an NPC driver, and capability_disabled requires explicit enablement and passed native probes. Do not claim navigation started or substitute aimless stock driving.'
+              ? '\nThis is a recognized navigation command, STAGED for native admission after transcript publication. No GTA movement has been verified. Do not issue a stock DO command or claim driving, progress, or arrival. Respond naturally with tentative intent.'
+              : '\nThe player gave a navigation order, but ACT6 cannot execute it ('+String(activity.reason||'unavailable')+'). Explain the limitation plainly; a missing waypoint needs a map marker, driver_required needs an NPC driver, and capability_disabled requires explicit enablement and passed native probes. Do not claim navigation started or substitute aimless stock driving.'
             : activity.kind==='approval_pending'
-              ? '\\nConsent is staged, not executed. Do not issue a stock DO action or another activity. Never claim physical completion.'
-              : '\\nThe previous ACT5 invitation is no longer actionable. Do not repeat or execute it. If the player explicitly requested a DIFFERENT existing Essential action, normal player-directed DO validation may still apply; otherwise just respond naturally. Never claim an action already happened.')
+              ? '\nConsent is staged, not executed. Do not issue a stock DO action or another activity. Never claim physical completion.'
+              : '\nThe previous ACT5 invitation is no longer actionable. Do not repeat or execute it. If the player explicitly requested a DIFFERENT existing Essential action, normal player-directed DO validation may still apply; otherwise just respond naturally. Never claim an action already happened.')
         : '';
       return {...context,source,systemInstruction:context.systemInstruction+activityInstruction+
         (turn.memoryDisabledForTurn
-          ? '\\n[MEMORY AVAILABILITY] Learned memory is unavailable for this turn. Do not claim to have saved, corrected or forgotten a memory unless a verified durable outcome was supplied. Do not invent prior memories.'
+          ? '\n[MEMORY AVAILABILITY] Learned memory is unavailable for this turn. Do not claim to have saved, corrected or forgotten a memory unless a verified durable outcome was supplied. Do not invent prior memories.'
           : '')};
     };
     recoverPreRequest=async(reason,stage)=>{
