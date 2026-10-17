@@ -307,8 +307,17 @@ namespace LSA.PromotedCharacters
                 else if ((capability == "walk_to" || capability == "drive_to") && navigation.TryGetValue(encounterId,out var nav) &&
                          nav.Capability == capability && nav.PedHandle == Convert.ToUInt64(encounter.Ped.Handle) &&
                          nav.PedAddress == encounter.Ped.MemoryAddress) {
-                    if (capability == "walk_to") NativeFunction.CallByName<int>("TASK_STAND_STILL",encounter.Ped,1);
-                    else VehicleBehavior.StopVehicleTaskOnly(encounter.Ped);
+                    if (capability == "walk_to" && !encounter.Ped.IsInAnyVehicle(false))
+                        NativeFunction.CallByName<int>("TASK_STAND_STILL",encounter.Ped,1);
+                    else if (capability == "drive_to") {
+                        Vehicle current = null;
+                        try { current = encounter.Ped.CurrentVehicle; } catch { }
+                        // Never stop a different vehicle's task after a driver or vehicle change.
+                        if (current != null && current.Exists() &&
+                            Convert.ToUInt64(current.Handle) == nav.VehicleHandle &&
+                            current.MemoryAddress == nav.VehicleAddress && encounter.Ped.SeatIndex == -1)
+                            VehicleBehavior.StopVehicleTaskOnly(encounter.Ped);
+                    }
                 }
                 else if (capability == "grab_item") NpcActions.ClearHeldItem(encounter.Ped);
                 own.Remove(encounterId); navigation.Remove(encounterId);
