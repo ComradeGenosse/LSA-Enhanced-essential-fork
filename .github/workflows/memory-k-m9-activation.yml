@@ -31,6 +31,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Build Windows source-only harness used by the Node regression
+        if: runner.os == 'Windows'
+        run: dotnet build native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
       - name: M9 runtime, callbacks, Director hook, bootstrap and policy tests
         run: >
           node --test --test-concurrency=1
