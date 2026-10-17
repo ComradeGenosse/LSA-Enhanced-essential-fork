@@ -7,6 +7,7 @@ import {AsyncLocalStorage} from 'node:async_hooks';
 import { P2SqliteFoundation, inspectP2ReadOnlyRecovery } from './sqliteFoundation.mjs';
 import { acquireWriterLock, releaseWriterLock, inspectWriterLock } from './sqliteDurability.mjs';
 import { validateProfile, validateProfiles } from './profileSchema.mjs';
+import {isUuid} from '../util/identity.mjs';
 import { addProfile, editProfile, changeMemory, removeProfile } from './profileCommands.mjs';
 import { TimelineGuard } from './timelineGuard.mjs';
 
@@ -67,14 +68,18 @@ export class P2SqliteProfileStore {
   }
   get activeTimelineId() { return this.#timeline.activeTimelineId; }
   get timelineSelectionConfirmed() {return this.#confirmedSource!==null;}
-  get timelineWritable() { return this.#timeline.writable && this.#sourceValid(); }
+  get timelineWritable() { return this.available&&this.loaded&&this.#sourceRequired&&this.#timeline.writable&&this.#sourceValid(); }
   // Read-only source used for journal attribution; only verified/current after
   // an explicit timeline confirmation. No unverified native input is exposed.
   get verifiedHostContext() {
     return this.timelineWritable && this.#sourceContext
       ? Object.freeze({...this.#sourceContext}) : null;
   }
-  get timelineSourceStatus() { return !this.#sourceRequired ? 'not_required' : !this.#sourceContext ? 'unavailable' : this.#confirmedSource !== this.#sourceKey(this.#sourceContext) ? 'confirmation_required' : 'verified'; }
+  get timelineSourceStatus() {
+    if(!this.#sourceRequired)return 'not_required';
+    if(!this.available||!this.loaded||!this.#sourceContext)return 'unavailable';
+    return this.timelineWritable?'verified':'confirmation_required';
+  }
   #sourceKey(context) { return context?.hostRunId + ':' + context?.worldEpoch; }
   #sourceValid() { return !this.#sourceRequired || this.#sourceContext !== null && this.#confirmedSource === this.#sourceKey(this.#sourceContext); }
   get timelinePendingReason() {
@@ -101,6 +106,7 @@ export class P2SqliteProfileStore {
     if (context === null) {
       ++this.#authorityGeneration;
       this.#sourceContext = null;
+      this.#confirmedSource = null;
       // Suspend all authority now. Remember only the user's selection stamp;
       // it may resume after fresh authentication of this exact run AND epoch.
       return false;
@@ -114,15 +120,12 @@ export class P2SqliteProfileStore {
     // confirmation even when the stored active timeline id remains unchanged.
     const sameSource = this.#sourceContext &&
       this.#sourceKey(context) === this.#sourceKey(this.#sourceContext);
-    // A repeat sample from the SAME authenticated host does not retire queued
-    // work. Rebinding a changed host/epoch does, even if the same save is chosen.
-    if (!sameSource) {
-      ++this.#authorityGeneration;
-      const nextKey=this.#sourceKey(context);
-      if(this.#confirmedSource!==nextKey)this.#confirmedSource = null;
-      this.#lastSourceKey=nextKey;
-      this.#sourceContext = Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
-    }
+    // Every accepted native C-13 callback is a new proof generation even
+    // when run/epoch strings match after replacement or reconnect.
+    ++this.#authorityGeneration;
+    this.#confirmedSource=null;
+    this.#lastSourceKey=this.#sourceKey(context);
+    this.#sourceContext=Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
     return true;
   }
   #serial(operation) {
@@ -246,7 +249,7 @@ export class P2SqliteProfileStore {
   }
   onBoundary(boundary) {
     const reason=boundary?.reason;
-    const sourceLoss=['native_disconnect','unknown_source','source_change'].includes(reason);
+    const sourceLoss=['native_disconnect','unknown_source','source_change','host_reload'].includes(reason);
     const ambiguous=['clock_regression','timeline_change','save_fork','world_epoch'].includes(reason);
     if(sourceLoss||ambiguous){
       ++this.#authorityGeneration;
@@ -260,16 +263,18 @@ export class P2SqliteProfileStore {
       ? 'timeline_change' : reason});
   }
   async confirmTimeline(timelineId,{confirmation}={}) {
-    // For callers that pass an explicit selection token, never accept a
-    // mismatched token. Existing trusted editor/bootstrap callers use the
-    // legacy one-argument form; their authority boundary remains unchanged.
-    if(confirmation!==undefined&&confirmation!==timelineId)
+    // Source-authenticated writes require explicit exact user choice.
+    if(this.#sourceRequired&&(!isUuid(timelineId)||confirmation!==timelineId))
+      fail('explicit_confirmation_required');
+    // Legacy offline selection does not confer native write authority.
+    if(!this.#sourceRequired&&confirmation!==undefined&&confirmation!==timelineId)
       fail('explicit_confirmation_required');
     const expectedGeneration=this.#authorityGeneration;
     const expectedContext=this.#sourceContext;
+    if(this.#sourceRequired&&!expectedContext)fail('timeline_write_suspended');
     await this.initialize();
     return this.#serial(() => {
-      if(this.#authorityGeneration!==expectedGeneration ||
+      if(!this.available||this.#authorityGeneration!==expectedGeneration ||
          this.#sourceContext!==expectedContext)fail('timeline_write_suspended');
       // Native/UX layer must ask the user when clock/save-lineage is ambiguous.
       // A user can select a timeline offline, but cannot enable provenance-
@@ -314,7 +319,7 @@ export class P2SqliteProfileStore {
   }
   assertTimelineWrite(timelineId) {
     this.#timeline.assertWrite(timelineId);
-    if (!this.#sourceValid()) fail('timeline_write_suspended');
+    if (!this.timelineWritable) fail('timeline_write_suspended');
   }
   // M2+ may only write timeline-scoped evidence through an operation that
   // checks provenance INSIDE the serialized writer queue, immediately before
