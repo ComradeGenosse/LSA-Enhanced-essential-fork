@@ -114,6 +114,21 @@ test('opt-in PS6 ambient grants require verified source, keep radio/report quiet
   assert.equal(enabled.evaluate(danger,view({playerCaptureRef:player})).response,'urgent');
 });
 
+test('ambient crowd observations cannot exhaust the ten-minute danger family ledger',()=>{
+  const observer=randomUUID(),player=randomUUID();
+  const cache=new SalienceCache({now:()=>NOW,ambientSpeech:true});
+  const situation=view({playerCaptureRef:player});
+  for(let i=0;i<180;i++) {
+    const seen=observation({observer,eventType:'character_present',severity:'routine',
+      claims:[claim({kind:'presence',channel:'visual',basis:'sampled_state',target:randomUUID()})]});
+    assert.equal(cache.evaluate(seen,situation).response,'eligible');
+  }
+  assert.equal(cache.families.size,0,'ambient grants never consume long-lived suppression slots');
+  const danger=observation({observer,claims:[claim({kind:'injured',channel:'self',basis:'native_callback'})]});
+  assert.equal(cache.evaluate(danger,situation).response,'urgent');
+  assert.equal(cache.families.size,1,'danger still gets original family dedupe');
+});
+
 test('owned PS3 diagnostics separate missing routine grants from witnessed ambient grants',()=>{
   const observer=randomUUID(),player=randomUUID(),other=randomUUID();
   const make=()=>observation({observer,eventType:'character_present',severity:'routine',
