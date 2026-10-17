@@ -185,6 +185,11 @@ test('D03 synthetic original owner sample briefly stalls then recovers under the
 test('D03 synthetic stalled owner never gains authority after a timeline or avatar switch',async t=>{
  const x=await fixture(t),capture=x.begin();
  assert.ok(capture);
+ // The mock D02 port must enforce the same original-player lease fence as
+ // nativeCurrentOwnerPlayerAuthority does on any avatar substitution.
+ const nativeVerify=x.d02.verifyCurrentOwnerAndPlayer;
+ x.d02.verifyCurrentOwnerAndPlayer=args=>
+   x.state.avatar==='franklin'?nativeVerify(args):null;
  x.state.d02=false;
  const restored=setTimeout(()=>{x.state.avatar='michael';x.state.d02=true;},50);
  t.after(()=>clearTimeout(restored));
