@@ -205,6 +205,7 @@ export async function streamDecision({
   } catch (error) {
     spanDone?.('failed', { code: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'provider_request_failed' });
     if (error instanceof ProviderRequestError) throw error;
+    if (error?.code === 'knowledge_request_stale') throw error;
     if (signal?.aborted) throw new ProviderRequestError('OpenAI streaming decision was cancelled.', { code: 'cancelled' });
     if (controller.signal.aborted) throw new ProviderRequestError('OpenAI streaming decision timed out.', { code: 'timeout' });
     throw new ProviderRequestError('OpenAI streaming decision could not be completed.', { code: 'network_error' });

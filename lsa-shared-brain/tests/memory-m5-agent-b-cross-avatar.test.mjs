@@ -186,7 +186,8 @@ test('M5: restart retains cross-avatar command receipts, trash state, and author
     await reopened.initialize();
     try{
       reopened.setVerifiedHostContext({hostContextVersion:1,hostRunId:id(),worldEpoch:2});
-      await reopened.confirmTimeline(x.who('trevor').timelineId);
+      const selectedTimeline=x.who('trevor').timelineId;
+      await reopened.confirmTimeline(selectedTimeline,{confirmation:selectedTimeline});
       const m5=createM5SqliteServices({store:reopened,filePath:x.filePath,authorize:()=>true});
       await m5.ready(x.who('trevor'));
       assert.equal((await reopened.verifyCommand({scope:x.who('michael'),commandId})).memoryId,result.memoryId);

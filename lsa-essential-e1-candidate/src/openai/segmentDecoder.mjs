@@ -59,7 +59,7 @@ export function createSegmentDecoder({
         (lunaDeliveryVersion === 1 && segment.delivery !== emittedSegments[i]?.delivery))) {
         throw new Error("Final segments did not match the segments observed in the stream.");
       }
-      const dialogue = normalized.map(segment => segment.text).join(' ');
+      const dialogue = normalized.map(segment => segment.text.trim()).join(' ');
       return Object.freeze({
         mode: decision.mode,
         segments: Object.freeze(normalized.map(segment => Object.freeze({
@@ -95,9 +95,10 @@ function validateSegment(value, maxDialogueChars, lunaDeliveryVersion = 0) {
   if (/[|\r\n\u0000-\u001f\u007f]/.test(value.text) ||
       /(^|\n)\s*DO\s*:?\s+[A-Za-z]/i.test(value.text))
     throw segmentFailure('segment_invalid_text', 'Speech segment contains a control command or invalid character.');
-  if (value.text.trim().length > maxDialogueChars)
+  if (value.text.length > maxDialogueChars)
     throw segmentFailure('segment_budget_exceeded', 'Speech segment exceeds dialogue budget.');
-  return value.text.trim();
+  // Keep the exact accepted TTS source, including inter-segment spacing.
+  return value.text;
 }
 function reflowSegment(value, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion = 0) {
   let remaining = validateSegment(value, maxDialogueChars, lunaDeliveryVersion);

@@ -276,7 +276,10 @@ export class P2SqliteProfileStore {
       fail('explicit_confirmation_required');
     const expectedGeneration=this.#authorityGeneration;
     const expectedContext=this.#sourceContext;
-    if(this.#sourceRequired&&!expectedContext)fail('timeline_write_suspended');
+    // A paused source may retain an explicit selection for its last observed
+    // run/epoch. It grants no reads/writes until that exact source returns.
+    // Real disconnect/replacement boundaries clear lastSourceKey.
+    if(this.#sourceRequired&&!expectedContext&&!this.#lastSourceKey)fail('timeline_write_suspended');
     await this.initialize();
     return this.#serial(() => {
       if(!this.available||this.#authorityGeneration!==expectedGeneration ||
