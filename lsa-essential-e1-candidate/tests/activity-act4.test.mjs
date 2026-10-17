@@ -181,3 +181,27 @@ test('ACT3 multi-step native receipts never advertise intermediate completion as
  assert.match(narration,/activity step/);
  assert.doesNotMatch(narration,/(?:^|\. )The request to .* was completed with physical evidence/);
 });
+
+test('ACT4 reports ACT6 requested, moving, failed and verified arrival without inventing completion',()=>{
+ const f=fixture(),activity=f.engine.activities.at(-1),step=activity.steps[0];
+ activity.template='vehicle_trip';
+ let state=projectActivityKnowledge(f.captured()).facts[0].text;
+ assert.match(state,/drive to the selected destination/);
+ assert.match(state,/Physical execution has not been verified/);
+ activity.leaseEpoch=1;activity.status='running';
+ state=projectActivityKnowledge(f.captured()).facts[0].text;
+ assert.match(state,/physical mode establishment is not verified/);
+ assert.doesNotMatch(state,/reached the selected destination/);
+ activity.act4ModeStepId=step.stepId;
+ state=projectActivityKnowledge(f.captured()).facts[0].text;
+ assert.match(state,/Driving toward the destination is active/);
+ assert.match(state,/Arrival has not been verified/);
+ activity.status='failed';activity.terminal={status:'failed',reason:'no_progress',atMs:1000};
+ state=projectActivityKnowledge(f.captured()).facts[0].text;
+ assert.match(state,/ended as failed/);
+ assert.doesNotMatch(state,/reached the selected destination/);
+ activity.status='completed';activity.terminal={status:'completed',reason:'physically_completed',atMs:1000};
+ activity.act4CompletedStepId=step.stepId;
+ state=projectActivityKnowledge(f.captured()).facts[0].text;
+ assert.match(state,/reached the selected destination with verified native physical arrival evidence/);
+});
