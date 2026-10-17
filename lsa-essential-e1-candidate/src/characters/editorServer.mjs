@@ -93,9 +93,21 @@ function editMemory(memory){editingMemory=memory.memoryId;const form=$('memory')
 $('promote').onclick=()=>run(async()=>{const profile=await api('promote');await refresh(profile.characterId);});$('refresh').onclick=()=>run(()=>refresh());
 $('socialStart').onclick=async()=>{
   try{
+    const old=(await api('director_social_status')).nativeResult?.receivedAt??-1;
     const result=await api('director_social_manual');
     if(!result.queued)throw Error('native_director_unavailable');
-    status('Invitation queued; native Director must still authorize the conversation. Select the promoted NPC in GTA.');
+    status('Request queued; checking native social admission...');
+    for(let attempt=0;attempt<6;attempt++){
+      await new Promise(resolve=>setTimeout(resolve,300));
+      const observed=(await api('director_social_status')).nativeResult;
+      if(observed && observed.receivedAt>old){
+        status(observed.status==='accepted'
+          ?'Native social scene accepted. Director/Essential may still veto speech if busy or unsafe.'
+          :'Native rejected the invitation: '+observed.reason.replaceAll('_',' '));
+        return;
+      }
+    }
+    status('Native has not acknowledged the manual scene. Check the native connection and Director diagnostics.');
   }catch(error){status(error.message.replaceAll('_',' '));}
 };
 for(const operation of ['summon','follow','wait','dismiss','despawn']){const button=document.createElement('button');button.textContent=operation[0].toUpperCase()+operation.slice(1);button.onclick=()=>operation==='summon'?summon(button):run(async()=>{await api('control',{characterId:current.characterId,operation});await refresh(current.characterId);});$('controls').append(button);}
@@ -108,7 +120,7 @@ ${inspectorScript()}
 run(()=>refresh());run(()=>refreshTimelines());
 </script></html>`;
 }
-export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null,inspectorControls=null,diagnostics=null,voiceStatus=null,socialConversation=null } = {}) {
+export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null,inspectorControls=null,diagnostics=null,voiceStatus=null,socialConversation=null,socialStatus=null } = {}) {
   const token = randomBytes(32).toString('hex'); let origin;
   const server = http.createServer(async (request,response) => {
     response.setHeader('cache-control','no-store'); response.setHeader('x-content-type-options','nosniff');
@@ -173,6 +185,9 @@ export async function startCharacterEditor(service,{ port = service.config.promo
             throw new Error('explicit_confirmation_required');
           result = {timelineId:await service.store.confirmTimeline(body.timelineId,{confirmation:body.confirmation})};
           break;
+        case 'director_social_status':
+          if(typeof socialStatus!=='function')throw Error('native_director_unavailable');
+          result=socialStatus();break;
         case 'director_social_manual':
           if(typeof socialConversation!=='function')throw Error('native_director_unavailable');
           result=socialConversation();break;
