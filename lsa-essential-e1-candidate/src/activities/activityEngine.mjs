@@ -50,21 +50,25 @@ export class ActivityEngine {
     this.staleReceipts = 0;
     this.byRequest = new Map();
     this.byExecution = new Map();
+    this.acceptedProposals = new Map();
     this.lastGameMs = null;
   }
 
   get executing() { return this.config.mode === 'on'; }
 
-  assign(proposal, binding) {
+  assign(proposal, binding, { playerApproved = false } = {}) {
     const now = this.now();
+    const replay = proposal?.source === 'player_dialogue' ? this.acceptedProposals.get(proposal.proposalId) : null;
+    if (replay) return replay;
     if (!this.executing) return this.#reject(proposal, 'capability_disabled');
     if (now < this.breakerUntil) return this.#reject(proposal, 'capability_disabled');
     if (!binding || binding.characterId !== proposal?.subject?.characterId || !binding.ownerAlias || !binding.ownershipToken) return this.#reject(proposal, 'actor_not_owned');
     const hello = this.hello?.capabilities || null;
-    const admission = validateAdmission(proposal, { registry: this.registry, mode: this.config.mode, hello, passedProbes: this.config.passedProbes || [] });
+    const admission = validateAdmission(proposal, { registry: this.registry, mode: this.config.mode, hello, passedProbes: this.config.passedProbes || [], act5: this.config.act5 === true, playerApproved });
     if (!admission.ok) return this.#reject(proposal, admission.reason);
     const characterId = proposal.subject.characterId;
     const live = this.#liveFor(characterId);
+    if (live.length >= 1 && proposal.source === 'player_dialogue') return this.#reject(proposal, 'activity_busy');
     if (live.length >= 1) this.#finish(live[0], 'superseded', 'superseded_player', now, 'cancel_if_current');
     if (this.#live().length >= 4) return this.#reject(proposal, 'activity_limit');
     const goal = makeGoal(admission.proposal, this.id, now);
@@ -81,7 +85,12 @@ export class ActivityEngine {
     this.#recordFact(activity,{ characterId, activityId: activity.activityId, goalId: goal.goalId, kind: 'accepted', intent: goal.intent, atMs: now });
     this.onEvent('activity_admitted', { activityId: activity.activityId, intent: goal.intent });
     this.#send('actor.acquire', { requestId: activity.acquireId, characterId, ownerAlias: binding.ownerAlias, ownershipToken: binding.ownershipToken, leaseId: activity.leaseId });
-    return { ok: true, activityId: activity.activityId, goalId: goal.goalId };
+    const result = { ok: true, activityId: activity.activityId, goalId: goal.goalId };
+    if (proposal.source === 'player_dialogue') {
+      this.acceptedProposals.set(proposal.proposalId, result);
+      if (this.acceptedProposals.size > 128) this.acceptedProposals.delete(this.acceptedProposals.keys().next().value);
+    }
+    return result;
   }
 
   pause(characterId) {
@@ -152,7 +161,7 @@ export class ActivityEngine {
   #resetWorld() {
     for(const activity of this.#live()) this.#finish(activity,'abandoned','epoch_changed',this.now(),'detach',false);
     this.goals=new GoalStore(this.now);this.activities=[];this.history=[];this.facts.clear();
-    this.byRequest.clear();this.byExecution.clear();this.failures=[];this.lastGameMs=null;
+    this.byRequest.clear();this.byExecution.clear();this.acceptedProposals.clear();this.failures=[];this.lastGameMs=null;
   }
 
   tick(gameMs = null) {
@@ -190,7 +199,7 @@ export class ActivityEngine {
     const activity = {
       activityVersion: 1, activityId: this.id(), goalId: goal.goalId,
       actor: { characterId: binding.characterId, encounterId: binding.encounterId || this.id(), ownerAlias: binding.ownerAlias, ownershipToken: binding.ownershipToken, incarnationId: binding.incarnationId || this.id() },
-      template: plan.template, planRevision: 0, steps: plan.steps, cursor: 0, status: 'admitting', source: 'player_ux', priority: 'player_direct',
+      template: plan.template, planRevision: 0, steps: plan.steps, cursor: 0, status: 'admitting', source: goal.source, priority: goal.priority,
       leaseId: this.id(), leaseEpoch: 0,
       budgets: { retriesLeft: 1, alternativesLeft: 2, replansLeft: 1, resumesLeft: 3, executionsLeft: 8 },
       deadlines: { activityDeadlineGameMs: 0, wallCapAtMs: now + WALL_CAP_MS },
