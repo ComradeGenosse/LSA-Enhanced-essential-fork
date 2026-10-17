@@ -1273,7 +1273,7 @@ namespace LSA.Intelligence
                 if(WitnessPolicy.FreshCallbackWindow(signal.gameTick,callbackTick,
                     signal.receivedMs,now) &&
                    (signal.kind!="vehicle_damage" ||
-                    (Object.Equals(signal.facts["classification"],"collision")&&
+                    (object.Equals(signal.facts["classification"],"collision")&&
                      signal.facts.ContainsKey("collision"))))
                     signal.witnessReceipts=CaptureWitnessesAtTick(signal,callbackTick);
             }
