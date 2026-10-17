@@ -110,7 +110,7 @@ namespace LSA.Intelligence
           Uuid(r.OwnerIncarnationId) && Uuid(r.ObservationId) &&
           Key(r.DecisionKey) && r.WorldEpoch>0 && r.ProofRevision>0 &&
           r.PlayerTurnVersion>=0 && r.PolicyVersion==1 && r.ObservationRevision>0 &&
-          r.AgeMs>=0 && r.AgeMs<=(r.DecisionKey.StartsWith("social:",StringComparison.Ordinal)?9000:2000);
+          r.AgeMs>=0 && r.AgeMs<=(r.DecisionKey.StartsWith("social:",StringComparison.Ordinal)?14000:2000);
         bool Safe(Request r,string stage)
         {
             if(!enabled){NoteVeto(stage,"director_disabled");return false;}
