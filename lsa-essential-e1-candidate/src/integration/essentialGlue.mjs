@@ -25,6 +25,7 @@ import {createOriginalTurnActorLedger} from '../memory/originalTurnActorLedger.m
 import {createNpcSpeechDeliverySource} from '../memory/npcSpeechDeliveryLedger.mjs';
 import {prepareLiveTurnMemory} from '../memory/liveTurnMemory.mjs';
 import {prepareH1ConversationHistory,prepareDirectorSocialConversationHistory} from '../memory/h1ConversationHistory.mjs';
+import {isDirectorSocialContext} from '../perception/directorSocialContext.mjs';
 import {prepareFactualRecall} from '../memory/h2FactualRecall.mjs';
 import {composeIndependentForegroundMemory} from '../memory/independentForegroundMemory.mjs';
 import {prepareM5Commands} from '../memory/m5IndependentCommands.mjs';
@@ -161,6 +162,35 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   });
   const emotionalMood = createMoodRuntime({getRuntime:()=>runtime,
     protagonistAuthority:verifiedProtagonistAuthority??liveNativeProtagonist});
+  const verifiedSocialPlaybackProof=turn=>{
+    if(runtime.closed||memoryPause.paused||
+       !(journalActivation.mode==='on'||optionalMemoryEnabled)||
+       config.promotedCharacters?.storageMode!=='sqlite'||!journalStore?.timelineWritable)return null;
+    const t=turn?.directorTicket,live=runtime.intelligence?.runtime;
+    const profile=turn?.characterProjection?.profile;
+    if(!t?.decisionKey?.startsWith('social:')||!live||
+       !isDirectorSocialContext(turn?.context?.internalEvent)||
+       turn.characterProjection?.persistent!==true||
+       profile?.characterId!==turn.characterInputs?.profile?.characterId||
+       !profile?.promotion?.ownerAlias||
+       !live.current(t.speakerCaptureRef)||!live.current(t.playerCaptureRef)||
+       !runtime.host.isCurrent(turn.identity)||
+       (identityService&&!identityService.current(turn.identity)))return null;
+    const owner=live.directorOwnerProofFor(t.speakerCaptureRef);
+    const host=journalStore.verifiedHostContext;
+    if(!owner||owner.hostRunId!==t.hostRunId||owner.worldEpoch!==t.worldEpoch||
+       owner.ownerIncarnationId!==t.ownerIncarnationId||
+       owner.proofRevision<t.proofRevision||
+       host?.hostRunId!==t.hostRunId||host?.worldEpoch!==t.worldEpoch||
+       journalStore.get(profile.characterId)?.promotion?.ownerAlias!==profile.promotion.ownerAlias||
+       journalStore.memoryReadFence==null)return null;
+    return Object.freeze({
+      characterId:profile.characterId,worldProfileId:journalStore.worldProfileId,
+      timelineId:journalStore.activeTimelineId,hostRunId:t.hostRunId,
+      worldEpoch:t.worldEpoch,ownerIncarnationId:t.ownerIncarnationId,
+      speakerCaptureRef:t.speakerCaptureRef,privacyFence:journalStore.memoryReadFence
+    });
+  };
   const services = {
     // Every segment rechecks real P1 binding and PS2 observer lifetime.
     emotionalActing: config.speechProvider === 'elevenlabs' &&
@@ -330,8 +360,18 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
           (!identityService||identityService.current(turn.identity));
       };
       return prepareDirectorSocialConversationHistory({
-        store:journalStore,turn,source,isCurrent,isDirectorCurrent:directorCurrent
+        store:journalStore,turn,source,isCurrent,isDirectorCurrent:directorCurrent,
+        readVerifiedSocialSpeech:()=>this.readDirectorCompletedSpeech({turn})
       });
+    },
+    // Captured at the original runner's stage and queried only after native
+    // playback completion. A new privacy fence, host or speaker retires it.
+    socialPlaybackProof:turn=>verifiedSocialPlaybackProof(turn),
+    readDirectorCompletedSpeech({turn}={}){
+      const proof=verifiedSocialPlaybackProof(turn);
+      if(!proof)return [];
+      return history.readCompletedSocialForSession(
+        turn.identity.pedId,turn.identity.sessionNonce,proof);
     },
     noteH1Skipped() {
       if(journalActivation.mode==='on'){
