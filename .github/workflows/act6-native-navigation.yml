@@ -1,0 +1,70 @@
+name: ACT6 native navigation — integrated offline gates
+on:
+  push:
+    branches:
+      - feature/act6-native-navigation-20261017
+    paths:
+      - 'native/activities/**'
+      - 'native/promoted-characters/**'
+      - 'lsa-essential-e1-candidate/src/activities/**'
+      - 'lsa-essential-e1-candidate/tests/activities-act*.test.mjs'
+      - '.github/workflows/act6-native-navigation.yml'
+  pull_request:
+    branches:
+      - integration/act3-act4-act5-unified-20261017
+    paths:
+      - 'native/activities/**'
+      - 'native/promoted-characters/**'
+      - 'lsa-essential-e1-candidate/src/activities/**'
+      - 'lsa-essential-e1-candidate/tests/activities-act*.test.mjs'
+      - '.github/workflows/act6-native-navigation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  companion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax-check ACT6 and dependent ACT3–ACT5
+        run: |
+          node --check lsa-essential-e1-candidate/src/activities/contracts.mjs
+          node --check lsa-essential-e1-candidate/src/activities/intentTemplates.mjs
+          node --check lsa-essential-e1-candidate/src/activities/activityValidator.mjs
+          node --check lsa-essential-e1-candidate/src/activities/activityEngine.mjs
+          node --check lsa-essential-e1-candidate/src/activities/act5Dialogue.mjs
+      - name: ACT2–ACT6 focused regression
+        run: |
+          node --test --test-concurrency=1 \
+            lsa-essential-e1-candidate/tests/activities-act6.test.mjs \
+            lsa-essential-e1-candidate/tests/activities-act5.test.mjs \
+            lsa-essential-e1-candidate/tests/activities-act3.test.mjs \
+            lsa-essential-e1-candidate/tests/activities-act2.test.mjs \
+            lsa-essential-e1-candidate/tests/activity-act4.test.mjs \
+            lsa-essential-e1-candidate/tests/activities-contract.test.mjs
+  native:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Native StepRunner owner/adapter/contract regression
+        run: dotnet run --project native/activities/tests/ActivityTests.csproj --configuration Release
+      - name: ACT3–ACT5 promoted runtime regression
+        run: dotnet run --project native/promoted-characters/runtime-tests/RuntimeTests.csproj --configuration Release
+  genuine-dll:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile actual promoted GTA runtime against pinned RPH + Essential SDK
+        run: node tools/native-sdk/compileProductionNative.mjs
