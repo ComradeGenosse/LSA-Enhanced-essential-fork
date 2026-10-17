@@ -53,7 +53,7 @@ Native `LSA.PromotedCharacters.json`:
 - **No new action engine, no new ACT/Intelligence/P2 frames.** Those channels are lease/sequence/SHA-pinned; a malformed frame there can close a lease. Reactions use their own optional, one-way, current-user pipe, so the worst failure is a missed gesture.
 - **Identity.** The companion waits for the exact `playback_started` of the turn. Native independently records Essential's `PlaybackStarted` for `(pedId, turnId, generationId)`, requires the frame's host run + world epoch to match, re-checks handle and `MemoryAddress`, and requires the ped to be the current conversation speaker. A frame for a line native never saw is refused after a short grace window. A late end of one turn cannot end another; a new line for the same ped supersedes the old run. (`book`, `admission`, `executor` tests; `reactions-turn-hook` tests.)
 - **Never touches other systems.** The executor source is scanned in tests: only allow-listed natives appear (clip dictionary/playback/stop/remove plus read-only state checks). No `ClearAll`/`CLEAR_PED_*`, no heading, position, weapon, gaze, lip-sync or audio calls, and no teleporting.
-- **Does not interrupt Essential-controlled behavior.** Preflight refuses vehicles, combat, fleeing, armed, scenarios, swimming, ragdoll/getting up/falling, melee, stunned, cutscene/mission, directed interactions, active reflexes, hands-up, kneel/sit, hostile modes, held items, running activities, and P2/ACT follow/wait/sit ownership. An unknown owner counts as owned.
+- **Does not interrupt Essential-controlled behavior.** Preflight refuses vehicles, combat, fleeing, armed, scenarios, swimming, ragdoll/getting up/falling, melee, stunned, cutscene/mission, directed interactions, active reflexes, hands-up, kneel/sit, hostile modes, held items, running activities, and P2/ACT follow/wait/sit ownership. Unknown **promoted** ownership counts as owned. Ordinary unpromoted peds can pass only after the separate native active-speaker and safety preflight; this is repeated every tick while an animation plays.
 - **Cleanup.** Interruption, death, handle reuse, despawn, world reset, callback overflow, shutdown and repeated faults all end the run. The stop is clip-scoped (`STOP_ANIM_TASK` for our own dictionary/clip, only if it is still playing) and only dictionaries *we* requested are removed. Three native faults disable the executor for the session.
 - **Faces.** No facial clips are used (see below), so there is no conflict with Essential lip-sync, PR #198 mouth work, or conversation gaze. The gesture is upper-body only and issues no look/turn tasks.
 
@@ -92,3 +92,10 @@ Done offline (this session):
 6. The named pipe under the real RPH host (ACL, reconnect after `WorldChanged`).
 
 Suggested in-game order: set native `mode` to `shadow` and read the `[RX]` log lines; then `on` with `"disabled": ["middle_finger"]`; then enable both.
+
+## Follow-up review fixes (2026-10-17)
+
+- Native P2/ACT ownership: verified idle promoted actors and ordinary unpromoted Essential speakers are eligible for the independent game-native preflight. Retired/unknown promoted owners and active ACT/P2 activities remain blocked.
+- Playing gestures recheck combat, current speaker, scenario and owner-state safety every owner-fiber update; loss of a condition ends only this clip.
+- Playback START has bounded per-ped generation high-watermarks, including after END; stale/equal-generation conflicting starts cannot supersede newer playback. World resets clear the generation scope.
+- Updated offline regression tests cover the previously missing paths. These do **not** constitute GTA V Enhanced acceptance.

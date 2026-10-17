@@ -240,7 +240,7 @@ namespace LSA.Reactions
                     catch { actor = null; }
                     if (actor == null) { Reject("playback_ped_invalid"); continue; }
                     var entry = book.Started(key, actor, now, out var superseded);
-                    if (entry == null) { Reject("playback_book_full"); continue; }
+                    if (entry == null) { Reject("playback_start_unavailable"); continue; }
                     if (superseded != null && run != null && run.Key.Equals(superseded.Key)) EndRun("superseded", true);
                 }
                 else
@@ -301,7 +301,15 @@ namespace LSA.Reactions
                 case RunStep.Finish: EndRun("completed", true); break;
                 default:
                     if (run.State == RunState.Done) EndRun(run.EndReason ?? "ended", false);
-                    else if (run.State == RunState.Playing && !verified) Verify(now, actor);
+                    else if (run.State == RunState.Playing)
+                    {
+                        // A preflight pass is not a lasting permission to task a
+                        // ped. Recheck combat, scenarios, P2/ACT ownership and
+                        // exact conversation target on every active Core tick.
+                        var reason = ReactionPreflight.Verdict(ReadFacts(actor.Ped), options.AllowDuringOwnedBehavior);
+                        if (reason != null) EndRun("preflight_" + reason, true);
+                        else if (!verified) Verify(now, actor);
+                    }
                     break;
             }
         }

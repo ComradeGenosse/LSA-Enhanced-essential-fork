@@ -97,22 +97,25 @@ namespace LSA.PromotedCharacters
             },"LSA character host lifetime");
             return true;
         }
-        // A reaction may only play on a ped no LSA behavior currently owns. Unknown
-        // is never idle: any P2/ACT owner in a non-idle mode blocks the gesture.
+        // A promoted ped must carry positively current P2/ACT idle proof.
+        // Ordinary unpromoted peds are not owned by P2/ACT; the executor still
+        // independently requires the exact Essential conversation speaker and
+        // a fresh safe-state preflight before and during every animation tick.
+        // Missing/retired roster authority is never accepted as *promoted* idle.
         static bool OwnedByLsaBehavior(Ped ped) {
             var owner=integration;
-            if(owner==null || ped==null) return true;
-            // A missing, retired or residual owner is UNKNOWN, never proven idle.
-            // This intentionally limits gestures to a positively verified idle P2/ACT actor;
-            // the no-roster case (including ordinary unpromoted peds) is not an idle proof.
+            if(owner==null || ped==null || !ped.Exists() || ped.IsDead) return true;
             foreach(var participant in owner.PerceptionRoster()) {
                 if(participant.Ped==null || !participant.Ped.Equals(ped)) continue;
                 if(participant.Current?.Invoke()!=true) return true;
                 var sample=participant.PrimaryOwner?.Invoke() as PrimaryBehaviorOwner;
                 if(sample==null || sample.mode!="idle") return true;
-                return sample.owner!="p2" && sample.owner!="act" && sample.owner!="none";
+                return sample.owner!="p2" && sample.owner!="act";
             }
-            return true;
+            // No P2/ACT roster membership: possible ordinary Essential speaker.
+            // No gesture is admitted until ReactionExecutor.ReadFacts confirms
+            // current speaker, player exclusion, no active tasks and safe natives.
+            return false;
         }
         public static void Stop() { stopping=true; EssentialInputInterception.ReleaseAll(); }
         public static bool LeaseInput(int mark,int text) => !stopping && EssentialInputInterception.Lease(mark,text);

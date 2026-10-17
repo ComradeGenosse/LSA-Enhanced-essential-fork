@@ -418,6 +418,25 @@ static class Tests
             }
         });
 
+        Run("executor on: changing combat, activities or speaker stops a running clip immediately", () =>
+        {
+            foreach (var reason in new[] { "combat", "activity", "owner", "speaker" })
+            {
+                using (var rig = new Rig("on"))
+                {
+                    rig.StartAndPlay("t1");
+                    Check(rig.Ex.HasActiveRun && rig.Ex.Played == 1, reason + ": gesture was playing");
+                    if (reason == "combat") rig.TrueNatives.Add("IS_PED_SHOOTING");
+                    if (reason == "activity") NpcStateStore.Current = new NpcState { ActivityInProgress = true };
+                    if (reason == "owner") NpcStateStore.Current = new NpcState { FollowPlayerOnFoot = true };
+                    if (reason == "speaker") { NpcTargeting.Speaker = null; NpcTargeting.Conversation = null; }
+                    rig.Step(20);
+                    Check(!rig.Ex.HasActiveRun && rig.Count("STOP_ANIM_TASK") == 1,
+                        reason + ": stop only our own active clip on the same owner tick");
+                }
+            }
+        });
+
         Run("executor on: world reset ends the run, drops the channel, voids old identities", () =>
         {
             using (var rig = new Rig("on"))
@@ -448,6 +467,23 @@ static class Tests
             }
         });
 
+        Run("executor: late old-generation START cannot supersede newer playback", () =>
+        {
+            using (var rig = new Rig("on"))
+            {
+                rig.Start("latest", gen: 4); rig.Frame("latest", gen: 4); rig.Step(0);
+                rig.Start("old", gen: 3); rig.Step(0);
+                Check(rig.Ex.Rejected("playback_start_unavailable") == 1, "old START refused while newer active");
+                rig.Step(1300);
+                Check(rig.Count("TASK_PLAY_ANIM") == 1, "newer turn still animates");
+                rig.End("latest", gen: 4); rig.Step(20);
+                rig.Start("older-after-end", gen: 2); rig.Frame("older-after-end", gen: 2);
+                rig.Step(1800);
+                Check(rig.Ex.Rejected("playback_start_unavailable") == 2, "old START cannot reappear after the newer END");
+                Check(rig.Count("TASK_PLAY_ANIM") == 1, "stale turn never animated");
+            }
+        });
+
         Run("executor: frame arriving before native's own playback record waits, then plays", () =>
         {
             using (var rig = new Rig("on"))
@@ -465,10 +501,10 @@ static class Tests
             {
                 rig.Start("t1"); rig.Frame("t1"); rig.Step(0);
                 Check(rig.Ex.HasActiveRun, "t1 waiting");
-                rig.Start("t2");
+                rig.Start("t2", gen: 2);
                 rig.Step(0);
                 Check(!rig.Ex.HasActiveRun && rig.Count("TASK_PLAY_ANIM") == 0, "t1 run dropped without ever animating");
-                rig.Frame("t2"); rig.Step(0); rig.End("t1", interrupted: true); rig.Step(1300);
+                rig.Frame("t2", gen: 2); rig.Step(0); rig.End("t1", interrupted: true); rig.Step(1300);
                 Check(rig.Count("TASK_PLAY_ANIM") == 1, "t2 still plays: the late end of t1 was ignored");
             }
         });

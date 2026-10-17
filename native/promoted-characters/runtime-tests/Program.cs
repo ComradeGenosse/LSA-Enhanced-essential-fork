@@ -106,7 +106,7 @@ public sealed class Scenario:MarshalByRefObject
             var gate=typeof(RuntimeEntry).GetMethod("OwnedByLsaBehavior",BindingFlags.NonPublic|BindingFlags.Static);
             var ped=new Ped {Handle=42};
             Func<bool> check=()=> (bool)gate.Invoke(null,new object[]{ped});
-            Check(check(),"Unknown/unpromoted NPC wrongly treated as proven idle.");
+            Check(!check(),"Unpromoted Essential speaker should reach separate native safety preflight.");
             var participant=new LSA.Intelligence.OwnedParticipant {Ped=ped, Current=()=>false,
                 PrimaryOwner=()=>new PrimaryBehaviorOwner("p2","idle")};
             PromotedCharactersIntegration.RosterOverride=new[]{participant};
@@ -119,6 +119,10 @@ public sealed class Scenario:MarshalByRefObject
             Check(check(),"ACT follow wrongly treated as idle.");
             participant.PrimaryOwner=()=>new PrimaryBehaviorOwner("p2","idle");
             Check(!check(),"Explicit P2 idle owner was unexpectedly vetoed.");
+            participant.PrimaryOwner=()=>new PrimaryBehaviorOwner("act","idle");
+            Check(!check(),"Explicit ACT idle owner was unexpectedly vetoed.");
+            participant.PrimaryOwner=()=>new PrimaryBehaviorOwner("none","idle");
+            Check(check(),"Unknown none owner must not be mistaken for P2/ACT idle.");
             RuntimeEntry.Stop();
         };
         GameFiber.ExecuteNext();

@@ -26,6 +26,11 @@ namespace LSA.Reactions
         public const int Capacity = 8;
         public const long MaxAgeMs = 180000; // missing-terminal safety net
         readonly Dictionary<string, PlaybackEntry> byPed = new Dictionary<string, PlaybackEntry>();
+        // Keep a bounded high-watermark even after playback ends. Otherwise a
+        // delayed old START can resurrect a spent turn after the newer END.
+        readonly Dictionary<string, PlaybackKey> latestByPed = new Dictionary<string, PlaybackKey>();
+        readonly Queue<PlaybackKey> latestOrder = new Queue<PlaybackKey>();
+        const int MaxHistory = 512;
         public int Count => byPed.Count;
 
         public PlaybackEntry Started(PlaybackKey key, object actor, long nowMs, out PlaybackEntry superseded)
@@ -35,11 +40,23 @@ namespace LSA.Reactions
             if (byPed.TryGetValue(key.PedId, out var existing))
             {
                 if (existing.Key.Equals(key)) return existing; // duplicate start is idempotent
-                superseded = existing;
             }
+            // Equal-generation, different-turn claims are ambiguous; older
+            // generations can never displace a newer speaker, even after END.
+            if (latestByPed.TryGetValue(key.PedId, out var latest) &&
+                key.GenerationId <= latest.GenerationId) return null;
+            if (existing != null) superseded = existing;
             else if (byPed.Count >= Capacity) return null;      // fail closed
             var entry = new PlaybackEntry { Key = key, Actor = actor, StartedMs = nowMs };
             byPed[key.PedId] = entry;
+            latestByPed[key.PedId] = key;
+            latestOrder.Enqueue(key);
+            while (latestOrder.Count > MaxHistory)
+            {
+                var old = latestOrder.Dequeue();
+                if (latestByPed.TryGetValue(old.PedId, out var kept) && kept.Equals(old))
+                    latestByPed.Remove(old.PedId);
+            }
             return entry;
         }
 
@@ -65,7 +82,7 @@ namespace LSA.Reactions
             foreach (var id in stale) { expired?.Add(byPed[id]); byPed.Remove(id); }
         }
 
-        public void Clear() => byPed.Clear();
+        public void Clear() { byPed.Clear(); latestByPed.Clear(); latestOrder.Clear(); }
     }
 
     public sealed class ReactionOptions
