@@ -542,7 +542,7 @@ export class ShadowRuntime {
       observationRevision:proposal.observationRevision,
       decisionKey:proposal.decisionKey,policyVersion:1,
       expiresAtMonotonicMs:proposal.expiresAtMonotonicMs,
-      ageMs:Math.min(2000,Math.max(0,this.now()-(this.socialScenes.get(proposal.speakerCaptureRef)?.receivedAt??0))),
+      ageMs:Math.max(0,this.now()-(this.socialScenes.get(proposal.speakerCaptureRef)?.receivedAt??0)),
     });
   }
   // Companion-local ORIGINAL PS2 observation + PS3 ledger authorization.
