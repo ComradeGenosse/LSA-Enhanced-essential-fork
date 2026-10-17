@@ -17,6 +17,8 @@ export function createCompanionShadowTelemetry(summary = {}) {
   const ps2 = summary?.ps2 && typeof summary.ps2 === 'object' ? summary.ps2 : {};
   const ps3 = summary?.ps3 && typeof summary.ps3 === 'object' ? summary.ps3 : {};
   const reasons = ps3?.reasons && typeof ps3.reasons === 'object' ? ps3.reasons : {};
+  const ownedReasons=ps3?.ownedReasons??{};
+  const ownedEvents=ps3?.ownedByEvent??{};
   const history = summary?.history && typeof summary.history === 'object' ? summary.history : {};
   const resets = summary?.resetReasons && typeof summary.resetReasons === 'object' ? summary.resetReasons : {};
   const drops = summary?.dropReasons && typeof summary.dropReasons === 'object' ? summary.dropReasons : {};
@@ -77,6 +79,19 @@ export function createCompanionShadowTelemetry(summary = {}) {
     ps3OwnedDecisions: counter(ps3.ownedDecisions),
     ps3OwnedEligible: counter(ps3.ownedEligible),
     ps3OwnedUrgent: counter(ps3.ownedUrgent),
+    // Fixed source-event/rejection counters in E4 JSONL (not only console
+    // summary). No arbitrary keys or event payloads cross persistence.
+    ps3OwnedAmbientWitness:counter(ownedReasons.ambient_direct_witness),
+    ps3OwnedLowRelevance:counter(ownedReasons.routine_low_relevance),
+    ps3OwnedRepetitionSuppressed:counter(ownedReasons.repetition_suppressed),
+    ps3OwnedCharacterPresent:counter(ownedEvents.character_present?.decisions),
+    ps3OwnedCharacterPresentEligible:counter(ownedEvents.character_present?.eligible),
+    ps3OwnedLocationChanged:counter(ownedEvents.location_changed?.decisions),
+    ps3OwnedLocationChangedEligible:counter(ownedEvents.location_changed?.eligible),
+    ps3OwnedActivityChanged:counter(ownedEvents.activity_changed?.decisions),
+    ps3OwnedActivityChangedEligible:counter(ownedEvents.activity_changed?.eligible),
+    ps3OwnedVehicleTransition:counter(ownedEvents.vehicle_transition?.decisions),
+    ps3OwnedVehicleTransitionEligible:counter(ownedEvents.vehicle_transition?.eligible),
     ps3ReasonSafetySelfDanger: counter(reasons.safetySelfDanger),
     ps3ReasonSafetyPlayerHarm: counter(reasons.safetyPlayerHarm),
     ps3ReasonSafetyNearbyThreat: counter(reasons.safetyNearbyThreat),
