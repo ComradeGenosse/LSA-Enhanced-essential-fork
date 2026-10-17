@@ -36,6 +36,7 @@ function harness({ enabled = true, act3Capabilities = [], extraProbes = [] } = {
   const hello = {type:'hello', ...host, nativeRun, adapterEpoch, capabilities: {
     hold_position:true, follow_person:true, sit_on_ground:true, resume_ambient:true,
     stop_and_face:true, approach_person:true, walk_away_from:true, take_cover:true, begin_driving:true,
+    enter_vehicle_seat:true, exit_vehicle:true, scenario_here:true,
   }};
   engine.noteHello(hello);
   let currentEncounter = encounter;
@@ -49,8 +50,17 @@ function harness({ enabled = true, act3Capabilities = [], extraProbes = [] } = {
     status: characterId => engine.status(characterId),
     cancel: characterId => engine.cancel(characterId) };
   const dialogue = new Act5Dialogue({ activities, characterService: {native}, now:()=>now, id });
-  return {dialogue,engine,commands,advance: ms => {now += ms},retire:()=>{currentEncounter=id()},
-    changeToken:()=>{currentToken='other-token'},changeIncarnation:()=>{currentIncarnation=id()}};
+  return {dialogue,engine,activities,commands,advance: ms => {now += ms},retire:()=>{currentEncounter=id()},
+    changeToken:()=>{currentToken='other-token'},changeIncarnation:()=>{currentIncarnation=id()},
+    restart: () => {
+      const nextEpoch = id();
+      activities.client.runtime.adapterEpoch = nextEpoch;
+      engine.noteHello({...hello,adapterEpoch:nextEpoch});
+    },
+    reconnect: () => {
+      engine.noteHello({...hello,clientRestart:true});
+      engine.noteHello(hello);
+    }};
 }
 
 test('ACT5 is opt-in and never advertises contract-only ACT3 native verbs', async () => {
@@ -186,4 +196,96 @@ test('no approval, stale playback, disabled ACT5 and replayed engine admission f
   assert.equal(first.ok,true);
   assert.deepEqual(h.engine.assign(p,owner,{playerApproved:true}),first);
   assert.equal(h.commands.filter(v=>v.type==='actor.acquire').length,1);
+});
+
+test('ACT5 exposes vehicle, exit and coffee invitations only behind each ACT3 probe gate', async () => {
+  const caps = ['enter_vehicle_seat','exit_vehicle','scenario_here'];
+  const h = harness({act3Capabilities:caps,extraProbes:['V1','V2','V3','V4','SVE1','S1']});
+  const ctx = await h.dialogue.prepare(turn(),'player_text');
+  for (const intent of ['board_vehicle','ride_along','exit_vehicle_and_hold','scenario_here'])
+    assert.equal(ctx.intents.includes(intent),true,intent+' verified and advertised');
+  assert.equal(ctx.intents.includes('vehicle_trip'),false);
+  const lower = harness({act3Capabilities:caps,extraProbes:['V1','V2','V3','V4','S1']});
+  const gated = await lower.dialogue.prepare(turn(),'player_text');
+  assert.equal(gated.intents.includes('board_vehicle'),false,'missing SVE1 blocks boarding');
+  assert.equal(gated.intents.includes('ride_along'),false);
+  assert.equal(gated.intents.includes('scenario_here'),true);
+  assert.equal(validateAct5Choice(choice('board_vehicle',{vehicle:{kind:'player_vehicle'},seat:'any_passenger'}),ctx.intents),true);
+  assert.equal(validateAct5Choice(choice('board_vehicle',{vehicle:{kind:'player_vehicle'},seat:'driver'}),ctx.intents),false);
+  assert.equal(validateAct5Choice(choice('scenario_here',{scenario:'smoke'}),ctx.intents),false);
+  const request = buildRequest({model:'gpt-6-luna',effort:'low',systemInstruction:'NPC',input:'hello',activityContext:ctx});
+  const all = request.text.format.schema.properties.activity.anyOf;
+  for(const intent of ['board_vehicle','ride_along','exit_vehicle_and_hold','scenario_here'])
+    assert.equal(all.some(item=>item.properties?.intent?.enum?.[0]===intent),true);
+  const offer = turn();
+  assert.equal(await h.dialogue.publish(offer,decision(choice('board_vehicle',{vehicle:{kind:'player_vehicle'},seat:'any_passenger'})),ctx,()=>true),true);
+  assert.equal(h.engine.goals.goals.length,0);
+  const accepted = turn(), acceptedCtx = await h.dialogue.prepare(accepted,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(accepted,'Sure, hop in!',acceptedCtx,()=>true)).kind,'approval_pending');
+  assert.equal((await h.dialogue.commitApproved(accepted,()=>true)).ok,true);
+  assert.equal(h.engine.activities[0].steps[0].capability,'enter_vehicle_seat');
+  assert.equal(h.commands.filter(item=>item.type==='actor.acquire').length,1);
+});
+
+test('contextual consent is closed, not arbitrary yes-prefix or negative speech', async () => {
+  for(const input of ['sure hop in but not now','yes but do not','sounds great except no','sure why not I changed my mind']) {
+    const h = harness({act3Capabilities:['enter_vehicle_seat'],extraProbes:['V1','V2','V3','V4','SVE1']});
+    const proposalTurn = turn(), available = await h.dialogue.prepare(proposalTurn,'player_text');
+    await h.dialogue.publish(proposalTurn,decision(choice('board_vehicle',{vehicle:{kind:'player_vehicle'},seat:'any_passenger'})),available,()=>true);
+    const reply = turn(), ctx = await h.dialogue.prepare(reply,'player_text');
+    assert.equal(await h.dialogue.onPlayerInput(reply,input,ctx,()=>true),null,input);
+    assert.equal(h.engine.goals.goals.length,0);
+  }
+  const h = harness(), p=turn(), available=await h.dialogue.prepare(p,'player_text');
+  await h.dialogue.publish(p,decision(choice('hold_position')),available,()=>true);
+  const reply = turn(), ctx = await h.dialogue.prepare(reply,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(reply,'Sounds great, do it.',ctx,()=>true)).kind,'approval_pending');
+});
+
+test('native adapter replacement retires pending offers and previously admitted replay IDs', async () => {
+  const h = harness(), p=turn(), ctx=await h.dialogue.prepare(p,'player_text');
+  await h.dialogue.publish(p,decision(choice('hold_position')),ctx,()=>true);
+  const yes = turn(), before=await h.dialogue.prepare(yes,'player_text');
+  h.restart();
+  assert.equal(await h.dialogue.onPlayerInput(yes,'sure',before,()=>true),null,
+    'pending invite from old adapter is discarded');
+  assert.equal(h.engine.goals.goals.length,0);
+  const owner={characterId:actor,ownerAlias,ownershipToken:'native-token',encounterId:encounter,incarnationId:incarnation};
+  const proposal={proposalVersion:1,proposalId:id(),source:'player_dialogue',subject:{characterId:actor},
+    intent:'hold_position',slots:{},priority:'player_direct',origin:{turn:{...turn().identity}},proposedAtMs:10000};
+  assert.equal(h.engine.assign(proposal,owner,{playerApproved:true}).ok,true);
+  assert.equal(h.engine.assign(proposal,owner,{playerApproved:true}).ok,true,'same-epoch replay is idempotent');
+  h.reconnect();
+  assert.equal(h.engine.assign(proposal,owner,{playerApproved:true}).reason,'epoch_changed');
+  assert.equal(h.engine.goals.goals.length,1);
+  assert.equal(h.commands.filter(item=>item.type==='actor.acquire').length,1);
+});
+
+test('receipt correlation rejects a mismatched activity, step, actor, capability or attempt', () => {
+  const h=harness(), t=turn();
+  const owner={characterId:actor,ownerAlias,ownershipToken:'native-token',encounterId:encounter,incarnationId:incarnation};
+  const proposal={proposalVersion:1,proposalId:id(),source:'player_dialogue',subject:{characterId:actor},
+    intent:'resume_previous',slots:{},priority:'player_direct',origin:{turn:{...t.identity}},proposedAtMs:10000};
+  assert.equal(h.engine.assign(proposal,owner,{playerApproved:true}).ok,true);
+  const acquire = h.commands.find(item=>item.type==='actor.acquire');
+  h.engine.ingest({type:'actor.acquired',requestId:acquire.requestId,encounterId:encounter,incarnationId:incarnation,leaseEpoch:1});
+  const preflight = h.commands.find(item=>item.type==='step.preflight');
+  h.engine.ingest({type:'step.preflighted',requestId:preflight.requestId});
+  const begin=h.commands.find(item=>item.type==='step.begin');
+  const activity=h.engine.activities[0], step=activity.steps[0], blank=JSON.stringify(activity.status);
+  const frame={executionId:begin.executionId,activityId:activity.activityId,stepId:step.stepId,
+    actorEncounterId:encounter,capability:step.capability,attempt:step.attempts,state:'HANDLER_ACCEPTED',
+    sequence:1,epochs:{nativeRun,adapterEpoch,leaseEpoch:1}};
+  for(const patch of [{activityId:id()},{stepId:id()},{actorEncounterId:id()},{capability:'follow_person'},{attempt:8}]) {
+    h.engine.ingest({type:'receipt',receipt:{...frame,...patch}});
+    assert.equal(JSON.stringify(activity.status),blank,'rejected before state mutation');
+  }
+  assert.equal(h.engine.staleReceipts,5);
+  h.engine.ingest({type:'receipt',receipt:frame});
+  assert.equal(activity.status,'running');
+  h.engine.ingest({type:'receipt',receipt:frame});
+  assert.equal(h.engine.staleReceipts,6,'duplicated sequence rejected');
+  assert.equal(h.engine.cancel(actor).ok,true);
+  h.engine.ingest({type:'receipt',receipt:{...frame,sequence:2}});
+  assert.equal(activity.status,'cancelled','terminal goal never resurrected');
 });
