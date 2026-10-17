@@ -1,9 +1,22 @@
 using System;
 namespace LSA.PromotedCharacters {
-    // Pure policy. Only an actual output-renderer PCM tap may call Sample().
+    // Pure policy. Only a playout-level reader (Essential's own rendered level)
+    // may call Sample(); never PCM enqueue time, never an estimate.
     internal sealed class VoicePresenceTurnTracker {
         internal const int MaxTurnMs=180000, LevelExpiryMs=250, SilenceHoldMs=180;
+        // Default for the legacy 0..1 peak scale used by the policy tests. The
+        // production reader supplies Essential's RMS, so the native config can
+        // lower this (npcVoicePresence.mouthOpenLevel) and calibrate with levelLog.
         internal const float OpenThreshold=0.04f;
+        // Hysteresis: once open, a level only counts as speech while it stays above
+        // CloseFraction of the open threshold, so a wavering level cannot flicker.
+        internal const float CloseFraction=0.6f;
+        readonly float openLevel,closeLevel;
+        internal VoicePresenceTurnTracker(float openLevel=OpenThreshold) {
+            if(float.IsNaN(openLevel)||float.IsInfinity(openLevel)||openLevel<=0||openLevel>1)openLevel=OpenThreshold;
+            this.openLevel=openLevel;closeLevel=openLevel*CloseFraction;
+        }
+        internal float OpenLevel=>openLevel;
         internal struct Key : IEquatable<Key> {
             internal readonly string PedId,TurnId; internal readonly long Generation;
             internal Key(string pedId,string turnId,long generation) { PedId=pedId;TurnId=turnId;Generation=generation; }
@@ -28,6 +41,8 @@ namespace LSA.PromotedCharacters {
             if(!Active)return false;
             if(epoch!=Epoch||at<startedAt||at-startedAt>MaxTurnMs||!samePed) {Clear();return false;}
             if(lastSampleAt>=0&&at-lastSampleAt>LevelExpiryMs) {HasPlayout=false;MouthOpen=false;}
+            // A natural pause must close the mouth even if no further sample arrives.
+            else if(MouthOpen&&lastLoudAt>=0&&at-lastLoudAt>=SilenceHoldMs)MouthOpen=false;
             return true;
         }
         // Playout sample only; never PCM arrival at Node/Essential's enqueue API.
@@ -36,10 +51,13 @@ namespace LSA.PromotedCharacters {
                at-startedAt>MaxTurnMs||(lastSampleAt>=0&&at<lastSampleAt)||
                float.IsNaN(peak)||float.IsInfinity(peak)||peak<0||peak>1)return false;
             HasPlayout=true;lastSampleAt=at;
-            if(peak>=OpenThreshold) {lastLoudAt=at;MouthOpen=true;}
+            if(peak>=openLevel||(MouthOpen&&peak>=closeLevel)) {lastLoudAt=at;MouthOpen=true;}
             else if(MouthOpen&&lastLoudAt>=0&&at-lastLoudAt>=SilenceHoldMs)MouthOpen=false;
             return true;
         }
+        // Essential reports no current speech/playout for the exact active turn:
+        // close at once (no hold), but keep the turn itself active until its End.
+        internal void Silence() {HasPlayout=false;MouthOpen=false;lastLoudAt=-1;}
         internal void Clear() {
             Active=false;ActiveKey=default(Key);Epoch=0;HasPlayout=false;MouthOpen=false;
             startedAt=0;lastSampleAt=-1;lastLoudAt=-1;

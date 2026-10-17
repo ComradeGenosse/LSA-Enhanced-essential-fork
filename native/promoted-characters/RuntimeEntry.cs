@@ -52,7 +52,9 @@ namespace LSA.PromotedCharacters
                     if(config.activities?.mode=="shadow") { try { integration.EnableActivityShadow(config.activities.pipeName,collectDialogueReceipts);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
                     else if(config.activities?.mode=="on") { try { integration.EnableActivityExecution(config.activities.pipeName,collectDialogueReceipts);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
                     try { integration.ConfigureVoicePresence(config.npcVoicePresence?.mode ?? "off",
-                        config.npcVoicePresence?.mouthEnabled is bool && (bool)config.npcVoicePresence.mouthEnabled); }
+                        config.npcVoicePresence?.mouthEnabled is bool && (bool)config.npcVoicePresence.mouthEnabled,
+                        VoiceOpenLevel(config.npcVoicePresence?.mouthOpenLevel),
+                        config.npcVoicePresence?.levelLog is bool && (bool)config.npcVoicePresence.levelLog); }
                     catch { Game.LogTrivial("[VP] observer_configuration_failed"); }
                     integration.Prepare();
                     IntegrationManager.Register(integration);
@@ -115,6 +117,18 @@ namespace LSA.PromotedCharacters
             public string mode {get;set;}="off";
             // Only a literal JSON true opts into unverified Enhanced facial natives.
             public object mouthEnabled {get;set;}=false;
+            // Essential RMS level (0.002..0.5) at which the mouth opens; anything else
+            // falls back to the default. Calibrate with levelLog.
+            public object mouthOpenLevel {get;set;}
+            // Literal JSON true enables rate-limited read-only "[VP] level ..." logging.
+            public object levelLog {get;set;}=false;
+        }
+        internal static float VoiceOpenLevel(object value) {
+            try {
+                if(value==null||value is bool||value is string) return 0.015f;
+                double v=Convert.ToDouble(value,System.Globalization.CultureInfo.InvariantCulture);
+                return (v>=0.002&&v<=0.5)?(float)v:0.015f;
+            } catch {return 0.015f;}
         }
         public sealed class NativeMemoryKConfig {public System.Collections.Generic.Dictionary<string,object> capabilities {get;set;}}
         public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string radio {get;set;}="off";public object directorAttemptPreset {get;set;}="normal";public string pipeName {get;set;}="LSA.Intelligence.v1";public System.Collections.Generic.Dictionary<string,object> producers {get;set;}}

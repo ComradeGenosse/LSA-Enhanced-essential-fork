@@ -4,6 +4,8 @@ on:
     paths:
       - 'native/promoted-characters/VoicePresenceTurnTracker.cs'
       - 'native/promoted-characters/NpcVoicePresenceObserver.cs'
+      - 'native/promoted-characters/NpcVoiceMouthOverlay.cs'
+      - 'native/promoted-characters/NpcPlayoutLevelSource.cs'
       - 'native/promoted-characters/voice-presence-tests/**'
       - 'native/promoted-characters/RuntimeEntry.cs'
       - 'native/promoted-characters/PromotedCharactersIntegration.cs'

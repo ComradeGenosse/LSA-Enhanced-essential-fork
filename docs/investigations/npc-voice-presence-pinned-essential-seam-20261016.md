@@ -37,3 +37,8 @@ Added `NpcVoiceMouthOverlay.cs` to the production native target, driven by the *
 - A production-quality lip-sync and positional implementation requires an Essential renderer upgrade exposing exact-turn playout levels and optional *single-mixer* spatial controls, followed by actual GTA Enhanced hardware verification. Do not enable either by default without those gates.
 
 Offline policy/observer regression tests now include observational mode, strict opt-in, not-yet-speaking audio, visible start, rate limiting, supersession, exact end, and recycled actor fail-closed behavior. CI results and GTA status must be recorded separately.
+
+
+## Correction and follow-up (2026-10-17)
+
+The statements above that Essential exposes "no rendered PCM level" and "no verified spatialization" were based on `NpcPlaybackCoordinator` only. The public `LosSantosAlive.Audio.NpcSpatialAudio` class (already listed in `docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md`) is Essential's actual playout class and exposes `IsAudibleAudioPlaying(Ped)`, `GetLastChunkRms(Ped)` and `HasBufferedAudioForTurn(...)`; `LosSantosAlive.Audio.NpcLipSync` is Essential's own facial talking. The mouth overlay now reads those getters instead of the speaking flag, and positional audio is left to Essential pending an in-game check. See [../npc-voice-presence.md](../npc-voice-presence.md). Internal (obfuscated) renderer code was not analysed or modified.

@@ -8,8 +8,12 @@ namespace LSA.PromotedCharacters {
         const int QueueLimit=32;
         readonly object gate=new object();
         readonly Queue<Fact> queue=new Queue<Fact>();
-        readonly VoicePresenceTurnTracker state=new VoicePresenceTurnTracker();
+        readonly VoicePresenceTurnTracker state;
         readonly NpcVoiceMouthOverlay mouth;
+        readonly IPlayoutLevelSource levels;
+        readonly bool levelLog;
+        long lastLevelLogAt=-1;
+        bool levelUnavailableLogged;
         bool attached,disposed,overflow;
         Ped ped; IntPtr address; int handle,epoch;
         readonly string mode;
@@ -17,18 +21,27 @@ namespace LSA.PromotedCharacters {
         internal long ActiveGeneration=>state.ActiveKey.Generation;
         internal int ActiveHandle=>handle;
         sealed class Fact {internal bool Starting; internal Ped Speaker;internal VoicePresenceTurnTracker.Key Key;}
-        internal NpcVoicePresenceObserver(string mode,bool mouthEnabled=false) {
+        // openLevel: Essential-RMS level (0..1) at which the mouth opens.
+        // levelLog: opt-in, rate-limited read-only diagnostics for calibration.
+        // levels: injectable for tests; production reads Essential's own getters.
+        internal NpcVoicePresenceObserver(string mode,bool mouthEnabled=false,float openLevel=DefaultOpenLevel,
+            bool levelLog=false,IPlayoutLevelSource levels=null) {
             this.mode=mode;
+            state=new VoicePresenceTurnTracker(openLevel);
+            this.levels=levels??new EssentialPlayoutLevelSource();
+            this.levelLog=levelLog&&mode!="off";
             if(mode=="on" && mouthEnabled) mouth=new NpcVoiceMouthOverlay();
         }
+        internal const float DefaultOpenLevel=0.015f;
         internal void Attach() {
             if(attached||disposed||mode=="off")return;
             NpcPlaybackCoordinator.PlaybackStarted+=Started;
             try {NpcPlaybackCoordinator.PlaybackEnded+=Ended;}
             catch {NpcPlaybackCoordinator.PlaybackStarted-=Started;throw;}
             attached=true;
-            Game.LogTrivial("[VP] mode="+mode+" playback_events=ready pcm_tap=missing mouth="+
-                (mouth==null?"off":"experimental_native_speaking")+" spatial=blocked");
+            Game.LogTrivial("[VP] mode="+mode+" playback_events=ready level_source=essential_public_getter mouth="+
+                (mouth==null?"off":"experimental_playout_level")+" level_log="+(levelLog?"on":"off")+
+                " spatial=owned_by_essential_unverified");
         }
         void Enqueue(Fact fact) {
             lock(gate) {
@@ -82,15 +95,42 @@ namespace LSA.PromotedCharacters {
                 catch {valid=false;}
             }
             if(!state.Sweep(epoch,nowMs,valid))Clear();
-            else if(mouth!=null) {
-                // Actual Essential native speaking flag, distinct from pending
-                // audio and Node chunk delivery. This is approximate facial
-                // motion only, NOT a playout PCM envelope or lip synchronization.
-                bool speaking=false;
-                try {speaking=NpcPlaybackCoordinator.IsPedCurrentlySpeaking(ped);} catch { }
-                mouth.Update(ped,nowMs,speaking);
+            else if(mouth!=null||levelLog) DrivePresence(nowMs);
+            // Spatialization is Essential's (NpcSpatialAudio). This observer never
+            // pans, attenuates or changes volume, so it can never apply it twice.
+        }
+        // Mouth state follows the level Essential reports for the exact active turn's
+        // ped. If Essential is not speaking, or the reader is unavailable, the mouth
+        // closes: there is deliberately no timing-based fallback.
+        void DrivePresence(long nowMs) {
+            var key=state.ActiveKey;
+            bool speaking=false;
+            try {speaking=NpcPlaybackCoordinator.IsPedCurrentlySpeaking(ped);} catch { }
+            float level=0f;bool audible=false,buffered=false,have=false;
+            if(speaking) have=levels.TryRead(ped,key.PedId,key.TurnId,key.Generation,out level,out audible,out buffered);
+            if(!speaking||!have) state.Silence();
+            else state.Sample(key,epoch,nowMs,audible?level:0f);
+            if(speaking&&!have&&!levels.Available&&!levelUnavailableLogged) {
+                levelUnavailableLogged=true;
+                Game.LogTrivial("[VP] level_source_unavailable mouth=closed no_estimate");
             }
-            // Do not pan/attenuate: Essential exposes no safe output-mixer hook.
+            if(levelLog&&(lastLevelLogAt<0||nowMs<lastLevelLogAt||nowMs-lastLevelLogAt>=LevelLogMs)) {
+                lastLevelLogAt=nowMs;
+                Game.LogTrivial("[VP] level gen="+key.Generation+" speaking="+(speaking?1:0)+" audible="+(audible?1:0)+
+                    " rms="+level.ToString("0.0000",System.Globalization.CultureInfo.InvariantCulture)+
+                    " turn_buffered="+(buffered?1:0)+" open="+(state.MouthOpen?1:0)+" dist="+DistanceToPlayer());
+            }
+            // Essential no longer speaking for this ped: close now, no dwell.
+            if(!speaking) mouth?.Close(ped,nowMs);
+            else mouth?.Update(ped,nowMs,state.MouthOpen);
+        }
+        const long LevelLogMs=250;
+        string DistanceToPlayer() {
+            try {
+                var p=Game.LocalPlayer.Character;
+                double dx=ped.Position.X-p.Position.X,dy=ped.Position.Y-p.Position.Y,dz=ped.Position.Z-p.Position.Z;
+                return Math.Sqrt(dx*dx+dy*dy+dz*dz).ToString("0.0",System.Globalization.CultureInfo.InvariantCulture);
+            } catch {return "na";}
         }
         // Called from the host-lifetime fiber, including when Core never
         // registered. Only detaches CLR events; Core retains state ownership.

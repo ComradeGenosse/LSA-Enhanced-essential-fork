@@ -77,7 +77,7 @@ namespace LSA.PromotedCharacters
         public event Action<string> OwnerRetired {add{}remove{}}
         public readonly HostContext Host;
         public PromotedCharactersIntegration(string world,string pipe,string identity,HostContext host=null) {Instance=this;Host=host;}
-        internal void ConfigureVoicePresence(string mode,bool mouthEnabled=false) { }
+        internal void ConfigureVoicePresence(string mode,bool mouthEnabled=false,float openLevel=0.015f,bool levelLog=false) { }
         public void Prepare()=>IsAvailable=true;
         public bool IsReady=>IsAvailable;
         internal string IdentityRuntimeStatus=>"identity_status=test";

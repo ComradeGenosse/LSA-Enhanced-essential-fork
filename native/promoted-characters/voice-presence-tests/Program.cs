@@ -55,67 +55,267 @@ static class Program {
         Assert(on.HasActiveTurn,"on mode remains observational pending renderer proof");
         on.Dispose();
     }
-    static void TestOptInMouth() {
-        var player=new Rage.Ped {Handle=10,MemoryAddress=new IntPtr(1000)};
-        var npc=new Rage.Ped {Handle=11,MemoryAddress=new IntPtr(1100)};
-        Rage.Game.LocalPlayer.Character=player;
-        LosSantosAlive.Audio.NpcPlaybackCoordinator.Talking=true;
-        Rage.Native.NativeFunction.Commands.Clear();
 
-        var shadow=new NpcVoicePresenceObserver("shadow",true);
-        shadow.Attach();
-        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(npc,"npc1","shadow",10);
-        shadow.Update(5,100);
-        Assert(!Rage.Native.NativeFunction.Commands.Exists(x=>x.StartsWith("PLAY_FACIAL_ANIM")),
-            "shadow must never change actor appearance");
+    // ---- Level-driven mouth (Essential playout level) -------------------------------
+    sealed class FakeLevels : IPlayoutLevelSource {
+        public readonly System.Collections.Generic.Dictionary<int,float> Level=new System.Collections.Generic.Dictionary<int,float>();
+        public readonly System.Collections.Generic.Dictionary<int,bool> Audible=new System.Collections.Generic.Dictionary<int,bool>();
+        public readonly System.Collections.Generic.List<string> Requests=new System.Collections.Generic.List<string>();
+        public bool Available {get;set;}=true;
+        public bool Fail;
+        public bool TryRead(Rage.Ped ped,string pedId,string turnId,long gen,out float level,out bool audible,out bool turnBuffered) {
+            Requests.Add(ped.Handle+":"+pedId+":"+turnId+":"+gen);
+            level=0;audible=false;turnBuffered=true;
+            if(Fail)return false;
+            Level.TryGetValue(ped.Handle,out level);
+            Audible.TryGetValue(ped.Handle,out audible);
+            return true;
+        }
+        public void Set(Rage.Ped p,float l,bool audible=true){Level[p.Handle]=l;Audible[p.Handle]=audible;}
+    }
+    static Rage.Ped NewPed(int handle,int address) =>
+        new Rage.Ped {Handle=handle,MemoryAddress=new IntPtr(address),Position=new Rage.Vector3(handle,0,0)};
+    static int Count(string cmd)=>Rage.Native.NativeFunction.Commands.Count(x=>x==cmd);
+    static bool Sent(string prefix)=>Rage.Native.NativeFunction.Commands.Exists(x=>x.StartsWith(prefix));
+    static void Reset() {
+        Rage.Native.NativeFunction.Commands.Clear();Rage.Game.Log.Clear();
+        Rage.Native.NativeFunction.Cutscene=false;
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.Talking=true;
+        LosSantosAlive.Audio.NpcSpatialAudio.Audible=false;LosSantosAlive.Audio.NpcSpatialAudio.Rms=0;
+        LosSantosAlive.Audio.NpcSpatialAudio.Throw=false;LosSantosAlive.Audio.NpcSpatialAudio.Buffered=false;
+        LosSantosAlive.Audio.NpcSpatialAudio.Reads=0;
+    }
+    static NpcVoicePresenceObserver MouthObserver(FakeLevels levels,string mode="on",bool mouth=true,bool log=false,float open=0.015f) {
+        var o=new NpcVoicePresenceObserver(mode,mouth,open,log,levels);o.Attach();return o;
+    }
+    static void Start(Rage.Ped p,string pedId,string turn,long gen)=>LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(p,pedId,turn,gen);
+    static void End(Rage.Ped p,string pedId,string turn,long gen)=>LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseEnded(p,pedId,turn,gen);
+
+    static void TestOptInMouth() {
+        Reset();
+        var player=NewPed(10,1000);var npc=NewPed(11,1100);
+        Rage.Game.LocalPlayer.Character=player;
+        var levels=new FakeLevels();levels.Set(npc,0.2f);
+
+        var shadow=MouthObserver(levels,"shadow",true);
+        Start(npc,"npc1","shadow",10);shadow.Update(5,100);
+        Assert(!Sent("PLAY_FACIAL_ANIM"),"shadow must never change actor appearance");
+        Assert(levels.Requests.Count==0,"shadow without levelLog does not even read levels");
         shadow.Dispose();
 
-        var disabled=new NpcVoicePresenceObserver("on",false);
-        disabled.Attach();
-        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(npc,"npc1","disabled",11);
-        disabled.Update(5,200);
-        Assert(!Rage.Native.NativeFunction.Commands.Exists(x=>x.StartsWith("PLAY_FACIAL_ANIM")),
-            "on mode still requires explicit mouth opt-in");
+        var disabled=MouthObserver(levels,"on",false);
+        Start(npc,"npc1","disabled",11);disabled.Update(5,200);
+        Assert(!Sent("PLAY_FACIAL_ANIM"),"on mode still requires explicit mouth opt-in");
         disabled.Dispose();
 
-        var on=new NpcVoicePresenceObserver("on",true);
-        on.Attach();
+        var on=MouthObserver(levels);
         LosSantosAlive.Audio.NpcPlaybackCoordinator.Talking=false;
-        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(npc,"npc1","first",12);
-        on.Update(5,300);
-        Assert(!Rage.Native.NativeFunction.Commands.Exists(x=>x.StartsWith("PLAY_FACIAL_ANIM")),
-            "queued but not currently speaking must not animate");
+        Start(npc,"npc1","first",12);on.Update(5,300);
+        Assert(!Sent("PLAY_FACIAL_ANIM"),"queued but not currently speaking must not animate");
         LosSantosAlive.Audio.NpcPlaybackCoordinator.Talking=true;
+        levels.Set(npc,0f,false);
         on.Update(5,350);
-        Assert(Rage.Native.NativeFunction.Commands.Contains("PLAY_FACIAL_ANIM:mic_chatter"),
-            "native-speaking turn drives gated facial-only animation");
-        var played=Rage.Native.NativeFunction.Commands.Count(x=>x=="PLAY_FACIAL_ANIM:mic_chatter");
-        on.Update(5,370);
-        Assert(Rage.Native.NativeFunction.Commands.Count(x=>x=="PLAY_FACIAL_ANIM:mic_chatter")==played,
-            "facial native is rate limited");
-        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(npc,"npc1","second",13);
+        Assert(!Sent("PLAY_FACIAL_ANIM"),"Essential 'speaking' with no audible playout level must NOT animate");
+        levels.Set(npc,0.2f,true);
         on.Update(5,400);
-        Assert(Rage.Native.NativeFunction.Commands.Contains("PLAY_FACIAL_ANIM:mood_normal_1"),
-            "replacement closes only previously applied facial overlay");
-        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseEnded(npc,"npc1","first",12);
-        on.Update(5,420);
-        Assert(on.HasActiveTurn && on.ActiveGeneration==13,"old end cannot stop replacement");
-
-        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseEnded(npc,"npc1","second",13);
+        Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")==1,"audible playout level opens the mouth once");
         on.Update(5,450);
+        Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")==1,"facial native is rate limited while open");
+        Start(npc,"npc1","second",13);on.Update(5,500);
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==1,"replacement closes only previously applied facial overlay");
+        End(npc,"npc1","first",12);on.Update(5,520);
+        Assert(on.HasActiveTurn&&on.ActiveGeneration==13,"old end cannot stop replacement");
+        End(npc,"npc1","second",13);on.Update(5,550);
         Assert(!on.HasActiveTurn,"replacement ends");
         Rage.Native.NativeFunction.Commands.Clear();
-        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(npc,"npc1","third",14);
-        on.Update(5,500);
-        Assert(Rage.Native.NativeFunction.Commands.Contains("PLAY_FACIAL_ANIM:mic_chatter"),"third starts");
+        Start(npc,"npc1","third",14);on.Update(5,600);
+        Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")==1,"third turn opens from level");
         Rage.Native.NativeFunction.Commands.Clear();
-        npc.MemoryAddress=new IntPtr(1101);
-        on.Update(5,510);
-        Assert(!on.HasActiveTurn&&!Rage.Native.NativeFunction.Commands.Exists(x=>x.StartsWith("PLAY_FACIAL_ANIM")),
-            "reused ped is never sent even a closing native");
+        npc.MemoryAddress=new IntPtr(1101);on.Update(5,610);
+        Assert(!on.HasActiveTurn&&!Sent("PLAY_FACIAL_ANIM"),"reused ped is never sent even a closing native");
         on.Dispose();
-        LosSantosAlive.Audio.NpcPlaybackCoordinator.Talking=false;
     }
+
+    static void TestVolumesAndPauses() {
+        Reset();
+        var player=NewPed(20,2000);var npc=NewPed(21,2100);Rage.Game.LocalPlayer.Character=player;
+        var levels=new FakeLevels();var o=MouthObserver(levels);
+        Start(npc,"n","t",1);
+        levels.Set(npc,0.005f);o.Update(1,1000);
+        Assert(!Sent("PLAY_FACIAL_ANIM"),"quiet speech below the open level keeps the mouth closed");
+        levels.Set(npc,0.012f);o.Update(1,1050);
+        Assert(!Sent("PLAY_FACIAL_ANIM"),"a level between close and open thresholds does not open a closed mouth");
+        levels.Set(npc,0.30f);o.Update(1,1100);
+        Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")==1,"loud speech opens");
+        levels.Set(npc,0.012f);o.Update(1,1200);o.Update(1,1350);
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==0,"hysteresis keeps a wavering level open");
+        levels.Set(npc,0f,true);o.Update(1,1400);
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==0,"short pause is held open (no flicker)");
+        o.Update(1,1600);
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==1,"natural pause closes the mouth");
+        levels.Set(npc,0.4f);o.Update(1,1650);
+        Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")==1,"reopen is held back by the minimum closed dwell");
+        o.Update(1,1750);
+        Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")==2,"next word reopens after dwell");
+        levels.Set(npc,0.4f,false);o.Update(1,1800);o.Update(1,2000);
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==2,"inaudible playout (e.g. muted or gap) is silence even with a stale RMS");
+        // Mouth never opens or closes faster than the dwell limits.
+        Rage.Native.NativeFunction.Commands.Clear();
+        for(long t=2100;t<3100;t+=10){levels.Set(npc,(t/10)%2==0?0.5f:0f);o.Update(1,t);}
+        Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")+Count("PLAY_FACIAL_ANIM:mood_normal_1")<=10,"rapid level flapping cannot spam facial natives");
+        o.Dispose();
+    }
+
+    static void TestStopsAndSpeakerChanges() {
+        Reset();
+        var player=NewPed(30,3000);var a=NewPed(31,3100);var b=NewPed(32,3200);Rage.Game.LocalPlayer.Character=player;
+        var levels=new FakeLevels();levels.Set(a,0.3f);levels.Set(b,0.3f);
+        var o=MouthObserver(levels);
+        Start(a,"A","turnA",1);o.Update(1,100);o.Update(1,120);
+        Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")==1&&levels.Requests.TrueForAll(r=>r=="31:A:turnA:1"),
+            "levels are requested only for the exact active turn/ped");
+        // Natural speaker change A -> B: A's face is closed before B is ever read.
+        Rage.Native.NativeFunction.Commands.Clear();levels.Requests.Clear();
+        Start(b,"B","turnB",1);o.Update(1,130);
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==1,"speaker change closes the previous speaker immediately");
+        Assert(levels.Requests.Count>0&&levels.Requests.TrueForAll(r=>r=="32:B:turnB:1"),"after the change only B's exact turn is read");
+        o.Update(1,300);
+        Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")==1,"B opens from B's own level");
+        End(a,"A","turnA",1);o.Update(1,310);
+        Assert(o.HasActiveTurn&&o.ActiveHandle==32,"late end from A cannot stop B");
+        // Interruption: Essential ends the turn while its tail is still audible.
+        Rage.Native.NativeFunction.Commands.Clear();levels.Requests.Clear();
+        End(b,"B","turnB",1);o.Update(1,320);
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==1,"interruption closes the mouth in the same update, ignoring dwell");
+        Assert(!o.HasActiveTurn,"interrupted turn is gone");
+        levels.Set(b,0.9f);Rage.Native.NativeFunction.Commands.Clear();o.Update(1,330);o.Update(1,500);
+        Assert(!Sent("PLAY_FACIAL_ANIM")&&levels.Requests.Count==0,"audio tail after the turn ended is never attributed to anyone");
+        // Essential stops speaking without an end event yet: close at once.
+        Start(a,"A","turnA2",2);levels.Set(a,0.3f);o.Update(1,600);o.Update(1,620);
+        Rage.Native.NativeFunction.Commands.Clear();
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.Talking=false;o.Update(1,630);
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==1,"speech stop closes the mouth immediately");
+        o.Dispose();
+    }
+
+    static void TestFailSafeAndLifecycle() {
+        Reset();
+        var player=NewPed(40,4000);var npc=NewPed(41,4100);Rage.Game.LocalPlayer.Character=player;
+        // Missing/changed Essential hook: production reader against the throwing stub.
+        var real=new NpcVoicePresenceObserver("on",true,0.015f,false,new EssentialPlayoutLevelSource());real.Attach();
+        LosSantosAlive.Audio.NpcSpatialAudio.Throw=true;
+        Start(npc,"n","t",1);real.Update(1,100);real.Update(1,200);real.Update(1,300);
+        Assert(real.HasActiveTurn,"observer keeps tracking the turn without a level hook");
+        Assert(!Sent("PLAY_FACIAL_ANIM"),"missing renderer hook: mouth stays closed, nothing is estimated");
+        Assert(Rage.Game.Log.Count(x=>x.Contains("playout_level=unavailable"))==1,"missing hook is logged once");
+        LosSantosAlive.Audio.NpcSpatialAudio.Throw=false;LosSantosAlive.Audio.NpcSpatialAudio.Audible=true;LosSantosAlive.Audio.NpcSpatialAudio.Rms=0.5f;
+        int reads=LosSantosAlive.Audio.NpcSpatialAudio.Reads;
+        real.Update(1,400);
+        Assert(!Sent("PLAY_FACIAL_ANIM")&&LosSantosAlive.Audio.NpcSpatialAudio.Reads==reads,"after a hook failure the reader stays off for the run");
+        real.Dispose();
+
+        // Production reader happy path through the Essential stub.
+        Reset();
+        LosSantosAlive.Audio.NpcSpatialAudio.Audible=true;LosSantosAlive.Audio.NpcSpatialAudio.Rms=0.2f;
+        var live=new NpcVoicePresenceObserver("on",true,0.015f,false,new EssentialPlayoutLevelSource());live.Attach();
+        Start(npc,"n","t2",2);live.Update(1,100);live.Update(1,150);
+        Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")==1,"Essential's getters drive the mouth");
+        Rage.Native.NativeFunction.Commands.Clear();
+        LosSantosAlive.Audio.NpcSpatialAudio.Rms=float.NaN;live.Update(1,400);
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==1,"non-finite level is treated as no signal and closes");
+        live.Dispose();
+        // Reader reports "no trustworthy reading" while the mouth is open: close, never hold.
+        Reset();
+        var flaky=new FakeLevels();flaky.Set(npc,0.3f);var fo=MouthObserver(flaky);
+        Start(npc,"n","f",9);fo.Update(1,100);fo.Update(1,150);
+        Rage.Native.NativeFunction.Commands.Clear();
+        flaky.Fail=true;fo.Update(1,400);
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==1,"an unreadable level closes the mouth instead of holding it");
+        fo.Dispose();
+
+        // Speech-state exception from Essential never escapes the observer.
+        // World change: no native is sent on the old world's ped.
+        Reset();
+        var levels=new FakeLevels();levels.Set(npc,0.3f);var o=MouthObserver(levels);
+        Start(npc,"n","w",1);o.Update(1,100);o.Update(1,150);
+        Rage.Native.NativeFunction.Commands.Clear();
+        o.Update(2,200);
+        Assert(!o.HasActiveTurn&&!Sent("PLAY_FACIAL_ANIM"),"world epoch change drops the turn without touching the old ped");
+        // Despawned and recycled actors.
+        Reset();
+        Start(npc,"n","d",2);o.Update(2,300);o.Update(2,350);
+        Rage.Native.NativeFunction.Commands.Clear();
+        npc.Existing=false;o.Update(2,400);
+        Assert(!o.HasActiveTurn&&!Sent("PLAY_FACIAL_ANIM"),"despawned ped gets no native call");
+        npc.Existing=true;
+        var recycled=NewPed(41,4100);Start(recycled,"n","r",3);o.Update(2,500);o.Update(2,550);
+        Rage.Native.NativeFunction.Commands.Clear();
+        recycled.Handle=77;o.Update(2,600);
+        Assert(!o.HasActiveTurn&&!Sent("PLAY_FACIAL_ANIM"),"recycled handle gets no native call");
+        // Authored cutscene: suppress, do not touch facial state.
+        Reset();
+        var fresh=NewPed(51,5100);levels.Set(fresh,0.3f);
+        Rage.Native.NativeFunction.Cutscene=true;
+        Start(fresh,"n","c",4);o.Update(2,700);o.Update(2,750);
+        Assert(!Sent("PLAY_FACIAL_ANIM"),"authored cutscene suppresses the overlay");
+        Rage.Native.NativeFunction.Cutscene=false;
+        // Application shutdown while the mouth is open.
+        Reset();
+        o.Update(2,800);o.Update(2,1200);
+        Assert(Count("PLAY_FACIAL_ANIM:mic_chatter")>=1,"mouth open before shutdown");
+        Rage.Native.NativeFunction.Commands.Clear();
+        o.Dispose();
+        Assert(Count("PLAY_FACIAL_ANIM:mood_normal_1")==1,"shutdown closes the face exactly once");
+        Start(fresh,"n","late",5);o.Update(2,1300);
+        Assert(!o.HasActiveTurn&&!Sent("PLAY_FACIAL_ANIM:mic"),"events after shutdown are ignored");
+    }
+
+    static void TestProvidersAndLog() {
+        // OpenAI / ElevenLabs / local TTS all arrive through Essential's one queue, so
+        // the observer sees identical exact-turn events and identical levels.
+        int[] counts=new int[3];string[] ids={"openai","elevenlabs","local"};
+        for(int i=0;i<3;i++) {
+            Reset();
+            var player=NewPed(60,6000);var npc=NewPed(61,6100);Rage.Game.LocalPlayer.Character=player;
+            var levels=new FakeLevels();levels.Set(npc,0.3f);var o=MouthObserver(levels);
+            Start(npc,ids[i]+"-ped",ids[i]+"-turn",1);o.Update(1,100);o.Update(1,250);
+            End(npc,ids[i]+"-ped",ids[i]+"-turn",1);o.Update(1,300);
+            counts[i]=Rage.Native.NativeFunction.Commands.Count(x=>x.StartsWith("PLAY_FACIAL_ANIM"));
+            o.Dispose();
+        }
+        Assert(counts[0]==2&&counts[1]==2&&counts[2]==2,"mouth behaviour is identical for every TTS provider");
+
+        // Read-only calibration log: shadow mode, rate limited, never a facial native.
+        Reset();
+        var p=NewPed(70,7000);var n=NewPed(71,7100);n.Position=new Rage.Vector3(3,4,0);p.Position=new Rage.Vector3(0,0,0);
+        Rage.Game.LocalPlayer.Character=p;
+        var fl=new FakeLevels();fl.Set(n,0.1f);var sh=MouthObserver(fl,"shadow",false,true);
+        Start(n,"n","log",1);
+        for(long t=100;t<=1100;t+=50)sh.Update(1,t);
+        var lines=Rage.Game.Log.FindAll(x=>x.StartsWith("[VP] level "));
+        Assert(lines.Count>=3&&lines.Count<=5,"level log is rate limited (got "+lines.Count+")");
+        Assert(lines[0].Contains("dist=5.0")&&lines[0].Contains("rms=0.1000")&&lines[0].Contains("audible=1"),"log carries distance and level");
+        Assert(!Sent("PLAY_FACIAL_ANIM"),"calibration logging never changes the actor");
+        var off=MouthObserver(fl,"off",false,true);
+        Assert(true,"off mode constructs");
+        sh.Dispose();
+    }
+
+    static void TestTrackerLevels() {
+        var t=new VoicePresenceTurnTracker(0.02f);
+        var k=new VoicePresenceTurnTracker.Key("p","t",1);
+        Assert(t.Begin(k,1,0),"begin");
+        Assert(t.Sample(k,1,10,0.019f)&&!t.MouthOpen,"below configured open level");
+        Assert(t.Sample(k,1,20,0.021f)&&t.MouthOpen,"above configured open level");
+        Assert(t.Sample(k,1,40,0.013f)&&t.MouthOpen,"hysteresis band stays open");
+        Assert(t.Sample(k,1,60,0.011f)&&t.MouthOpen,"below close level holds during the silence window");
+        Assert(t.Sweep(1,240,true)&&!t.MouthOpen,"sweep closes a pause without another sample");
+        Assert(t.Sample(k,1,250,0.021f)&&t.MouthOpen,"reopens");
+        t.Silence();Assert(!t.MouthOpen&&!t.HasPlayout&&t.Active,"Silence closes at once and keeps the turn");
+        var bad=new VoicePresenceTurnTracker(float.NaN);Assert(bad.OpenLevel==VoicePresenceTurnTracker.OpenThreshold,"invalid open level falls back");
+        var zero=new VoicePresenceTurnTracker(0f);Assert(zero.OpenLevel==VoicePresenceTurnTracker.OpenThreshold,"zero open level falls back");
+    }
+
     static void Main() {
         var s=new VoicePresenceTurnTracker();
         var a=new VoicePresenceTurnTracker.Key("ped1","turnA",1);
@@ -147,8 +347,13 @@ static class Program {
         Assert(s.Sample(a,6,110,.5f),"ordered sample");
         Assert(!s.Sample(a,6,109,.5f),"out of order");
         s.Clear();Assert(!s.Active&&!s.HasPlayout&&!s.MouthOpen,"cleanup");
+        TestTrackerLevels();
         TestObserver();
         TestOptInMouth();
+        TestVolumesAndPauses();
+        TestStopsAndSpeakerChanges();
+        TestFailSafeAndLifecycle();
+        TestProvidersAndLog();
         Console.WriteLine("NPC voice presence policy + native event observer: "+count+" checks passed.");
     }
 }

@@ -18,6 +18,8 @@
   },
   "npcVoicePresence": {
     "mode": "off",
-    "mouthEnabled": false
+    "mouthEnabled": false,
+    "mouthOpenLevel": 0.015,
+    "levelLog": false
   }
 }
