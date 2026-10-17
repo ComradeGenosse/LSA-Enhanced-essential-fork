@@ -117,14 +117,17 @@ test('an invalid sample retires every window instead of extending it',async()=>{
 
 test('timeline change or unwritable timeline closes windows; coverage is per timeline',async()=>{
   const r=rig(),a=r.npc('a');
-  r.run([a],10);
-  r.setTimeline(randomUUID());
-  r.run([a],3);
+  r.run([a],40);await r.tracker.idle();
+  const secondTimeline=randomUUID();
+  r.setTimeline(secondTimeline);
+  r.run([a],40);await r.tracker.idle();
   assert.equal(r.tracker.snapshot().closedBy.timeline_changed,1);
   r.setTimeline(null);
   r.run([a],3);
   assert.equal(r.tracker.snapshot().closedBy.timeline_unwritable,1);
-  await r.tracker.idle();
+  assert.equal(r.tracker.snapshot().sourceSuspended,true);
+  r.setTimeline(secondTimeline);r.ctx.streamId=randomUUID();
+  r.run([a],40);await r.tracker.idle();
   assert.equal(new Set(r.windows(a.characterId).map(w=>w.timelineId)).size,2);
 });
 
