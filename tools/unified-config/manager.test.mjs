@@ -237,6 +237,7 @@ test('recovery refuses to overwrite a third-party edit after partial update',asy
 });
 
 test('permission error never reports successful apply',async t=>{
+  if(process.platform==='win32') return t.skip('chmod does not enforce POSIX write permission on Windows');
   const {game,files}=await setup(t);
   await run('import',{game});
   await editMaster(files,m=>{m.sections.ai.maxOutputTokens=333;});
