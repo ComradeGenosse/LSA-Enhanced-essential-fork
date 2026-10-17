@@ -1,5 +1,6 @@
 import {selectDirectorIntent} from './sceneDirector.mjs';
 import {renderDirectorEventContext} from './directorContext.mjs';
+import {renderDirectorSocialContext} from './directorSocialContext.mjs';
 
 // Coordinator for the existing PS3 -> C-11 -> Essential seam. No world scan,
 // second executor, retry policy, provider, memory writer or TASK is created.
@@ -33,7 +34,8 @@ export class SceneDirectorSpeech {
     let record;
     try {record=this.originalEntitlement(proposal,stamp);}
     catch {return false;}
-    return record?.source==='original_companion_ps2_ps3' &&
+    return (record?.source==='original_companion_ps2_ps3' ||
+      proposal.source==='native_director_social' && record?.source==='native_director_social') &&
       record.hostRunId===stamp?.hostRunId &&
       record.worldEpoch===stamp?.worldEpoch &&
       record.speakerCaptureRef===proposal.speakerCaptureRef &&
@@ -51,21 +53,21 @@ export class SceneDirectorSpeech {
     if(this.mode!=='active' || typeof this.admission.pacingVeto!=='function')return null;
     return this.admission.pacingVeto(proposal);
   }
-  async attempt({candidates=[],facts,stamp}={}) {
+  async attempt({candidates=[],facts,stamp,socialProposal=null}={}) {
     if(this.mode==='off')return Object.freeze({status:'off'});
-    const proposal=selectDirectorIntent(candidates,facts);
+    const proposal=socialProposal??selectDirectorIntent(candidates,facts);
     if(!proposal)return Object.freeze({status:'no_eligible_evidence'});
     if(this.mode==='shadow')return Object.freeze({status:'shadow',observationId:proposal.observationId});
     // Resolve one exact, original PS2 observation to Luna-visible context.
     // The native stock Content parameter is never made from proposal IDs,
     // player free text, an inferred scene, or a stale alternative candidate.
-    const eventContext=renderDirectorEventContext(proposal,candidates);
+    const eventContext=socialProposal?renderDirectorSocialContext(proposal):renderDirectorEventContext(proposal,candidates);
     if(!eventContext)return Object.freeze({status:'event_context_unavailable'});
     // A real current companion PS3 observation+grant is independently
     // mandatory even if the caller injects an all-positive mock C-06.
     // Native still must independently authorize after this source check.
     if(!this.originalGrantCurrent(proposal,stamp))
-      return Object.freeze({status:'original_ps3_unavailable'});
+      return Object.freeze({status:socialProposal?'native_social_unavailable':'original_ps3_unavailable'});
     // Active is impossible with the current native preview-only endpoint; the
     // caller must supply an authenticated native submit and exact stock driver.
     const ticket=this.admission.reserve(proposal,stamp);
@@ -107,7 +109,7 @@ export class SceneDirectorSpeech {
       failureStage='stock_dispatch';
       const result=await this.dispatch(Object.freeze({
         ticket,proposal,stamp,gates,eventContext,
-        source:'scene_director',reason:'ps6_observer',
+        source:'scene_director',reason:socialProposal?'social_scene':'ps6_observer',
         faceListener:false,interruptExisting:false,delayMs:0,
       }));
       if(!hydrated || !publication || !result?.tuple || !result?.terminal) {
