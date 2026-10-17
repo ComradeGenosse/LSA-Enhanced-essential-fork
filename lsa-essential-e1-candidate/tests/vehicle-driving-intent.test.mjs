@@ -16,6 +16,8 @@ test('whole-utterance continuation is not mistaken for evasive driving or a new 
 test('speed changes never silently become aggressive mode; explicit evasive is distinct', () => {
   assert.equal(drivingIntentKind('Hey, drive faster!'),'speed');
   assert.equal(drivingIntentKind('Go faster'),'speed');
+  assert.equal(drivingIntentKind('Floor it'),'speed');
+  assert.equal(drivingIntentKind('Slow down'),'speed');
   assert.equal(drivingIntentKind('Drive evasively'),'evasive');
   assert.equal(drivingIntentKind('Stop driving evasively'),'normal');
   assert.match(drivingModelGuidance('speed'),/speed change/i);
@@ -33,6 +35,7 @@ test('start, stop, and ACT6 owner are independent, with no disguised stock takeo
   assert.equal(activeAct6Driving({stateVersion:1,intent:'vehicle_trip',status:'completed'}),false);
   assert.equal(reconcileDrivingDecision({dialogue:'Cruising.',command:'DO BeginDriving V001'}, {kind:'start'}).decision.command,'DO BeginDriving V001');
   assert.equal(reconcileDrivingDecision({dialogue:'Okay',command:'DO BeginDriving V001'}, {kind:'stop'}).decision.command,'');
+  assert.equal(reconcileDrivingDecision({dialogue:'Okay',command:'DO DriveNormally'}, {kind:'stop'}).decision.command,'');
   assert.equal(reconcileDrivingDecision({dialogue:'Okay',command:'DO BeginDriving V001'}, {act6OwnsDrive:true}).blocked,'act6_owns_drive');
   assert.match(drivingModelGuidance(null,true),/ACT6 vehicle trip/);
 });
