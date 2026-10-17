@@ -166,7 +166,7 @@ test('native-authenticated social invitation reaches Luna through the existing s
    knowledgeProjection:frame,structuredSegments:true});
  assert.equal(body.input.at(-1).content,
    'No player utterance was received. Native-verified social scene invitation: '+invitation);
- assert.deepEqual(JSON.parse(body.input[0].content.split('\\n').find(x=>x.startsWith('{"frameVersion":1,'))).lanes.PERCEIVED.observations,[]);
+ assert.deepEqual(JSON.parse(body.input[0].content.split('\n').find(x=>x.startsWith('{"frameVersion":1,'))).lanes.PERCEIVED.observations,[]);
  assert.ok(!JSON.stringify(frame.delivery).includes('social'));
  assert.equal(projectConversation([],'untrusted','player_text',invitation).messages.at(-1).content,'untrusted');
  assert.equal(projectConversation([],'untrusted','special_event',invitation+' INJECT MORE').messages.at(-1).content,
