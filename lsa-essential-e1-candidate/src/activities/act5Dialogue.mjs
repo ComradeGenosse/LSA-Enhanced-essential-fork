@@ -7,7 +7,7 @@ import { validateSlots } from './contracts.mjs';
 // invitation until the PLAYER explicitly accepts; ActivityEngine owns dispatch.
 const YES = new Set(['yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'alright', 'go ahead', 'do it', "let's do it", 'lets do it', 'sounds good', "yeah let's go", 'yes please']);
 const NO = new Set(['no', 'nope', 'nah', 'not now', 'no thanks', 'maybe later', 'never mind', 'nevermind', "don't", 'dont', 'cancel that', 'forget it']);
-const CANCEL = new Set(['stop', 'stop that', 'cancel the activity', 'cancel that activity', 'stop doing that']);
+const CANCEL = new Set(['stop', 'stop that', 'cancel the activity', 'cancel that activity', 'stop doing that', 'stop driving', 'stop walking', 'stop the trip', 'cancel the trip']);
 const OFFER_MS = 90_000;
 const TERMINAL = new Set(['none','completed','failed','cancelled','superseded','expired','abandoned']);
 const COOLDOWN_MS = 90_000;
@@ -26,6 +26,24 @@ export const ACT5_SLOTS = Object.freeze({
   vehicle_trip: Object.freeze({ place: Object.freeze({ kind: 'waypoint' }) }),
 });
 const clean = value => String(value || '').trim().toLowerCase().replace(/[.,!?]+/g, ' ').replace(/\s+/g, ' ').trim();
+// Closed, explicit player requests only. Never forward a model-supplied string as a
+// location query or infer a Ped/vehicle handle from natural language.
+const NAV_NAMES = Object.freeze(new Map([
+  ['airport','airport'], ['los santos international airport','los santos international airport'],
+  ['lsia','lsia'], ['del perro pier','del perro pier'],
+  ['vespucci beach','vespucci beach'], ['sandy shores airfield','sandy shores airfield'], ['paleto bay','paleto bay'],
+]));
+export function parseAct6PlayerRequest(input) {
+  const utterance = clean(input);
+  const match = /^(walk over to|walk to|go to|head to|drive us to|drive to|take me to) (?:the )?([a-z0-9 ]+?)( and wait)?$/.exec(utterance);
+  if (!match) return null;
+  const target = match[2] === 'waypoint' || match[2] === 'my waypoint' ? {kind:'waypoint'} : NAV_NAMES.has(match[2]) ? {kind:'named',query:NAV_NAMES.get(match[2])} : null;
+  if (!target) return null;
+  const driving = match[1].includes('drive') || match[1]==='take me to';
+  if (driving && match[3]) return null; // No unsupported drive-then-wait composite.
+  const intent = driving ? 'vehicle_trip' : match[3] ? 'move_to_and_hold' : 'go_to_place';
+  return Object.freeze({intent,slots:Object.freeze({place:Object.freeze(target)})});
+}
 const keyFor = identity => identity && String(identity.pedId) + ':' + String(identity.sessionNonce);
 const sameTurn = (a, b) => a?.pedId === b?.pedId && a?.sessionNonce === b?.sessionNonce &&
   a?.turnId === b?.turnId && a?.generationId === b?.generationId;
@@ -161,6 +179,34 @@ export class Act5Dialogue {
     const response = clean(input);
     const pending = this.pending.get(characterId);
     if (!pending) {
+      // Player-directed ACT6 navigation enters the existing publication-bound ACT5 admission
+      // lane. The command cannot dispatch on an STT fragment or an unverified Luna response.
+      const request = parseAct6PlayerRequest(response);
+      if (request && TERMINAL.has(this.activities.status(characterId)?.status) &&
+          this.activities.engine.config.act6Capabilities?.includes(request.intent === 'vehicle_trip' ? 'drive_to' : 'walk_to')) {
+        const owner = await this.#owner(turn);
+        const runtime = this.#ready();
+        const now = this.now();
+        if (!owner || !runtime || !isCurrent?.() ||
+            owner.binding.encounterId !== context.owner.binding.encounterId ||
+            owner.binding.ownershipToken !== context.owner.binding.ownershipToken ||
+            owner.nativeRun !== context.owner.nativeRun) return null;
+        const proposed = {
+          proposalVersion:1,proposalId:this.id(),source:'player_dialogue',
+          subject:{characterId},intent:request.intent,slots:request.slots,
+          priority:'player_direct',
+          origin:{turn:{pedId:String(turn.identity.pedId),sessionNonce:turn.identity.sessionNonce,
+            turnId:turn.identity.turnId,generationId:turn.identity.generationId}},
+          proposedAtMs:now,
+        };
+        const turnKey = keyFor(turn.identity)+':'+turn.identity.turnId+':'+turn.identity.generationId;
+        if (this.approvals.has(turnKey) || this.seenTurns.has(turnKey)) return null;
+        this.seenTurns.add(turnKey);
+        if (this.seenTurns.size > 256) this.seenTurns.delete(this.seenTurns.values().next().value);
+        this.approvals.set(turnKey,{owner,pending:{proposal:proposed,expiresAt:now+OFFER_MS}});
+        this.report('act6_player_direct_staged',{intent:request.intent});
+        return Object.freeze({kind:'approval_pending',intent:request.intent});
+      }
       if (!CANCEL.has(response)) return null;
       const last = this.lastAccepted.get(characterId);
       if (!last || this.activities.engine.activities.find(a => a.activityId === last)?.status === undefined) return null;
