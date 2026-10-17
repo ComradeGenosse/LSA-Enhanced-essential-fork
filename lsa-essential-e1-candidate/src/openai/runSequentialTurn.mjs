@@ -484,7 +484,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const lunaDeliveryVersion=services.config.expressiveDelivery?.mode==='experimental'
       ?services.config.expressiveDelivery.lunaDeliveryVersion??0:0;
     if (services.config.structuredStreamingEnabled === true) {
-      const allowEarlyTts = services.config.earlyTtsEnabled === true;
+      // ACT5 decisions can carry an activity only at EOF; hold ALL candidate
+      // speech until the final schema and authorization have been verified.
+      const allowEarlyTts = services.config.earlyTtsEnabled === true && !act5Context;
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
         identity, context: reasoningContext(), source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
@@ -618,6 +620,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const validateSpan = metrics?.startSpan('decision_validation');
     let validated;
     try {
+      if (turn.act5Reply && decision.command) throw new TypeError('ACT5 confirmation cannot run a parallel stock DO command.');
       if (act5Context) {
         const {validateAct5Choice} = await import('../activities/act5Dialogue.mjs');
         if (!Object.hasOwn(decision, 'activity') ||
@@ -657,6 +660,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     await emit({ type: 'output_transcript', text: validated.internalTranscript });
     check();
+    if (turn.act5Reply?.kind === 'approval_pending') {
+      const accepted = await services.act5?.commitApproved(turn, valid);
+      check();
+      if (!accepted?.ok) throw new Error('act5_confirmation_not_admitted');
+      metrics?.event('act5_goal_accepted', { outcome:'accepted' });
+    }
     transition('tts_running');
     let audio = earlyAudio?.bytes > 0 ? earlyAudio : null;
     const successfulEarlySpeech = !!audio && spokenTtsSegments.length>0;
