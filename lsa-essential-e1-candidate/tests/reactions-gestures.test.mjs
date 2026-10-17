@@ -125,12 +125,42 @@ test('gestures: a contradicting trusted delivery drops the frame, a neutral or m
   assert.deepEqual(run('You got it, boss.', { value: 'sarcastic' }), { sent: 1, vetoed: 0 });
 });
 
-test('gestures: only the first trusted delivery of a turn counts and a late one cannot veto a sent frame', () => {
+test('gestures: any contradictory segment vetoes, regardless of order or early playback', () => {
+  // In early streaming playback may start before final reply validation. The
+  // service must retain ALL resolved delivery values until it selects a frame.
+  for (const values of [
+    ['neutral', 'sarcastic'],
+    ['sarcastic', 'neutral'],
+    ['amused', 'neutral', 'sarcastic'],
+    ['invalid', 'neutral', 'sarcastic'],
+  ]) {
+    const client = fakeClient();
+    const service = createReactionService({ config: { mode: 'on', enabled: ['nod'] }, client });
+    const turn = service.openTurn({ identity, source: 'player_text' });
+    turn.native({ type: 'playback_started' });
+    for (const value of values) turn.delivery(value);
+    assert.equal(client.sent.length, 0, 'playback alone never selects a frame');
+    turn.validated({ dialogue: 'You got it, boss.', command: '', actionCount: 0 });
+    assert.equal(client.sent.length, 0, values.join(' -> '));
+    assert.equal(service.counters().vetoed, 1, 'one frame attempt, one veto');
+  }
+});
+
+test('gestures: noncontradictory segments allow one frame, late delivery cannot undo it', () => {
   const client = fakeClient();
   const service = createReactionService({ config: { mode: 'on', enabled: ['nod'] }, client });
-  const turn = play(service, 'You got it, boss.', { delivery: 'neutral' });
-  turn.delivery('sarcastic');
+  const turn = service.openTurn({ identity, source: 'player_text' });
+  turn.delivery('neutral');
+  turn.delivery('amused');
+  turn.delivery({ value: 'sarcastic' }); // untrusted shape must not count
+  turn.validated({ dialogue: 'You got it, boss.', command: '', actionCount: 0 });
+  turn.native({ type: 'playback_started' });
   assert.equal(client.sent.length, 1);
+  turn.delivery('sarcastic'); // too late to retract an already sent frame
+  turn.native({ type: 'playback_started' });
+  assert.equal(client.sent.length, 1);
+  assert.equal(service.counters().vetoed, 0);
+
   const second = fakeClient();
   const s2 = createReactionService({ config: { mode: 'on', enabled: ['nod'] }, client: second });
   const t2 = s2.openTurn({ identity, source: 'player_text' });
@@ -138,6 +168,7 @@ test('gestures: only the first trusted delivery of a turn counts and a late one 
   t2.validated({ dialogue: 'You got it, boss.', command: '', actionCount: 0 });
   t2.native({ type: 'playback_started' });
   assert.equal(second.sent.length, 0);
+  assert.equal(s2.counters().vetoed, 1);
 });
 
 test('gestures: a released turn ignores delivery and throwing reporters stay harmless', () => {
