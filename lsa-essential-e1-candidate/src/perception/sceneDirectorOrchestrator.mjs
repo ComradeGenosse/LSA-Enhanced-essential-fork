@@ -34,8 +34,9 @@ export class SceneDirectorSpeech {
     let record;
     try {record=this.originalEntitlement(proposal,stamp);}
     catch {return false;}
-    return (record?.source==='original_companion_ps2_ps3' ||
-      proposal.source==='native_director_social' && record?.source==='native_director_social') &&
+    return (proposal?.source==='native_director_social'
+      ?record?.source==='native_director_social'
+      :record?.source==='original_companion_ps2_ps3') &&
       record.hostRunId===stamp?.hostRunId &&
       record.worldEpoch===stamp?.worldEpoch &&
       record.speakerCaptureRef===proposal.speakerCaptureRef &&
