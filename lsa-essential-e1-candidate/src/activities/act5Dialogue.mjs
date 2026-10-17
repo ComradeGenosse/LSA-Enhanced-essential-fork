@@ -146,9 +146,9 @@ export function act5WorldAvailable(intent, slots, state) {
   if (state?.version === 1 && state.safe !== true) return false;
   // Older native installs have no advisory snapshot: retain ACT2's historical
   // checks, but never expose an ACT3 physical offer without native evidence.
-  if (intent === 'go_to_place' || intent === 'vehicle_trip') {
+  if (intent === 'go_to_place' || intent === 'vehicle_trip' || intent === 'move_to_and_hold') {
     if (state?.version !== 1 || state.safe !== true) return false;
-    return intent === 'go_to_place' ? state.actorOnFoot === true :
+    return intent !== 'vehicle_trip' ? state.actorOnFoot === true :
       state.actorInVehicle === true && state.actorIsDriver === true;
   }
   if (intent === 'sit_here' || intent === 'accompany') {
