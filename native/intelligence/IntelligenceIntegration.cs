@@ -641,6 +641,8 @@ namespace LSA.Intelligence
                 var player=anchors.Current.FirstOrDefault(a=>a.Kind=="player" &&
                     object.ReferenceEquals(a.Entity,local));
                 if(player==null)return;
+                // Bounded native diagnostics; all 16 eligible owners get sampled
+                // each second so other NPCs cannot starve behind the first one.
                 foreach(var participant in (roster()??new OwnedParticipant[0]).Take(16)) {
                     if(participant?.Ped==null || string.IsNullOrEmpty(participant.Lifetime) ||
                        string.IsNullOrEmpty(participant.EncounterId))continue;
@@ -667,7 +669,8 @@ namespace LSA.Intelligence
                         priorityEvidence=view.PriorityEvidence,
                         missingCoreCapabilities=view.MissingCoreCapabilities
                     });
-                    return; // bounded to one owner per sampled tick
+                    // Up to 16 owner diagnostics per second; each NPC needs its own
+                    // sustained streak. Never stop at the first promoted character.
                 }
             }catch{/* native source unavailable means no evidence */}
         }
