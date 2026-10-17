@@ -101,3 +101,31 @@ test('PS2 duplicate gunfire evidence does not generate a second observation or e
  assert.equal(second.result.duplicate,true);
  assert.equal(second.proposal,null);
 });
+
+
+test('corpse discovery needs exact sampled visual evidence, never only a schema name',()=>{
+ const f=fixture(),good=witness(f.speaker),raw=signal('body_discovered','state',null,f.victim);
+ assert.equal(admitOffline(f,raw,[]).result.reason,'invalid_input');
+ const bad={...good,evidence:{channel:'report',basis:'dialogue_report',sampledGameTick:100}};
+ assert.equal(admitOffline(f,{...raw,witnessReceipts:[bad]},[bad]).result.reason,'invalid_input');
+ const verified={...raw,signalId:randomUUID(),producerSequence:2,witnessReceipts:[good]};
+ const result=admitOffline(f,verified,[good]);
+ assert.equal(result.observation?.eventType,'body_found');
+ assert.equal(result.decision?.response,'eligible');
+ assert.equal(result.proposal?.kind,'speech');
+});
+
+test('vehicle impact is not inferred from gunfire or missing native collision coordinates',()=>{
+ for(const facts of [{damage:5,armour:0,classification:'bullet'},
+   {damage:5,armour:0,classification:'collision'}]){
+  const f=fixture(),r=admitOffline(f,signal('vehicle_damage','vehicle_damage',f.player,f.vehicle,facts),[witness(f.speaker)]);
+  assert.equal(r.result.accepted,true);assert.equal(r.result.reason,'unsupported_claim_detail');
+  assert.equal(r.proposal,null);
+ }
+ const f=fixture(),valid=signal('vehicle_damage','vehicle_damage',f.player,f.vehicle,
+  {damage:5,armour:0,classification:'collision',collision:{x:3,y:5,z:1}});
+ const r=admitOffline(f,valid,[witness(f.speaker)]);
+ assert.equal(r.observation?.eventType,'vehicle_impact');
+ assert.equal(r.decision?.response,'eligible');
+ assert.equal(r.proposal?.kind,'speech');
+});

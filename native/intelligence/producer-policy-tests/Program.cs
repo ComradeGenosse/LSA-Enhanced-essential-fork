@@ -41,6 +41,32 @@ static class Program
         Check(!NativeProducerPolicy.FromConfig(null,null,"off").Allows("radio"),"radio keeps separate default off");
         var single=new NativeProducerPolicy("on",new Dictionary<string,object>{{"shooting","on"}},"shadow");
         Check(single.Allows("shooting")&&names.Where(x=>x!="shooting").All(x=>!single.Allows(x)),"one explicit producer request cannot start siblings");
+        var ledger=new BodyDiscoveryLedger();
+        Check(ledger.NoteDead("body",100)&&!ledger.CanDiscover("nathan","body",1599),
+              "newly deceased is not an immediate discovery");
+        Check(ledger.CanDiscover("nathan","body",1600)&&ledger.MarkSeen("nathan","body"),
+              "body can be discovered once after bounded delay");
+        Check(!ledger.CanDiscover("nathan","body",1700)&&ledger.CanDiscover("other","body",1700),
+              "distinct owner-fiber witnesses remain independent");
+        Check(!ledger.CanDiscover("other","body",30200),"corpse TTL is bounded");
+        ledger.Retire("nathan");Check(ledger.SeenCount==0,"retirement clears witness");
+        ledger.Reset();Check(ledger.BodyCount==0,"world reset clears corpse evidence");
+        var visual=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="vehicle_damage",Observer="nathan",
+            Target="vehicle",DistanceMeters=10,SameInterior=true,ClearLosInFront=true,SampledGameTick=77});
+        Check(visual.Status=="witnessed"&&visual.Channel=="visual"&&visual.KnowsTarget&&!visual.KnowsSource,
+              "fresh impact sight does not invent an attacker");
+        visual=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="body_discovered",Observer="nathan",
+            Target="body",DistanceMeters=10,SameInterior=true,ClearLosInFront=false});
+        Check(visual.Status!="witnessed","blocked corpse visibility cannot discover a body");
+        var bodyProducer=new SensorAdapters(new NativeProducerPolicy("on",
+            new Dictionary<string,object>{{"state","on"}})){Enabled=true};
+        Check(!bodyProducer.BodyDiscovered("body",new WitnessReceipt {Observer="nathan",
+            Status="witnessed",Channel="visual",Basis="native_callback",SampledGameTick=10},10,1600),
+            "callback cannot impersonate sampled body discovery");
+        Check(bodyProducer.BodyDiscovered("body",new WitnessReceipt {Observer="nathan",
+            Status="witnessed",Channel="visual",Basis="sampled_state",SampledGameTick=10},10,1600) &&
+            bodyProducer.Take().kind=="body_discovered",
+            "bounded owner-fiber corpse producer");
         Console.WriteLine("PASS "+checks+" portable production producer policy/queue assertions (not GTA)");
     }
 }
