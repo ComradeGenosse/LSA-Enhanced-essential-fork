@@ -6,7 +6,7 @@ ACT4 feeds one owner-fenced, read-only current ACT activity view into the existi
 
 When an owned actor has a current activity, Luna receives the admitted/running/paused/resuming/completed/failed/cancelled state with **explicit evidence strength**. A handler ACK or mode flag is not arrival or task completion. Completion is narrated as physically verified only with a matching strong native completion fact. Terminal state is limited to 60 seconds; unmatched body/host, retired actor, expired pause token, reconnect, and changed state fail closed.
 
-This is **not ACT3 physical execution, ACT5 model-proposed actions, or PS7 social routing**. No new AI request, command dispatcher, lease, pause/resume trigger, profile storage or native binary was added. The ACT engine alone owns interruption/resume rules.
+ACT4 itself does **not** execute physical activities or propose actions. Unified PR #237 combines ACT4's state reporting with ACT3 execution and ACT5 player-approved proposals; PS7 social routing is still outside scope. No new AI request, command dispatcher, lease, pause/resume trigger, profile storage or native binary was added. The ACT engine alone owns interruption/resume rules.
 
 ## Activation and deployment
 
