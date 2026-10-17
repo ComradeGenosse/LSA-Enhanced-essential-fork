@@ -96,9 +96,29 @@ namespace LSA.PromotedCharacters
             // Read-only lifetime validity includes the terminal dead state until Retire;
             // no identity proof or action authority is inferred from this roster.
             return new LSA.Intelligence.OwnedParticipant {Ped=e.Ped,Lifetime=registration.IncarnationId,EncounterId=e.Id,PrimaryOwner=()=>e.Owner,
-                DirectorOwner=()=>ReferenceEquals(e.Registration,registration) && e.Owner!=null
-                    ? new LSA.Intelligence.DirectorOwnerSample {Owner=e.Owner.owner,Mode=e.Owner.mode,Suspended=e.Suspended,Revision=e.DirectorProofRevision}
-                    : null,
+                DirectorOwner=()=> {
+                    if(!ReferenceEquals(e.Registration,registration) || e.Owner==null)return null;
+                    string speechCapability=null;
+                    if(e.Owner.owner=="act" && e.Owner.mode=="activity") {
+                        // Read the actual current native runner, not an ACT
+                        // intent, cached dialogue fact or companion assertion.
+                        // Only established modes or physically progressing
+                        // movement can qualify. Transitions cannot borrow a
+                        // previous task's compatible state.
+                        var step=activityRunner?.Active(e.Id);
+                        if(step!=null && !step.Terminal &&
+                           step.EncounterId==e.Id &&
+                           step.IncarnationId==registration.IncarnationId &&
+                           ((step.State=="MODE_ESTABLISHED" && step.LostSince<0 && step.ModeHealth!="lost") ||
+                            (step.State=="HANDLER_ACCEPTED" && step.ProgressSeen &&
+                             (step.Capability=="approach_person" || step.Capability=="walk_away_from"))))
+                            speechCapability=step.Capability;
+                    }
+                    return new LSA.Intelligence.DirectorOwnerSample {
+                        Owner=e.Owner.owner,Mode=e.Owner.mode,Suspended=e.Suspended,
+                        Revision=e.DirectorProofRevision,SpeechActivityCapability=speechCapability
+                    };
+                },
                 Current=()=>ReferenceEquals(e.Registration,registration) && e.Ped.Exists() && e.Ped.MemoryAddress==e.Address && (e.Ped.IsDead || identity?.Owner?.TryResolveCurrent(e.Ped,out var claim)==true && claim.incarnationId==registration.IncarnationId)};
         }).ToArray();
         public string Id => "characterProfile";
