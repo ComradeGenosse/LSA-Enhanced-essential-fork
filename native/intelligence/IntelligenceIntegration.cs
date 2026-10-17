@@ -838,11 +838,26 @@ namespace LSA.Intelligence
             // Give the finite native LOS budget to actual P2-owned companions first.
             // Equal-priority observers are nearest-first with a stable private
             // tie-breaker. This does not broaden witness geometry or invent proof.
-            foreach(var observer in anchors.Current.Where(a=>a.Observer&&a.Kind=="ped"&&a.CaptureRef!=participantRef)
+            foreach(var observer in anchors.Current.Where(a=>a.Observer&&a.Kind=="ped")
                 .OrderByDescending(a=>a.OwnerLifetime!=null)
                 .ThenBy(a=>a.Entity is Ped p ? p.Position.DistanceTo(subject.Position) : float.MaxValue)
                 .ThenBy(a=>a.CaptureRef,StringComparer.Ordinal)) {
                 if(!(observer.Entity is Ped witness))continue;
+                // The injured observer directly experienced their own native
+                // damage callback or state-sampled injury. Do not require an
+                // impossible LOS-to-self ray or assign them attacker knowledge.
+                if(observer.CaptureRef==participantRef) {
+                    if((kind=="damage"||kind=="injury_state") &&
+                       anchors.Resolve(observer.CaptureRef)==observer &&
+                       Live(witness,observer.Handle,observer.Address)) {
+                        result.Add(new WitnessReceipt {Observer=observer.CaptureRef,
+                            SampledGameTick=sampledTick,Status="witnessed",
+                            Reason="self_involvement",Channel="self",
+                            Basis=kind=="damage"?"native_callback":"sampled_state",
+                            KnowsTarget=true,KnowsSource=false});
+                    }
+                    continue;
+                }
                 // Native callback collision plus an exact current seat proves
                 // this observer directly experienced their own vehicle impact.
                 if(kind=="vehicle_damage") {
