@@ -130,9 +130,96 @@ class Program
     static Dictionary<string,object> Anchor(string captureRef,Dictionary<string,object> frame)=>FrameAnchors(frame).Single(a=>(string)a["captureRef"]==captureRef);
     static void Tick(IntelligenceIntegration integration)
     {Game.GameTime+=210;Set(integration,"nextDiscovery",0L);Set(integration,"nextState",0L);Set(integration,"nextShot",0L);integration.Update();}
+    // Uses the real production callback-to-owner Publish and corpse-sample seams,
+    // with only GTA native calls stubbed. This is NOT a game-session proof.
+    static void Ps6NativeSourceCoverage()
+    {
+        var host=new LSA.PromotedCharacters.HostContext();
+        var owner=new Ped {Handle=32001,MemoryAddress=new IntPtr(32001)};
+        var victim=new Ped {Handle=32002,MemoryAddress=new IntPtr(32002),IsDead=false};
+        var car=new Vehicle {Handle=32003,MemoryAddress=new IntPtr(32003)};
+        var integration=new IntelligenceIntegration(()=>new OwnedParticipant[0],
+            "LSA.PS6.Source."+Guid.NewGuid().ToString("N"),host:host);
+        Set(integration,"started",true);
+        var table=(EntityAnchors)Get(integration,"anchors");
+        var nathan=table.Retain(owner,owner.Handle,owner.MemoryAddress,"ped",null,()=>true,1000,true);
+        var body=table.Retain(victim,victim.Handle,victim.MemoryAddress,"ped",null,()=>true,1000);
+        var vehicle=table.Retain(car,car.Handle,car.MemoryAddress,"vehicle",null,()=>true,1000);
+        var sensors=(SensorAdapters)Get(integration,"sensors");
+        sensors.Enabled=true;
+        Rage.Native.NativeFunction.FrontLos=true;
+        Set(integration,"callbackTick",(uint)101);
+        Set(integration,"lineOfSightBudget",8);
+        RawSignal Damage(string type,string kind,string target,string classification,long received,uint tick)
+        {
+            return new RawSignal{producer=type,kind=kind,target=target,source=null,
+                gameTick=tick,receivedMs=received,facts=new Dictionary<string,object>{
+                    {"damage",20},{"armour",0},{"classification",classification},
+                    {"collision",new {x=0.0,y=0.0,z=0.0}}}};
+        }
+        try {
+            var ped=Damage("ped_damage","damage",body.CaptureRef,"bullet",1000,100);
+            Call(integration,"Publish",ped,1050L);
+            Check(ped.witnessReceipts.Count==1&&ped.witnessReceipts[0].Observer==nathan.CaptureRef&&
+                  ped.witnessReceipts[0].Channel=="visual"&&
+                  ped.witnessReceipts[0].SampledGameTick==101,
+                  "fresh callback injury attaches an owner-fiber visual victim witness");
+            var stale=Damage("ped_damage","damage",body.CaptureRef,"bullet",1000,100);
+            Call(integration,"Publish",stale,1120L);
+            Check(stale.witnessReceipts.Count==0,"stale native callback cannot fabricate later sight");
+            Rage.Native.NativeFunction.FrontLos=false;
+            var hidden=Damage("ped_damage","damage",body.CaptureRef,"bullet",1000,100);
+            Set(integration,"lineOfSightBudget",8);Call(integration,"Publish",hidden,1050L);
+            Check(hidden.witnessReceipts.Count==0,"occluded callback injury lacks witness");
+            Rage.Native.NativeFunction.FrontLos=true;
+            Set(integration,"lineOfSightBudget",8);
+            var impact=Damage("vehicle_damage","vehicle_damage",vehicle.CaptureRef,"collision",1000,100);
+            Call(integration,"Publish",impact,1050L);
+            Check(impact.witnessReceipts.Count==1&&impact.witnessReceipts[0].Channel=="visual"&&
+                  impact.witnessReceipts[0].KnowsTarget,
+                  "verified vehicle callback and LOS authorize impact eyewitness");
+            Set(integration,"lineOfSightBudget",8);owner.CurrentVehicle=car;
+            Rage.Native.NativeFunction.FrontLos=false;
+            var seated=Damage("vehicle_damage","vehicle_damage",vehicle.CaptureRef,"collision",1000,100);
+            Call(integration,"Publish",seated,1050L);
+            Check(seated.witnessReceipts.Count==1&&seated.witnessReceipts[0].Channel=="self"&&
+                  seated.witnessReceipts[0].Basis=="native_callback",
+                  "exact seat-involved collision is a verified native self witness");
+            owner.CurrentVehicle=null;
+            var bullet=Damage("vehicle_damage","vehicle_damage",vehicle.CaptureRef,"bullet",1000,100);
+            Call(integration,"Publish",bullet,1050L);
+            Check(bullet.witnessReceipts.Count==0,"vehicle bullets never create false collision witnesses");
+            // No scanning of new entities: use only the retained corpse anchor.
+            victim.IsDead=true;Rage.Native.NativeFunction.FrontLos=true;
+            Set(integration,"lineOfSightBudget",8);
+            Call(integration,"SampleBodyDiscovery",(uint)110,1000L);
+            Check(sensors.Take()==null,"immediate death never emits discovered-body");
+            Set(integration,"lineOfSightBudget",8);
+            Call(integration,"SampleBodyDiscovery",(uint)130,2600L);
+            var discovered=sensors.Take();
+            Check(discovered!=null&&discovered.kind=="body_discovered"&&
+                  discovered.target==body.CaptureRef&&discovered.witnessReceipts.Count==1&&
+                  discovered.witnessReceipts[0].Observer==nathan.CaptureRef,
+                  "current actual corpse and current native LOS produce one body discovery");
+            Set(integration,"lineOfSightBudget",8);
+            Call(integration,"SampleBodyDiscovery",(uint)140,2800L);
+            Check(sensors.Take()==null,"body discovery never replays a witnessed pair");
+            var ledger=(BodyDiscoveryLedger)Get(integration,"bodyDiscovery");
+            ledger.Reset();
+            Rage.Native.NativeFunction.FrontLos=false;
+            Set(integration,"lineOfSightBudget",8);
+            Call(integration,"SampleBodyDiscovery",(uint)150,1000L);
+            Set(integration,"lineOfSightBudget",8);
+            Call(integration,"SampleBodyDiscovery",(uint)160,2600L);
+            Check(sensors.Take()==null,"occluded corpse never emits body discovery");
+        }finally{
+            Rage.Native.NativeFunction.FrontLos=true;
+            integration.Shutdown();host.Shutdown();
+        }
+    }
     static void Main(string[] args)
     {
-        try{Run();RadioCoverage();SourceOnlyTests.Run();
+        try{Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
             if(args.Length==1&&args[0]=="--d2-source-only-wire")
                 foreach(var frame in SourceOnlyTests.WireFrames)Console.WriteLine("D2_WIRE "+new JavaScriptSerializer().Serialize(frame));
         }catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
