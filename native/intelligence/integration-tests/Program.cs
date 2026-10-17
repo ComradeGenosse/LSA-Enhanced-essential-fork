@@ -165,6 +165,21 @@ class Program
                   ped.witnessReceipts[0].Channel=="visual"&&
                   ped.witnessReceipts[0].SampledGameTick==101,
                   "fresh callback injury attaches an owner-fiber visual victim witness");
+            var selfDamage=Damage("ped_damage","damage",nathan.CaptureRef,"bullet",1000,100);
+            Call(integration,"Publish",selfDamage,1050L);
+            Check(selfDamage.witnessReceipts.Count==1&&
+                  selfDamage.witnessReceipts[0].Observer==nathan.CaptureRef&&
+                  selfDamage.witnessReceipts[0].Channel=="self"&&
+                  selfDamage.witnessReceipts[0].Basis=="native_callback"&&
+                  selfDamage.witnessReceipts[0].KnowsTarget&&
+                  !selfDamage.witnessReceipts[0].KnowsSource,
+                  "injured observer gets exact self callback evidence without invented attacker");
+            var selfState=new RawSignal {producer="state",kind="injury_state",
+                target=nathan.CaptureRef,gameTick=101,receivedMs=1050};
+            var selfSample=(List<WitnessReceipt>)Call(integration,"CaptureWitnesses",selfState);
+            Check(selfSample.Count==1&&selfSample[0].Observer==nathan.CaptureRef&&
+                  selfSample[0].Channel=="self"&&selfSample[0].Basis=="sampled_state",
+                  "state-sampled NPC injury needs no LOS-to-self");
             var stale=Damage("ped_damage","damage",body.CaptureRef,"bullet",1000,100);
             Call(integration,"Publish",stale,1120L);
             Check(stale.witnessReceipts.Count==0,"stale native callback cannot fabricate later sight");
