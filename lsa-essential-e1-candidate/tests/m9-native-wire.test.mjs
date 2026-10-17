@@ -34,7 +34,11 @@ test('native M9StateSampler payloads satisfy the strict m9_sample contract',asyn
     assert.equal(validateFrame(frame),true);
   }
   const kinds = payloads.map(p => p.outcome?.kind ?? (p.vehicle?.collision ? 'crash' : p.wantedLevel > 0 ? 'wanted' : 'other')).sort();
-  assert.deepEqual(kinds,['busted','crash','wanted','wasted']);
+  assert.deepEqual(kinds,['busted','crash','other','wanted','wasted']);
+  const heartbeat=payloads.find(p => p.vehicleCaptureRef===null && p.vehicle===null &&
+    p.outcome===null && p.wantedLevel===0);
+  assert.ok(heartbeat,'verified idle-on-foot heartbeat has no manufactured event');
+  assert.deepEqual(heartbeat.witnessReceipts,[],'quiet heartbeat never spends LOS');
   for (const payload of payloads) for (const receipt of payload.witnessReceipts) {
     assert.equal(receipt.status,'witnessed');
     assert.equal(receipt.sampledGameTick,payload.sampledGameTick,'witness is bound to the sample tick');
