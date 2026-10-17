@@ -27,11 +27,11 @@ const turn = () => ({
   knowledgeInputs: { activityInputs: { binding: { encounterId: encounter, hostContext: host } } },
 });
 
-function harness({ enabled = true, act3Capabilities = [], extraProbes = [] } = {}) {
+function harness({ enabled = true, act3Capabilities = [], extraProbes = [], baseProbes = probes } = {}) {
   serial = 0;
   let now = 10000;
   const commands = [];
-  const config = normalizeActivityConfig({ mode: 'on', act5: enabled, act3Capabilities, passedProbes: [...probes,...extraProbes] });
+  const config = normalizeActivityConfig({ mode: 'on', act5: enabled, act3Capabilities, passedProbes: [...baseProbes,...extraProbes] });
   const engine = new ActivityEngine({ config, now: () => now, id, onCommand: v => commands.push(v) });
   const hello = {type:'hello', ...host, nativeRun, adapterEpoch, capabilities: {
     hold_position:true, follow_person:true, sit_on_ground:true, resume_ambient:true,
@@ -196,7 +196,10 @@ test('no approval, stale playback, disabled ACT5 and replayed engine admission f
 const extendedNative = ['approach_person','stop_and_face','walk_away_from','take_cover',
   'scenario_here','enter_vehicle_seat','exit_vehicle'];
 const extendedProbes = ['A1','C2','S1','V1','V2','V3','V4','SVE1'];
-const nativeHarness = () => harness({act3Capabilities:extendedNative,extraProbes:extendedProbes});
+// Config intentionally caps passedProbes at twelve. Drop ACT2 ground-sit
+// probe in this ACT3 matrix; original ACT2-only tests retain full coverage.
+const nativeHarness = () => harness({act3Capabilities:extendedNative,extraProbes:extendedProbes,
+  baseProbes:probes.filter(p=>p!=='K1')});
 
 test('ACT5 advertises the full enabled ACT3 set but does not expose ACT6 or unprobed native paths', async () => {
   const gated = harness({act3Capabilities:extendedNative,extraProbes:['A1','C2','S1']});
@@ -207,7 +210,7 @@ test('ACT5 advertises the full enabled ACT3 set but does not expose ACT6 or unpr
   const h = nativeHarness();
   const context = await h.dialogue.prepare(turn(),'player_text');
   assert.deepEqual(context.intents,[
-    'hold_position','accompany','resume_previous','sit_here','approach_and_face',
+    'hold_position','accompany','resume_previous','approach_and_face',
     'leave_scene','take_cover_and_hold','scenario_here','board_vehicle','ride_along',
       ]);
   assert.equal(context.intents.includes('vehicle_trip'),false);
@@ -237,7 +240,7 @@ test('the strict Luna JSON schema enumerates exactly verified scenarios and seat
     input:'hello',activityContext:ctx});
   const all=request.text.format.schema.properties.activity.anyOf;
   assert.equal(all[0].type,'null');
-  assert.equal(all.length,1+4+3+7+3+3);
+  assert.equal(all.length,1+3+3+7+3+3);
   const byIntent=intent=>all.filter(node=>node.properties?.intent?.enum?.[0]===intent);
   assert.deepEqual(byIntent('scenario_here').map(node=>node.properties.slots.properties.scenario.enum[0]),
     ['drink_coffee','smoke','phone','lean','stand_idle','clipboard','binoculars']);
@@ -372,7 +375,7 @@ test('native availability is mandatory for ACT3 and restricts real offered seats
   // Old/native stub builds without snapshot retain ACT2, never fake ACT3 proof.
   h.setOffer({version:0});
   ctx=await h.dialogue.prepare(turn(),'player_text');
-  assert.deepEqual(ctx.intents,['hold_position','accompany','resume_previous','sit_here']);
+  assert.deepEqual(ctx.intents,['hold_position','accompany','resume_previous']);
 });
 
 test('world conditions are rechecked after the offer and again after consent', async () => {
@@ -396,5 +399,5 @@ test('native on-foot ACT3 proposals never appear without an inspected owner snap
   const h=nativeHarness();
   h.setOffer({safe:false});
   const ctx=await h.dialogue.prepare(turn(),'player_text');
-  assert.deepEqual(ctx.intents,['hold_position','accompany','resume_previous','sit_here']);
+  assert.deepEqual(ctx.intents,['hold_position','accompany','resume_previous']);
 });
