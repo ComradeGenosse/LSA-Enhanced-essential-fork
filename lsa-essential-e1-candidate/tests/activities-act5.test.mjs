@@ -27,15 +27,16 @@ const turn = () => ({
   knowledgeInputs: { activityInputs: { binding: { encounterId: encounter, hostContext: host } } },
 });
 
-function harness({ enabled = true, act3Capabilities = [], extraProbes = [] } = {}) {
+function harness({ enabled = true, act3Capabilities = [], act6Capabilities = [], extraProbes = [] } = {}) {
   serial = 0;
   let now = 10000;
   const commands = [];
-  const config = normalizeActivityConfig({ mode: 'on', act5: enabled, act3Capabilities, passedProbes: [...probes,...extraProbes] });
+  const config = normalizeActivityConfig({ mode: 'on', act5: enabled, act3Capabilities, act6Capabilities, passedProbes: [...probes,...extraProbes] });
   const engine = new ActivityEngine({ config, now: () => now, id, onCommand: v => commands.push(v) });
   const hello = {type:'hello', ...host, nativeRun, adapterEpoch, capabilities: {
     hold_position:true, follow_person:true, sit_on_ground:true, resume_ambient:true,
     stop_and_face:true, approach_person:true, walk_away_from:true, take_cover:true, begin_driving:true,
+    walk_to:true, drive_to:true,
   }};
   engine.noteHello(hello);
   let currentEncounter = encounter;
@@ -186,4 +187,16 @@ test('no approval, stale playback, disabled ACT5 and replayed engine admission f
   assert.equal(first.ok,true);
   assert.deepEqual(h.engine.assign(p,owner,{playerApproved:true}),first);
   assert.equal(h.commands.filter(v=>v.type==='actor.acquire').length,1);
+});
+
+test('ACT6 explicit player waypoint request stages one publication-bound ACT goal (not a freeform planner)', async () => {
+  const h=harness({act6Capabilities:['walk_to'],extraProbes:['NV1','Q2','L1']});
+  const t=turn();
+  const ctx=await h.dialogue.prepare(t,'player_text');
+  const stage=await h.dialogue.onPlayerInput(t,'go to the waypoint',ctx,()=>true);
+  assert.deepEqual([stage?.kind,stage?.intent],['approval_pending','go_to_place']);
+  assert.equal(h.commands.length,0,'no native dispatch before verified dialogue publication');
+  const committed=await h.dialogue.commitApproved(t,()=>true);
+  assert.equal(committed.ok,true);
+  assert.equal(h.commands.filter(frame=>frame.type==='actor.acquire').length,1);
 });
