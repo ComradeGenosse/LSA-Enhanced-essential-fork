@@ -109,3 +109,31 @@ test('H2 corrects an earlier dog relationship without resurrecting the old name'
   assert(text.includes('Mina'),'correction evidence reaches PS4');
   assert.equal(await h2.verifyPrepared(),true);
 });
+
+test('H2 preserves the actual player dog-name statements despite repeated incomplete NPC answers',async t=>{
+  const f=await p2Fixture(t);
+  // Wording from the October 17 P2 journal, deliberately older than the failures.
+  const prana=await f.say('We took our dog Prana to the vet and got her face drained this morning.',
+    {at:ago(82000),sessionNonce:'older-vet'});
+  const corgis=await f.say('And then we also have two more corgis named Koba and Nora.',
+    {at:ago(80000),sessionNonce:'older-corgis'});
+  const vladimir=await f.say("Vladimir's the Pomsky. He's the Pomeranian and the Husky combined.",
+    {at:ago(78000),sessionNonce:'older-pomsky'});
+  await f.say('Yeah, we have four dogs.',{at:ago(76000),sessionNonce:'older-count'});
+  for(let i=0;i<14;i++){
+    await f.say('What dogs do I have? What are their names?',
+      {at:ago(25000-i*400),sessionNonce:'old-question-'+i});
+    await f.say("I know you've got four dogs, and Vladimir's the Pomsky. I don't remember the others' names, man.",
+      {at:ago(24900-i*400),speaker:'npc',sessionNonce:'old-answer-'+i});
+  }
+  const {h2}=await f.ask('Do you remember my dogs?');
+  const visible=delivered(h2),ids=new Set(visible.map(x=>x.recordId));
+  for(const original of [prana,corgis,vladimir]){
+    assert(ids.has(original.recordId),'original player fact displaced by repeated failed answers');
+  }
+  const text=visible.map(x=>x.content).join(' | ');
+  for(const name of ['Prana','Koba','Nora','Vladimir'])
+    assert(text.includes(name),'missing saved name from PS4: '+name);
+  assert.equal(await h2.verifyPrepared(),true);
+  assert.equal(h2.sendCurrent(),true);
+});
