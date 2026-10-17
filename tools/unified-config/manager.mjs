@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
-import { TARGETS, importSections, generate, validateConfigs, assertNoSecrets } from './schema.mjs';
+import { TARGETS, importSections, generate, validateConfigs, findDisabledFeatures, assertNoSecrets } from './schema.mjs';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
 const json = value => JSON.stringify(value,null,2)+'\n';
@@ -90,6 +90,8 @@ async function plan(game,files) {
   for(const name of ['e1','promoted','enhanced']) if(digest(texts[name])!==master.metadata.baselines[name]) conflicts.push({code:'EXTERNAL_EDIT',detail:name+' changed since import/last apply. Re-import deliberately; no writes made.'});
   const generated=generate(master,raw);
   const check=validateConfigs(generated,master,await essentialFile(game));
+  check.problems.push(...findDisabledFeatures(raw,generated,master.approvals||{}));
+  check.ok=check.problems.length===0;
   const differences=Object.fromEntries(['e1','promoted','enhanced'].map(name=>[name,relativeChanges(raw[name],generated[name])]));
   const nextTexts=Object.fromEntries(['e1','promoted','enhanced'].map(name=>[name,JSON.stringify(raw[name])===JSON.stringify(generated[name])?texts[name]:json(generated[name])]));
   return {master,raw,texts,generated,check,differences,nextTexts,conflicts,ok:!conflicts.length&&check.ok};
@@ -192,15 +194,16 @@ export async function run(command,{game,masterPath,activate=false,replace=false}
         if(name!=='master') raw[name]=jsonObject(changes[name],name);
       }
       const oldMaster=jsonObject(changes.master,'saved master');
-      const restored={...oldMaster,metadata:{...oldMaster.metadata,active:true,baselines:baselines(changes)},sections:importSections(raw)};
+      const restored={...oldMaster,metadata:{...oldMaster.metadata,active:true,baselines:baselines(changes),pendingRestart:['e1','promoted']},sections:importSections(raw)};
       changes.master=json(restored);
       const tx=await transaction(files,'rollback',changes,last.post);
       return {ok:true,rolledBack:true,backupDir:tx.backupDir};
     }
     if(!['status','validate','diff','apply'].includes(command)) throw new Error('Unknown command '+command);
     const p=await plan(game,files);
+    const toRestart=Object.entries(p.differences).filter(([k,v])=>v.length&&k!=='enhanced').map(([k])=>k);
     const report={ok:p.ok,active:p.master.metadata.active===true,conflicts:p.conflicts,problems:p.check.problems,warnings:p.check.warnings,changes:p.differences,
-      restartRequired:Object.entries(p.differences).filter(([k,v])=>v.length&&k!=='enhanced').map(([k])=>k),
+      restartRequired:toRestart,pendingRestart:p.master.metadata.pendingRestart||[],
       operationalStatus:'unverified_without_running_GTA',
       configured:{aiProvider:p.generated.e1.provider,speechProvider:p.generated.e1.speechProvider,ux4Enabled:p.generated.enhanced.talkTargeting?.enabled===true,memoryCapabilities:p.generated.e1.memoryK?.capabilities||{}}
     };
@@ -208,7 +211,7 @@ export async function run(command,{game,masterPath,activate=false,replace=false}
     if(!p.ok) return {...report,error:'Validation/conflict failure: nothing changed'};
     if(!report.active&&!activate) return {...report,ok:false,error:'First apply requires explicit --activate; import is not activation'};
     // Even initial activation must be intentional. Import captured current installed values.
-    const newMaster={...p.master,metadata:{...p.master.metadata,active:true,appliedAt:new Date().toISOString(),baselines:baselines(p.nextTexts)}};
+    const newMaster={...p.master,metadata:{...p.master.metadata,active:true,appliedAt:new Date().toISOString(),baselines:baselines(p.nextTexts),pendingRestart:[...new Set([...(p.master.metadata.pendingRestart||[]),...toRestart])]}};
     const changes={...p.nextTexts,master:json(newMaster)};
     const currentMaster=await originalText(files.master);
     if(JSON.stringify(jsonObject(currentMaster,'master'))!==JSON.stringify(p.master)) throw new Error('Master changed during apply; refusing write');
