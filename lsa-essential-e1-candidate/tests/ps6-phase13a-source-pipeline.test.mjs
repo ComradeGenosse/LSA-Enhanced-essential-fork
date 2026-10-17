@@ -89,7 +89,7 @@ test('body_found and generic threat are NOT synthesized by unsupported raw produ
   const f=fixture();
   const r=admitOffline(f,signal(kind,'state',null,f.victim),[witness(f.speaker)]);
   assert.equal(r.result.accepted,false,kind);
-  assert.equal(r.result.reason,'unsupported_event',kind);
+  assert.equal(r.result.reason,'invalid_input',kind); // not an authenticated native signal kind
   assert.equal(r.proposal,null,kind);
  }
 });
