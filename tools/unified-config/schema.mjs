@@ -194,7 +194,7 @@ export function findDisabledFeatures(before,after,approvals={}) {
   for(const source of ['e1','promoted','enhanced']) walk(before[source],after[source],source);
   return problems;
 }
-export function validateConfigs(raw,master,essentialText) {
+export function validateConfigs(raw,master,essentialText,{installedEnhanced=null}={}) {
   const problems=[],warnings=[];
   assertNoSecrets(master);
   try { normalizeConfig(raw.e1,{}); }catch(e) { problems.push(issue('E1_SCHEMA',e.message)); }
@@ -247,7 +247,16 @@ export function validateConfigs(raw,master,essentialText) {
     if(!essential) problems.push(issue('ESSENTIAL_BINDINGS_UNAVAILABLE','Essential controls file required when input or UX4 is active'));
     else if(Object.values(essential).some(x=>x===undefined)) problems.push(issue('ESSENTIAL_BINDINGS_INCOMPLETE','Essential key bindings are incomplete'));
     if(essential) {
-      for(const [name,key] of Object.entries(input.keys||{L4:'F6',R4:'F8',Menu:'F11'})) if(input.enabled) for(const [setting,vk] of Object.entries(essential)) if(vk!==null&&vk===physical(key)) problems.push(issue('ROUTER_ESSENTIAL_COLLISION',name+' '+key+' conflicts with Essential '+setting));
+      // Carry forward only imported, active and unchanged router mappings.
+      // Caller must separately prove that Essential's bindings are identical
+      // to the read-only source captured when the master was imported.
+      for(const [name,key] of Object.entries(input.keys||{L4:'F6',R4:'F8',Menu:'F11'})) if(input.enabled) for(const [setting,vk] of Object.entries(essential)) if(vk!==null&&vk===physical(key)) {
+        const existing=installedEnhanced?.input;
+        const unchanged=existing?.enabled===true&&has(existing.keys||{},name)&&existing.keys[name]===key;
+        const detail=name+' '+key+' conflicts with Essential '+setting;
+        if(unchanged) warnings.push(issue('PRESERVED_EXISTING_ROUTER_MAPPING',detail+' (unchanged imported mapping; no keys remapped)'));
+        else problems.push(issue('ROUTER_ESSENTIAL_COLLISION',detail));
+      }
       if(talk.enabled) {
         const vk=physical(talk.key);
         for(const setting of ['TextKey','MarkPedKey','MarkedPedTalkKey']) if(vk!==null&&vk===essential[setting]) problems.push(issue('UX4_ESSENTIAL_COLLISION',talk.key+' conflicts with Essential '+setting));
