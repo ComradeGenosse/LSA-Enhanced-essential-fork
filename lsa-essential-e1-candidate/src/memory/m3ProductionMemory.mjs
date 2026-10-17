@@ -68,9 +68,18 @@ export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthori
   let epoch=null;
   unsubHost=intelligence.subscribeVerifiedHostContext(host=>{
     const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
+    // Disconnect is a coverage authority cut, not a permanent M2/M4
+    // conversation failure. Freeze verified M3 frontiers immediately.
+    if(!host)adapter.coverageRetire('host_disconnected');
+    // An unsolicited replacement HELLO, even with reused run/epoch scalars,
+    // is a new provenance boundary. Never reuse its retired coverage tail.
+    else if(epoch!==null&&stamp===epoch)adapter.coverageRetire('timeline_changed');
     if(stamp!==epoch){adapter.retire();epoch=stamp;}
   });
-  unsubBoundary=intelligence.subscribeWorldBoundary(()=>{adapter.retire();});
+  unsubBoundary=intelligence.subscribeWorldBoundary(()=>{
+    adapter.coverageRetire('timeline_changed');
+    adapter.retire();
+  });
   return Object.freeze({
     authority:ownsAuthority?authority:null,
     adapter,
