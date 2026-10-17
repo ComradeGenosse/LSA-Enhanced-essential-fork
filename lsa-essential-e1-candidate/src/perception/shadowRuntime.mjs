@@ -227,6 +227,17 @@ export class ShadowRuntime {
           row.incarnationId===o.incarnationId&&row.encounterId===o.encounterId;
       });
     }
+    if(v.type==='memory_m7_idle_diagnostic') {
+      const p=v.payload,index=this.observerIndex.get(p.observerCaptureRef);
+      // Diagnostics must be from the same authenticated stream and current
+      // native observer incarnation. Never feed these fields to an idle grant.
+      return this.hostContext?.hostRunId===p.hostRunId &&
+        this.hostContext?.worldEpoch===p.worldEpoch &&
+        this.current(p.observerCaptureRef) &&
+        index?.kind==='ped' && index?.owned===true &&
+        index.incarnationId===p.incarnationId &&
+        index.encounterId===p.encounterId;
+    }
     if(v.type==='memory_current_owner_player') {
       const p=v.payload;
       // Only negotiated native owner-fiber samples, after authenticated

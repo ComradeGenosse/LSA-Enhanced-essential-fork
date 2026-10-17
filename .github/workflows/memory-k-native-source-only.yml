@@ -8,6 +8,10 @@ on:
       - 'native/promoted-characters/runtime-tests/**'
       - 'native/promoted-characters/ps-host-tests/**'
       - 'lsa-essential-e1-candidate/tests/memory-k-native-source-only.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory-m7-native-diagnostic.test.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/contracts.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/shadowRuntime.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs'
       - '.github/workflows/memory-k-native-source-only.yml'
   workflow_dispatch:
 permissions:
@@ -36,7 +40,7 @@ jobs:
         with:
           node-version: '24'
       - run: dotnet run --project native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
-      - run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory-k-native-source-only.test.mjs lsa-essential-e1-candidate/tests/memory-k-source-consumers.test.mjs
+      - run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory-k-native-source-only.test.mjs lsa-essential-e1-candidate/tests/memory-k-source-consumers.test.mjs lsa-essential-e1-candidate/tests/memory-m7-native-diagnostic.test.mjs
       - run: dotnet run --project native/promoted-characters/runtime-tests/RuntimeTests.csproj --configuration Debug
       - run: dotnet run --project native/promoted-characters/ps-host-tests/PSHostTests.csproj --configuration Debug -- source-only
       - run: dotnet run --project native/promoted-characters/ps-host-tests/PSHostTests.csproj --configuration Debug -- stop

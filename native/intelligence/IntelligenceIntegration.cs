@@ -110,7 +110,7 @@ namespace LSA.Intelligence
         int discoveryAllowance;
         long deferredDiscovery;
         uint previousTick,snapshotTick;
-        long nextDiscovery,nextState,nextShot,nextRadio,nextRefresh,nextDiagnostics,nextLog,snapshotChangedAt,snapshotCadence;
+        long nextDiscovery,nextState,nextShot,nextRadio,nextRefresh,nextDiagnostics,nextLog,nextM7IdleSample,snapshotChangedAt,snapshotCadence;
         readonly bool radioEnabled;
         RadioProbeState radioProbe;
         readonly HashSet<string> radioCoveredOwned=new HashSet<string>();
@@ -311,6 +311,12 @@ namespace LSA.Intelligence
                 anchors.Retired+=OnRetired;anchors.Retirement+=OnRetirement;
                 InitializeProducerAdapters();
                 channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow||protagonistEvidenceEnabled,memoryCurrentOwnerPlayerSample!=null);channel.Start();
+                // W07: the pinned Core supplies partial C-06 quiet evidence, but
+                // no global normal-turn or Essential terminal-idle proof. Report
+                // the exact missing gates once, without publishing an idle permit.
+                // This diagnostic is not a cloud-authorization source.
+                LogStatus("[M7] native_idle_source_unavailable missing_core="+
+                    string.Join(",",M7NativeIdlePrioritySource.UnsupportedPinnedCoreFields));
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
                 if(radioEnabled)Game.LogTrivial("[PS] radio_shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
@@ -559,6 +565,12 @@ namespace LSA.Intelligence
                 if(radioEnabled && now>=nextRadio) {nextRadio=now+250;SampleRadio(tick,now);}
                 bool refreshRoster=now>=nextRefresh;if(refreshRoster) nextRefresh=now+1000;
                 FlushControls(refreshRoster);
+                // Reuse this native owner-fiber tick and current P2 bindings.
+                // This source is diagnostic-only until backend terminal-idle proof exists.
+                if(memoryCurrentOwnerPlayerSample!=null && now>=nextM7IdleSample) {
+                    nextM7IdleSample=now+1000;
+                    PublishM7NativeIdleDiagnostic(tick);
+                }
                 // Source-fenced, positive-only owner frame. Unsupported normal
                 // accepted turns, negatives and prepromotion remain unavailable.
                 if((memoryAuthoritySample!=null||memoryCurrentOwnerPlayerSample!=null) && now>=nextMemoryAuthority) {
@@ -598,13 +610,54 @@ namespace LSA.Intelligence
                 Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,host.MonotonicMs);
             } catch {LogStatus("[PS] optional_update_failed");Shutdown("update_failed");}
         }
+        // Read-only W07 current native negatives from the EXISTING owner fiber.
+        // Never sends verified_native_idle_v1 or authorizes an M7 cloud request.
+        void PublishM7NativeIdleDiagnostic(uint tick)
+        {
+            try {
+                var local=Game.LocalPlayer.Character;
+                if(local==null || !local.Exists() || local.IsDead || channel==null)return;
+                var player=anchors.Current.FirstOrDefault(a=>a.Kind=="player" &&
+                    object.ReferenceEquals(a.Entity,local));
+                if(player==null)return;
+                foreach(var participant in (roster()??new OwnedParticipant[0]).Take(16)) {
+                    if(participant?.Ped==null || string.IsNullOrEmpty(participant.Lifetime) ||
+                       string.IsNullOrEmpty(participant.EncounterId))continue;
+                    bool current=false;
+                    try{current=participant.Current?.Invoke()==true;}catch{}
+                    if(!current)continue;
+                    var speaker=anchors.Current.FirstOrDefault(a=>a.Kind=="ped" &&
+                        a.Observer && a.OwnerLifetime==participant.Lifetime &&
+                        object.ReferenceEquals(a.Entity,participant.Ped));
+                    if(speaker==null)continue;
+                    var request=new DirectorAdmission.Request {
+                        SpeakerCaptureRef=speaker.CaptureRef,PlayerCaptureRef=player.CaptureRef
+                    };
+                    var currentNative=ReadDirectorC06Core(request,false);
+                    var view=M7NativeIdlePrioritySource.Assess(currentNative,
+                        host.HostRunId,host.WorldEpoch,tick);
+                    // Full Core terminal-idle proof is missing. All four unsupported
+                    // fields remain false and this is explicitly NOT a grant.
+                    channel.Send("memory_m7_idle_diagnostic",new {
+                        nativeM7DiagnosticVersion=1,kind=view.Kind,nativeVerified=view.NativeVerified,
+                        hostRunId=view.HostRunId,worldEpoch=view.WorldEpoch,
+                        sampledGameTick=view.GameTick,observerCaptureRef=speaker.CaptureRef,
+                        incarnationId=participant.Lifetime,encounterId=participant.EncounterId,
+                        priorityEvidence=view.PriorityEvidence,
+                        missingCoreCapabilities=view.MissingCoreCapabilities
+                    });
+                    return; // bounded to one owner per sampled tick
+                }
+            }catch{/* native source unavailable means no evidence */}
+        }
         // Read only what the current Core/P2/PS host can independently prove.
         // Pinned Core exposes a special-turn counter and global queued/playback
         // check, but no complete player-turn arbiter, Essential active-turn
         // authority or native PS3 entitlement echo. Those critical gates stay
         // false/-1. Merely matching a
         // Ped pointer or companion-provided integer never grants C-06 authority.
-        DirectorC06Policy.Snapshot ReadDirectorC06(DirectorAdmission.Request r)
+        DirectorC06Policy.Snapshot ReadDirectorC06(DirectorAdmission.Request r) => ReadDirectorC06Core(r,true);
+        DirectorC06Policy.Snapshot ReadDirectorC06Core(DirectorAdmission.Request r,bool ticketScoped)
         {
             var proof=new DirectorC06Policy.Snapshot {
                 HostRunId=host.HostRunId,WorldEpoch=host.WorldEpoch,
@@ -727,6 +780,7 @@ namespace LSA.Intelligence
                 // Only original fields from this sealed receipt populate C06.
                 // A missing receipt is reported by the caller only when it is
                 // the actual first veto for the evaluated stage (see admission).
+                if(ticketScoped) {
                 var original=ps3Receipts.OriginalFor(r);
                 if(original!=null) {
                     proof.ObservationId=original.ObservationId;
@@ -751,6 +805,7 @@ namespace LSA.Intelligence
                     proof.PlayerTurnIdle=owner.Quiet;
                     proof.EssentialTurnKnown=true;
                     proof.EssentialTurnIdle=owner.Quiet;
+                }
                 }
                 // Treat a retained selection of this EXACT current speaker
                 // as idle only when original backend evidence and every
