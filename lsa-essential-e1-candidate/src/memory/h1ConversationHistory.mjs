@@ -207,7 +207,8 @@ export async function prepareH1ConversationHistory(args={}){
 // player turn, there is no accepted player line to anchor the read. The
 // authenticated social ticket and still-current native owner replace that
 // anchor; P2 remains the ONLY transcript and privacy source.
-export function assembleDirectorSocialConversation({rows,scope,suppressed=[],nowUtc}={}){
+export function assembleDirectorSocialConversation({rows,scope,suppressed=[],nowUtc,
+  verifiedSocialSpeech=[]}={}){
   if(!Array.isArray(rows)||!scope||!Array.isArray(suppressed))return null;
   const now=Date.parse(nowUtc);
   if(!Number.isFinite(now))return null;
@@ -221,12 +222,29 @@ export function assembleDirectorSocialConversation({rows,scope,suppressed=[],now
     if(at>now+60_000||now-at<0||now-at>MAX_AGE)continue;
     if(!unique.has(row.recordId))unique.set(row.recordId,row);
   }
-  const ordered=[...unique.values()].sort((a,b)=>
-    Date.parse(b.committedAtUtc)-Date.parse(a.committedAtUtc)||
-    b.recordId.localeCompare(a.recordId));
+  // The original Essential RAM history knows whether native playback actually
+  // completed. Standalone social speech cannot enter D03's reply-to-player
+  // journal yet, so merge ONLY the runtime's already proof-filtered, completed
+  // same-session social lines. No other RAM dialogue is admitted.
+  if(!Array.isArray(verifiedSocialSpeech))return null;
+  const ordered=[...unique.values()].map(row=>({
+    role:row.speaker==='player'?'user':'assistant',content:row.content,
+    at:Date.parse(row.committedAtUtc),id:row.recordId
+  }));
+  for(const [i,item] of verifiedSocialSpeech.entries()){
+    const at=Date.parse(item?.atUtc);
+    if(item?.role!=='assistant'||typeof item.content!=='string'||
+       !item.content.trim()||item.content.length>1200||
+       !Number.isFinite(at)||at>now||now-at>MAX_AGE)continue;
+    // If a future D03 native reply source also stored it, don't say it twice.
+    if(ordered.some(e=>e.role==='assistant'&&e.content===item.content&&
+       Math.abs(e.at-at)<5000))continue;
+    ordered.push({role:'assistant',content:item.content,at,id:'live-'+i});
+  }
+  ordered.sort((a,b)=>b.at-a.at||b.id.localeCompare(a.id));
   const recent=[];
   for(const row of ordered){
-    const item={role:row.speaker==='player'?'user':'assistant',content:row.content};
+    const item={role:row.role,content:row.content};
     if(recent.length>=20||bytes([item,...recent])>12*1024)break;
     recent.unshift(Object.freeze(item));
   }
@@ -234,7 +252,8 @@ export function assembleDirectorSocialConversation({rows,scope,suppressed=[],now
 }
 
 export async function prepareDirectorSocialConversationHistory({
-  store,turn,source,isCurrent,isDirectorCurrent,nowUtc=new Date().toISOString()
+  store,turn,source,isCurrent,isDirectorCurrent,readVerifiedSocialSpeech=()=>[],
+  nowUtc=new Date().toISOString()
 }={}){
   const ticket=turn?.directorTicket,profile=turn?.characterProjection?.profile;
   if(source!=='special_event'||!ticket?.decisionKey?.startsWith('social:')||
@@ -280,7 +299,13 @@ export async function prepareDirectorSocialConversationHistory({
       const hidden=await privacy();
       const rows=await store.readDialogueLines({characterId,timelineId:scope.timelineId,limit:200});
       if(!current()||store.memoryReadFence!==fence)return null;
-      const journal=assembleDirectorSocialConversation({rows,scope,suppressed:hidden,nowUtc});
+      // This port is implemented only by the runtime's playback-accepted
+      // DialogueHistory reader. It checks the exact current P2 privacy seal.
+      const verifiedSocialSpeech=readVerifiedSocialSpeech();
+      if(!current()||store.memoryReadFence!==fence)return null;
+      const journal=assembleDirectorSocialConversation({
+        rows,scope,suppressed:hidden,nowUtc,verifiedSocialSpeech
+      });
       return journal?{journal,fence}:null;
     };
     const initial=await snapshot();
