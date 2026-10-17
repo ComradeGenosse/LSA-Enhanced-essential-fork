@@ -59,6 +59,29 @@ static class Program
         Check(!ledger.CanDiscover("other","body",30200),"corpse TTL is bounded");
         ledger.Retire("nathan");Check(ledger.SeenCount==0,"retirement clears witness");
         ledger.Reset();Check(ledger.BodyCount==0,"world reset clears corpse evidence");
+        // Anchor retirement, not corpse age, releases lifetime tracking.
+        // Expiring a tombstone while the corpse is retained would replay discovery.
+        var capacity=new BodyDiscoveryLedger();
+        bool allBodies=true,allPairs=true;
+        for(int i=0;i<BodyDiscoveryLedger.MaxRetainedBodies;i++)
+            allBodies &= capacity.NoteDead("body"+i,1000);
+        Check(allBodies&&capacity.BodyCount==256,
+              "all 256 retained native anchors fit without the prior 128-body stall");
+        for(int i=0;i<BodyDiscoveryLedger.MaxRetainedBodies;i++)
+            for(int j=0;j<16;j++) {
+                string observer="observer"+j,bodyRef="body"+i;
+                allPairs &= capacity.CanDiscover(observer,bodyRef,2500) &&
+                            capacity.MarkSeen(observer,bodyRef);
+            }
+        Check(allPairs&&capacity.SeenCount==4096,
+              "all 16 bounded observers may witness each of 256 retained corpses");
+        Check(!capacity.CanDiscover("observer0","body0",32000) &&
+              !capacity.NoteDead("fresh",32000),
+              "expired retained corpse stays non-replayable and full anchor ledger fails closed");
+        capacity.Retire("body0");
+        Check(capacity.NoteDead("fresh",32000)&&
+              capacity.CanDiscover("observer0","fresh",33500),
+              "retired anchor reclaims corpse and pair capacity for new lifetime");
         var visual=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="vehicle_damage",Observer="nathan",
             Target="vehicle",DistanceMeters=10,SameInterior=true,ClearLosInFront=true,SampledGameTick=77});
         Check(visual.Status=="witnessed"&&visual.Channel=="visual"&&visual.KnowsTarget&&!visual.KnowsSource,
