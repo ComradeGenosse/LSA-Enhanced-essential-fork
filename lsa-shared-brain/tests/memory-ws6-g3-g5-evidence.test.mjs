@@ -1,0 +1,293 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID,createHash} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
+import {createRecallEvidencePolicy} from '../src/memory/recallEvidencePolicy.mjs';
+import {ensureSuppressionSchema} from '../src/memory/suppressionSqlite.mjs';
+
+const id=()=>randomUUID(),sha=s=>createHash('sha256').update(s).digest('hex');
+const time=n=>new Date(Date.UTC(2026,9,13,12)+n).toISOString();
+function setup(){
+ const db=new DatabaseSync(':memory:');
+ db.exec('CREATE TABLE dialogue_journal(record_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,protagonist TEXT,speaker TEXT,source TEXT,delivery TEXT,content TEXT,content_sha256 TEXT,envelope_json TEXT,envelope_sha256 TEXT,committed_at_utc TEXT,turn_identity_hash TEXT);'
+ +'CREATE TABLE event_journal(record_id TEXT,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,source_hash TEXT,observation_id TEXT,receipt_status TEXT);'
+ +'CREATE TABLE memory_records(memory_id TEXT,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,content TEXT,content_sha256 TEXT,evidence_ids_json TEXT);'
+ +'CREATE TABLE memory_tombstones(world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT,command_id TEXT);'
+ +'CREATE TABLE memory_corrections(command_id TEXT,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT,preferred_text TEXT,content_sha256 TEXT,created_at_utc TEXT,correction_mode TEXT);');
+ ensureSuppressionSchema(db);
+ db.exec('ALTER TABLE dialogue_journal ADD COLUMN session_id TEXT; ALTER TABLE dialogue_journal ADD COLUMN host_run_id TEXT; ALTER TABLE dialogue_journal ADD COLUMN world_epoch INTEGER; ALTER TABLE dialogue_journal ADD COLUMN receipt_id TEXT;');
+ const world=id(),timeline=id(),npc=id(),other=id();
+ const source={hostRunId:id(),worldEpoch:1,ownerAlias:'nathan',
+   incarnationId:id(),encounterId:id(),observerCaptureRef:id()};
+ const scope={characterId:npc,worldProfileId:world,timelineId:timeline,protagonistKey:'franklin'};
+ let live=true;
+ const store={worldProfileId:world,activeTimelineId:timeline,timelineWritable:true,
+  // Stand-in for the real P2SqliteProfileStore monotone revision fence.
+  get memoryReadFence(){return db.prepare('SELECT total_changes() AS n').get().n+':'+
+    db.prepare('PRAGMA data_version').get().data_version;},
+  verifiedHostContext:{hostRunId:source.hostRunId,worldEpoch:1},
+  get:char=>char===npc?{promotion:{ownerAlias:'nathan'}}:null,
+  withP2SqliteRead:async(_scope,callback)=>callback(db),
+  readM3Coverage:async()=>({status:'unknown',certified:false,evidencePresent:false}),
+  readObserverCoverage:async()=>({complete:false}),
+  readVerifiedEventEvidence:async()=>null,
+  readIntegratedRecall:async()=>({rows:[],coverageComplete:false})};
+ const policy=(verifyNativeNegative=null)=>createRecallEvidencePolicy({
+  store,verifyNativeNegative,isCurrent:()=>live});
+ const add=(content,{characterId=npc,avatar='franklin',speaker='player',
+    delivery=speaker==='player'?'accepted':'completed',at=0}={})=>{
+   const recordId=id(),committedAtUtc=time(at),src=speaker==='player'?'typed':'npc_generated';
+   const envelope={version:1,kind:'dialogue_line',recordId,characterId,
+    worldProfileId:world,timelineId:timeline,content,speaker,source:src,delivery,committedAtUtc,
+    attribution:{protagonist:avatar},turnIdentityHash:sha(recordId),
+    ...(speaker==='npc'?{deliveryReceiptId:id()}:{})};
+   const raw=JSON.stringify(envelope);
+   db.prepare('INSERT INTO dialogue_journal VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(recordId,world,characterId,timeline,avatar,speaker,src,delivery,content,
+      sha(content),raw,sha(raw),committedAtUtc,envelope.turnIdentityHash,id(),source.hostRunId,1,envelope.deliveryReceiptId??null);
+   return envelope;
+ };
+ return {db,world,timeline,npc,other,source,scope,store,policy,add,
+  expire:()=>{live=false;},close:()=>db.close()};
+}
+function setCert(f,observationId){
+ const c={certified:true,nativeVerified:true,status:'did_not_witness',
+  observationId,adapterEpoch:id(),sourceReceiptId:id(),...f.source,
+  sampledGameTick:100,channel:'visual',basis:'native_awareness'};
+ const record={observationId,characterId:f.npc,worldProfileId:f.world,
+  timelineId:f.timeline,ownerProof:{...f.source},adapterEpoch:c.adapterEpoch,nativeCoverage:c};
+ const range={fromUtc:time(0),toUtc:time(2000)};
+ const ledger={complete:true,characterId:f.npc,worldProfileId:f.world,timelineId:f.timeline,
+  requested:{...range},gaps:[],windows:[{startUtc:time(-1000),endUtc:time(3000),
+   status:'closed',hostRunId:f.source.hostRunId,worldEpoch:1}]};
+ f.store.readM3Coverage=async()=>({status:'did_not_witness',certified:true,
+  evidencePresent:true,record});
+ f.store.readObserverCoverage=async()=>ledger;
+ return {c,range,ledger};
+}
+test('G3 counts 402 authenticated P2 rows across all three avatars, not a 384-item page',async()=>{
+ const f=setup();
+ try{
+  for(let i=0;i<402;i++)f.add('telescope '+i,{avatar:['michael','franklin','trevor'][i%3],at:i});
+  const r=await f.policy().countDialogue({scope:f.scope,source:f.source,
+   predicate:{containsText:'telescope'}});
+  assert.equal(r.status,'complete');assert.equal(r.exactCount,402);
+  assert.equal(r.scanned,402);assert.equal(r.first.sourceAvatar,'michael');
+  assert.equal(r.last.sourceAvatar,'trevor');
+ }finally{f.close();}
+});
+test('G3 refuses capped, corrupt, revoked and unsupported queries',async()=>{
+ const f=setup();
+ try{
+  f.add('one',{at:1});f.add('two',{at:2});
+  assert.equal((await f.policy().countDialogue({scope:f.scope,source:f.source,
+   predicate:{eventType:'firing'}})).exactCount,null);
+  assert.equal((await f.policy().countDialogue({scope:f.scope,source:f.source,maxScan:1})).status,'incomplete');
+  assert.equal((await f.policy().countDialogue({scope:f.scope,source:f.source,
+   predicate:{speaker:'journal_event'}})).exactCount,null);
+  f.db.prepare('UPDATE dialogue_journal SET content=? WHERE content=?').run('forged','one');
+  assert.equal((await f.policy().countDialogue({scope:f.scope,source:f.source})).reason,'source_integrity_failure');
+  f.expire();
+  assert.equal((await f.policy().countDialogue({scope:f.scope,source:f.source})).reason,'source_revoked');
+ }finally{f.close();}
+});
+test('G3 source suppression and transcript correction exclude, counterclaim preserves',async()=>{
+ const f=setup();
+ try{
+  const a=f.add('forget',{at:1}),b=f.add('misheard',{at:2}),c=f.add('witnessed',{at:3});
+  f.db.prepare('INSERT INTO memory_tombstones VALUES(?,?,?,?,?)')
+   .run(f.world,f.npc,f.timeline,a.recordId,id());
+  const sql=f.db.prepare('INSERT INTO memory_corrections VALUES(?,?,?,?,?,?,?,?,?)');
+  sql.run(id(),f.world,f.npc,f.timeline,b.recordId,'actual',sha('actual'),time(4),'transcript');
+  sql.run(id(),f.world,f.npc,f.timeline,c.recordId,'deny',sha('deny'),time(5),'counter_claim');
+  const r=await f.policy().countDialogue({scope:f.scope,source:f.source});
+  assert.equal(r.exactCount,1);assert.equal(r.best.recordId,c.recordId);
+  f.add('other',{characterId:f.other,at:6});
+  assert.equal((await f.policy().countDialogue({scope:f.scope,source:f.source})).exactCount,1);
+  assert.equal((await f.policy().countDialogue({scope:{...f.scope,timelineId:id()},
+   source:f.source})).exactCount,null);
+ }finally{f.close();}
+});
+test('G5 witnessed event requires authentic scoped sidecar, not reported event',async()=>{
+ const f=setup(),observationId=id(),recordId=id();
+ try{
+  const event={recordId,observationId,characterId:f.npc,worldProfileId:f.world,
+   timelineId:f.timeline,receiptStatus:'witnessed',receivedAtUtc:time(900),
+   ownerProof:{...f.source},sourceHash:sha('event')};
+  f.store.readVerifiedEventEvidence=async()=>({event,
+   sourceEvidence:{sourceHash:event.sourceHash,observation:{observationId},
+    ownerProof:{...f.source}}});
+  const input={scope:f.scope,source:f.source,observationId,eventRecordId:recordId,
+   fromUtc:time(0),toUtc:time(2000)};
+  assert.equal((await f.policy().witness(input)).status,'witnessed');
+  event.characterId=f.other;
+  assert.notEqual((await f.policy().witness(input)).status,'witnessed');
+ }finally{f.close();}
+});
+test('G5 native event-specific independent verifier required; gaps and spoofed identity disqualify',async()=>{
+ const f=setup(),observationId=id();
+ try{
+  const {range,ledger,c}=setCert(f,observationId);
+  const input={scope:f.scope,source:f.source,observationId,...range};
+  assert.equal((await f.policy().witness(input)).status,'unknown');
+  let calls=0;
+  const verify=q=>{calls++;assert.equal(q.observationId,observationId);
+   assert.equal(q.fromUtc,range.fromUtc);return true;};
+  assert.equal((await f.policy(verify).witness(input)).status,'did_not_witness');
+  ledger.windows[0].endUtc=time(1500);
+  assert.equal((await f.policy(verify).witness(input)).status,'unknown');
+  ledger.windows[0].endUtc=time(3000);ledger.windows[0].startUtc=time(500);
+  assert.equal((await f.policy(verify).witness(input)).status,'unknown');
+  ledger.windows[0].startUtc=time(-1000);
+  ledger.gaps.push({kind:'lost_observation',fromUtc:time(400),toUtc:time(500)});
+  assert.equal((await f.policy(verify).witness(input)).status,'unknown');assert.equal(calls,1);
+  ledger.gaps.length=0;ledger.windows[0].status='open';
+  assert.equal((await f.policy(verify).witness(input)).status,'unknown');
+  ledger.windows[0].status='closed';ledger.windows[0].hostRunId=id();
+  assert.equal((await f.policy(verify).witness(input)).status,'unknown');
+  ledger.windows[0].hostRunId=f.source.hostRunId;c.encounterId=id();
+  assert.equal((await f.policy(verify).witness(input)).status,'unknown');
+ }finally{f.close();}
+});
+test('G5 native proof resolving after source change produces unavailable',async()=>{
+ const f=setup(),observationId=id();
+ try{
+  const {range}=setCert(f,observationId);
+  const policy=f.policy(async()=>{
+   f.store.verifiedHostContext={hostRunId:id(),worldEpoch:1};return true;
+  });
+  const r=await policy.witness({scope:f.scope,source:f.source,observationId,...range});
+  assert.equal(r.status,'unavailable');
+ }finally{f.close();}
+});
+test('G4 preserves exact Unicode quotes, source avatar, budget, and rejects forged rows',async()=>{
+ const f=setup();
+ try{
+  const a=f.add('I said "🎯"   ',{avatar:'trevor'});
+  const b=f.add('done',{speaker:'npc',at:1});
+  const row=x=>({...f.scope,sourceKind:'dialogue_line',recordId:x.recordId,
+   protagonistKey:x.attribution.protagonist,evidenceState:'verified',
+   atUtc:x.committedAtUtc,envelope:x});
+  f.store.readIntegratedRecall=async()=>({rows:[row(a),row(b),
+   {...row(a),recordId:id()}],coverageComplete:false});
+  const r=await f.policy().labelledEvidence({scope:f.scope,source:f.source,maxBytes:1000});
+  assert.equal(r.status,'matched');assert.equal(r.completeness,'bounded_candidate_page');
+  assert.equal(r.exactCount,null);assert.equal(r.items[0].content,'I said "🎯"   ');
+  assert.equal(r.items[0].sourceAvatar,'trevor');assert.equal(r.items[0].category,'exact_quote');
+  assert.equal(r.dropped,1);
+  const small=await f.policy().labelledEvidence({scope:f.scope,source:f.source,maxBytes:256});
+  assert.ok(small.items.length<=r.items.length);
+ }finally{f.close();}
+});
+
+
+test('G4 separates native observed fact, reported event, archival record and opinion',async()=>{
+ const f=setup();
+ try{
+  const base={...f.scope,evidenceState:'verified',atUtc:time(0)};
+  const event=(modality,certainty)=>{const recordId=id();return {...base,
+   sourceKind:'journal_event',recordId,protagonistKey:'unknown',
+   envelope:{version:1,kind:'journal_event',recordId,characterId:f.npc,
+    worldProfileId:f.world,timelineId:f.timeline,observationId:id(),
+    sourceHash:sha('event'),receiptStatus:'witnessed',eventType:'firing_burst',
+    claims:[{sourceEvidenceId:id(),kind:'sound',durableSubject:'anonymous',
+     modality,certainty}]}};};
+  const permanent=(mode)=>{const recordId=id();return {...base,
+   sourceKind:'permanent_memory',recordId,protagonistKey:'michael',
+   envelope:{version:1,kind:'permanent_memory',recordId,characterId:f.npc,
+    worldProfileId:f.world,timelineId:f.timeline,mode,content:'A remembered remark',
+    sourceEvidenceIds:[id()]}};};
+  f.store.readIntegratedRecall=async()=>({coverageComplete:false,rows:[
+   event('auditory','direct'),event('report','reported'),
+   permanent('observed_fact'),permanent('opinion')]});
+  const r=await f.policy().labelledEvidence({scope:f.scope,source:f.source,maxBytes:4096});
+  assert.deepEqual(r.items.map(x=>x.category),[
+   'directly_observed_fact','reported_claim','archived_memory','character_opinion']);
+  assert.equal(r.items[0].sourceAvatar,'unknown');
+  assert.equal(r.items[3].sourceAvatar,'michael');
+  assert.ok(r.items.every(x=>x.sourceEvidenceIds.length===1));
+  assert.equal(r.exactCount,null);
+ }finally{f.close();}
+});
+
+
+test('pre-send P2 visibility gate rejects forget, corruption and revoked source',async()=>{
+ const f=setup();
+ try{
+  const e=f.add('original');
+  const policy=f.policy();
+  const input={scope:f.scope,source:f.source,recordIds:[e.recordId]};
+  assert.equal(await policy.verifyReferenceVisibility(input),true);
+  f.db.prepare('INSERT INTO memory_tombstones VALUES (?,?,?,?,?)')
+    .run(f.world,f.npc,f.timeline,e.recordId,id());
+  assert.equal(await policy.verifyReferenceVisibility(input),false);
+  assert.equal(await policy.verifyReferenceVisibility({...input,recordIds:[id()]}),false);
+  f.expire();
+  assert.equal(await policy.verifyReferenceVisibility(input),false);
+ }finally{f.close();}
+});
+
+
+test('G4 pre-send reference gate never trusts a bare event row without native sidecar',async()=>{
+ const f=setup(),eventId=id();
+ try{
+  f.db.prepare('INSERT INTO event_journal VALUES(?,?,?,?,?,?,?)')
+   .run(eventId,f.world,f.npc,f.timeline,sha('event'),id(),'witnessed');
+  const r=await f.policy().verifyReferenceVisibility({scope:f.scope,source:f.source,
+   recordIds:[eventId]});
+  assert.equal(r,false);
+ }finally{f.close();}
+});
+
+test('G3 paged count aborts on a committed privacy change between source-fenced pages',async()=>{
+ const f=setup();
+ try{
+  let target=null;
+  for(let i=0;i<520;i++){const e=f.add('budget '+i,{at:i});if(i===10)target=e.recordId;}
+  const read=f.store.withP2SqliteRead;
+  let reads=0;
+  f.store.withP2SqliteRead=async(...args)=>{
+   const result=await read(...args);
+   if(++reads===1)setImmediate(()=>f.db.prepare(
+     'INSERT INTO memory_tombstones VALUES(?,?,?,?,?)'
+   ).run(f.world,f.npc,f.timeline,target,id()));
+   return result;
+  };
+  const r=await f.policy().countDialogue({scope:f.scope,source:f.source,predicate:{containsText:'budget'}});
+  assert.equal(r.status,'incomplete');
+  assert.equal(r.exactCount,null,'no partial count may escape an intervening forget');
+  assert.equal(r.reason,'source_revoked_or_changed');
+  assert.ok(reads>=1);
+ }finally{f.close();}
+});
+test('G3 paged count aborts if native owner authority retires between pages',async()=>{
+ const f=setup();
+ try{
+  for(let i=0;i<520;i++)f.add('native '+i,{at:i});
+  const read=f.store.withP2SqliteRead;
+  let reads=0;
+  f.store.withP2SqliteRead=async(...args)=>{
+   const result=await read(...args);
+   if(++reads===1)setImmediate(()=>f.expire());
+   return result;
+  };
+  const r=await f.policy().countDialogue({scope:f.scope,source:f.source,predicate:{containsText:'native'}});
+  assert.equal(r.status,'incomplete');
+  assert.equal(r.exactCount,null,'retired native proof cannot finish an exhaustive count');
+  assert.equal(r.reason,'source_revoked_or_changed');
+  assert.ok(reads>=1);
+ }finally{f.close();}
+});
+test('G3 physical page boundaries include same-timestamp rows and never forge completeness',async()=>{
+ const f=setup();
+ try{
+  // Keyset ordering must not skip same-timestamp UUIDs at 256/512 boundaries.
+  for(let i=0;i<520;i++)f.add('identical timestamp',{at:0,avatar:['franklin','michael','trevor'][i%3]});
+  const r=await f.policy().countDialogue({scope:f.scope,source:f.source,
+    predicate:{speaker:'player',containsText:'identical timestamp'}});
+  assert.equal(r.status,'complete');assert.equal(r.exactCount,520);
+  assert.equal(r.scanned,520);
+  const limit=await f.policy().countDialogue({scope:f.scope,source:f.source,maxScan:500});
+  assert.equal(limit.status,'incomplete');assert.equal(limit.exactCount,null);
+ }finally{f.close();}
+});

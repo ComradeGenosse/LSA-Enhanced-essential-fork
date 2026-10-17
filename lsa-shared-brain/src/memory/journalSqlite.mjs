@@ -1,6 +1,8 @@
+import {isSuppressedSource,suppressedMemoryIds} from './suppressionSqlite.mjs';
 // Shared immutable M2/M3 journal: one SQLite file, no background model.
 // Write entry points are synchronous and ONLY legal under withTimelineWrite.
 import {createHash} from 'node:crypto';
+import {enforceJournalCaps} from '../characters/sqliteDurability.mjs';
 import {isUuid,immutableSnapshot} from '../util/identity.mjs';
 import {evidenceHash} from '../events/journalEventNormalizer.mjs';
 import {ensureIntegratedMemorySchema} from './integratedSqlite.mjs';
@@ -15,16 +17,30 @@ const fail=code=>{throw new Error(code);};
 const lineKeys=['version','characterId','worldProfileId','timelineId','kind','recordId','speaker','source','content','delivery','committedAtUtc','turnIdentityHash','utteranceId','transcription','deliveryReceiptId'];
 const eventKeys=['version','characterId','worldProfileId','timelineId','kind','recordId','observationId','revision','eventType','receivedAtUtc','sourceHash','ownerProof','receiptStatus','claims'];
 function scope(e,world){if(!e||e.version!==1||!isUuid(e.characterId)||e.worldProfileId!==world||!isUuid(e.timelineId)||!isUuid(e.recordId))fail('journal_invalid_scope');}
+// `replyTo` is optional so every pre-existing line shape stays valid. When present
+// it is the record id of the accepted player line an NPC line answers (study
+// §3.3 "the NPC line it replied to"); appendDialogue resolves it in the same
+// scope and session, so a reply link can never dangle or cross characters.
+export const NPC_DELIVERY_STATUSES=Object.freeze(['completed','interrupted','failed']);
 export function validateDialogueLine(e,world){
   scope(e,world);
-  if(!exact(e,lineKeys)||e.kind!=='dialogue_line'||!['player','npc'].includes(e.speaker)||
+  const hasReply=!!e&&typeof e==='object'&&Object.hasOwn(e,'replyTo');
+  if(!exact(e,hasReply?[...lineKeys,'replyTo']:lineKeys)||e.kind!=='dialogue_line'||!['player','npc'].includes(e.speaker)||
     !['typed','stt','npc_generated'].includes(e.source)||!validText(e.content,1,12000)||!utc(e.committedAtUtc)||
     !hex(e.turnIdentityHash)||!(e.utteranceId===null||isUuid(e.utteranceId))||
     !(e.deliveryReceiptId===null||isUuid(e.deliveryReceiptId)))fail('journal_invalid_dialogue');
+  if(hasReply&&!(e.replyTo===null||isUuid(e.replyTo)))fail('journal_invalid_reply_to');
   if(e.speaker==='player'){
     if(!['typed','stt'].includes(e.source)||e.delivery!=='accepted'||e.deliveryReceiptId!==null)fail('journal_unaccepted_dialogue');
-  }else if(e.source!=='npc_generated'||e.delivery!=='completed'||!isUuid(e.deliveryReceiptId)||e.transcription!==null)
-    fail('journal_unverified_playback');
+    if(hasReply&&e.replyTo!==null)fail('journal_invalid_reply_to');
+  }else{
+    if(e.source!=='npc_generated'||e.transcription!==null||!NPC_DELIVERY_STATUSES.includes(e.delivery))
+      fail('journal_unverified_playback');
+    // completed/interrupted carry the delivery outcome id; a failed line was
+    // never delivered, so no receipt can exist for it.
+    if(e.delivery==='failed'?e.deliveryReceiptId!==null:!isUuid(e.deliveryReceiptId))
+      fail('journal_unverified_playback');
+  }
   if(e.source==='stt'){
     const t=e.transcription;
     if(!exact(t,['provider','model','confidence'])||!validText(t.provider,1,64)||!validText(t.model,1,80)||
@@ -62,26 +78,107 @@ const DDL=[
 ].join('\n');
 const tables=['dialogue_journal','dialogue_journal_fts','event_journal','event_source_evidence','memory_records','memory_commands','memory_tombstones','memory_curation_jobs','memory_budget_reservations','memory_luna_appraisals'];
 const sidecarDDL="CREATE TABLE IF NOT EXISTS event_source_evidence (record_id TEXT PRIMARY KEY REFERENCES event_journal(record_id) ON DELETE CASCADE, source_evidence_json TEXT NOT NULL, source_evidence_sha256 TEXT NOT NULL)";
-export function migrateJournalSchema(db,{externalTransaction=false}={}){
+// G: an index of original native signal receipts, in the SAME P2 transaction
+// as the immutable event/sidecar. PS2 IDs are process-local and cannot fence
+// source redelivery after a reset. Retain only hashes and provenance keys after
+// purge, like permanent suppression receipts; never retain event content here.
+const nativeReceiptDDL=`CREATE TABLE event_native_receipts (
+ world_profile_id TEXT NOT NULL,character_id TEXT NOT NULL,timeline_id TEXT NOT NULL,
+ receipt_key TEXT NOT NULL,claim_sha256 TEXT NOT NULL,record_id TEXT NOT NULL,
+ observation_id TEXT NOT NULL,source_hash TEXT NOT NULL,receipt_sha256 TEXT NOT NULL,
+ PRIMARY KEY(world_profile_id,character_id,timeline_id,receipt_key));
+CREATE INDEX event_native_receipts_observation ON event_native_receipts(world_profile_id,character_id,timeline_id,observation_id);
+CREATE INDEX event_native_receipts_lineage ON event_native_receipts(world_profile_id,character_id,receipt_key);`;
+const nativeScope=e=>[e.worldProfileId,e.characterId,e.timelineId];
+function nativeReceipts(e,evidence){
+  const p=e.ownerProof,keys=new Map();
+  for(const claim of evidence?.observation?.claims??[]){
+    if(!isUuid(claim.details?.eventSignalId))continue; // unchanged legacy inputs
+    const key=evidenceHash(['m3.native.signal.v1',p.hostRunId,p.worldEpoch,
+      p.ownerAlias,p.observerCaptureRef,p.incarnationId,p.encounterId,
+      claim.details.eventSignalId,claim.evidence.sampledGameTick,claim.kind]);
+    const {claimId,...original}=claim;
+    keys.set(key,evidenceHash(original));
+  }
+  return [...keys].map(([key,digest])=>({key,digest}));
+}
+function indexNativeReceipts(db,e,keys){
+  for(const {key,digest} of keys){
+    const values=[...nativeScope(e),key,digest,e.recordId,e.observationId,e.sourceHash];
+    db.prepare('INSERT OR IGNORE INTO event_native_receipts VALUES(?,?,?,?,?,?,?,?,?)')
+      .run(...values,hash(JSON.stringify(values)));
+  }
+}
+function ensureNativeReceiptIndex(db){
+  if(db.prepare("SELECT name FROM sqlite_master WHERE name='event_native_receipts'").get())return;
+  const nested=db.isTransaction===true;
+  if(!nested)db.exec('BEGIN IMMEDIATE');
+  try{
+    db.exec(nativeReceiptDDL);
+    // One-time upgrade from existing immutable sidecars, under P2 ownership.
+    // Previously purged evidence cannot be invented or reconstructed.
+    for(const row of db.prepare('SELECT e.envelope_json,e.envelope_sha256,s.source_evidence_json,s.source_evidence_sha256 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id ORDER BY e.rowid').iterate()){
+      if(hash(row.envelope_json)!==row.envelope_sha256||hash(row.source_evidence_json)!==row.source_evidence_sha256)
+        fail('journal_native_receipt_integrity');
+      const e=JSON.parse(row.envelope_json),evidence=verifiedEvidence(e,JSON.parse(row.source_evidence_json));
+      indexNativeReceipts(db,e,nativeReceipts(e,evidence));
+    }
+    if(!nested)db.exec('COMMIT');
+  }catch(error){if(!nested)try{db.exec('ROLLBACK');}catch{}throw error;}
+}
+function nativeReplay(db,e,keys){
+  if(!keys.length)return null;
+  // An old event suppression whose sidecar was already purged before this
+  // upgrade has no native key. Fail closed for production native intake in
+  // that NPC/world, including a newly selected lineage: the missing native
+  // key cannot establish that a re-delivery belongs to the new timeline.
+  if(db.prepare(`SELECT 1 FROM memory_suppressions s WHERE s.world_profile_id=? AND s.character_id=?
+    AND s.source_kind='journal_event' AND NOT EXISTS(SELECT 1 FROM event_native_receipts r
+    WHERE r.world_profile_id=s.world_profile_id AND r.character_id=s.character_id AND r.timeline_id=s.timeline_id
+    AND r.observation_id=s.evidence_key) LIMIT 1`).get(e.worldProfileId,e.characterId))fail('journal_native_privacy_unresolved');
+  const found=[];
+  for(const {key,digest} of keys){
+    // A native incident already attributed in another save lineage is past
+    // evidence, even if PS2 still retains it and current ownership is fresh.
+    // Never borrow its receipt to journal it again under a new timeline.
+    if(db.prepare('SELECT 1 FROM event_native_receipts WHERE world_profile_id=? AND character_id=? AND receipt_key=? AND timeline_id<>? LIMIT 1')
+      .get(e.worldProfileId,e.characterId,key,e.timelineId))fail('journal_native_timeline_replay');
+    const r=db.prepare('SELECT * FROM event_native_receipts WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND receipt_key=?')
+      .get(...nativeScope(e),key);
+    if(!r)continue;
+    const values=[r.world_profile_id,r.character_id,r.timeline_id,r.receipt_key,r.claim_sha256,r.record_id,r.observation_id,r.source_hash];
+    if(r.receipt_sha256!==hash(JSON.stringify(values))||r.claim_sha256!==digest)
+      fail('journal_native_receipt_integrity');
+    if(isSuppressedSource(db,e,{recordId:r.record_id,kind:'journal_event',contentHash:r.source_hash,evidenceKey:r.observation_id}))
+      fail('memory_source_forgotten');
+    found.push(r);
+  }
+  if(found.length!==keys.length)return null; // a genuine new/revised observation
+  // Exact original PS2 replay still uses the stricter immutable replay checks.
+  if(found.every(r=>r.observation_id===e.observationId))return null;
+  for(const r of found){
+    const original=readVerifiedEventEvidence(db,{...e,recordId:r.record_id},e.worldProfileId);
+    if(!original||original.event.eventType!==e.eventType)fail('journal_native_replay_unavailable');
+  }
+  return Object.freeze({inserted:false,recordId:found[0].record_id});
+}
+export function migrateJournalSchema(db){
   const v=db.prepare('PRAGMA user_version').get().user_version;
   if(![2,3,JOURNAL_SCHEMA_VERSION].includes(v))fail('unsupported_sqlite_profile_schema');
-  if(v===JOURNAL_SCHEMA_VERSION){assertJournalSchema(db);return v;}
-  // The P2 foundation may compose M2-M9 additive extension tables with the
-  // SAME v2/v3->v4 transaction. Direct callers retain the legacy atomic API.
-  if(externalTransaction!==true) db.exec('BEGIN IMMEDIATE');
-  else if(db.isTransaction!==true) fail('sqlite_migration_transaction_required');
+  if(v===JOURNAL_SCHEMA_VERSION){assertJournalSchema(db);ensureNativeReceiptIndex(db);return v;}
+  // Entire v2/v3 -> v4 migration commits atomically; no mixed schema state.
+  const nested=db.isTransaction===true;
+  if(!nested)db.exec('BEGIN IMMEDIATE');
   try{
     if(v===2)db.exec(DDL);
-    else db.exec(sidecarDDL); // Never rebuild pre-existing v3 journal rows.
+    else db.exec(sidecarDDL); // Existing v3 journal bytes are never rebuilt.
     ensureIntegratedMemorySchema(db);
     ensureCurationSchema(db);
+    ensureNativeReceiptIndex(db);
     db.exec('PRAGMA user_version=4');
-    if(externalTransaction!==true)db.exec('COMMIT');
+    if(!nested)db.exec('COMMIT');
     return JOURNAL_SCHEMA_VERSION;
-  }catch(error){
-    if(externalTransaction!==true)try{db.exec('ROLLBACK');}catch{}
-    throw error;
-  }
+  }catch(error){if(!nested)try{db.exec('ROLLBACK');}catch{}throw error;}
 }
 export function assertJournalSchema(db){
   if(db.prepare('PRAGMA user_version').get().user_version!==JOURNAL_SCHEMA_VERSION)fail('sqlite_journal_schema_missing');
@@ -95,13 +192,27 @@ function owner(db,e,world){
   if(!p||!t||t.worldId!==world)fail('journal_owner_or_timeline_unknown');
   return p.owner_alias;
 }
-export function appendDialogue(db,line,attribution,world){
+export function appendDialogue(db,line,attribution,world,{limits={}}={}){
   assertJournalSchema(db);const e=validateDialogueLine(line,world);owner(db,e,world);
   if(!exact(attribution,['sessionId','protagonist','hostRunId','worldEpoch'])||
     !isUuid(attribution.sessionId)||!['franklin','michael','trevor','unknown'].includes(attribution.protagonist)||
     !(attribution.hostRunId===null||isUuid(attribution.hostRunId))||
     !(attribution.worldEpoch===null||Number.isSafeInteger(attribution.worldEpoch)&&attribution.worldEpoch>=0)||
     (attribution.hostRunId===null)!==(attribution.worldEpoch===null))fail('journal_invalid_attribution');
+  if(typeof e.replyTo==='string'){
+    const parent=db.prepare('SELECT speaker,delivery,session_id,character_id,timeline_id,world_profile_id,content,content_sha256,turn_identity_hash FROM dialogue_journal WHERE record_id=?').get(e.replyTo);
+    if(!parent||parent.speaker!=='player'||parent.delivery!=='accepted'||
+       parent.character_id!==e.characterId||parent.timeline_id!==e.timelineId||
+       parent.world_profile_id!==e.worldProfileId||parent.session_id!==attribution.sessionId)
+      fail('journal_reply_to_unresolved');
+    // A delivered reply cannot resurrect a forgotten input while that input's
+    // immutable bytes remain in authorized recovery trash. Reuse E2's durable
+    // suppression verification inside the same sole-P2 transaction.
+    if(hash(parent.content)!==parent.content_sha256)fail('journal_content_integrity_failed');
+    if(isSuppressedSource(db,e,{recordId:e.replyTo,kind:'dialogue_line',
+      contentHash:parent.content_sha256,evidenceKey:parent.turn_identity_hash}))fail('memory_source_forgotten');
+  }
+  if(isSuppressedSource(db,e,{recordId:e.recordId,kind:'dialogue_line',contentHash:hash(e.content),evidenceKey:e.turnIdentityHash}))fail('memory_source_forgotten');
   const old=db.prepare('SELECT envelope_json,envelope_sha256,content_sha256,session_id,protagonist,host_run_id,world_epoch FROM dialogue_journal WHERE character_id=? AND timeline_id=? AND speaker=? AND turn_identity_hash=?')
     .get(e.characterId,e.timelineId,e.speaker,e.turnIdentityHash);
   if(old){
@@ -115,6 +226,10 @@ export function appendDialogue(db,line,attribution,world){
     return Object.freeze({inserted:false,recordId:previous.recordId});
   }
   const raw=JSON.stringify(e);
+  // Duplicate replay above never consumes quota. All caps are enforced inside
+  // the same transaction as the eventual insert; no silent archival pruning.
+  enforceJournalCaps(db,{characterId:e.characterId,
+    bytes:Buffer.byteLength(raw)+Buffer.byteLength(e.content),limits});
   db.prepare('INSERT INTO dialogue_journal (record_id,world_profile_id,timeline_id,character_id,session_id,protagonist,host_run_id,world_epoch,speaker,source,delivery,turn_identity_hash,committed_at_utc,content,content_sha256,receipt_id,envelope_json,envelope_sha256) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,e.worldProfileId,e.timelineId,e.characterId,attribution.sessionId,attribution.protagonist,attribution.hostRunId,
       attribution.worldEpoch,e.speaker,e.source,e.delivery,e.turnIdentityHash,e.committedAtUtc,e.content,hash(e.content),
@@ -134,18 +249,22 @@ function verifiedEvidence(event,sidecar) {
     characterId:event.characterId,worldProfileId:event.worldProfileId,
     timelineId:event.timelineId,ownerProof:sidecar.ownerProof,
     adapterEpoch:sidecar.nativeAdapterEpoch
-  },participantProofs:sidecar.participantProofs,prePromotionProof:sidecar.prePromotionProof??null};
+  },participantProofs:sidecar.participantProofs,prePromotionProof:sidecar.prePromotionProof??null,
+    ...(sidecar.attribution!==undefined?{attribution:sidecar.attribution}:{})};
   if(evidenceHash(material)!==event.sourceHash)fail('journal_evidence_hash_mismatch');
   const sourceClaims=new Set(sidecar.observation.claims.map(c=>c.claimId));
   if(event.claims.some(c=>!sourceClaims.has(c.sourceEvidenceId)))fail('journal_evidence_claim_mismatch');
   return immutableSnapshot(sidecar);
 }
-export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null}={}){
+export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null,limits={}}={}){
   assertJournalSchema(db);const e=validateJournalEvent(event,world),alias=owner(db,e,world);
   if(alias!==e.ownerProof.ownerAlias)fail('journal_owner_proof_mismatch');
   if(hostContext&&(hostContext.hostRunId!==e.ownerProof.hostRunId||hostContext.worldEpoch!==e.ownerProof.worldEpoch))
     fail('journal_source_epoch_mismatch');
   const evidence=sourceEvidence===null?null:verifiedEvidence(e,sourceEvidence);
+  if(isSuppressedSource(db,e,{recordId:e.recordId,kind:'journal_event',contentHash:e.sourceHash,evidenceKey:e.observationId}))fail('memory_source_forgotten');
+  const nativeKeys=nativeReceipts(e,evidence),replay=nativeReplay(db,e,nativeKeys);
+  if(replay)return replay;
   // A newer accepted revision may never be rolled back by a late/replayed PS2 receipt.
   const newest=db.prepare('SELECT MAX(revision) AS revision FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND observation_id=?')
     .get(e.worldProfileId,e.characterId,e.timelineId,e.observationId)?.revision;
@@ -163,6 +282,8 @@ export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null
     return Object.freeze({inserted:false,recordId:previous.recordId});
   }
   const raw=JSON.stringify(e);
+  enforceJournalCaps(db,{characterId:e.characterId,event:true,
+    bytes:Buffer.byteLength(raw)+(evidence?Buffer.byteLength(JSON.stringify(evidence)):0),limits});
   db.prepare('INSERT INTO event_journal(record_id,world_profile_id,timeline_id,character_id,observation_id,revision,event_type,received_at_utc,source_hash,receipt_status,envelope_json,envelope_sha256) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,e.worldProfileId,e.timelineId,e.characterId,e.observationId,e.revision,e.eventType,e.receivedAtUtc,
       e.sourceHash,e.receiptStatus,raw,hash(raw));
@@ -171,6 +292,7 @@ export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null
     db.prepare('INSERT INTO event_source_evidence(record_id,source_evidence_json,source_evidence_sha256) VALUES (?,?,?)')
       .run(e.recordId,original,hash(original));
   }
+  indexNativeReceipts(db,e,nativeKeys);
   return Object.freeze({inserted:true,recordId:e.recordId});
 }
 function readScope(s,world,defaultLimit=200){
@@ -182,7 +304,14 @@ function readScope(s,world,defaultLimit=200){
 }
 function decodeLine(row){
   const value=JSON.parse(row.envelope_json);
-  if(hash(row.envelope_json)!==row.envelope_sha256||value.content!==row.content||hash(value.content)!==row.content_sha256)fail('journal_content_integrity_failed');
+  if(hash(row.envelope_json)!==row.envelope_sha256||
+     value.content!==row.content||hash(value.content)!==row.content_sha256||
+     value.recordId!==row.record_id||value.characterId!==row.character_id||
+     value.worldProfileId!==row.world_profile_id||value.timelineId!==row.timeline_id||
+     value.speaker!==row.speaker||value.source!==row.source||
+     value.delivery!==row.delivery||value.deliveryReceiptId!==row.receipt_id||
+     value.turnIdentityHash!==row.turn_identity_hash)
+    fail('journal_content_integrity_failed');
   return immutableSnapshot({...value,attribution:{sessionId:row.session_id,protagonist:row.protagonist,
     hostRunId:row.host_run_id,worldEpoch:row.world_epoch}});
 }
@@ -210,6 +339,85 @@ export function searchDialogue(db,s,world){
   const phrase='"'+s.query.replaceAll('"','""')+'"';
   return Object.freeze(db.prepare('SELECT j.* FROM dialogue_journal_fts JOIN dialogue_journal j ON j.rowid=dialogue_journal_fts.rowid WHERE dialogue_journal_fts MATCH ? AND j.world_profile_id=? AND j.character_id=? AND j.timeline_id=? ORDER BY j.committed_at_utc DESC,j.rowid DESC LIMIT ?')
     .all(phrase,world,s.characterId,s.timelineId,limit).map(decodeLine));
+}
+/**
+ * K-16 free-recall source window, separate from the indefinite FTS5 archive.
+ * This is an opt-in reader for WS-6; do not alter the live conversation/PS4
+ * runner here. Last 200 player lines OR current+previous session, bounded by
+ * 1000 total lines and 512 KiB. It never deletes or expires archived rows.
+ */
+export function readFreeRecallWindow(db,s,world){
+  assertJournalSchema(db);
+  if(!s||!isUuid(s.characterId)||!isUuid(s.timelineId)||
+     s.worldProfileId!==world)fail('journal_invalid_scope');
+  if(!db.prepare('SELECT 1 FROM promoted_profiles WHERE character_id=?').get(s.characterId)||
+     !db.prepare('SELECT 1 FROM timelines WHERE timeline_id=? AND world_profile_id=?')
+       .get(s.timelineId,world))fail('journal_owner_or_timeline_unknown');
+  const scope={worldProfileId:world,characterId:s.characterId,timelineId:s.timelineId};
+  // Same permanent source-fingerprint closure and transcript-only correction
+  // semantics as the other P2 memory readers. Bad receipts fail closed.
+  const revoked=suppressedMemoryIds(db,scope,{includeCorrections:true});
+  const args=[world,s.characterId,s.timelineId];
+  const audible="(speaker='player' AND delivery='accepted' OR speaker='npc' AND delivery='completed' AND receipt_id IS NOT NULL)";
+  const eligible=row=>!revoked.has(row.record_id);
+  const sessionQuery=db.prepare(
+    'SELECT session_id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND '+audible+
+    ' GROUP BY session_id ORDER BY max(committed_at_utc) DESC, max(rowid) DESC'
+  );
+  const sessionRows=db.prepare(
+    'SELECT rowid AS journal_rowid,record_id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND session_id=? AND '+audible+
+    ' ORDER BY committed_at_utc DESC,rowid DESC'
+  );
+  // A completely forgotten session cannot displace a visible earlier session.
+  const sessionIds=[];
+  for(const session of sessionQuery.iterate(...args)){
+    let hasVisible=false;
+    for(const row of sessionRows.iterate(...args,session.session_id)){
+      if(eligible(row)){hasVisible=true;break;}
+    }
+    if(hasVisible)sessionIds.push(session.session_id);
+    if(sessionIds.length===2)break;
+  }
+  // Iterate by the indexed chronological ordering without an arbitrary
+  // 1,000-raw-row cutoff: 1,000 suppressed rows must not hide the next
+  // 200 eligible player lines. No full historical result is materialized.
+  const selected=new Map();
+  let extraPlayer=false,playerCount=0;
+  const player=db.prepare(
+    "SELECT rowid AS journal_rowid,* FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND speaker='player' AND delivery='accepted' ORDER BY committed_at_utc DESC,rowid DESC"
+  );
+  for(const row of player.iterate(...args)){
+    if(!eligible(row))continue;
+    if(playerCount===200){extraPlayer=true;break;}
+    selected.set(row.record_id,row);
+    playerCount++;
+  }
+  let extraSession=false,sessionCount=0;
+  if(sessionIds.length){
+    const marks=sessionIds.map(()=>'?').join(',');
+    const sessions=db.prepare(
+      'SELECT rowid AS journal_rowid,* FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND '+audible+
+      ' AND session_id IN ('+marks+') ORDER BY committed_at_utc DESC,rowid DESC'
+    );
+    for(const row of sessions.iterate(...args,...sessionIds)){
+      if(!eligible(row))continue;
+      if(sessionCount===1000){extraSession=true;break;}
+      selected.set(row.record_id,row);
+      sessionCount++;
+    }
+  }
+  const ordered=[...selected.values()].sort((a,b)=>
+    b.committed_at_utc.localeCompare(a.committed_at_utc)||
+    b.journal_rowid-a.journal_rowid);
+  const lines=[];let bytes=0;
+  for(const row of ordered){
+    const size=Buffer.byteLength(row.content,'utf8');
+    if(lines.length===1000||bytes+size>512*1024)break;
+    // Keep original status, native receipt and historical avatar provenance.
+    lines.push(decodeLine(row));bytes+=size;
+  }
+  return Object.freeze({tier:'free_recall',lines:Object.freeze(lines),bytes,
+    truncated:lines.length<ordered.length||extraSession||extraPlayer,archiveAvailable:true});
 }
 export function readEvents(db,s,world){
   assertJournalSchema(db);const limit=readScope(s,world);

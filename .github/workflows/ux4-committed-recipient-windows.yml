@@ -1,0 +1,59 @@
+name: UX4 committed-recipient Windows compile and tests
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'native/enhanced/Input/TalkTargetInput.cs'
+      - 'native/enhanced/Input/TalkFeedback.cs'
+      - 'native/enhanced/Ui/TalkFeedbackOverlay.cs'
+      - 'lsa-essential-e1-candidate/src/voice/**'
+      - 'lsa-essential-e1-candidate/tests/voice-activity.test.mjs'
+      - 'native/enhanced/input-tests/**'
+      - 'native/promoted-characters/**'
+      - '.github/workflows/ux4-committed-recipient-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ux4-committed-target-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-offline:
+    name: Compile and execute real UX4 production sources in test hosts (Windows net481)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Loader input, HUD and mic session tests
+        run: dotnet run --project native/enhanced/input-tests/InputTests.csproj --configuration Release
+      - name: Native promoted lifecycle and exact-owner resolver tests
+        run: dotnet run --project native/promoted-characters/lifecycle-tests/LifecycleTests.csproj --configuration Release
+      - name: Native owner sampling cross-regression
+        run: dotnet run --project native/promoted-characters/owner-sample-tests/OwnerSampleTests.csproj --configuration Release
+      - name: Command bridge / direct and explicit target payload tests
+        run: dotnet run --project native/promoted-characters/bridge-tests/BridgeTests.csproj --configuration Release
+
+  genuine-dll:
+    name: Production net481 DLLs against pinned genuine SDKs
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile runtime and loader against SHA-256 pinned public SDKs
+        run: node tools/native-sdk/compileProductionNative.mjs
+      - name: Verify pinned Essential ABI
+        run: dotnet run --project tools/essential-abi/EssentialAbi.csproj --configuration Release

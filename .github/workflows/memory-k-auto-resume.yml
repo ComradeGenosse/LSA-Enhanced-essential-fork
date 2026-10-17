@@ -1,0 +1,41 @@
+name: Memory K single-timeline auto-resume (offline)
+on:
+  pull_request:
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/src/characters/timelineAutoResume.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/capabilityPolicy.mjs'
+      - 'lsa-shared-brain/src/characters/sqliteProfileStore.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory-k-auto-resume-timeline.test.mjs'
+      - 'tools/memory-k-verification/registrations/auto-resume-single-timeline.json'
+      - '.github/workflows/memory-k-auto-resume.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  auto-resume:
+    name: Native-source and single-timeline safety / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Automatic resume, native context and P2 storage regressions
+        shell: bash
+        run: |
+          node --test --test-concurrency=1 \
+            lsa-essential-e1-candidate/tests/memory-k-auto-resume-timeline.test.mjs \
+            lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs \
+            lsa-shared-brain/tests/pause-source-confirmation.test.mjs
+      - name: Strict inventory (no unregistered regressions)
+        shell: bash
+        run: node --test tools/memory-k-verification/tests/discovery.test.mjs

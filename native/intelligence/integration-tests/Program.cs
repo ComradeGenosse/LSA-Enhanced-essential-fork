@@ -177,9 +177,12 @@ class Program
     static Dictionary<string,object> Anchor(string captureRef,Dictionary<string,object> frame)=>FrameAnchors(frame).Single(a=>(string)a["captureRef"]==captureRef);
     static void Tick(IntelligenceIntegration integration)
     {Game.GameTime+=210;Set(integration,"nextDiscovery",0L);Set(integration,"nextState",0L);Set(integration,"nextShot",0L);integration.Update();}
-    static void Main()
+    static void Main(string[] args)
     {
-        try{Run();RadioCoverage();}catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
+        try{Run();RadioCoverage();SourceOnlyTests.Run();
+            if(args.Length==1&&args[0]=="--d2-source-only-wire")
+                foreach(var frame in SourceOnlyTests.WireFrames)Console.WriteLine("D2_WIRE "+new JavaScriptSerializer().Serialize(frame));
+        }catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
     static void Run()
     {
         Check(LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read()==-1,
@@ -758,6 +761,15 @@ class Program
         var ownerAnchor=host.Anchors.Retain(ownerPed,(ulong)ownerPed.Handle,ownerPed.MemoryAddress,"ped",c06Lifetime,()=>true,host.MonotonicMs,false,AnchorConsumer.P2Encounter);
         var ownerToken=new {owner="p2",mode="wait",since=100u};
         var participant=new OwnedParticipant {Ped=ownerPed,Lifetime=c06Lifetime,EncounterId=Guid.NewGuid().ToString("D"),Current=()=>ownerCurrent,PrimaryOwner=()=>ownerToken};sharedRoster.Add(participant);
+        var ownerWrapper=new Ped {Handle=ownerPed.Handle,MemoryAddress=ownerPed.MemoryAddress};
+        var wrapperContext=new LosSantosAlive.Context.ActorContext {PedId=ownerPed.Handle.ToString()};
+        shared.EnrichActor(ownerWrapper,wrapperContext);
+        Check(!ReferenceEquals(ownerWrapper,ownerPed) && ownerPed.Equals(ownerWrapper),"SDK wrapper equality is native entity equality");
+        Check(host.Anchors.Resolve(ownerAnchor.CaptureRef)==ownerAnchor && ReferenceEquals(ownerAnchor.Entity,ownerPed),
+              "owned P0 wrapper preserves the canonical shared anchor and registration lifetime");
+        var wrapperBlock=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(wrapperContext.IntegrationBlocks.Single().Text);
+        Check((string)wrapperBlock["captureRef"]==ownerAnchor.CaptureRef && (string)wrapperBlock["incarnationId"]==c06Lifetime,
+              "new wrapper receives the original source-qualified owner capture");
         object SampleOwner()=>shared.GetType().GetMethod("SamplePrimaryOwner",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(shared,new object[]{ownerAnchor});
         Check(ReferenceEquals(SampleOwner(),ownerToken),"C06 samples exact current owned participant token without a parallel store");
         int? SampleRevision()=> (int?)shared.GetType().GetMethod("SampleDirectorOwnerRevision",

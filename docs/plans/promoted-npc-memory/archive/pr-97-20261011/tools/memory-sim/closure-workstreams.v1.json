@@ -1,0 +1,438 @@
+{
+  "version": 1,
+  "kind": "memory_k_production_closure_workstreams",
+  "status": "plan_only_no_feature_acceptance",
+  "planPath": "docs/plans/promoted-npc-memory/MEMORY-K-PRODUCTION-CLOSURE-IMPLEMENTATION-PLAN.md",
+  "base": {
+    "pr": 94,
+    "headSha": "0201731973a1c02a8852271897e2c8df420396b9",
+    "targetBranch": "integration/memory-closure-final-k-20261011",
+    "planningBranch": "planning/memory-k-production-closure-20261011"
+  },
+  "invariantIds": [
+    "native_source_authority",
+    "single_p2_sqlite_writer",
+    "one_ps4_frame",
+    "m5_after_durable_commit_before_luna",
+    "m7_explicit_consent_and_native_idle",
+    "ps6_original_player_priority",
+    "source_delete_suppression",
+    "no_gta_without_authorization"
+  ],
+  "gates": [
+    {
+      "id": "A00",
+      "owner": "W00",
+      "description": "Exact source/ABI contract and complete failure inventory"
+    },
+    {
+      "id": "A01",
+      "owner": "W01",
+      "description": "Original accepted C-01 normal-turn and protagonist source"
+    },
+    {
+      "id": "A02",
+      "owner": "W02",
+      "description": "PS2 source-time witnessing, negative coverage and prepromotion"
+    },
+    {
+      "id": "A03",
+      "owner": "W03",
+      "description": "Durable exact accepted text and native-completed audible speech"
+    },
+    {
+      "id": "A04",
+      "owner": "W04",
+      "description": "Durable M5 command/clarification and scoped privacy"
+    },
+    {
+      "id": "A05",
+      "owner": "W05",
+      "description": "One byte-correct current PS4 memory+opinion frame"
+    },
+    {
+      "id": "A06",
+      "owner": "W06",
+      "description": "P2 atomic M6 cursor/proposal/queue and event backlog recovery"
+    },
+    {
+      "id": "A07",
+      "owner": "W07",
+      "description": "Consented/native-idle Luna with persistent budget"
+    },
+    {
+      "id": "A08",
+      "owner": "W08",
+      "description": "Authenticated event, PS2 witness, original PS6 Director"
+    },
+    {
+      "id": "A09",
+      "owner": "W09",
+      "description": "Node24 Windows/Linux, .NET native, pinned original patch+packaging"
+    },
+    {
+      "id": "A10",
+      "owner": "W09",
+      "description": "All M0 S01-S10 original integrated replays"
+    },
+    {
+      "id": "A11",
+      "owner": "W10",
+      "description": "Exact SHA separate source/offline/physical-GTA acceptance"
+    }
+  ],
+  "workstreams": [
+    {
+      "id": "W00",
+      "title": "Baseline and proof contract freeze",
+      "phase": 0,
+      "owner": "K",
+      "dependsOn": [],
+      "gates": [
+        "A00"
+      ],
+      "status": "planned",
+      "existingAnchors": [
+        "docs/plans/promoted-npc-memory/MEMORY-INTEGRATION-ACCEPTANCE.md",
+        ".github/workflows/memory-k-final-acceptance.yml"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W00.md",
+      "exclusiveWritePaths": []
+    },
+    {
+      "id": "W01",
+      "title": "Native original accepted turn and owner/protagonist",
+      "phase": 1,
+      "owner": "T1",
+      "dependsOn": [
+        "W00"
+      ],
+      "gates": [
+        "A01"
+      ],
+      "status": "planned",
+      "existingAnchors": [
+        "native/promoted-characters/MemoryOwnerAuthority.cs",
+        "lsa-essential-e1-candidate/src/memory/nativeMemoryAuthority.mjs"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W01.md",
+      "exclusiveWritePaths": [
+        "native/promoted-characters/MemoryOwnerAuthority.cs",
+        "lsa-essential-e1-candidate/src/memory/nativeMemoryAuthority.mjs"
+      ]
+    },
+    {
+      "id": "W02",
+      "title": "M3 PS2 source-time witness and coverage",
+      "phase": 1,
+      "owner": "T2",
+      "dependsOn": [
+        "W00"
+      ],
+      "gates": [
+        "A02"
+      ],
+      "status": "planned",
+      "existingAnchors": [
+        "lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs",
+        "lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W02.md",
+      "exclusiveWritePaths": [
+        "lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs",
+        "lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs"
+      ]
+    },
+    {
+      "id": "W03",
+      "title": "M2 original accepted text and completed audible playback",
+      "phase": 2,
+      "owner": "T3",
+      "dependsOn": [
+        "W01"
+      ],
+      "gates": [
+        "A03"
+      ],
+      "status": "planned",
+      "existingAnchors": [
+        "lsa-essential-e1-candidate/src/memory/m2EssentialCapture.mjs",
+        "lsa-shared-brain/src/memory/m2TurnCapture.mjs"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W03.md",
+      "exclusiveWritePaths": [
+        "lsa-essential-e1-candidate/src/memory/m2EssentialCapture.mjs",
+        "lsa-shared-brain/src/memory/m2TurnCapture.mjs"
+      ]
+    },
+    {
+      "id": "W04",
+      "title": "M5 durable memory commands and privacy",
+      "phase": 3,
+      "owner": "T4",
+      "dependsOn": [
+        "W03"
+      ],
+      "gates": [
+        "A04"
+      ],
+      "status": "planned",
+      "existingAnchors": [
+        "lsa-shared-brain/src/memory/m5RuntimeCoordinator.mjs",
+        "lsa-shared-brain/src/memory/m5SqlitePrivacy.mjs"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W04.md",
+      "exclusiveWritePaths": [
+        "lsa-shared-brain/src/memory/m5RuntimeCoordinator.mjs",
+        "lsa-shared-brain/src/memory/m5SqlitePrivacy.mjs",
+        "lsa-shared-brain/src/memory/m5ScopedPrivacyFacade.mjs"
+      ]
+    },
+    {
+      "id": "W05",
+      "title": "Single PS4 M4 recall and M8 personality",
+      "phase": 3,
+      "owner": "T5",
+      "dependsOn": [
+        "W02",
+        "W03",
+        "W04"
+      ],
+      "gates": [
+        "A05"
+      ],
+      "status": "planned",
+      "existingAnchors": [
+        "lsa-shared-brain/src/memory/ps4RecallContribution.mjs",
+        "lsa-shared-brain/src/memory/m8Interpretation.mjs",
+        "lsa-essential-e1-candidate/src/context/knowledgeDelivery.mjs"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W05.md",
+      "exclusiveWritePaths": [
+        "lsa-shared-brain/src/memory/ps4RecallContribution.mjs",
+        "lsa-shared-brain/src/memory/m8Interpretation.mjs",
+        "lsa-essential-e1-candidate/src/context/knowledgeSelector.mjs",
+        "lsa-essential-e1-candidate/src/context/knowledgeRenderer.mjs",
+        "lsa-essential-e1-candidate/src/context/knowledgeDelivery.mjs"
+      ]
+    },
+    {
+      "id": "W06",
+      "title": "M6 atomic P2 replay adapter and lifecycle",
+      "phase": 2,
+      "owner": "T6",
+      "dependsOn": [
+        "W02",
+        "W03"
+      ],
+      "gates": [
+        "A06"
+      ],
+      "status": "planned",
+      "existingAnchors": [
+        "lsa-shared-brain/src/memory/m6CursorConsumer.mjs",
+        "lsa-shared-brain/src/memory/m6Coordinator.mjs",
+        "lsa-shared-brain/src/characters/sqliteProfileStore.mjs"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W06.md",
+      "exclusiveWritePaths": [
+        "lsa-shared-brain/src/memory/m6CursorConsumer.mjs",
+        "lsa-shared-brain/src/memory/m6Coordinator.mjs",
+        "lsa-shared-brain/src/characters/sqliteProfileStore.mjs",
+        "lsa-shared-brain/src/characters/sqliteFoundation.mjs"
+      ]
+    },
+    {
+      "id": "W07",
+      "title": "M7 native-idle explicit consent and Luna budget",
+      "phase": 4,
+      "owner": "T7",
+      "dependsOn": [
+        "W00",
+        "W06"
+      ],
+      "gates": [
+        "A07"
+      ],
+      "status": "planned",
+      "existingAnchors": [
+        "lsa-shared-brain/src/memory/m7Consent.mjs",
+        "lsa-essential-e1-candidate/src/memory/lunaCurationBridge.mjs",
+        "lsa-shared-brain/src/memory/idleCurationScheduler.mjs"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W07.md",
+      "exclusiveWritePaths": [
+        "lsa-essential-e1-candidate/src/memory/lunaCurationBridge.mjs",
+        "lsa-shared-brain/src/memory/idleCurationScheduler.mjs",
+        "lsa-shared-brain/src/memory/m7Consent.mjs"
+      ]
+    },
+    {
+      "id": "W08",
+      "title": "M9 genuine native events PS2 and original Director",
+      "phase": 4,
+      "owner": "T8",
+      "dependsOn": [
+        "W02"
+      ],
+      "gates": [
+        "A08"
+      ],
+      "status": "planned",
+      "existingAnchors": [
+        "native/intelligence/m9/M9NativeFrameAdapter.cs",
+        "lsa-essential-e1-candidate/src/perception/m9DirectorCueAdmission.mjs"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W08.md",
+      "exclusiveWritePaths": [
+        "native/intelligence/m9/M9NativeFrameAdapter.cs",
+        "lsa-shared-brain/src/events/m9EventProducers.mjs",
+        "lsa-shared-brain/src/events/m9Ps2CandidateBridge.mjs",
+        "lsa-shared-brain/src/events/m9MemoryCues.mjs",
+        "lsa-essential-e1-candidate/src/perception/m9DirectorCueAdmission.mjs"
+      ]
+    },
+    {
+      "id": "W09",
+      "title": "Original integrated acceptance replays and pinned build harness",
+      "phase": 1,
+      "owner": "T9",
+      "dependsOn": [
+        "W00"
+      ],
+      "gates": [
+        "A09",
+        "A10"
+      ],
+      "status": "planned",
+      "existingAnchors": [
+        "tools/memory-sim/scenarios.v0.json",
+        ".github/workflows/memory-k-final-acceptance.yml"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W09.md",
+      "exclusiveWritePaths": [
+        "tools/memory-sim/closure-acceptance-replay.mjs"
+      ]
+    },
+    {
+      "id": "W10",
+      "title": "Final shared production wiring and acceptance",
+      "phase": 5,
+      "owner": "K",
+      "dependsOn": [
+        "W01",
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08",
+        "W09"
+      ],
+      "gates": [
+        "A11"
+      ],
+      "status": "planned",
+      "existingAnchors": [
+        "lsa-essential-e1-candidate/src/bootstrap.mjs",
+        "lsa-essential-e1-candidate/src/integration/essentialGlue.mjs",
+        "lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs",
+        "lsa-shared-brain/src/memory/integrationPorts.mjs"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W10.md",
+      "exclusiveWritePaths": []
+    }
+  ],
+  "kExclusiveFiles": [
+    "lsa-essential-e1-candidate/src/bootstrap.mjs",
+    "lsa-essential-e1-candidate/src/integration/essentialGlue.mjs",
+    "lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs",
+    "lsa-essential-e1-candidate/src/context/knowledgeInputs.mjs",
+    "lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs",
+    "lsa-essential-e1-candidate/src/config/e1Config.mjs",
+    "lsa-essential-e1-candidate/src/characters/editorServer.mjs",
+    "lsa-essential-e1-candidate/src/characters/characterService.mjs",
+    "lsa-shared-brain/src/memory/integrationPorts.mjs",
+    "native/promoted-characters/PromotedCharacters.csproj",
+    "native/promoted-characters/RuntimeEntry.cs",
+    "native/intelligence/IntelligenceIntegration.cs",
+    "docs/plans/promoted-npc-memory/MEMORY-INTEGRATION-ACCEPTANCE.md",
+    ".github/workflows/memory-k-final-acceptance.yml"
+  ],
+  "acceptanceScenarios": {
+    "S01": [
+      "W01",
+      "W03",
+      "W09",
+      "W10"
+    ],
+    "S02": [
+      "W02",
+      "W05",
+      "W06",
+      "W09",
+      "W10"
+    ],
+    "S03": [
+      "W01",
+      "W02",
+      "W09",
+      "W10"
+    ],
+    "S04": [
+      "W03",
+      "W04",
+      "W09",
+      "W10"
+    ],
+    "S05": [
+      "W03",
+      "W06",
+      "W07",
+      "W09",
+      "W10"
+    ],
+    "S06": [
+      "W05",
+      "W09",
+      "W10"
+    ],
+    "S07": [
+      "W01",
+      "W03",
+      "W06",
+      "W09",
+      "W10"
+    ],
+    "S08": [
+      "W01",
+      "W02",
+      "W09",
+      "W10"
+    ],
+    "S09": [
+      "W03",
+      "W04",
+      "W05",
+      "W09",
+      "W10"
+    ],
+    "S10": [
+      "W02",
+      "W05",
+      "W08",
+      "W09",
+      "W10"
+    ]
+  },
+  "approval": {
+    "controlledGtaTesting": "NO_GO",
+    "mergeToMain": false,
+    "gtaInstalled": false,
+    "physicalGtaReceipts": false,
+    "automaticCloudUsage": false,
+    "evidenceStatus": "not_verified",
+    "scenarioFlagsMayChangeOnlyOnExactShaPassingIntegratedReplay": true
+  }
+}

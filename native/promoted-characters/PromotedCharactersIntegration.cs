@@ -80,6 +80,15 @@ namespace LSA.PromotedCharacters
         long lastGameTime;
         bool prepared,shutdown;
         volatile bool shutdownRequested;
+        NpcVoicePresenceObserver voicePresence;
+        internal void ConfigureVoicePresence(string mode,bool mouthEnabled=false,float openLevel=0.015f,bool levelLog=false) {
+            if(mode!="off"&&mode!="shadow"&&mode!="on") {
+                Game.LogTrivial("[VP] invalid_mode_disabled");return;
+            }
+            if(mode=="off")return;
+            try {voicePresence=new NpcVoicePresenceObserver(mode,mouthEnabled,openLevel,levelLog);voicePresence.Attach();}
+            catch {try {voicePresence?.Dispose();}catch{}voicePresence=null;Game.LogTrivial("[VP] unavailable");}
+        }
         string shutdownReason="none";
         public event Action<string> OwnerRetired;
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster() => encounters.Values.Where(e=>e.Registration!=null && Alive(e)).Select(e=> {
@@ -107,7 +116,7 @@ namespace LSA.PromotedCharacters
             world = worldProfileId; this.pipeName = pipeName; this.identityPipeName = identityPipeName;
             Host = host ?? new HostContext();
             Host.WorldChanged+=OnHostWorldChanged;
-            talkTargets = new TalkTargetSelector(ped => EncounterFor(ped).Id);
+            talkTargets = new TalkTargetSelector(ped => EncounterFor(ped).Id,ResolveTalkRecipient);
         }
         public void Prepare()
         {
@@ -125,12 +134,28 @@ namespace LSA.PromotedCharacters
             Host.ObserveGameTick(unchecked((uint)lastGameTime));
         }
         static bool Alive(Encounter encounter) => encounter?.Ped != null && encounter.Ped.Exists() && !encounter.Ped.IsDead && encounter.Ped.MemoryAddress == encounter.Address;
+        bool SameRegisteredActor(Encounter existing,Ped candidate)
+        {
+            // RPH may expose a new CLR wrapper for the same native pool entity.
+            // Keep the ORIGINAL retained Ped; never rebase its lifetime to the
+            // caller's wrapper or infer ownership from a handle alone.
+            if(existing.Registration==null || existing.OwnerAlias==null ||
+               !existing.Ped.Equals(candidate)) return false;
+            var anchor=Host.Anchors.Resolve(existing.CaptureRef);
+            return anchor!=null && ReferenceEquals(anchor.Entity,existing.Ped) &&
+                anchor.Handle==existing.Handle && anchor.Address==existing.Address &&
+                anchor.OwnerLifetime==existing.Registration.IncarnationId &&
+                identity.Owner.TryResolveCurrent(existing.Ped,out var claim) &&
+                claim.incarnationId==existing.Registration.IncarnationId &&
+                claim.sourceKey==existing.OwnerAlias && claim.worldProfileId==world;
+        }
         Encounter EncounterFor(Ped ped)
         {
             if (ped == null || !ped.Exists() || ped.IsDead || ped == Game.LocalPlayer.Character) throw new InvalidOperationException("invalid_target");
             string handle = ped.Handle.ToString();
             if (encounters.TryGetValue(handle,out var existing)) {
-                if (Alive(existing) && ReferenceEquals(existing.Ped,ped) && existing.Handle==Convert.ToUInt64(ped.Handle) && existing.Address==ped.MemoryAddress && Host.Anchors.Resolve(existing.CaptureRef)!=null) {
+                if (Alive(existing) && existing.Handle==Convert.ToUInt64(ped.Handle) && existing.Address==ped.MemoryAddress && Host.Anchors.Resolve(existing.CaptureRef)!=null &&
+                    (ReferenceEquals(existing.Ped,ped) || SameRegisteredActor(existing,ped))) {
                     RetainEncounter(existing); return existing;
                 }
                 Retire(existing); encounters.Remove(handle);
@@ -242,6 +267,8 @@ namespace LSA.PromotedCharacters
                 }
                 ServeLocal(4 - handled);
                 try { ActivityTick(now); } catch { DisableActivity(); }
+                 try {voicePresence?.Update(Host.WorldEpoch,Host.MonotonicMs);}
+                 catch {try {voicePresence?.Dispose();}catch{}voicePresence=null;Game.LogTrivial("[VP] observer_disabled");}
             } catch { LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] optional_update_failed"); Shutdown("update_failed"); }
         }
         static void Fields(Dictionary<string,object> args,params string[] fields) { if (args.Count != fields.Length || fields.Any(field => !args.ContainsKey(field))) throw new InvalidOperationException("invalid_owner_arguments"); }
@@ -383,12 +410,19 @@ namespace LSA.PromotedCharacters
         public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded) { PushActivity(ped, actionName, "executed", succeeded); }
         // A loader/lifetime fiber can request cleanup, but Core's own callback
         // must retire evidence and perform any native cleanup on its owner fiber.
-        public void RequestShutdown() => shutdownRequested = true;
+        public void RequestShutdown() {
+            shutdownRequested=true;
+            // The Core callback may never run again after host failure.
+            // Event unsubscription is CLR-only and safe on the lifetime fiber.
+            try {voicePresence?.Unsubscribe();} catch {}
+        }
         public void Shutdown()
         {Shutdown("integration_shutdown");}
         internal void Shutdown(string reason)
         {
             if (shutdown) return; shutdownReason=reason; shutdown = true;
+            try { voicePresence?.Dispose(); } catch { }
+            voicePresence=null;
             Host.WorldChanged-=OnHostWorldChanged;
             ActivityShutdown();
             LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] shutdown reason="+shutdownReason);

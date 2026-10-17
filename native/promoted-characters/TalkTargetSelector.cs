@@ -19,13 +19,14 @@ namespace LSA.PromotedCharacters
         readonly EssentialMicState mic = new EssentialMicState();
         readonly TalkTargetIndicator indicator = new TalkTargetIndicator();
         readonly Func<Ped,string> encounterId;
+        readonly Func<Ped,long,TalkRecipientFeedback> recipient;
         readonly List<Ped> frozenPeds = new List<Ped>();
         readonly List<TalkCandidate> exported = new List<TalkCandidate>();
         TalkTargetOptions options = new TalkTargetOptions();
         Ped essentialPed;
         long essentialAddress, clock, indicatorUntil;
         bool essentialSet, hooked, directPtt;
-        public TalkTargetSelector(Func<Ped,string> encounterId) { this.encounterId = encounterId; }
+        public TalkTargetSelector(Func<Ped,string> encounterId,Func<Ped,long,TalkRecipientFeedback> recipient = null) { this.encounterId = encounterId; this.recipient = recipient; }
         public string IndicatorState => indicator.State;
 
         public void Maintain(long now)
@@ -44,7 +45,7 @@ namespace LSA.PromotedCharacters
                 else indicator.Clear();
             } catch { indicator.Clear(); }
         }
-        public object AsResult(TalkTargetView view) => view != null && view.Present ? Payload(view,EncounterOf(Bound()),0,view.PttCommitted) : new {present = false,reason = view?.Reason,indicator = indicator.State};
+        public object AsResult(TalkTargetView view) => view != null && view.Present ? Payload(view,EncounterOf(Bound()),0,view.PttCommitted,RecipientOf(Bound(),view.Address)) : new {present = false,reason = view?.Reason,indicator = indicator.State};
         public TalkTargetView SelectFirst(long now,TalkTargetOptions next) { clock = now; return Select(now,Sanitize(next),true); }
         public TalkTargetView SelectNext(long now,TalkTargetOptions next)
         {
@@ -70,9 +71,9 @@ namespace LSA.PromotedCharacters
             string admission = ptt.Admit(generation);
             if (admission == "cancelled") return new {started = false,reason = "cancelled",generation};
             if (admission == "already") {
-                if (directPtt) return DirectPayload(essentialPed,EncounterOf(essentialPed),generation,true,"already");
-                if (policy.HasSelection) return Payload(policy.Inspect(now),EncounterOf(Bound()),generation,true);
-                return DirectPayload(essentialPed,EncounterOf(essentialPed),generation,true,"already");
+                if (directPtt) return DirectPayload(essentialPed,EncounterOf(essentialPed),generation,true,"already",RecipientOf(essentialPed,essentialAddress));
+                if (policy.HasSelection) return Payload(policy.Inspect(now),EncounterOf(Bound()),generation,true,RecipientOf(essentialPed,essentialAddress));
+                return DirectPayload(essentialPed,EncounterOf(essentialPed),generation,true,"already",RecipientOf(essentialPed,essentialAddress));
             }
             if (admission != "start") throw new InvalidOperationException(admission == "busy" ? "ptt_busy" : "invalid_arguments");
             try {
@@ -116,15 +117,18 @@ namespace LSA.PromotedCharacters
                     policy.Commit(policy.SelectionId,now);
                     indicatorUntil = 0;
                     indicator.Clear();
+                    // Classified only now, from the exact ped the native mic commit
+                    // just accepted, never from a preview or a previous selection.
+                    var committedRecipient = RecipientOf(ped,address);
                     if (explicitSelection) {
                         directPtt = false;
-                        result = Payload(policy.Inspect(now),encounter,generation,true);
+                        result = Payload(policy.Inspect(now),encounter,generation,true,committedRecipient);
                     } else {
                         directPtt = true;
-                        result = DirectPayload(ped,encounter,generation,true,"direct");
+                        result = DirectPayload(ped,encounter,generation,true,"direct",committedRecipient);
                     }
 
-                    try { Game.LogTrivial("[UX4] talk_ptt commit=accepted generation=" + generation + " mode=" + (explicitSelection ? "explicit" : "direct")); } catch { }
+                    try { Game.LogTrivial("[UX4] talk_ptt commit=accepted generation=" + generation + " mode=" + (explicitSelection ? "explicit" : "direct") + " recipient=" + committedRecipient.Token + " evidence=" + committedRecipient.Evidence); } catch { }
                     return result;
                 } catch {
                     TryRevert(ped);
@@ -293,13 +297,23 @@ namespace LSA.PromotedCharacters
             if (ped != null && options.Indicator && clock < indicatorUntil && !indicator.Disabled) indicator.Publish(ped,policy.Index + 1,policy.Count);
             else indicator.Clear();
         }
-        object Payload(TalkTargetView view,string encounter,int generation,bool started) => new {
+        object Payload(TalkTargetView view,string encounter,int generation,bool started,TalkRecipientFeedback feedback = null) => new {
             present = view.Present,started,selectionId = view.SelectionId,encounterId = encounter,pedId = view.PedId,
             cycleIndex = view.CycleIndex,cycleCount = view.CycleCount,pttCommitted = view.PttCommitted || started,
-            expiresInMs = view.ExpiresInMs,indicator = indicator.State,generation,reason = view.Reason};
-        object DirectPayload(Ped ped,string encounter,int generation,bool started,string reason) => new {
+            expiresInMs = view.ExpiresInMs,indicator = indicator.State,generation,reason = view.Reason,
+            recipientKind = feedback?.Token,recipientEvidence = feedback?.Evidence,recipientAlias = feedback?.Alias};
+        object DirectPayload(Ped ped,string encounter,int generation,bool started,string reason,TalkRecipientFeedback feedback = null) => new {
             present = false,started,selectionId = (string)null,encounterId = encounter,pedId = ped != null ? ped.Handle.ToString() : null,
-            cycleIndex = 0,cycleCount = 0,pttCommitted = started,expiresInMs = 0L,indicator = "off",generation,reason};
+            cycleIndex = 0,cycleCount = 0,pttCommitted = started,expiresInMs = 0L,indicator = "off",generation,reason,
+            recipientKind = feedback?.Token,recipientEvidence = feedback?.Evidence,recipientAlias = feedback?.Alias};
+        // Read-only and never throws: any doubt about the exact ped is "unknown",
+        // which the loader shows as a generic notice, never as a character.
+        TalkRecipientFeedback RecipientOf(Ped ped,long address)
+        {
+            if (recipient == null) return TalkRecipientFeedback.Unknown("resolver_absent");
+            try { return recipient(ped,address) ?? TalkRecipientFeedback.Unknown("resolver_empty"); }
+            catch { return TalkRecipientFeedback.Unknown("resolver_failed"); }
+        }
         string EncounterOf(Ped ped)
         {
             if (ped == null || encounterId == null) return null;

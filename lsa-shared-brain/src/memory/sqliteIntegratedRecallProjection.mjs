@@ -1,3 +1,5 @@
+import {suppressedMemoryIds} from './suppressionSqlite.mjs';
+import {readCorrectionRows,overlayContent,supersededTargetIds} from './correctionSemantics.mjs';
 // M4-only read projection over the actual M2/M3/M5/M6 v4 P2 SQLite schema.
 // No migrations, writes, native owner selection, or speculative witness claims.
 import {createHash} from 'node:crypto';
@@ -21,93 +23,137 @@ function sourceFilters(scope,{fromUtc,toUtc}){
   if(toUtc){clause+=' AND TIME_COLUMN<?';args.push(toUtc);}
   return {clause,args};
 }
-function suppression(db,scope){
-  const args=[scope.worldProfileId,scope.characterId,scope.timelineId];
-  const forgotten=new Set(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...args).map(r=>r.target_id));
-  const records=db.prepare('SELECT memory_id,evidence_ids_json FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...args);
-  const links=records.map(row=>({id:row.memory_id,sources:parse(row.evidence_ids_json)}));
-  if(links.some(x=>!Array.isArray(x.sources)||x.sources.some(id=>!uuid.test(id))))throw new Error('m4_invalid_memory_evidence');
-  let changed=true;
-  while(changed){
-    changed=false;
-    for(const l of links){
-      if(forgotten.has(l.id)){
-        for(const id of l.sources)if(!forgotten.has(id)){forgotten.add(id);changed=true;}
-      }else if(l.sources.some(id=>forgotten.has(id))){forgotten.add(l.id);changed=true;}
-    }
-  }
-  return forgotten;
-}
 // A reported correction or derived memory must point to evidence belonging to
-// precisely this character/world/timeline/protagonist. Unknown is not a joker.
-function sourceInScope(db,scope,id){
-  if(!uuid.test(id))return false;
+// precisely this NPC/world/timeline. The avatar is historical source provenance.
+function sourceInScope(db,scope,id,parents=new Set(),revoked=null){
+  if(!uuid.test(id)||parents.has(id)||parents.size>=32||revoked?.has(id))return false;
   const args=[id,scope.worldProfileId,scope.characterId,scope.timelineId];
-  const dialogue=db.prepare('SELECT protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
-  if(dialogue)return dialogue.protagonist===scope.protagonistKey;
-  const memory=db.prepare('SELECT protagonist_key FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
-  if(memory)return memory.protagonist_key===scope.protagonistKey;
-  if(scope.protagonistKey==='unknown'){
-    const event=db.prepare('SELECT 1 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?').get(...args);
-    return !!event;
+  const dialogue=db.prepare('SELECT protagonist,speaker,source,delivery,content,content_sha256 AS checksum,envelope_json AS raw,envelope_sha256 AS rawHash FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
+  if(dialogue){
+    if(sha(dialogue.content)!==dialogue.checksum||sha(dialogue.raw)!==dialogue.rawHash)return false;
+    let e;try{e=parse(dialogue.raw);}catch{return false;}
+    if(e.recordId!==id||e.content!==dialogue.content||e.speaker!==dialogue.speaker||
+       e.source!==dialogue.source||e.delivery!==dialogue.delivery||
+       e.attribution?.protagonist&&e.attribution.protagonist!==dialogue.protagonist)return false;
+    return dialogue.speaker==='player'&&['typed','stt'].includes(dialogue.source)&&dialogue.delivery==='accepted'||
+      dialogue.speaker==='npc'&&dialogue.source==='npc_generated'&&dialogue.delivery==='completed';
   }
-  return false;
+  const memory=db.prepare('SELECT content,content_sha256 AS checksum,evidence_ids_json AS sources FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
+  if(memory){
+    if(sha(memory.content)!==memory.checksum)return false;
+    try{
+      const ids=parse(memory.sources),next=new Set(parents).add(id);
+      return Array.isArray(ids)&&ids.length>0&&ids.length<=64&&
+        ids.every(source=>sourceInScope(db,scope,source,next,revoked));
+    }catch{return false;}
+  }
+  const event=db.prepare("SELECT 1 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.receipt_status='witnessed'").get(...args);
+  return !!event;
 }
 function correctionRows(db,scope,forgotten){
-  const args=[scope.worldProfileId,scope.characterId,scope.timelineId,scope.protagonistKey];
-  const source=db.prepare('SELECT c.command_id AS id,c.target_id AS target,c.preferred_text AS content,c.content_sha256 AS digest,c.created_at_utc AS atUtc FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=? ORDER BY c.created_at_utc DESC,c.command_id DESC').all(...args);
-  const corrected=new Set(source.map(x=>x.target));
+  const keys=[scope.worldProfileId,scope.characterId,scope.timelineId];
+  const owners=new Map(db.prepare('SELECT m.command_id AS id,m.protagonist_key AS p FROM memory_commands m JOIN memory_corrections c ON c.command_id=m.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=?').all(...keys).map(x=>[x.id,x.p]));
+  // K-12: readCorrectionRows resolves the persisted mode. Only genuine STT
+  // transcript corrections supersede their target; counter-claims are linked
+  // reported_claim overlays and the original (e.g. witnessed) record stays.
+  const source=readCorrectionRows(db,keys).filter(x=>owners.has(x.commandId));
+  const corrected=supersededTargetIds(db,keys);
   const overlays=[],seenTargets=new Set();
   for(const c of source){
-    if(!uuid.test(c.id)||!uuid.test(c.target)||sha(c.content)!==c.digest)throw new Error('m4_corrupt_correction');
-    if(seenTargets.has(c.target)||forgotten.has(c.target)||forgotten.has(c.id)||corrected.has(c.id)||
-       !sourceInScope(db,scope,c.target))continue;
-    seenTargets.add(c.target);
-    const envelope={version:1,kind:'permanent_memory',recordId:c.id,
+    if(!uuid.test(c.commandId)||!uuid.test(c.targetId)||sha(c.content)!==c.checksum)throw new Error('m4_corrupt_correction');
+    if(forgotten.has(c.targetId)||forgotten.has(c.commandId)||corrected.has(c.commandId)||
+       !sourceInScope(db,scope,c.targetId))continue;
+    if(c.supersedes){
+      if(seenTargets.has(c.targetId))continue;
+      seenTargets.add(c.targetId);
+    }
+    const envelope={version:1,kind:'permanent_memory',recordId:c.commandId,
       characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
-      content:'Player correction (reported): '+c.content,mode:'reported_claim',sourceEvidenceIds:[c.target]};
-    overlays.push({...scope,recordId:c.id,sourceKind:'permanent_memory',atUtc:c.atUtc,
-      isCorrectionOverlay:true,evidenceState:'verified',envelope});
+      content:overlayContent(c.mode,c.content),mode:'reported_claim',sourceEvidenceIds:[c.targetId]};
+    overlays.push({...scope,protagonistKey:owners.get(c.commandId),recordId:c.commandId,sourceKind:'permanent_memory',atUtc:c.atUtc,
+      isCorrectionOverlay:true,correctionMode:c.mode,supersedesTarget:c.supersedes,evidenceState:'verified',envelope});
   }
   return {corrected,overlays};
 }
-export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,sourceKind=null,speaker=null,limit=384}){
+export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,sourceKind=null,speaker=null,limit=384,expandDialogueContext=false,excludeRecordId=null}){
   if(!scope||!['franklin','michael','trevor','unknown'].includes(scope.protagonistKey)||
     !['characterId','worldProfileId','timelineId'].every(k=>uuid.test(scope[k]))||
     !Number.isSafeInteger(limit)||limit<1||limit>768)throw new TypeError('m4_invalid_integrated_scope');
   if(sourceKind&&!['dialogue_line','journal_event','permanent_memory','canon'].includes(sourceKind))throw new TypeError('m4_invalid_kind');
   if(speaker&&!['player','npc'].includes(speaker))throw new TypeError('m4_invalid_speaker');
+  if(typeof expandDialogueContext!=='boolean'||excludeRecordId!==null&&!uuid.test(excludeRecordId))
+    throw new TypeError('m4_invalid_context_options');
   const tokens=[...new Set(terms.filter(token))].slice(0,12),limitLex=tokens.length?Math.min(128,Math.floor(limit/3)):0;
-  const forgotten=suppression(db,scope),{corrected,overlays}=correctionRows(db,scope,forgotten);
+  const forgotten=suppressedMemoryIds(db,scope),{corrected,overlays}=correctionRows(db,scope,forgotten);
+ const revoked=new Set([...forgotten,...corrected]);
   const result=new Map(),add=(r)=>{
-    if(!r||forgotten.has(r.recordId)||corrected.has(r.recordId))return;
-    if(r.protagonistKey!==scope.protagonistKey)return;
+    if(!r||r.recordId===excludeRecordId||result.has(r.recordId)||forgotten.has(r.recordId)||corrected.has(r.recordId))return;
+    // Historical source avatar does not partition the current player's memory.
     if((fromUtc&&r.atUtc<fromUtc)||(toUtc&&r.atUtc>=toUtc))return;
     result.set(r.recordId,r);
   };
   if(!sourceKind||sourceKind==='dialogue_line'){
     const {clause,args}=sourceFilters(scope,{fromUtc,toUtc});
-    let where=clause.replaceAll('TIME_COLUMN','committed_at_utc')+' AND protagonist=?';
-    const values=[...args,scope.protagonistKey];
+    let where=clause.replaceAll('TIME_COLUMN','committed_at_utc');
+    const values=[...args];
     if(speaker){where+=' AND speaker=?';values.push(speaker);}
-    const cols='SELECT d.record_id AS recordId,d.committed_at_utc AS atUtc,d.protagonist AS protagonistKey,d.content AS text,d.content_sha256 AS textHash,d.envelope_json AS raw,d.envelope_sha256 AS rawHash';
+    const hasSession=expandDialogueContext&&!!db.prepare("SELECT 1 FROM pragma_table_info('dialogue_journal') WHERE name='session_id'").get();
+    const cols='SELECT d.rowid AS ordinal,'+(hasSession?'d.session_id':'NULL')+' AS sessionId,d.record_id AS recordId,d.committed_at_utc AS atUtc,d.protagonist AS protagonistKey,d.speaker AS storedSpeaker,d.source AS storedSource,d.delivery AS storedDelivery,d.content AS text,d.content_sha256 AS textHash,d.envelope_json AS raw,d.envelope_sha256 AS rawHash';
     const rows=[];
     if(limitLex){
       const fts=' FROM dialogue_journal_fts JOIN dialogue_journal d ON d.rowid=dialogue_journal_fts.rowid WHERE '+where.replaceAll(/\b(world_profile_id|character_id|timeline_id|committed_at_utc|protagonist|speaker)\b/g,'d.$1')+' AND dialogue_journal_fts MATCH ? ORDER BY bm25(dialogue_journal_fts),d.committed_at_utc DESC';
-      rows.push(...all(db,cols+fts,[...values,textMatch(tokens)],limitLex));
+      rows.push(...all(db,cols+fts,[...values,textMatch(tokens)],limitLex).map(r=>({...r,lexicalHit:true})));
     }
-    rows.push(...all(db,cols+' FROM dialogue_journal d WHERE '+where.replaceAll(/\b(world_profile_id|character_id|timeline_id|committed_at_utc|protagonist|speaker)\b/g,'d.$1')+' ORDER BY d.committed_at_utc DESC,d.rowid DESC',values,limit-limitLex));
+    rows.push(...all(db,cols+' FROM dialogue_journal d WHERE '+where.replaceAll(/\b(world_profile_id|character_id|timeline_id|committed_at_utc|protagonist|speaker)\b/g,'d.$1')+' ORDER BY d.committed_at_utc DESC,d.rowid DESC',values,limit-limitLex-(expandDialogueContext&&limitLex?16:0)));
+    // List/name questions can need the next reply, which may never repeat
+    // the subject's word. Expand only from verified FTS anchors, within the
+    // same committed session + source scope, <=2 lines and <=90 seconds.
+    if(hasSession&&limitLex){
+      const keys=[scope.worldProfileId,scope.characterId,scope.timelineId];
+      const nearby=cols+' FROM dialogue_journal d WHERE d.world_profile_id=? AND d.character_id=? AND d.timeline_id=? AND d.session_id=? AND d.rowid BETWEEN ? AND ? ORDER BY ABS(d.rowid-?) ASC';
+      let count=0;
+      for(const anchor of rows.filter(r=>r.lexicalHit).slice(0,8)){
+        if(count>=8)break;
+        if(anchor.recordId===excludeRecordId||forgotten.has(anchor.recordId)||
+           corrected.has(anchor.recordId)||!uuid.test(anchor.recordId)||
+           !Number.isSafeInteger(anchor.ordinal)||typeof anchor.sessionId!=='string'||
+           !tokens.some(t=>(String(anchor.text).toLowerCase().match(/[\p{L}\p{N}]+/gu)??[]).includes(t)))continue;
+        const proof=verifyEnvelope(anchor.raw,anchor.rawHash);
+        if(proof.recordId!==anchor.recordId||proof.content!==anchor.text||
+           !((proof.speaker==='player'&&proof.delivery==='accepted'&&['typed','stt'].includes(proof.source))||
+             (proof.speaker==='npc'&&proof.delivery==='completed'&&proof.source==='npc_generated'&&uuid.test(proof.deliveryReceiptId))))continue;
+        let nearCount=0;
+        for(const n of all(db,nearby,[...keys,anchor.sessionId,anchor.ordinal-2,anchor.ordinal+2,anchor.ordinal],5)){
+          const distance=Math.abs(n.ordinal-anchor.ordinal);
+          if(!distance||distance>2||Math.abs(Date.parse(n.atUtc)-Date.parse(anchor.atUtc))>90000||
+             n.recordId===excludeRecordId||forgotten.has(n.recordId)||corrected.has(n.recordId))continue;
+          // A relevant reply is often already in the recent page. Annotate
+          // that candidate rather than losing the anchor when deduplicating.
+          const existing=rows.find(r=>r.recordId===n.recordId);
+          if(existing){
+            if(existing.lexicalHit||existing.contextAnchorId)continue;
+            existing.contextAnchorId=anchor.recordId;
+            existing.contextDistance=distance;
+          }else rows.push({...n,contextAnchorId:anchor.recordId,contextDistance:distance});
+          count++;nearCount++;
+          if(count>=8||nearCount>=2)break;
+        }
+      }
+    }
     for(const r of rows){
       const e=verifyEnvelope(r.raw,r.rawHash);
-      if(!uuid.test(e.recordId)||e.recordId!==r.recordId||sha(r.text)!==r.textHash||e.content!==r.text)
+      if(!uuid.test(e.recordId)||e.recordId!==r.recordId||sha(r.text)!==r.textHash||
+        e.content!==r.text||e.speaker!==r.storedSpeaker||
+        e.source!==r.storedSource||e.delivery!==r.storedDelivery||
+        e.attribution?.protagonist&&e.attribution.protagonist!==r.protagonistKey)
         throw new Error('m4_corrupt_dialogue');
       if(!((e.speaker==='player'&&['typed','stt'].includes(e.source)&&e.delivery==='accepted')||
         (e.speaker==='npc'&&e.source==='npc_generated'&&e.delivery==='completed'&&uuid.test(e.deliveryReceiptId))))continue;
-      add({...scope,recordId:r.recordId,sourceKind:'dialogue_line',atUtc:r.atUtc,
-        evidenceState:'verified',envelope:e});
+      add({...scope,protagonistKey:r.protagonistKey,recordId:r.recordId,sourceKind:'dialogue_line',atUtc:r.atUtc,
+        evidenceState:'verified',envelope:e,...(r.contextAnchorId?{contextAnchorId:r.contextAnchorId,contextDistance:r.contextDistance}:{})});
     }
   }
-  if((!sourceKind||sourceKind==='journal_event')&&scope.protagonistKey==='unknown'){
+  if(!sourceKind||sourceKind==='journal_event'){
     const {clause,args}=sourceFilters(scope,{fromUtc,toUtc}),where=clause.replaceAll('TIME_COLUMN','received_at_utc');
     const cols='SELECT e.record_id AS recordId,e.received_at_utc AS atUtc,e.envelope_json AS raw,e.envelope_sha256 AS rawHash,s.source_evidence_json AS evidence,s.source_evidence_sha256 AS evidenceHash';
     const scoped=where.replaceAll(/\b(world_profile_id|character_id|timeline_id|received_at_utc)\b/g,'e.$1');
@@ -131,33 +177,46 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
         observation:proof.observation,
         identity:{promoted:true,current:true,characterId:scope.characterId,
           worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
-          adapterEpoch:proof.nativeAdapterEpoch,ownerProof:proof.ownerProof},
+          adapterEpoch:proof.nativeAdapterEpoch,ownerProof:proof.ownerProof,
+          ...(proof.attribution!==undefined?{attribution:proof.attribution}:{})},
         participantProofs:proof.participantProofs,
         prePromotionProof:proof.prePromotionProof??null});
       if(!replay.accepted||JSON.stringify(replay.event)!==r.raw||
          replay.sourceEvidence.sourceHash!==proof.sourceHash)
         throw new Error('m4_unverified_event');
       // Events remain under 'unknown': no observed player identity can be deduced.
-      add({...scope,recordId:r.recordId,sourceKind:'journal_event',atUtc:r.atUtc,
+      add({...scope,protagonistKey:'unknown',recordId:r.recordId,sourceKind:'journal_event',atUtc:r.atUtc,
         evidenceState:'verified',envelope:e});
     }
   }
   if(!sourceKind||sourceKind==='permanent_memory'||sourceKind==='dialogue_line'){
     const {clause,args}=sourceFilters(scope,{fromUtc,toUtc});
-    let where=clause.replaceAll('TIME_COLUMN','created_at_utc')+' AND protagonist_key=?';
-    const values=[...args,scope.protagonistKey];
-    const sql='SELECT memory_id AS recordId,content,content_sha256 AS digest,mode,created_at_utc AS atUtc,evidence_ids_json AS evidence FROM memory_records WHERE '+where;
-    const rows=sourceKind==='dialogue_line'?[]:all(db,sql+' ORDER BY created_at_utc DESC, memory_id DESC',values,Math.min(limit,384));
-    for(const r of rows){
+    let where=clause.replaceAll('TIME_COLUMN','created_at_utc');
+    const values=[...args];
+    const sql='SELECT memory_id AS recordId,protagonist_key AS sourceProtagonist,content,content_sha256 AS digest,mode,created_at_utc AS atUtc,evidence_ids_json AS evidence FROM memory_records WHERE '+where;
+    const memoryPage=db.prepare(sql+' ORDER BY created_at_utc DESC, memory_id DESC LIMIT ? OFFSET ?');
+    // Apply visibility to the entire derived chain, not just direct parents.
+    // Page beyond newer invalid rows so they cannot starve older valid recall.
+    let offset=0,admitted=0;
+    while(sourceKind!=='dialogue_line' && admitted<Math.min(limit,384)){
+     const rows=memoryPage.all(...values,128,offset);
+     if(!rows.length)break;
+     offset+=rows.length;
+     for(const r of rows){
       if(!uuid.test(r.recordId)||sha(r.content)!==r.digest)throw new Error('m4_corrupt_memory');
       const evidence=parse(r.evidence);
       if(!Array.isArray(evidence)||evidence.some(id=>!uuid.test(id)))throw new Error('m4_corrupt_memory_sources');
-      if(evidence.some(id=>forgotten.has(id)||corrected.has(id)||!sourceInScope(db,scope,id)))continue;
+      if(!evidence.length||evidence.length>64||revoked.has(r.recordId)||
+         !sourceInScope(db,scope,r.recordId,new Set(),revoked))continue;
       const e={version:1,kind:'permanent_memory',recordId:r.recordId,
         characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
         content:r.content,mode:r.mode,sourceEvidenceIds:evidence};
-      add({...scope,recordId:r.recordId,sourceKind:'permanent_memory',atUtc:r.atUtc,
+      add({...scope,protagonistKey:r.sourceProtagonist,recordId:r.recordId,sourceKind:'permanent_memory',atUtc:r.atUtc,
         evidenceState:'verified',envelope:e});
+      admitted++;
+      if(admitted>=Math.min(limit,384))break;
+     }
+     if(rows.length<128)break;
     }
     for(const r of overlays)add(r);
   }

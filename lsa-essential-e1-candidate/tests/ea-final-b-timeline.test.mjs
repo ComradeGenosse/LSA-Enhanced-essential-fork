@@ -34,16 +34,40 @@ function acceptedC13() {
     boundary(event) {for (const cb of bounds) cb(event);}
   };
 }
-async function start(t) {
+async function start(t,{autoResume=false}={}) {
   const files=await workspace(t);
   const store=createEssentialMemoryStorage({filePath:files.db,legacyJsonPath:files.json,
     worldProfileId,sourceRequired:true});
-  const source=acceptedC13(),bridge=bindTrustedTimelineSource({store,intelligenceClient:source});
+  const source=acceptedC13(),bridge=bindTrustedTimelineSource({store,intelligenceClient:source,autoResume});
   files.beforeRemoval(async()=>{bridge.close();await store.close();});
   await store.initialize();
   const save=await store.createTimeline({label:'Exact existing save'});
   return {files,store,source,save};
 }
+
+test('EA Final B: transient C-13 disconnect fences writes, then single-timeline auto-resume recovers',async t=>{
+  const {store,source,save}=await start(t,{autoResume:true});
+  source.host(host());
+  await store.confirmTimeline(save,{confirmation:save});
+  assert.equal(store.timelineWritable,true);
+  let writes=0;
+  const stale=store.withTimelineWrite(save,()=>++writes);
+  source.host(null); // authenticated native channel lost, but no save-fork evidence
+  assert.equal(store.timelineWritable,false);
+  assert.equal(store.timelinePendingReason,'native_source_unavailable');
+  await assert.rejects(stale,/timeline_write_suspended/);
+  source.host(host()); // fresh authenticated C-13 HELLO after reconnect
+  await store.listTimelines(); // drain the serialized auto-resume operation
+  assert.equal(store.timelineWritable,true);
+  assert.equal(store.activeTimelineId,save);
+  assert.equal(await store.withTimelineWrite(save,()=>++writes),1);
+  // In contrast, a source-replacement HELLO without a disconnect is ambiguous:
+  // it must revoke the selection and must NOT silently auto-resume.
+  source.host(host());
+  await store.listTimelines();
+  assert.equal(store.timelineWritable,false);
+  assert.equal(store.timelinePendingReason,'timeline_change');
+});
 
 test('EA Final B: queued confirmation cannot retarget a replacement host/epoch',async t=>{
   const {store,source,save}=await start(t);

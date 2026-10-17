@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "files": [
+    "lsa-shared-brain/tests/memory-m6-independent-retention.test.mjs"
+  ]
+}

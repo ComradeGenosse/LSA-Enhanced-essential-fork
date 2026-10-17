@@ -18,7 +18,11 @@ namespace LSA.Intelligence
         public DamageSensors(SensorAdapters sensors,Func<uint,object,string> ped,Func<uint,object,string> vehicle,Func<string,bool> critical,Func<long> now,Func<uint> tick)
         {
             this.sensors=sensors;this.ped=ped;this.vehicle=vehicle;this.critical=critical;this.now=now;this.tick=tick;
-            try {DamageTrackerService.OnPedTookDamage+=PedDamage;DamageTrackerService.OnPlayerTookDamage+=PlayerDamage;DamageTrackerService.OnVehicleTookDamage+=VehicleDamage;}
+            try {
+                if(sensors.Allows("ped_damage"))DamageTrackerService.OnPedTookDamage+=PedDamage;
+                if(sensors.Allows("player_damage"))DamageTrackerService.OnPlayerTookDamage+=PlayerDamage;
+                if(sensors.Allows("vehicle_damage"))DamageTrackerService.OnVehicleTookDamage+=VehicleDamage;
+            }
             catch {Dispose();throw;}
         }
         // Payload handles are only looked up in the previously validated immutable index.
@@ -27,10 +31,12 @@ namespace LSA.Intelligence
         void PlayerDamage(Ped victim,Ped attacker,PedDamageInfo info) {sensors.RecordDamageCallback("player_damage");Copy("player_damage",victim,attacker,info);}
         void Copy(string producer,Ped victim,Ped attacker,PedDamageInfo info)
         {
+            if(!sensors.Enabled||!sensors.Allows(producer))return;
             try { var target=ped(info.PedHandle,victim);sensors.Damage(producer,target,ped(info.AttackerPedHandle,attacker),info.Damage,info.ArmourDamage,Classify(info.WeaponInfo.Type),tick(),now(),critical(target)); } catch {}
         }
         void VehicleDamage(Vehicle victim,Ped attacker,VehDamageInfo info)
         {
+            if(!sensors.Enabled||!sensors.Allows("vehicle_damage"))return;
             sensors.RecordDamageCallback("vehicle_damage");
             try { var target=vehicle(info.VehHandle,victim);var p=info.LastCollisionPosition;
                 object collision=Finite(p.X)&&Finite(p.Y)&&Finite(p.Z)?new {x=p.X,y=p.Y,z=p.Z}:null;

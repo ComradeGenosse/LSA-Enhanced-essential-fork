@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net481</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../m9/M9NativeDamageAdapter.cs" Link="M9NativeDamageAdapter.cs" />
+    <Compile Include="../m9/M9NativeFrameAdapter.cs" Link="M9NativeFrameAdapter.cs" />
+    <Compile Include="../m9/M9OriginalVehicleCollisionProducer.cs" Link="M9OriginalVehicleCollisionProducer.cs" />
+    <Compile Include="../EntityAnchors.cs" Link="EntityAnchors.cs" />
+    <Compile Include="../SensorAdapters.cs" Link="SensorAdapters.cs" />
+    <Compile Include="../WitnessPolicy.cs" Link="WitnessPolicy.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net481" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+<ItemGroup><Compile Include="../NativeProducerPolicy.cs" Link="NativeProducerPolicy.cs"/></ItemGroup></Project>

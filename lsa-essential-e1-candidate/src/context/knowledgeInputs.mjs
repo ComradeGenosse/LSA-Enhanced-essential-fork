@@ -55,7 +55,7 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
   } else if(block.encounterId!==undefined || block.incarnationId!==undefined || index.encounterId!==undefined) return finish({reason:'owner_unverified'});
   const liveReferences=Object.fromEntries([...perception.anchors].filter(([ref])=>perception.current(ref)).map(([ref,anchor])=>[ref,anchor.kind]));
   let poolBytes=0;const captureDiagnostics={participantRetired:0,budgetExcluded:0,retainedPairs:0,poolBytes:0};
-  const pairs=perception.salience.snapshotForObserver(block.captureRef,perception.observations,perception.now(),captureDiagnostics).filter(pair=>{const valid=pair.observation.claims.every(claim=>[claim.source,claim.target].every(ref=>!ref || liveReferences[ref.captureRef]===ref.kind) && (!claim.details?.vehicle || liveReferences[claim.details.vehicle]==='vehicle'));if(!valid)captureDiagnostics.participantRetired++;return valid;}).filter((pair,index)=>{
+  const pairs=(perception.salience?.snapshotForObserver(block.captureRef,perception.observations,perception.now(),captureDiagnostics)??[]).filter(pair=>{const valid=pair.observation.claims.every(claim=>[claim.source,claim.target].every(ref=>!ref || liveReferences[ref.captureRef]===ref.kind) && (!claim.details?.vehicle || liveReferences[claim.details.vehicle]==='vehicle'));if(!valid)captureDiagnostics.participantRetired++;return valid;}).filter((pair,index)=>{
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes){captureDiagnostics.budgetExcluded++;return false;}poolBytes+=bytes;return true;
   });
   captureDiagnostics.retainedPairs=pairs.length;captureDiagnostics.poolBytes=poolBytes;

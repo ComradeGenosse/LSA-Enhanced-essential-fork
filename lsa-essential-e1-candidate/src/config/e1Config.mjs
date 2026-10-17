@@ -1,5 +1,7 @@
 import {normalizeDialogueKnowledge} from './dialogueKnowledge.mjs';
 import { normalizeExpressiveDeliveryConfig } from '../voice/emotion/deliveryContract.mjs';
+import { normalizeReactionConfig } from '../reactions/reactionConfig.mjs';
+import { normalizeMemoryKConfig } from '../memory/capabilityPolicy.mjs';
 import {directorSpeechLimitsForPreset} from '../perception/sceneDirector.mjs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -225,11 +227,13 @@ export function normalizeConfig(input = {}, env = process.env) {
     speechProvider, elevenLabs,
     expressiveDelivery: normalizeExpressiveDeliveryConfig(input.expressiveDelivery, { speechProvider }),
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
+    memoryK: normalizeMemoryKConfig(input.memoryK),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),
     spontaneousSpeech: Object.freeze({mode:speechMode,preset:speechPreset}),
     dialogueKnowledge: normalizeDialogueKnowledge(input.dialogueKnowledge),
     activities: normalizeActivityConfig(input.activities),
+    reactions: normalizeReactionConfig(input.reactions),
     dialogueLogging: normalizeDialogueLoggingConfig(input.dialogueLogging, boundedInteger),
     reasoningModel, reasoningEffort, transcriptionModel, ttsModel, ttsVoice,
     speechVoices: Object.freeze(speechVoices), speechVoiceProfiles, voiceAssignment, ttsSpeed, ttsVolume, actingEnabled, speechInstructionsSupported,

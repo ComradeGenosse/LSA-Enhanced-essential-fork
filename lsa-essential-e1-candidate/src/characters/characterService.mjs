@@ -41,15 +41,14 @@ export class CharacterService {
   #queue = Promise.resolve(); #initializing; #syncing; #lastSync = 0;
   constructor(config,{ identityService,voiceResolver,store,nativeOwner,telemetry } = {}) {
     this.config = config; this.identity = identityService; this.voice = voiceResolver; this.telemetry = telemetry;
-    // M1's single shared core owns timeline selection and profile CRUD.
-    // Only the explicit SQLite option enables it; the default JSON store is unchanged.
+    // Explicit opt-in only. JSON is the unchanged production default.
     const storageConfig = config.promotedCharacters;
     this.store = store || (storageConfig.storageMode === 'sqlite'
       ? createEssentialMemoryStorage({
           filePath:storageConfig.sqliteStorePath,
+          sourceRequired:true, // live M2 timelines must have verified native provenance
           legacyJsonPath:storageConfig.storePath,
-          worldProfileId:config.persistentIdentity.worldProfileId,
-          sourceRequired:true
+          worldProfileId:config.persistentIdentity.worldProfileId
         })
       : new ProfileStore({
           filePath:storageConfig.storePath,
@@ -60,6 +59,8 @@ export class CharacterService {
     this.ready = false;
   }
   bindActivities(runtime) { this.activities = runtime; }
+  // Release only the store owned by this service. No native task or P1 owner is closed here.
+  async closeStorage() { this.ready=false;await this.#queue;await this.store?.close?.(); }
   emit(event,data = {},identity = null,source = null) { try { this.telemetry?.emit(event,identity,source,data); } catch {} }
   initialize() { return this.#initializing ||= (async () => {
     try {
@@ -244,8 +245,4 @@ export class CharacterService {
     if (binding) await this.native.request('release',{ownerAlias:profile.promotion.ownerAlias,ownershipToken:binding.ownershipToken});
     await this.store.remove(characterId,confirmation,revision); this.sessions.reservePersistent(this.store.list()); this.emit('character_unpromoted'); return true;
   }); }
-  // Called from orderly bootstrap shutdown by final integrator. Never delete
-  // a stale SQLite writer lock or close the default JSON store.
-  async closeStorage() { await this.store?.close?.(); }
-
 }

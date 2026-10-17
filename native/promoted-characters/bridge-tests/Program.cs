@@ -268,6 +268,8 @@ static class Program
         int prompts = driver.PromptCount;
         var first = TalkRun(host,driver,"talk.select_first",TalkLimits());
         Check((bool)first["present"] && (string)first["pedId"] == "20" && (int)Convert.ToInt32(first["cycleIndex"]) == 1 && Convert.ToInt32(first["cycleCount"]) == 3 && driver.MicStarts == 0 && driver.ConversationSets == 0 && driver.ConversationHandle == 10,"first tap selects the on-screen center NPC and does not start the microphone or retarget Essential");
+        Check((string)first["recipientKind"] == "ambient" && (string)first["recipientEvidence"] == "unowned","a preview classifies an unowned ped as ambient from the exact selected ped");
+        Check(!first.TryGetValue("recipientAlias",out var previewAlias) || previewAlias == null,"an ambient ped exposes no owner alias");
         string selectionB = (string)first["selectionId"], encounterB = (string)first["encounterId"];
         driver.Nearby(20,8,0,0,-100,-100); driver.Nearby(30,3,0,0,960,540); driver.PublishSnapshot();
         var second = TalkRun(host,driver,"talk.select_next",TalkLimits());
@@ -315,6 +317,7 @@ static class Program
         driver.Clock(clock + 3501); driver.Tick();
         var fadedPreview = TalkRun(host,driver,"talk.inspect",Empty);
         Check((bool)fadedPreview["present"] && (string)fadedPreview["indicator"] == "off","the bracket fades after about one second while the explicit target remains selected");
+        Check(!fadedPreview.TryGetValue("recipientKind",out var inspectedKind) || inspectedKind == null,"the snapshot path carries no recipient class");
 
         driver.Clock(clock + 4000); driver.Nearby(20,8,0,0,960,540); driver.Nearby(10,5,0,0,1800,900); driver.PublishSnapshot(); driver.Select(10,0); driver.ResetTalkCounters();
         var chosen = TalkRun(host,driver,"talk.select_first",TalkLimits());
@@ -330,6 +333,8 @@ static class Program
         var startTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",chosenId},{"encounterId",chosenEncounter}}}};
         var started = TalkRun(host,driver,"talk.ptt_start",startArgs,startTarget);
         Check((bool)started["started"] && (string)started["pedId"] == "20" && (string)started["indicator"] == "off" && driver.MicStarts == 1 && driver.LastMicHandle == 20 && driver.ConversationHandle == 20 && driver.ConversationSets == 1,"explicit hold commits the exact ped and hides the selector while talking");
+        Check((string)started["recipientKind"] == "ambient" && (string)started["recipientEvidence"] == "unowned","an explicit commit classifies the exact committed ped, and an unowned ped is never reported as promoted");
+        Check(!started.TryGetValue("recipientAlias",out var startedAlias) || startedAlias == null,"an ambient commit exposes no owner alias");
         driver.Select(99,0);
         var stopped = TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",3}});
         Check((bool)stopped["stopped"] && driver.MicStops == 1 && driver.ConversationHandle == 99 && driver.ConversationClears == 0,"stop ends only the UX4 mic and does not clear a newer conversation ped");
@@ -385,6 +390,8 @@ static class Program
         driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot(); driver.ResetTalkCounters();
         var holding = TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",9},{"selectFirst",true}});
         Check((bool)holding["started"] && !(bool)holding["present"] && (string)holding["indicator"] == "off" && driver.LastMicHandle == 20 && driver.MicIsCurrent(20),"normal hold starts the best NPC microphone without exposing selector UI/state");
+        Check((string)holding["recipientKind"] == "ambient" && (string)holding["recipientEvidence"] == "unowned","a direct hold also classifies the exact committed ped");
+        Check(!holding.TryGetValue("recipientAlias",out var holdingAlias) || holdingAlias == null,"an ambient direct hold exposes no owner alias");
         driver.Kill(20); driver.Tick();
         var lostView = TalkRun(host,driver,"talk.inspect",Empty);
         Check(driver.MicStops == 1 && !(bool)lostView["present"],"target loss while talking stops the UX4 microphone once");

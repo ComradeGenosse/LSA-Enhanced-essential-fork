@@ -47,6 +47,15 @@ dotnet build native/promoted-characters/lifecycle-tests/LifecycleTests.csproj -c
 & native/promoted-characters/lifecycle-tests/bin/Release/net481/LifecycleTests.exe
 ```
 
+K-21 per-NPC D02 owner sampling links the real `PromotedCharactersIntegration`, `MemoryOwnerAuthority`, `MemoryProtagonistSource`, `MemoryOwnerProofPolicy` and anchor table against the lifecycle game stubs. It never starts the control pipe, so it also runs under Mono on Linux:
+
+```powershell
+dotnet build native/promoted-characters/owner-sample-tests/OwnerSampleTests.csproj -c Release "-p:TargetFrameworkRootPath=$env:LSA_IDENTITY_FRAMEWORK_ROOT"
+& native/promoted-characters/owner-sample-tests/bin/Release/net481/OwnerSampleTests.exe
+```
+
+The `memory-k-d02-native-owner.yml` CI workflow builds and runs this harness on Windows. The D02 JavaScript tests also exercise the actual authenticated `IntelligenceClient` + `ShadowRuntime` boundary: a temporarily omitted NPC loses every existing turn lease, while a fresh exact native owner sample can issue a new lease without disrupting healthy NPCs. Explicit retirement and recycled/forged owner lifetime remain denied.
+
 The UX phase 1 bridge links the real `DomainHost`, the production runtime sources and the real console frontend against game substitutes in a separate Essential test domain (it also runs under Mono):
 
 ```powershell
@@ -71,3 +80,5 @@ The native `activities.dialogueReceipts` flag defaults to false. Only literal JS
 Collection grants neither physical acceptance nor model-visible SELF activation. Companion `dialogueKnowledge.dialogueReceipts` remains independently off by default and requires the existing PS4 build/lifetime/acceptance gates. Real Essential callback ordering, actual cross-process C-05 interoperability and GTA MP6/G8 probes remain open. No deployment or successful validation receipt is performed by these settings or builds.
 
 The companion publication service also requires its literal-true `activities.dialogueReceipts` opt-in; native negotiation alone never enables publication annotation.
+
+Optional conversation reactions (facepalm, dismissive gesture) live in `native/reactions` and are hosted by this loader only when `reactions.mode` is `shadow` or `on`; the default is `off`, which creates no pipe, subscription or thread. They use their own `LSA.Reactions.v1` pipe, never ACT/Intelligence/P2 frames, and are untested in GTA V Enhanced. Offline checks: `dotnet run --project native/reactions/tests/ReactionTests.csproj`. See [findings and in-game checklist](../../docs/plans/npc-gestures-findings.md).

@@ -1,7 +1,7 @@
 import {projectDialogueActionKnowledge} from '../activities/dialogueActionKnowledge.mjs';
 import {projectActivityKnowledge} from '../activities/activityKnowledge.mjs';
 import {immutableSnapshot} from './turnSnapshot.mjs';
-import {KNOWLEDGE_LIMITS,jsonBytes,selectKnowledge} from './knowledgeSelector.mjs';
+import {KNOWLEDGE_LIMITS,jsonBytes,selectKnowledge,projectPreparedRecall,projectPreparedM8} from './knowledgeSelector.mjs';
 import {narrativeProfileWithDiagnostics} from '../characters/sessionProfiles.mjs';
 
 const token=value=>typeof value==='string' && /^[a-zA-Z0-9][a-zA-Z0-9 _-]{0,63}$/.test(value) && !['unknown','none','unarmed'].includes(value.toLowerCase())?value.toLowerCase():null;
@@ -44,7 +44,7 @@ export function projectSituation(world) {
  result.zoneCode=typeof world?.zoneCode==='string'&&/^[A-Z0-9_]{1,16}$/.test(world.zoneCode)?world.zoneCode:'unknown';
  for(const key of ['crossingStreetName','streetName','weather','gameTime'])if(jsonBytes(result)>KNOWLEDGE_LIMITS.situationBytes)result[key]='unknown';return result;
 }
-export function projectConversation(history,input,source,directorEventContext=null) {
+export function projectConversation(history,input,source,directorEventContext=null,conversationJournal=null) {
  // Only the independently verified PS6 original stock kb context may be added.
  // Accept precisely the deterministic 160-unit native Director event grammar.
  const directorEvent=source==='special_event' &&
@@ -56,13 +56,26 @@ export function projectConversation(history,input,source,directorEventContext=nu
      :'No player utterance was received. Respond only to supported current context.';
  if(current.length>12000)throw new RangeError('knowledge_current_input_units');
  const currentMessage={role:'user',content:current};if(jsonBytes(currentMessage)>KNOWLEDGE_LIMITS.currentBytes)throw new RangeError('knowledge_current_input_bytes');
- const prior=(Array.isArray(history)?history:[]).filter(item=>item&&['user','assistant'].includes(item.role)&&typeof item.content==='string').slice(-12).map(({role,content})=>({role,content:content.toWellFormed()}));
- let droppedHistoryCount=0;while(prior.length&&jsonBytes(prior)>KNOWLEDGE_LIMITS.historyBytes){prior.shift();droppedHistoryCount++;}
- return {messages:[...prior,currentMessage],droppedHistoryCount};
+ // Durable, source-verified P2 history replaces RAM when available. The
+ // journal assembler has already removed forgotten or unplayed speech.
+ const journal=conversationJournal&&Array.isArray(conversationJournal.recent)&&
+   Array.isArray(conversationJournal.earlier)&&
+   conversationJournal.recent.every(x=>['user','assistant'].includes(x?.role)&&
+     typeof x.content==='string')?conversationJournal:null;
+ const prior=(journal?journal.recent:history??[])
+   .filter(item=>item&&['user','assistant'].includes(item.role)&&typeof item.content==='string')
+   .slice(journal?-20:-12).map(({role,content})=>({role,content:content.toWellFormed()}));
+ const limit=journal?12*1024:KNOWLEDGE_LIMITS.historyBytes;
+ let droppedHistoryCount=0;while(prior.length&&jsonBytes(prior)>limit){prior.shift();droppedHistoryCount++;}
+ const earlier=journal?journal.earlier.filter(x=>x.status==='archived'&&
+   ['user','assistant'].includes(x.role)&&typeof x.content==='string'&&
+   Number.isFinite(Date.parse(x.atUtc))).slice(0,4).map(x=>({
+   status:'archived',role:x.role,content:x.content.toWellFormed(),atUtc:x.atUtc})):[];
+ return {messages:[...prior,currentMessage],earlier,droppedHistoryCount};
 }
 // Pure projection only: callers must supply the canon already released by P1/P2.
 // Private turn/delivery metadata is never part of modelAllocation.
-export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,directorEventContext=null,includePerceived=false,activityInputs=null,includeActivityFacts=false,dialogueInputs=null,includeDialogueReceipts=false}) {
+export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,directorEventContext=null,includePerceived=false,activityInputs=null,includeActivityFacts=false,dialogueInputs=null,includeDialogueReceipts=false,preparedRecall=null,recallAuthorization=null,preparedM8=null,m8Authorization=null,conversationJournal=null,memoryAction=null,memoryStamp=null}) {
  let canonProjection=narrativeProfileWithDiagnostics(profile,persistent);
  let narrative=canonProjection.narrative;
  // Reserve actual lane-wrapper overhead while reusing P2's established field
@@ -79,8 +92,64 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  const {memories=[],...canon}=narrative||{};
  const recalled=memories.map(({category,importance,text})=>({category:['note','relationship','promise','event','biography','other'].includes(category)?category:'other',importance:Number.isInteger(importance)&&importance>=0&&importance<=100?importance:0,text}));
  const perceived=selectKnowledge(knowledgeInputs,{includePerceived,radioInput:['player_text','player_mic'].includes(source)?input:''});
- const conversation=projectConversation(history,input,source,directorEventContext);
+ const conversation=projectConversation(history,input,source,directorEventContext,conversationJournal);
+ // K supplies a synchronous P2/native-authoritative admission check.
+ let canAdmit=false;
+ try{canAdmit=typeof recallAuthorization==='function'&&recallAuthorization(preparedRecall)===true;}catch{}
+ const recall=projectPreparedRecall(canAdmit?preparedRecall:null);
+ const recallReferences=[...recall.references];
+ // W05: subjective M8 content has no independent fact or system-message lane.
+ let canAdmitM8=false;
+ try{canAdmitM8=typeof m8Authorization==='function'&&m8Authorization(preparedM8)===true;}catch{}
+ const m8=projectPreparedM8(canAdmitM8?preparedM8:null);
+ const opinionReferences=[...m8.references];
  const lanes={SELF:{canon:narrative?canonData(canon):null,selfFacts:[]},PERCEIVED:{observations:[...perceived.observations]},RECALLED:{memories:wellFormedData(recalled)},SITUATION:projectSituation(world),COMPAT:projectCompatibility({actor,listener,referenceMap,presence})};
+ // M5 may speak success only if a durable command readback verified it.
+ // These typed statuses are the only command data admitted to the PS4 SELF lane.
+ if(Array.isArray(memoryAction)&&memoryAction.length&&memoryAction.length<=2&&
+    memoryAction.every(x=>x&&['saved','forgotten','corrected','clarify','failed'].includes(x.outcome)&&
+      typeof x.durableCommit==='boolean'&&
+      (['saved','forgotten','corrected'].includes(x.outcome)===x.durableCommit)))
+   lanes.SELF.memoryAction=memoryAction.map(({outcome,durableCommit})=>({outcome,durableCommit}));
+ if(conversation.earlier?.length)lanes.CONVERSE={earlier:conversation.earlier};
+ if(recallReferences.length){
+  lanes.RECALLED.evidence=recall.evidence;
+  lanes.RECALLED.earlierArchivedConversation=recall.earlierArchivedConversation;
+ }
+ // G3/G5 summaries are optional typed evidence, sharing the original allocator.
+ // An incomplete result never has a numeric total or first/last assertion.
+ const answer=canAdmit?preparedRecall?.answerEvidence:null;
+ if(answer){
+  const count=answer.dialogueCount,witness=answer.witness;
+  const value={completeness:'bounded_recall_page',negativeWitnessing:'unavailable'};
+  if(count)value.dialogueCount=count.status==='complete'&&Number.isSafeInteger(count.exactCount)&&count.exactCount>=0
+    ?{status:'complete',querySemantics:'literal_substring',predicate:count.predicate,exactCount:count.exactCount,
+      first:count.first,last:count.last,best:count.best}
+    :{status:'incomplete',exactCount:null,first:null,last:null,reason:count.reason};
+  if(witness)value.witness={status:witness.status==='witnessed'?'witnessed':'unknown',
+    reason:witness.reason,evidenceIds:witness.status==='witnessed'?witness.evidenceIds:[]};
+  if(jsonBytes(value)>1536&&value.dialogueCount)delete value.dialogueCount.best;
+  if(jsonBytes(value)<=1536)lanes.RECALLED.answerEvidence=value;
+ }
+ if(opinionReferences.length){
+  lanes.RECALLED.characterOpinions=m8.characterOpinions;
+  lanes.RECALLED.runningJokes=m8.runningJokes;
+  if(m8.relationshipInterpretation)lanes.RECALLED.relationshipInterpretation=m8.relationshipInterpretation;
+ }
+ const dropOpinion=()=>{
+  const ref=opinionReferences.pop();if(!ref)return false;
+  if(ref.section==='relationshipInterpretation')delete lanes.RECALLED.relationshipInterpretation;
+  else lanes.RECALLED[ref.section].pop();
+  return true;
+ };
+ const dropRecall=()=>{
+  const item=recallReferences.pop();if(!item)return false;
+  lanes.RECALLED[item.section].pop();return true;
+ };
+ // Unpinned M4 yields to P2 canon and pinned memory.
+ if(lanes.RECALLED.answerEvidence&&jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)delete lanes.RECALLED.answerEvidence;
+ while(opinionReferences.length&&jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)dropOpinion();
+ while(recallReferences.length&&jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)dropRecall();
  if(jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes) {
   while(lanes.RECALLED.memories.length&&jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)lanes.RECALLED.memories.pop();
   if(jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)throw new RangeError('knowledge_canon_bytes');
@@ -96,9 +165,13 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  let frameBudgetDrops=0;
  const allocation=()=>({scene:JSON.stringify({frameVersion:1,lanes}),messages:conversation.messages});
  const oversized=()=>jsonBytes(allocation())>KNOWLEDGE_LIMITS.frameBytes;
+ if(oversized())delete lanes.RECALLED.answerEvidence;
  const dropObservation=index=>{lanes.PERCEIVED.observations.splice(index,1);delivery.splice(index,1);omissions.budget_excluded++;frameBudgetDrops++;};
  // Preserve compact safety evidence before optional history/environment/affordance
  // detail. Every evidence or memory removal is whole and deterministic.
+ while(oversized() && lanes.CONVERSE?.earlier?.length){lanes.CONVERSE.earlier.pop();frameBudgetDrops++;}
+ while(oversized() && opinionReferences.length){dropOpinion();frameBudgetDrops++;}
+ while(oversized() && recallReferences.length){dropRecall();frameBudgetDrops++;}
  while(oversized() && conversation.messages.length>1){conversation.messages.shift();conversation.droppedHistoryCount++;frameBudgetDrops++;}
  for(const values of [lanes.COMPAT.actor.availableWeapons,lanes.COMPAT.vehicles,lanes.COMPAT.persons])while(oversized() && values.length){values.pop();frameBudgetDrops++;}
  if(lanes.COMPAT.listener.address!=='A' && !lanes.COMPAT.persons.includes(lanes.COMPAT.listener.address))delete lanes.COMPAT.listener.address;
@@ -109,25 +182,54 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  }
  while(oversized() && lanes.SELF.selfFacts.length){dropSelfFact();frameBudgetDrops++;}
  while(oversized() && lanes.RECALLED.memories.length){lanes.RECALLED.memories.pop();frameBudgetDrops++;}
+ if(oversized())delete lanes.SELF.memoryAction;
  while(oversized() && delivery.length){dropObservation(delivery.length-1);omissions.safety_overflow++;}
  const modelAllocation=allocation(),bytes=jsonBytes(modelAllocation);
  if(bytes>KNOWLEDGE_LIMITS.frameBytes)throw new RangeError('knowledge_frame_bytes');
  const perLane=Object.fromEntries(Object.entries(lanes).map(([name,value])=>[name,jsonBytes(value)]));perLane.CONVERSE=jsonBytes(conversation.messages);
- return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,memoryIds:memories.slice(0,lanes.RECALLED.memories.length).map(memory=>memory.memoryId),activityReferences,dialogueReferences,diagnostics:{bytes,perLane,droppedActivityFactCount,droppedDialogueReceiptCount,capture:knowledgeInputs?.captureDiagnostics??null,safetyBudget:perceived.safetyBudget,omissions,frameBudgetDrops,droppedHistoryCount:conversation.droppedHistoryCount,droppedMemoryCount:canonProjection.droppedMemoryCount+memories.length-lanes.RECALLED.memories.length}});
+ return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,memoryStamp,recallReferences,
+  recallStamp:recallReferences.length||lanes.RECALLED.answerEvidence?preparedRecall.stamp:null,
+  recallAnswerEvidence:!!lanes.RECALLED.answerEvidence,opinionReferences,
+  opinionStamp:opinionReferences.length?preparedM8.stamp:null,memoryIds:memories.slice(0,lanes.RECALLED.memories.length).map(memory=>memory.memoryId),activityReferences,dialogueReferences,diagnostics:{bytes,perLane,droppedActivityFactCount,droppedDialogueReceiptCount,capture:knowledgeInputs?.captureDiagnostics??null,safetyBudget:perceived.safetyBudget,omissions,frameBudgetDrops,droppedHistoryCount:conversation.droppedHistoryCount,droppedRecallCount:recall.dropped+recall.references.length-recallReferences.length,droppedOpinionCount:m8.dropped+m8.references.length-opinionReferences.length,droppedMemoryCount:canonProjection.droppedMemoryCount+memories.length-lanes.RECALLED.memories.length}});
 
 }
 
 
 // Narrow an already rendered allocation before first send. No new facts, live
 // history or replacement candidates are admitted by this operation.
-export function pruneKnowledgeFrame(frame,keep,keepActivity=()=>true,keepDialogue=()=>true) {
+export function pruneKnowledgeFrame(frame,keep,keepActivity=()=>true,keepDialogue=()=>true,keepRecall=()=>true,keepOpinion=()=>true) {
  const retained=frame.delivery.map((item,index)=>keep(item)?index:null).filter(index=>index!==null);
  const activityRetained=(frame.activityReferences??[]).map((item,index)=>keepActivity(item)?index:null).filter(index=>index!==null);
  const dialogueRetained=(frame.dialogueReferences??[]).map((item,index)=>keepDialogue(item)?index:null).filter(index=>index!==null);
- if(retained.length===frame.delivery.length && activityRetained.length===(frame.activityReferences?.length??0) && dialogueRetained.length===(frame.dialogueReferences?.length??0))return frame;
+ const recallRetained=(frame.recallReferences??[]).map((item,index)=>keepRecall(item)?index:null).filter(index=>index!==null);
+ const opinionRetained=(frame.opinionReferences??[]).map((item,index)=>keepOpinion(item)?index:null).filter(index=>index!==null);
+ const retainAnswer=frame.recallAnswerEvidence===true&&keepRecall({section:'answerEvidence',stamp:frame.recallStamp});
+ if(retained.length===frame.delivery.length && activityRetained.length===(frame.activityReferences?.length??0) && dialogueRetained.length===(frame.dialogueReferences?.length??0) && recallRetained.length===(frame.recallReferences?.length??0) && opinionRetained.length===(frame.opinionReferences?.length??0) && retainAnswer===(frame.recallAnswerEvidence===true))return frame;
  const scene=JSON.parse(frame.modelAllocation.scene);
+ if(!retainAnswer)delete scene.lanes.RECALLED.answerEvidence;
  scene.lanes.PERCEIVED.observations=retained.map(index=>scene.lanes.PERCEIVED.observations[index]);
+ if(frame.recallReferences?.length){
+  const kept=new Set(recallRetained),bySection={evidence:[],earlierArchivedConversation:[]},positions={evidence:0,earlierArchivedConversation:0};
+  for(let index=0;index<frame.recallReferences.length;index++){
+   const ref=frame.recallReferences[index],item=scene.lanes.RECALLED[ref.section]?.[positions[ref.section]++];
+   if(kept.has(index)&&item)bySection[ref.section].push(item);
+  }
+  scene.lanes.RECALLED.evidence=bySection.evidence;
+  scene.lanes.RECALLED.earlierArchivedConversation=bySection.earlierArchivedConversation;
+ }
+ if(frame.opinionReferences?.length){
+  const keepIds=new Set(opinionRetained.map(i=>frame.opinionReferences[i].entryId));
+  const m=scene.lanes.RECALLED;
+  if(m.characterOpinions)m.characterOpinions=m.characterOpinions.filter(item=>keepIds.has(item.id));
+  if(m.runningJokes)m.runningJokes=m.runningJokes.filter(item=>keepIds.has(item.id));
+  if(m.relationshipInterpretation&&!keepIds.has('relationship'))delete m.relationshipInterpretation;
+ }
  if(frame.activityReferences || frame.dialogueReferences){const original=scene.lanes.SELF.selfFacts;scene.lanes.SELF.selfFacts=[...activityRetained.map(index=>original[index]),...dialogueRetained.map(index=>original[(frame.activityReferences?.length??0)+index])];}
  const modelAllocation={...frame.modelAllocation,scene:JSON.stringify(scene)};
- return immutableSnapshot({...frame,modelAllocation,delivery:retained.map(index=>frame.delivery[index]),...(frame.activityReferences?{activityReferences:activityRetained.map(index=>frame.activityReferences[index])}:{}),...(frame.dialogueReferences?{dialogueReferences:dialogueRetained.map(index=>frame.dialogueReferences[index])}:{}),diagnostics:{...frame.diagnostics,staleDialogueReceiptDrops:(frame.diagnostics.staleDialogueReceiptDrops??0)+(frame.dialogueReferences?.length??0)-dialogueRetained.length,bytes:jsonBytes(modelAllocation),perLane:{...frame.diagnostics.perLane,PERCEIVED:jsonBytes(scene.lanes.PERCEIVED),SELF:jsonBytes(scene.lanes.SELF)},staleActivityFactDrops:(frame.diagnostics.staleActivityFactDrops??0)+(frame.activityReferences?.length??0)-activityRetained.length,staleObservationDrops:(frame.diagnostics.staleObservationDrops??0)+frame.delivery.length-retained.length}});
+ return immutableSnapshot({...frame,modelAllocation,delivery:retained.map(index=>frame.delivery[index]),
+  recallReferences:recallRetained.map(index=>frame.recallReferences[index]),
+  recallStamp:recallRetained.length||retainAnswer?frame.recallStamp:null,recallAnswerEvidence:retainAnswer,
+  opinionReferences:opinionRetained.map(index=>frame.opinionReferences[index]),
+  opinionStamp:opinionRetained.length?frame.opinionStamp:null,...(frame.activityReferences?{activityReferences:activityRetained.map(index=>frame.activityReferences[index])}:{}),...(frame.dialogueReferences?{dialogueReferences:dialogueRetained.map(index=>frame.dialogueReferences[index])}:{}),diagnostics:{...frame.diagnostics,staleDialogueReceiptDrops:(frame.diagnostics.staleDialogueReceiptDrops??0)+(frame.dialogueReferences?.length??0)-dialogueRetained.length,bytes:jsonBytes(modelAllocation),perLane:{...frame.diagnostics.perLane,PERCEIVED:jsonBytes(scene.lanes.PERCEIVED),SELF:jsonBytes(scene.lanes.SELF),RECALLED:jsonBytes(scene.lanes.RECALLED)},
+  staleRecallDrops:(frame.diagnostics.staleRecallDrops??0)+(frame.recallReferences?.length??0)-recallRetained.length,staleOpinionDrops:(frame.diagnostics.staleOpinionDrops??0)+(frame.opinionReferences?.length??0)-opinionRetained.length,staleActivityFactDrops:(frame.diagnostics.staleActivityFactDrops??0)+(frame.activityReferences?.length??0)-activityRetained.length,staleObservationDrops:(frame.diagnostics.staleObservationDrops??0)+frame.delivery.length-retained.length}});
 }

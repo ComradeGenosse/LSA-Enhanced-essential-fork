@@ -1,0 +1,33 @@
+name: Memory K D1 authenticated source consumer independence
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/**'
+      - 'lsa-essential-e1-candidate/src/memory/**'
+      - 'lsa-essential-e1-candidate/src/context/knowledgeInputs.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory-k-source-consumers.test.mjs'
+      - '.github/workflows/memory-k-source-consumers.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-consumers:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory-k-source-consumers.test.mjs lsa-essential-e1-candidate/tests/memory-runtime-composition.test.mjs lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs lsa-essential-e1-candidate/tests/memory/nativeCurrentOwnerAuthenticatedIntake.test.mjs

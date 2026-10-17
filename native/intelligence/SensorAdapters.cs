@@ -19,6 +19,9 @@ namespace LSA.Intelligence
     // Used by real callbacks and state sampling; no native/model/storage/action dependencies.
     public sealed class SensorAdapters
     {
+        readonly NativeProducerPolicy policy;
+        public SensorAdapters(NativeProducerPolicy policy=null) {this.policy=policy??new NativeProducerPolicy(radioMode:"shadow");}
+        public bool Allows(string producer)=>policy.Allows(producer);
         readonly object gate=new object();
         readonly LinkedList<RawSignal> queue=new LinkedList<RawSignal>();
         readonly Dictionary<string,long> sequences=new Dictionary<string,long>();
@@ -30,7 +33,7 @@ namespace LSA.Intelligence
         public Dictionary<string,long> Counters {get {lock(gate) return new Dictionary<string,long>(received);}}
         readonly Dictionary<string,long> damageCallbacks=new Dictionary<string,long>{{"ped_damage",0},{"player_damage",0},{"vehicle_damage",0}};
         public Dictionary<string,long> DamageCallbacks {get {lock(gate) return new Dictionary<string,long>(damageCallbacks);}}
-        public void RecordDamageCallback(string producer) {lock(gate) if(Enabled && damageCallbacks.ContainsKey(producer)) damageCallbacks[producer]=Math.Min(int.MaxValue,damageCallbacks[producer]+1);}
+        public void RecordDamageCallback(string producer) {lock(gate) if(Enabled && Allows(producer) && damageCallbacks.ContainsKey(producer)) damageCallbacks[producer]=Math.Min(int.MaxValue,damageCallbacks[producer]+1);}
         public bool Enabled {get;set;}
         public long Dropped {get;private set;}
         public int Count {get {lock(gate) return queue.Count;}}
@@ -53,7 +56,7 @@ namespace LSA.Intelligence
         public bool Enqueue(RawSignal signal)
         {
             lock(gate) {
-                if(!Enabled) return false;
+                if(!Enabled || signal==null || !Allows(signal.producer)) return false;
                 if(!received.ContainsKey(signal.kind)) received[signal.kind]=0;
                 received[signal.kind]=Math.Min(int.MaxValue,received[signal.kind]+1);
                 if(!sequences.ContainsKey(signal.producer)) sequences[signal.producer]=0;
@@ -71,6 +74,7 @@ namespace LSA.Intelligence
         public RawSignal Take() { lock(gate) { if(queue.Count==0) return null; var s=queue.First.Value; queue.RemoveFirst(); return s; } }
         public bool Damage(string producer,string target,string attacker,int damage,int armour,string classification,uint tick,long now, bool critical, object collision = null)
         {
+            if(!Enabled||!Allows(producer))return false;
             if(damage<0 || damage>100000 || armour<0 || armour>100000) return false;
             var signal=new RawSignal {producer=producer,kind=producer=="vehicle_damage"?"vehicle_damage":"damage",target=target,source=attacker,gameTick=tick,receivedMs=now,Critical=critical};
             signal.facts.Add("damage",damage); signal.facts.Add("armour",armour);
@@ -83,7 +87,7 @@ namespace LSA.Intelligence
         { Enqueue(Prepare(new RawSignal {producer="state",kind=kind,target=captureRef,facts=facts,gameTick=tick,receivedMs=now,Critical=critical})); }
         public void Sample(string captureRef,StateSample current,uint tick,long now)
         {
-            if(!Enabled) return;
+            if(!Enabled||!Allows("state")) return;
             if(!baselines.TryGetValue(captureRef,out var old)) { baselines[captureRef]=current; return; }
             if(!old.VehicleBaseline) {old.Vehicle=current.Vehicle;old.Driver=current.Driver;}
             if(!old.Dead && current.Dead) Edge(captureRef,"death",new Dictionary<string,object>(),tick,now,true);
@@ -102,7 +106,7 @@ namespace LSA.Intelligence
         }
         public RawSignal Shooting(string captureRef,bool shooting,uint tick,long now)
         {
-            if(!Enabled) return null;
+            if(!Enabled||!Allows("shooting")) return null;
             string key="shot:"+captureRef;
             if(!baselines.TryGetValue(key,out var old)) { baselines[key]=new StateSample {Shooting=shooting}; return null; }
             if(shooting && !old.Shooting && (!lastShot.TryGetValue(captureRef,out var previous) || now-previous>=500)) {
@@ -113,7 +117,7 @@ namespace LSA.Intelligence
         }
         public void Vehicle(string captureRef,VehicleSample current,uint tick,long now)
         {
-            if(!Enabled) return;
+            if(!Enabled||!Allows("state")) return;
             if(vehicles.TryGetValue(captureRef,out var old) && (old.Engine!=current.Engine || old.HealthBand!=current.HealthBand || old.SpeedBand!=current.SpeedBand || old.Driver!=current.Driver))
                 Edge(captureRef,"vehicle_state",new Dictionary<string,object>{{"engine",current.Engine},{"healthBand",current.HealthBand},{"speedBand",current.SpeedBand},{"driver",current.Driver}},tick,now);
             vehicles[captureRef]=current;
@@ -148,7 +152,7 @@ namespace LSA.Intelligence
         // Returns the enqueued radio edge, if any, for diagnostic correlation.
         public RawSignal Radio(string vehicle,string station,uint soundHash,int trackTextId,uint tick,long now,bool newQualifiedListener=false)
         {
-            if(!Enabled) return null;
+            if(!Enabled||!Allows("radio")) return null;
             if(!ValidRadioStation(station)) { station=""; soundHash=0; trackTextId=0; }
             var current=new RadioSample {Vehicle=vehicle,Station=station??"",SoundHash=soundHash,TrackTextId=trackTextId};
             if(current.Station.Length==0) {current.SoundHash=0;current.TrackTextId=0;}

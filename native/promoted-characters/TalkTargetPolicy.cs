@@ -35,6 +35,26 @@ namespace LSA.PromotedCharacters
         public int CycleIndex, CycleCount;
         public long ExpiresInMs;
     }
+    // Display-only class of the exact committed ped. It is never an identity,
+    // never an authorization, and never derived from voice, model or a name.
+    internal enum TalkRecipientKind { Unknown, Promoted, Ambient }
+    internal sealed class TalkRecipientFeedback
+    {
+        // Bounded diagnostic codes only: no alias, UUID, address or profile text.
+        public readonly TalkRecipientKind Kind;
+        public readonly string Evidence;
+        // The P1-verified owner alias, set only on Promoted. It is a lookup key for
+        // the loader's companion name request, never shown or logged: it is the same
+        // alias the Current NPC snapshot already carries, and the companion alone
+        // decides whether it maps to exactly one profile.
+        public readonly string Alias;
+        static readonly System.Text.RegularExpressions.Regex AliasShape = new System.Text.RegularExpressions.Regex("^promoted\\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
+        TalkRecipientFeedback(TalkRecipientKind kind,string evidence,string alias = null) { Kind = kind; Evidence = evidence; Alias = kind == TalkRecipientKind.Promoted && alias != null && AliasShape.IsMatch(alias) ? alias : null; }
+        public string Token => Kind == TalkRecipientKind.Promoted ? "promoted" : Kind == TalkRecipientKind.Ambient ? "ambient" : "unknown";
+        public static TalkRecipientFeedback Promoted(string evidence,string alias = null) => new TalkRecipientFeedback(TalkRecipientKind.Promoted,evidence,alias);
+        public static TalkRecipientFeedback Ambient(string evidence) => new TalkRecipientFeedback(TalkRecipientKind.Ambient,evidence);
+        public static TalkRecipientFeedback Unknown(string evidence) => new TalkRecipientFeedback(TalkRecipientKind.Unknown,evidence);
+    }
     internal sealed class TalkTargetPolicy
     {
         struct Token { public string PedId; public long Address; }

@@ -1,0 +1,43 @@
+name: Memory K J-A M6 retention
+on:
+  pull_request:
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - 'lsa-shared-brain/src/memory/m6*.mjs'
+      - 'lsa-shared-brain/src/memory/p2ReplayCursor.mjs'
+      - 'lsa-shared-brain/tests/memory-m6-*.test.mjs'
+      - 'docs/plans/memory-k-ja-m6-retention-20261015.md'
+      - '.github/workflows/memory-k-ja-m6-retention.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: memory-k-ja-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  m6-retention:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: J-A independent M6 retention (real SQLite, M7 disabled, offline)
+        shell: bash
+        run: node --test lsa-shared-brain/tests/memory-m6-independent-retention.test.mjs
+      - name: Existing M6 coordinator, cursor and P2 SQLite regressions
+        if: always()
+        shell: bash
+        run: |
+          node --test lsa-shared-brain/tests/memory-m6-completion.test.mjs
+          node --test lsa-shared-brain/tests/memory-m6-cursor-lifecycle.test.mjs
+          node --test lsa-shared-brain/tests/memory-m6-p2-production.test.mjs
+          node --test lsa-shared-brain/tests/memory-m6-sqlite.test.mjs
+          node --test lsa-shared-brain/tests/memory-k-integrated-replay.test.mjs

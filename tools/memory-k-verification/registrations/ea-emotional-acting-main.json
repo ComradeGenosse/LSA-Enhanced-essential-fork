@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "files": [
+    "lsa-essential-e1-candidate/tests/ea-final-a-native-intake.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea-final-b-timeline.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea-final-c-emotional-delivery.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea-final-h-unified-player.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea-final-integration-wiring.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea-g-v4-compatibility.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea-integration-owner-projection.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea118-elevenlabs-retry-safety.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea118-protagonist-heartbeat-recovery.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea2-speech-delivery.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea2-turn-lifecycle.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea3-delivery-hints.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea4-runtime-integration.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea5-native-protagonist-authority.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea6-storage-timeline.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea7-emotional-continuity-completion.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea8-elevenlabs-provider-safety.test.mjs",
+    "lsa-essential-e1-candidate/tests/ea9-release.test.mjs",
+    "lsa-essential-e1-candidate/tests/elevenlabs-emotional-acting.test.mjs",
+    "lsa-essential-e1-candidate/tests/elevenlabs-main-integration.test.mjs",
+    "lsa-essential-e1-candidate/tests/elevenlabs-provider.test.mjs",
+    "lsa-essential-e1-candidate/tests/elevenlabs-smoke-benchmark.test.mjs",
+    "lsa-essential-e1-candidate/tests/emotional-mood-continuity.test.mjs",
+    "lsa-essential-e1-candidate/tests/pcm-volume.test.mjs",
+    "lsa-essential-e1-candidate/tests/scene-delivery.test.mjs",
+    "lsa-essential-e1-candidate/tests/speech-provider-retirement.test.mjs"
+  ]
+}

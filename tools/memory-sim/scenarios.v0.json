@@ -1,0 +1,56 @@
+{
+  "version": 0,
+  "status": "M0 proposed acceptance scenarios, NOT runtime passing tests",
+  "scenarios": [
+    {
+      "id": "S01",
+      "goal": "S01 exact player utterance across session reconnect; profanity and unicode preserved",
+      "implemented": false
+    },
+    {
+      "id": "S02",
+      "goal": "S02 boring qualified firing observed; remembered after 3 minutes despite PS3 context omit",
+      "implemented": false
+    },
+    {
+      "id": "S03",
+      "goal": "S03 two promoted observers; one lacks witness proof and gains no memory",
+      "implemented": false
+    },
+    {
+      "id": "S04",
+      "goal": "S04 explicit remember this with ambiguous referent asks clarification; no false saved ack",
+      "implemented": false
+    },
+    {
+      "id": "S05",
+      "goal": "S05 Luna curator offline; recorded facts persist and retry without VRAM",
+      "implemented": false
+    },
+    {
+      "id": "S06",
+      "goal": "S06 two personalities find different aspects funny while facts remain identical",
+      "implemented": false
+    },
+    {
+      "id": "S07",
+      "goal": "S07 clock regression; timeline writes pause pending explicit confirmation",
+      "implemented": false
+    },
+    {
+      "id": "S08",
+      "goal": "S08 promotion grace imports only verified <=120 seconds from same ped",
+      "implemented": false
+    },
+    {
+      "id": "S09",
+      "goal": "S09 STT correction links original misheard speech and corrected text",
+      "implemented": false
+    },
+    {
+      "id": "S10",
+      "goal": "S10 spontaneous memory callback subject to Director cooldown and player priority",
+      "implemented": false
+    }
+  ]
+}

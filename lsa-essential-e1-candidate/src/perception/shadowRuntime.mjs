@@ -10,14 +10,6 @@ import { RadioTrackTextCatalog, normalizeRadioSignal } from './radioTrackTextCat
 import { traceCode } from '../observability/traceCode.mjs';
 
 const MAX_COUNTER = 2147483647;
-// Essential's on-screen text entry (and the GTA pause menu) blocks the shared
-// RPH owner fiber: native publication goes silent while the authenticated pipe,
-// served off-fiber, stays open. October 10/11 logs showed every typed turn
-// arriving 1-2 s after the old 3 s silence rule had wiped all PS2/PS3 state and
-// churned the channel. Within a bounded stall the companion state is exactly
-// native's last publication, so leases pause instead of expiring. Nothing new
-// is authorized while stalled (the PS6 pump refuses, and player-priority stays
-// wall-clock fresh); silence beyond resetMs still tears everything down.
 export const OWNER_STALL_BOUNDS = Object.freeze({ startMs: 1500, resetMs: 60000 });
 // Per-event PS2/PS3 traces are rate-bounded: no per-frame logging. Events
 // involving an owned (P2) observer get the larger budget.
@@ -35,15 +27,9 @@ const PS3_REASON_COUNTERS = Object.freeze({
 });
 
 export class ShadowRuntime {
-  constructor({ mode='off', radio='off', radioCatalog=RadioTrackTextCatalog.unavailable(), now=()=>Math.floor(performance.now()), situationFor=()=>({}), trace=null, stall=null }={}) {
-    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.radioCatalog=radioCatalog??RadioTrackTextCatalog.unavailable();this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
-    // Optional bounded diagnostic sinks; they never affect perception state.
-    this.onTrace=typeof trace==='function'?trace:null;this.onStall=typeof stall==='function'?stall:null;
-    // Lease clock: wall time minus native owner-stall time beyond startMs.
-    this.leaseBase=0;this.stallNotified=false;this.stallDiagnostics={stalls:0,maxMs:0};
-    this.traceWindow={start:-Infinity,owned:0,other:0,radio:0};this.traceDiagnostics={emitted:0,suppressed:0};
-    this.radioDiagnostics={changed:0,stopped:0,known:0,unknown:0,mismatch:0,off:0,observations:0,ownedObservations:0};
-    this.hostContext=null;this.observerIndexVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
+  constructor({ mode='off', radio='off', radioCatalog=null, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null, trace=null, stall=null }={}) {
+    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -52,13 +38,57 @@ export class ShadowRuntime {
     // Never persist these capture refs or infer replacement actors.
     this.missingRefReasons=new Map();this.lastResetReason='none';
     this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.diagnostics=null;
-    this.observations=new ObservationStore({now,current:ref=>this.current(ref)});
-    this.episodes=new EpisodeStore({now,current:ref=>this.current(ref)});
-    this.correlator=new EpisodeCorrelator({episodes:this.episodes,observations:this.observations,now,current:ref=>this.current(ref),anchor:ref=>this.anchors.get(ref)});
-    this.transcripts=new SharedTranscriptStore({now,current:ref=>this.current(ref)});
-    this.salience=new SalienceCache({now});
+    // Pause presentation leases during bounded native owner-fiber stalls.
+    // Memory authority continues to require its independent wall-clock proof.
+    this.leaseBase=0;this.stallNotified=false;this.stallDiagnostics={stalls:0,maxMs:0};
+    // Optional bounded diagnostic sinks; they never affect perception state.
+    this.onTrace=typeof trace==='function'?trace:null;this.onStall=typeof stall==='function'?stall:null;
+    this.traceWindow={start:-Infinity,owned:0,other:0,radio:0};this.traceDiagnostics={emitted:0,suppressed:0};
+    this.radioDiagnostics={changed:0,stopped:0,known:0,unknown:0,mismatch:0,off:0,observations:0,ownedObservations:0};
+    this.consumerActivation=consumers;
+    const ps2=mode==='shadow'&&(consumers===null||consumers.ps2?.enabled===true);
+    const ps3=ps2&&(consumers===null||consumers.ps3?.enabled===true);
+    this.radioCatalog=ps2?(radioCatalog??RadioTrackTextCatalog.unavailable()):null;
+    this.observations=ps2?new ObservationStore({now,current:ref=>this.current(ref)}):null;
+    this.episodes=ps2?new EpisodeStore({now,current:ref=>this.current(ref)}):null;
+    this.correlator=ps2?new EpisodeCorrelator({episodes:this.episodes,observations:this.observations,now,current:ref=>this.current(ref),anchor:ref=>this.anchors.get(ref)}):null;
+    this.transcripts=ps2?new SharedTranscriptStore({now,current:ref=>this.current(ref)}):null;
+    this.salience=ps3?new SalienceCache({now}):null;
     this.ps2Diagnostics={correlated:0,witnessed:0,ownedWitnessed:0,duplicates:0,dropped:0,speechGate:'unsupported_capture_receipt'};
+    // M3 opt-in synchronous acceptance tap. Off by default. It may enqueue a
+    // frozen receipt, never do async SQLite or let an exception break PS2.
+    this.acceptedObservationTap=ps2&&typeof acceptedObservationTap==='function'?acceptedObservationTap:null;
+    this.memoryTapDiagnostics={delivered:0,rejected:0,faults:0};
     this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0,ownedDecisions:0,ownedEligible:0,ownedUrgent:0,reasons:Object.fromEntries(Object.values(PS3_REASON_COUNTERS).map(k=>[k,0]))};
+  }
+  #tapAcceptedObservation(observation) {
+    if(!this.acceptedObservationTap)return;
+    const ref=observation?.observer?.captureRef;
+    const row=this.observerIndex.get(ref);
+    const anchor=this.anchors.get(ref);
+    const stored=this.observations.entries.get(`${ref}:${observation.episodeId}`)?.value;
+    // Correlator's observations come only from successfully stored PS2 source
+    // receipts. Never use name, proximity or a retired ped handle as proof.
+    if(!this.hostContext || !this.current(ref) || !anchor?.observer ||
+       !row?.owned || !row.encounterId || !row.incarnationId ||
+       !stored || stored.observationId!==observation.observationId ||
+       stored.revision!==observation.revision) {
+      this.bump(this.memoryTapDiagnostics,'rejected');return;
+    }
+    try {
+      const result=this.acceptedObservationTap(Object.freeze({
+        observation:stored,adapterEpoch:this.epoch,
+        hostRunId:this.hostContext.hostRunId,worldEpoch:this.hostContext.worldEpoch,
+        observerIndex:row
+      }));
+      if(result && typeof result.then==='function')
+        throw new Error('async_memory_tap_not_supported');
+      this.bump(this.memoryTapDiagnostics,'delivered');
+    } catch {
+      // Memory tap is non-authoritative for game behavior. Missed persistence
+      // is counted, not silently treated as a confirmed journal write.
+      this.bump(this.memoryTapDiagnostics,'faults');
+    }
   }
   bump(target,k) { target[k]=Math.min(MAX_COUNTER,(target[k]||0)+1); }
   // Native-active time. While the owner fiber is silent beyond startMs the
@@ -70,7 +100,9 @@ export class ShadowRuntime {
   }
   stalled() { return Boolean(this.epoch) && this.now()-this.lastReceipt>OWNER_STALL_BOUNDS.startMs; }
   // Companion state equals native's last publication on this live stream.
-  channelFresh() { return Boolean(this.epoch) && this.now()-this.lastReceipt<=OWNER_STALL_BOUNDS.resetMs; }
+  // Negotiated Memory K evidence never inherits presentation stall tolerance.
+  sourceSilenceMs() { return this.memoryCurrentOwnerPlayerVersion===1||!this.observations?3000:OWNER_STALL_BOUNDS.resetMs; }
+  channelFresh() { return Boolean(this.epoch) && this.now()-this.lastReceipt<=this.sourceSilenceMs(); }
   noteReceipt() {
     const now=this.now(),silent=now-this.lastReceipt;
     if(this.epoch && silent>OWNER_STALL_BOUNDS.startMs) {
@@ -81,6 +113,28 @@ export class ShadowRuntime {
     }
     this.stallNotified=false;this.lastReceipt=now;
   }
+  count(k) { this.bump(this.counters,k); }
+  recordMissingRef(ref,reason) {
+    if(typeof ref!=='string')return;
+    this.missingRefReasons.delete(ref);
+    this.missingRefReasons.set(ref,{reason,at:this.now()});
+    while(this.missingRefReasons.size>256)
+      this.missingRefReasons.delete(this.missingRefReasons.keys().next().value);
+  }
+  missingRefReason(ref) {
+    const record=this.missingRefReasons.get(ref);
+    return record && this.now()>=record.at && this.now()-record.at<=60000 ?
+      record.reason:'not_tracked';
+  }
+  reset(reason='manual') {
+    const kind=['initialization','disconnect','fault','timeout','manual'].includes(reason)?reason:'manual';
+    this.lastResetReason='reset_'+kind;
+    for(const ref of this.anchors.keys())this.recordMissingRef(ref,this.lastResetReason);
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];
+    this.anchors.clear();this.signals=[];this.producers.clear();this.observations?.clear();this.episodes?.clear();this.correlator?.clear();this.salience?.clear();this.transcripts?.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.leaseBase=0;this.stallNotified=false;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
+    const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
+  }
+  current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.leaseNow() && this.epoch);}
   owned(ref) { return this.observerIndex.get(ref)?.owned===true; }
   // Fixed-vocabulary, rate-bounded per-event diagnostics. Only a one-way trace
   // code of the random native signal ID is emitted, never refs or content.
@@ -109,42 +163,19 @@ export class ShadowRuntime {
       else if(outcome.ps3Reason==='none' && decision?.reasons?.length) outcome.ps3Reason=decision.reasons[0];
     }
   }
-  count(k) { this.bump(this.counters,k); }
-  recordMissingRef(ref,reason) {
-    if(typeof ref!=='string')return;
-    this.missingRefReasons.delete(ref);
-    this.missingRefReasons.set(ref,{reason,at:this.now()});
-    while(this.missingRefReasons.size>256)
-      this.missingRefReasons.delete(this.missingRefReasons.keys().next().value);
-  }
-  missingRefReason(ref) {
-    const record=this.missingRefReasons.get(ref);
-    return record && this.now()>=record.at && this.now()-record.at<=60000 ?
-      record.reason:'not_tracked';
-  }
-  reset(reason='manual') {
-    const kind=['initialization','disconnect','fault','timeout','manual'].includes(reason)?reason:'manual';
-    this.lastResetReason='reset_'+kind;
-    for(const ref of this.anchors.keys())this.recordMissingRef(ref,this.lastResetReason);
-    this.hostContext=null;this.observerIndexVersion=null;this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];
-    this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.correlator.clear();this.salience.clear();this.transcripts.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.stallNotified=false;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
-    const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
-  }
-  current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.leaseNow() && this.epoch);}
   expire() {
-    if(this.epoch && this.now()-this.lastReceipt>OWNER_STALL_BOUNDS.resetMs) {this.reset('timeout');return;}
+    if(this.epoch && this.now()-this.lastReceipt>this.sourceSilenceMs()) {this.reset('timeout');return;}
     if(this.stalled() && !this.stallNotified) {
       this.stallNotified=true;
       try {this.onStall?.(Object.freeze({stage:'stalled',stallMs:Math.min(MAX_COUNTER,this.now()-this.lastReceipt)}));} catch {}
     }
-    const leaseNow=this.leaseNow();
-    for(const [ref,a] of this.anchors) if(a.expires<=leaseNow) this.retire(ref,'lease_expired');
+    for(const [ref,a] of this.anchors) if(a.expires<=this.leaseNow()) this.retire(ref,'lease_expired');
     this.signals=this.signals.filter(s=>{ if(s.expires<=this.now()) {this.bump(this.historyDiagnostics,'expired');return false;} return true; });
-    this.observations.expire();
-    this.episodes.expire();
-    this.salience.expire(this.now());
+    this.observations?.expire();
+    this.episodes?.expire();
+    this.salience?.expire(this.now());
   }
-  retire(ref,reason='retire') { if(this.anchors.has(ref))this.recordMissingRef(ref,reason);this.salience.releaseReference(ref);this.anchors.delete(ref);this.observerIndex.delete(ref);this.observerSituations.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations.expire();this.episodes.expire(); }
+  retire(ref,reason='retire') { if(this.anchors.has(ref))this.recordMissingRef(ref,reason);this.salience?.releaseReference(ref);this.anchors.delete(ref);this.observerIndex.delete(ref);this.observerSituations.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations?.expire();this.episodes?.expire(); }
   retainSignal(value,critical,expires) {
     if(!critical && this.signals.filter(x=>!x.critical).length>=192) {
       const index=this.signals.findIndex(x=>!x.critical);
@@ -162,7 +193,7 @@ export class ShadowRuntime {
     if(this.mode!=='shadow' || !authenticated) return false;
     this.expire();
     if(!validateFrame(v)) {this.count('malformed');return false;}
-    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.directorRequestVersion=v.directorRequestVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
+    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.memoryCurrentOwnerPlayerVersion=v.memoryCurrentOwnerPlayerVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.directorRequestVersion=v.directorRequestVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts?.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
     if(v.adapterEpoch!==this.epoch || v.streamId!==this.stream) {this.count('stale');return false;}
     if(v.sequence<=this.sequence) {this.count('duplicate');return false;}
     if(v.sequence!==this.sequence+1) {this.count('gaps');this.reset('fault');return false;}
@@ -172,17 +203,53 @@ export class ShadowRuntime {
       if(v.payload.epoch===this.hostContext.worldEpoch) return true;
       const context=Object.freeze({...this.hostContext,worldEpoch:v.payload.epoch});
       const epoch=this.epoch,stream=this.stream,sequence=this.sequence,capabilities=this.capabilities;
-      const observerIndexVersion=this.observerIndexVersion,observerSituationVersion=this.observerSituationVersion,primaryBehaviorOwnerVersion=this.primaryBehaviorOwnerVersion,directorRequestVersion=this.directorRequestVersion;
-      this.reset('manual');this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
-      this.capabilities=capabilities;this.transcripts.setActiveRun(epoch);this.lastReceipt=this.now();return true;
+      const memoryCurrentOwnerPlayerVersion=this.memoryCurrentOwnerPlayerVersion,observerIndexVersion=this.observerIndexVersion,observerSituationVersion=this.observerSituationVersion,primaryBehaviorOwnerVersion=this.primaryBehaviorOwnerVersion,directorRequestVersion=this.directorRequestVersion;
+      this.reset('manual');this.memoryCurrentOwnerPlayerVersion=memoryCurrentOwnerPlayerVersion;this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
+      this.capabilities=capabilities;this.transcripts?.setActiveRun(epoch);this.lastReceipt=this.now();return true;
     }
-    // EA-A: these are only ordered transport facts; host/epoch provenance
-    // belongs to the previously admitted native hello, not this payload.
+    // EA protagonist frame only confirms transport/order + current native host.
+    // It does not grant D01, D02, PS2 or a memory actor binding.
     if(v.type==='protagonist_model') {
       if(!this.hostContext ||
          v.payload.hostRunId!==this.hostContext.hostRunId ||
          v.payload.worldEpoch!==this.hostContext.worldEpoch) {
         this.reset('fault');return false;
+      }
+      return true;
+    }
+    if(v.type==='memory_authority') {
+      if(!this.hostContext||v.payload.hostRunId!==this.hostContext.hostRunId||
+         v.payload.worldEpoch!==this.hostContext.worldEpoch)return false;
+      // Native owner frame must agree with already accepted PS2 index.
+      return v.payload.owners.every(o=>{
+        const row=this.observerIndex.get(o.observerCaptureRef);
+        return this.current(o.observerCaptureRef)&&row?.owned===true&&
+          row.incarnationId===o.incarnationId&&row.encounterId===o.encounterId;
+      });
+    }
+    if(v.type==='memory_current_owner_player') {
+      const p=v.payload;
+      // Only negotiated native owner-fiber samples, after authenticated
+      // stream/sequence and exact current P2 incarnation/encounter admission.
+      if(this.memoryCurrentOwnerPlayerVersion!==1 || !this.hostContext ||
+         p.hostRunId!==this.hostContext.hostRunId ||
+         p.worldEpoch!==this.hostContext.worldEpoch ||
+         !this.current(p.protagonist.playerCaptureRef) ||
+         this.anchors.get(p.protagonist.playerCaptureRef)?.kind!=='player')
+        return false;
+      // K-21 samples are complete for *currently provable* owners, not
+      // necessarily every live native observer. An owner that is suspended,
+      // faulting or fails lifetime proof is intentionally omitted by the
+      // production sampler. Omission grants NO authority; asserted owners
+      // must individually match the authenticated live anchor and index.
+      for(const owner of p.owners) {
+        const row=this.observerIndex.get(owner.observerCaptureRef);
+        const anchor=this.anchors.get(owner.observerCaptureRef);
+        if(!this.current(owner.observerCaptureRef) ||
+           !anchor?.observer || !anchor.owned || anchor.kind!=='ped' ||
+           !row?.owned || row.kind!=='ped' ||
+           row.incarnationId!==owner.incarnationId ||
+           row.encounterId!==owner.encounterId)return false;
       }
       return true;
     }
@@ -262,6 +329,10 @@ export class ShadowRuntime {
     const facts={...s.facts};if(facts.collision) facts.collision=Object.freeze({...facts.collision});
     const value=Object.freeze({...s,facts:Object.freeze(facts)});
     this.count('received');
+    // Complete envelope, source/producer sequence, capabilities, reference
+    // kinds and TTL have all been checked. Off consumers retain no semantic
+    // history and cannot receive an accepted-observation tap.
+    if(!this.correlator)return true;
     if(s.producer==='radio') {
       this.retainSignal(value,false,this.now()+BOUNDS.signalTtlMs-s.ageMs);
       const normalized=s.kind==='radio_changed'?normalizeRadioSignal(s,this.radioCatalog):null;
@@ -293,7 +364,8 @@ export class ShadowRuntime {
       if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
       else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
       if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
-      for(const observationId of correlated.removedObservationIds||[]) this.salience.forgetObservation(observationId);
+      for(const observationId of correlated.removedObservationIds||[]) this.salience?.forgetObservation(observationId);
+      for(const observation of correlated.observations||[]) this.#tapAcceptedObservation(observation);
       // R4 ranks radio locally only. R5 remains responsible for model-visible projection.
       this.noteObservations(correlated.observations,radioTrace);
       this.radioDiagnostics.observations=Math.min(MAX_COUNTER,this.radioDiagnostics.observations+(correlated.observations?.length??0));
@@ -315,6 +387,7 @@ export class ShadowRuntime {
     if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
     else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
     if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
+    for(const observation of correlated.observations||[]) this.#tapAcceptedObservation(observation);
     const traced=TRACED_KINDS.has(s.kind) && (s.kind!=='injury_state' || s.facts.injured===true);
     const witnesses=traced?this.qualifiedObservers(receipts):null;
     const outcome={traceCode:traced?traceCode(s.signalId):null,signalKind:s.kind,producer:s.producer,
@@ -461,6 +534,7 @@ export class ShadowRuntime {
   // PS6 candidates are restricted to original PS2/PS3 observer-qualified
   // evidence. This read does not reserve tickets or consume response grants.
   directorCandidatesFor(observerRef) {
+    if(!this.salience||!this.observations)return Object.freeze([]);
     if(!this.epoch || !this.current(observerRef))return Object.freeze([]);
     const index=this.observerIndex.get(observerRef);
     if(!index?.owned || index.kind!=='ped' || !this.current(observerRef))
@@ -491,7 +565,7 @@ export class ShadowRuntime {
     return Object.freeze(candidates);
   }
   refreshSalience(observerRef=null) {
-    if(!this.epoch)return;
+    if(!this.epoch||!this.salience)return;
     const counts=new Map(),situations=new Map();let player=null;
     for(const anchor of this.anchors.values())if(anchor.kind==='player' && this.current(anchor.captureRef)){player=anchor.captureRef;break;}
     for(const entry of this.observations.entries.values()){
@@ -503,6 +577,7 @@ export class ShadowRuntime {
     }
   }
   noteSalience(observation,suppliedSituation=null) {
+    if(!this.salience)return null;
     try {
       let player=null;
       for(const anchor of this.anchors.values()) if(anchor.kind==='player') { player=anchor.captureRef; break; }
@@ -527,6 +602,6 @@ export class ShadowRuntime {
     } catch { this.ps3Diagnostics.faults=Math.min(MAX_COUNTER,this.ps3Diagnostics.faults+1); return null; }
   }
   acceptPlayerTranscript({text,receipt=null}={}) {
-    return this.transcripts.accept({capability:this.capabilities.playerSpeech===true,receipt,text});
+    return this.transcripts?.accept({capability:this.capabilities.playerSpeech===true,receipt,text})??null;
   }
 }

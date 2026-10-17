@@ -137,5 +137,12 @@
     "intensity": "subtle",
     "maxTaggedSegmentsPerTurn": 2,
     "lunaDeliveryVersion": 0
+  },
+  "reactions": {
+    "mode": "off",
+    "pipeName": "LSA.Reactions.v1"
+  },
+  "memoryK": {
+    "capabilities": {}
   }
 }

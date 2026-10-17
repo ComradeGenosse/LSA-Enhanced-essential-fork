@@ -78,6 +78,7 @@ export function renderRadioContext(observation,{currentlyPlaying=true}={}) {
 }
 
 export function selectRadioContext(runtime, input) {
+  if(!runtime?.salience)return null;
   if (!radioTurnRelevant(input)) return null;
   const observerRef = currentConversationObserver(runtime);
   if (!observerRef) return null;

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "files": [
+    "lsa-essential-e1-candidate/tests/memory/h1ConversationHistory.test.mjs",
+    "lsa-essential-e1-candidate/tests/memory/ws6Original10kWriteRegression.test.mjs"
+  ]
+}

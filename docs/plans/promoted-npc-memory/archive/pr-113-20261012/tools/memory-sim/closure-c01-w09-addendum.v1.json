@@ -1,0 +1,274 @@
+{
+  "version": 1,
+  "kind": "memory_k_c01_dual_origin_w09_closeout",
+  "status": "plan_only_no_source_implementation",
+  "planPath": "docs/plans/promoted-npc-memory/MEMORY-K-C01-DUAL-SOURCE-W09-CLOSEOUT-20261012.md",
+  "sourceRefs": {
+    "productionPlanPR": 97,
+    "productionPlanHead": "d6bd5f3f36881513c17e1add1a6fcf1c96944e01",
+    "finalIntegrationPR": 94,
+    "finalIntegrationHead": "0201731973a1c02a8852271897e2c8df420396b9",
+    "t1PR": 103,
+    "t1Head": "daa8759389cc79b155769c3338697b9332f8840e",
+    "t1AuditPR": 110,
+    "t1AuditHead": "7431a310f8878233807110d649891d2aaab3df01",
+    "t9PR": 111,
+    "t9Head": "00aaa4e3a9a16dc7ac9a97a90155d047e7775baa",
+    "w09ExactHeadCI": 38244785137
+  },
+  "architecture": {
+    "acceptanceContract": "OriginalBackendAcceptedInputV1 + NativeCurrentPlayerAndOwnerV1 -> JoinedAcceptedPlayerTurnV1",
+    "truthfulProvenance": "backend final acceptance is NOT native acceptance",
+    "nativeAcceptedTurnCallbackExposed": false,
+    "nativeOwnerRequired": true,
+    "stableHumanPlayerIdentityAcrossAvatars": true,
+    "avatarKeys": [
+      "franklin",
+      "michael",
+      "trevor",
+      "unknown"
+    ],
+    "singleP2SQLiteWriter": true,
+    "onePS4Frame": true,
+    "defaultFailClosed": true,
+    "uncontrolledGtaExecution": false
+  },
+  "gates": [
+    {
+      "id": "A01a",
+      "owner": "D01",
+      "status": "blocked",
+      "evidence": "Original backend source accepts final typed/STT and immutable identity"
+    },
+    {
+      "id": "A01b",
+      "owner": "D02",
+      "status": "blocked",
+      "evidence": "Positive authenticated native player+P2 promoted owner with source expiry"
+    },
+    {
+      "id": "A01c",
+      "owner": "D03",
+      "status": "blocked",
+      "evidence": "Dual-source join + atomic actual P2 commit readback before M5"
+    },
+    {
+      "id": "A01d",
+      "owner": "D03",
+      "status": "blocked",
+      "evidence": "One human across avatars; avatar audit retained and NPC knowledge separate"
+    },
+    {
+      "id": "A09a",
+      "owner": "D05",
+      "status": "blocked",
+      "evidence": "Original pinned AST, actual main net481 native build with real SDK references"
+    },
+    {
+      "id": "A09b",
+      "owner": "D05",
+      "status": "blocked",
+      "evidence": "Node24 2 OSes and real M9 native harness with pinned dependencies"
+    },
+    {
+      "id": "A10",
+      "owner": "D04",
+      "status": "blocked",
+      "evidence": "Ten original-runner/P2 scenarios with independent durable anti-forgery receipts"
+    },
+    {
+      "id": "A11",
+      "owner": "D07",
+      "status": "blocked",
+      "evidence": "Final integration SHA-specific matrix and independent controlled-GTA decision"
+    }
+  ],
+  "streams": [
+    {
+      "id": "D01",
+      "owner": "C01-BACKEND",
+      "dependsOn": [],
+      "phase": "source",
+      "scope": "original backend accepted player text/STT source policy and K AST-hook handoff",
+      "status": "planned",
+      "gates": [
+        "A01a"
+      ],
+      "existingAnchors": [
+        "lsa-essential-e1-candidate/upstream/server.bundle.mjs",
+        "lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs",
+        "lsa-essential-e1-candidate/patches/essential-hooks.json"
+      ],
+      "kSharedNoEdit": [
+        "lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs",
+        "lsa-essential-e1-candidate/patches/essential-hooks.json"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-C01-BACKEND.md"
+    },
+    {
+      "id": "D02",
+      "owner": "C01-NATIVE",
+      "dependsOn": [],
+      "phase": "source",
+      "scope": "native authenticated current-owner and controlled-player corroboration",
+      "status": "planned",
+      "gates": [
+        "A01b"
+      ],
+      "existingAnchors": [
+        "native/promoted-characters/MemoryOwnerAuthority.cs",
+        "lsa-essential-e1-candidate/src/memory/nativeMemoryAuthority.mjs"
+      ],
+      "kSharedNoEdit": [
+        "native/intelligence/IntelligenceIntegration.cs",
+        "lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-C01-NATIVE.md"
+    },
+    {
+      "id": "D03",
+      "owner": "K",
+      "dependsOn": [
+        "D01",
+        "D02"
+      ],
+      "phase": "integration",
+      "scope": "private join + source revision fences + native P2 corroboration + M2/M5/PS4 + one human memory identity",
+      "status": "planned",
+      "gates": [
+        "A01c",
+        "A01d"
+      ],
+      "existingAnchors": [
+        "lsa-essential-e1-candidate/src/bootstrap.mjs",
+        "lsa-essential-e1-candidate/src/integration/essentialGlue.mjs",
+        "lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs",
+        "lsa-shared-brain/src/characters/sqliteProfileStore.mjs"
+      ],
+      "kSharedNoEdit": [],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-C01-JOIN.md"
+    },
+    {
+      "id": "D04",
+      "owner": "T9-REPAIR",
+      "dependsOn": [
+        "D03"
+      ],
+      "phase": "acceptance",
+      "scope": "S01-S10 actual original runner/P2 replay; anti-forgery harness + post-T6 M6 positive tests",
+      "status": "planned",
+      "gates": [
+        "A10"
+      ],
+      "existingAnchors": [
+        "tools/memory-sim/closure-acceptance-replay.mjs",
+        "lsa-shared-brain/tests/memory-k-integrated-replay.test.mjs",
+        "tools/memory-sim/scenarios.v0.json"
+      ],
+      "externalRequired": [
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08"
+      ],
+      "kSharedNoEdit": [
+        "lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs",
+        "lsa-essential-e1-candidate/src/bootstrap.mjs"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W09-REPAIR.md"
+    },
+    {
+      "id": "D05",
+      "owner": "T9-REPAIR+K",
+      "dependsOn": [],
+      "phase": "verification",
+      "scope": "pinned original package, reviewed compile-only RPH SDK, native main build and M9 test diagnosis",
+      "status": "planned",
+      "gates": [
+        "A09a",
+        "A09b"
+      ],
+      "existingAnchors": [
+        "tools/memory-sim/verify-pinned-production.mjs",
+        "tools/memory-sim/closure-native-producers.v1.json",
+        "native/promoted-characters/PromotedCharacters.csproj"
+      ],
+      "kSharedNoEdit": [
+        "native/promoted-characters/PromotedCharacters.csproj",
+        ".github/workflows/memory-k-final-acceptance.yml"
+      ],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W09-PACKAGE.md"
+    },
+    {
+      "id": "D06",
+      "owner": "K",
+      "dependsOn": [
+        "D03",
+        "D04",
+        "D05"
+      ],
+      "phase": "adversarial",
+      "scope": "SQLite cross-avatar one human, source revocations, STT, crash, privacy and host rollback tests",
+      "status": "planned",
+      "gates": [],
+      "existingAnchors": [
+        "lsa-shared-brain/src/characters/sqliteProfileStore.mjs",
+        "lsa-essential-e1-candidate/src/memory/m2EssentialCapture.mjs"
+      ],
+      "externalRequired": [
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08"
+      ],
+      "kSharedNoEdit": [],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-C01-ADVERSARIAL.md"
+    },
+    {
+      "id": "D07",
+      "owner": "K",
+      "dependsOn": [
+        "D06"
+      ],
+      "phase": "final",
+      "scope": "merge reconciliation on approved integration, source/offline/physical matrix and NO-GO/GO",
+      "status": "planned",
+      "gates": [
+        "A11"
+      ],
+      "existingAnchors": [
+        "docs/plans/promoted-npc-memory/MEMORY-INTEGRATION-ACCEPTANCE.md",
+        ".github/workflows/memory-k-final-acceptance.yml"
+      ],
+      "kSharedNoEdit": [],
+      "handoff": "docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-C01-FINAL.md"
+    }
+  ],
+  "t9Review": {
+    "exactHead": "00aaa4e3a9a16dc7ac9a97a90155d047e7775baa",
+    "sourceSimulationLinux": "passed",
+    "sourceSimulationWindows": "passed",
+    "pinnedEssentialAst": "passed",
+    "nativeProductionCompile": "blocked_missing_RphReferencePath",
+    "nativeM9Harness": "failed",
+    "nativeRequiredProducerLists": "four_empty",
+    "originalRunnerScenariosPassed": 0,
+    "scenariosTotal": 10,
+    "physicalGTA": "not_run",
+    "acceptance": "NO_GO"
+  },
+  "constraints": {
+    "changeLegacyGeminiNames": false,
+    "noFakeOriginalNativeAcceptedCallback": true,
+    "noT1V2WithoutRealOriginalNativeProducer": true,
+    "noMergeMain": true,
+    "noGtaInstall": true,
+    "noPaidCloud": true
+  }
+}

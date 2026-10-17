@@ -213,6 +213,7 @@ test('stock kb special event is internal context, retains exact identity, and ne
   const turn = await h.evaluate('kb({ speakerPedId: "17", listenerPedId: "player", content: "A car alarm is sounding.", reason: "scene_event" })');
   const identity = nativeIdentity(turn);
   assert.equal(turn.source, 'special_event');
+  assert.equal((await connection.whenSettled(identity)).status, 'completed');
   assert.equal(seen.source, 'special_event');
   assert.equal(seen.input, '');
   assert.equal(seen.context.internalEvent, 'A car alarm is sounding.');
@@ -224,7 +225,6 @@ test('stock kb special event is internal context, retains exact identity, and ne
   const system = request.input[0].content;
   assert.equal(system.split('A car alarm is sounding.').length - 1, 0,'unqualified freeform trigger cannot become evidence');
   assert.match(request.input.at(-1).content, /No player utterance was received/);
-  assert.equal((await connection.whenSettled(identity)).status, 'completed');
   assert.deepEqual(h.runtime.history.readForSession('17', 1), [{ role: 'assistant', content: 'I heard that.' }]);
   assert.ok(h.sent.filter(message => ['npcAudioTurnStart', 'npcAudioChunk', 'npcAudioStreamEnded'].includes(message.type))
     .every(message => message.pedId === identity.pedId && message.turnId === identity.turnId && message.generationId === identity.generationId));

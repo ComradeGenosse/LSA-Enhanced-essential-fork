@@ -1,0 +1,31 @@
+name: WS-6 Agent A M8 P2 reader (offline only)
+on:
+  pull_request:
+    paths:
+      - 'lsa-essential-e1-candidate/src/memory/p2M8ProductionRead.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs'
+      - 'lsa-shared-brain/src/memory/m8SqliteHistory.mjs'
+      - '.github/workflows/memory-k-ws6a-m8-reader.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  m8-p2:
+    name: M8 verified P2 read and stale-source defense (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate M8 production reader and tests
+        run: |
+          node --check lsa-essential-e1-candidate/src/memory/p2M8ProductionRead.mjs
+          node --check lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs
+      - name: Real SQLite / M8 / PS4 regression
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs lsa-shared-brain/tests/memory-m8-closure.test.mjs

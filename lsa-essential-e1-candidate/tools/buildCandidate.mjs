@@ -1,4 +1,5 @@
 import {verifyDialogueKnowledgePayload} from './verifyDialogueKnowledgePayload.mjs';
+import { stageSharedMemory } from './stageSharedMemory.mjs';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
@@ -78,6 +79,12 @@ export function patchSource(source) {
      `  directorBeginOriginalTurn(ticketId) { const evidence=this.directorTurnPrioritySnapshot(); return evidence ? __LSA_E1_RUNTIME.beginDirectorOriginalTurn(ticketId,evidence) : false; },\n` +
      `  directorOriginalPhase(ticketId) { return __LSA_E1_RUNTIME.directorOriginalPhase(ticketId); },\n` +
     `  isCurrent(identity) { const turn = le.getTurn(identity.turnId); const session = A.sessionsByPedId.get(identity.pedId); return !!turn && !Vt(turn.status) && turn.metadata?.provider === "openai" && turn.metadata?.sessionNonce === identity.sessionNonce && turn.pedId === identity.pedId && turn.generationId === identity.generationId && le.isCurrentGeneration(turn) && iP(identity.pedId) === identity.sessionNonce && session?.provider === "openai" && session.nonce === identity.sessionNonce; },\n` +
+    // D01/D03 source facts read from the ORIGINAL turn registry: only for the
+    // current OpenAI turn of the session that this exact connection object is
+    // registered for. Callers supply an identity, never facts. pedId was fixed
+    // by Xi from the Core submission; input.transcript is the original record
+    // (Xi typed input, or the single AP/SK-merged STT transcript).
+    `  originalTurnFacts(identity, connection) { if (!identity || !this.isCurrent(identity)) return null; const session = A.sessionsByPedId.get(identity.pedId); if (!connection || session?.connection !== connection) return null; const turn = le.getTurn(identity.turnId); const message = turn.source === Ht.PLAYER_TEXT && turn.metadata?.originalMessage && typeof turn.metadata.originalMessage === "object" ? turn.metadata.originalMessage : null; return Object.freeze({ pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce, source: String(turn.source || ""), inputTranscript: String(turn.input?.transcript ?? ""), typed: message ? Object.freeze({ messageType: String(message.type ?? ""), rawText: typeof message.text === "string" ? message.text : null }) : null }); },\n` +
     `  reportTargetRejection(turn, error) { const reason = ["target_changed","target_missing","target_invalid"].includes(error?.code) ? error.code : ""; if (!reason || !turn || turn.metadata?.targetRejectionReported) return false; turn.metadata.targetRejectionReported = true; try { __LSA_E1_RUNTIME.telemetry?.emit(reason, { pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce }, turn.source, { reason, outcome: "rejected" }); } catch {} return true; },\n` +
     `  reportReferenceMapChange(turn, snapshot, actor) { if (!turn || turn.metadata?.referenceMapChangeReported) return false; const currentMap = __LSA_E1_RUNTIME.captureReferenceMap(actor); const stableMap = value => JSON.stringify(Object.fromEntries(Object.entries(value || {}).sort(([left],[right]) => left.localeCompare(right)))); if (stableMap(snapshot?.persons) === stableMap(currentMap.persons) && stableMap(snapshot?.vehicles) === stableMap(currentMap.vehicles)) return false; turn.metadata.referenceMapChangeReported = true; try { __LSA_E1_RUNTIME.telemetry?.emit("reference_map_revision_changed", { pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce }, turn.source, { reason: "reference_map_revision_changed", outcome: "changed" }); } catch {} return true; },\n` +
     `  validateDecision(decision, context, identity) { if (!this.isCurrent(identity)) return { identityValid: false }; const turn = le.getTurn(identity.turnId); const session = A.sessionsByPedId.get(identity.pedId); const actor = Sb(identity.pedId) || session?.actorContext || context.actor || {}; const allowedActionNames = new Set(ra(actor).map(item => h4(String(item.tag || "").split(/[\\s<]/, 1)[0])).filter(Boolean)); const person = reference => { const refs = actor?.nearbyPersonReferences; const value = refs instanceof Map ? refs.get(reference) : refs?.[reference] ?? refs?.[String(reference).toUpperCase()]; return value && typeof value === "object" ? value.pedId || value.id || null : value || null; }; const vehicle = reference => { const refs = actor?.nearbyVehicleReferences; const value = refs instanceof Map ? refs.get(reference) : refs?.[reference] ?? refs?.[String(reference).toUpperCase()]; return value && typeof value === "object" ? value.vehicleId || value.id || null : value || null; }; const snapshot = turn?.metadata?.contextSnapshot || Object.freeze({ identity: Object.freeze({ ...identity }), actor: context.actor, listener: context.listener, listenerState: context.listenerState, world: context.world, referenceMap: context.referenceMap, capturedAt: context.capturedAt, revision: context.revision }); this.reportReferenceMapChange(turn, snapshot.referenceMap, actor); let result; try { result = __LSA_E1_RUNTIME.validateStockDecision(decision, { identity, actor, referenceSnapshot: snapshot.referenceMap, allowedActionNames, parseActions: Cb, resolvePerson: person, resolveVehicle: vehicle }); } catch (error) { this.reportTargetRejection(turn, error); throw error; } if (turn) { turn.metadata.contextSnapshot = snapshot; turn.metadata.targetReferenceBindings = result.referenceBindings; } return result; },\n` +
@@ -334,13 +341,20 @@ export function patchSource(source) {
 
 function sourceSlice(source, node) { return source.slice(node.start, node.end); }
 
-async function copyDirectory(source, destination) {
+// Offline audit tooling that lives under src/ for the test suite but imports build-time
+// vendored code (tools/vendor/acorn). It is never imported by the runtime, so it must not ship.
+const NON_RUNTIME_MODULES = new Set(['memory/originalBackendSourceAudit.mjs']);
+
+async function copyDirectory(source, destination, base = source) {
   await mkdir(destination, { recursive: true });
   for (const item of await readdir(source, { withFileTypes: true })) {
     const from = path.join(source, item.name);
     const to = path.join(destination, item.name);
-    if (item.isDirectory()) await copyDirectory(from, to);
-    else if (item.isFile()) await copyFile(from, to);
+    if (item.isDirectory()) await copyDirectory(from, to, base);
+    else if (item.isFile()) {
+      if (NON_RUNTIME_MODULES.has(path.relative(base, from).split(path.sep).join('/'))) continue;
+      await copyFile(from, to);
+    }
   }
 }
 
@@ -384,18 +398,16 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   await mkdir(target, { recursive: true });
   await writeFile(entry, patched.output, 'utf8');
   await copyDirectory(src, stagedE1);
-  // Stage the EXACT M1/P2 shared-brain dependency at the existing import path
-  // ../../../lsa-shared-brain (from e1/characters), not a host global copy.
-  const sharedCheckout=path.join(root,'..','lsa-shared-brain','src');
-  const sharedStage=await assertNoLinkedOutput(path.join(path.dirname(target),'lsa-shared-brain'));
-  await rm(sharedStage,{recursive:true,force:true});
-  await copyDirectory(sharedCheckout,path.join(sharedStage,'src'));
-  const sharedBrainSourceTreeSha256=await directoryDigest(path.join(sharedStage,'src'));
+  // Copy the canonical host-neutral memory modules into the distributable E1 tree.
+  // Runtime imports must not rely on the source repository layout.
+  await stageSharedMemory({ projectRoot:root, stagedE1 });
   await copyFile(path.join(root, 'e1.config.example.json'), path.join(target, 'e1.config.example.json'));
   // Runtime bootstrap resolves this from ../data relative to e1/bootstrap.mjs.
   await mkdir(path.join(target,'data'),{recursive:true});
   await copyFile(path.join(root,'data','radioTrackTextIds.v2.json'),path.join(target,'data','radioTrackTextIds.v2.json'));
   const e1SourceTreeSha256 = await directoryDigest(stagedE1);
+  // Digest of the staged shared-brain copy alone (also covered by e1SourceTreeSha256).
+  const sharedBrainSourceTreeSha256 = await directoryDigest(path.join(stagedE1, '_shared'));
   const releasePayloadSha256 = await directoryDigest(target);
   const manifest = {
     nativeContract,

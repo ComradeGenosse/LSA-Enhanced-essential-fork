@@ -1,0 +1,81 @@
+name: Memory K H2 independent M4 factual recall
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - 'lsa-essential-e1-candidate/**'
+      - 'lsa-shared-brain/**'
+      - 'tools/memory-k-verification/**'
+      - '.github/workflows/memory-k-h2-factual-recall.yml'
+      - 'docs/plans/memory-k-h2-factual-recall-20261015.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  h2:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: H2 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      # The unchanged #138 head is checked out beside the candidate so every
+      # inherited gate is compared on identical code. Red results stay visible.
+      - uses: actions/checkout@v4
+        with:
+          ref: 3f4138d6f108ae6feda6d03ed54ac7c5e4e9c04a
+          path: baseline
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+      - name: Focused H2 (real P2 SQLite, real D01/D03/D02 harness, 10k latency)
+        if: always()
+        shell: bash
+        working-directory: candidate
+        run: |
+          mkdir -p work/h2
+          node -e 'const fs=require("node:fs"),cp=require("node:child_process");fs.writeFileSync("work/h2/meta.json",JSON.stringify({head:cp.execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),node:process.version,platform:process.platform},null,2))'
+          node --import ./tools/memory-k-verification/offline.mjs --test --test-reporter=tap --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/h2FactualRecall.test.mjs lsa-essential-e1-candidate/tests/memory/h2RealAuthority.test.mjs lsa-essential-e1-candidate/tests/memory/h2Latency.test.mjs > work/h2/h2.log 2>&1
+      - name: Inherited M4/E2/WS6/G3-G5/original-runner suites on baseline and candidate
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p candidate/work/h2/regression
+          E1=lsa-essential-e1-candidate/tests; SB=lsa-shared-brain/tests
+          FILES="$E1/memory/ws6LiveTurnMemory.test.mjs $E1/memory/ws6Latency.test.mjs $E1/memory/ws6OriginalRunner.test.mjs $E1/memory/ws6Original10kWriteRegression.test.mjs $E1/memory/ws6ProductionPipeline.test.mjs $E1/memory-m4-closure.test.mjs $E1/memory-e2-ws6-privacy-recovery.test.mjs $E1/memory-e2-independent-privacy.test.mjs $E1/memory-k-original-S01.test.mjs $E1/memory-k-original-S02.test.mjs $E1/memory-k-original-S03.test.mjs $E1/memory-k-original-S04.test.mjs $E1/memory-k-original-S05.test.mjs $E1/memory-k-original-S06.test.mjs $E1/memory-k-original-S07.test.mjs $E1/memory-k-original-S08.test.mjs $E1/memory-k-original-S09.test.mjs $E1/memory-k-original-S10.test.mjs $SB/memory-m4-recall.test.mjs $SB/memory-ws6-g3-g5-evidence.test.mjs $SB/memory-e2-privacy-recovery.test.mjs"
+          for rev in baseline candidate; do
+            (cd $rev && node --import ./tools/memory-k-verification/offline.mjs --test --test-reporter=tap --test-concurrency=1 $FILES > ../candidate/work/h2/regression/$rev.log 2>&1; echo "$rev exit=$?" >> ../candidate/work/h2/regression/status.txt)
+          done
+          cat candidate/work/h2/regression/status.txt
+      - name: Reject new or changed inherited regression failures
+        if: always()
+        shell: bash
+        working-directory: candidate
+        run: node tools/memory-k-verification/compare-tap-regressions.mjs work/h2/regression
+      - name: Test inventory guard
+        if: always()
+        shell: bash
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          node --test tools/memory-k-verification/tests/*.test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: memory-h2-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: candidate/work/h2
+

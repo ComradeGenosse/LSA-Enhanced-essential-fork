@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 2,
+  "kind": "w09-required-original-production-provenance",
+  "comment": "Do not populate sources merely to satisfy a path check. K must first review registered production game-fiber/Essential backend producers. The backend final accepted line is NOT a native callback.",
+  "productionProject": "native/promoted-characters/PromotedCharacters.csproj",
+  "required": [
+    {
+      "id": "C01-dual-source-input-and-native-owner",
+      "sourcePaths": [],
+      "backendAcceptedSourcePaths": [],
+      "minimumCompilableSourceBytes": 128,
+      "sourceContract": "Original backend post-acceptance final typed/STT line AND independently authenticated current native player and promoted owner. P2 SQLite joins proofs; no invented native accepted-turn callback."
+    },
+    {
+      "id": "M3-authenticated-source-time-owner",
+      "sourcePaths": [],
+      "minimumCompilableSourceBytes": 128,
+      "sourceContract": "Immutable observation-time owner+witness proof from registered production game fiber"
+    },
+    {
+      "id": "M7-native-idle-and-priority",
+      "sourcePaths": [],
+      "minimumCompilableSourceBytes": 128,
+      "sourceContract": "All required priority quiet fields sampled by registered original native source"
+    },
+    {
+      "id": "M9-gta-event-original-director",
+      "sourcePaths": [],
+      "minimumCompilableSourceBytes": 128,
+      "sourceContract": "Native gameplay event source and actual PS2/PS3/PS6 production Director callback registration"
+    }
+  ]
+}
