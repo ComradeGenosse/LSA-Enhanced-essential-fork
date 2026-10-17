@@ -5,24 +5,67 @@ import { validateSlots } from './contracts.mjs';
 
 // ACT5 does not plan or execute steps. It retains one short-lived, spoken
 // invitation until the PLAYER explicitly accepts; ActivityEngine owns dispatch.
-const YES = new Set(['yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'alright', 'go ahead', 'do it', "let's do it", 'lets do it', 'sounds good', "yeah let's go", 'yes please']);
-const NO = new Set(['no', 'nope', 'nah', 'not now', 'no thanks', 'maybe later', 'never mind', 'nevermind', "don't", 'dont', 'cancel that', 'forget it']);
-const CANCEL = new Set(['stop', 'stop that', 'cancel the activity', 'cancel that activity', 'stop doing that']);
+// Short, whole-utterance consents only. These never match a passing mention of "yes"
+// in unrelated speech, and imperative approvals are tied to the offered intent.
+const YES = new Set(['yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'alright', 'go ahead', 'do it',
+  "let's do it", 'lets do it', 'sounds good', "yeah let's go", 'yes please',
+  'yeah lets do that', 'yes lets do that', 'sure go ahead', 'yeah go ahead',
+  'okay go ahead', 'ok go ahead', 'yeah sure', 'sure thing', 'yes go ahead',
+  'go for it', 'sounds great', 'that sounds good', 'lets go', 'yeah lets go',
+  'alright lets do it', 'okay lets do it', 'absolutely', 'please do']);
+const NO = new Set(['no', 'nope', 'nah', 'not now', 'no thanks', 'maybe later',
+  'never mind', 'nevermind', "don't", 'dont', 'cancel that', 'forget it',
+  'actually never mind', 'actually no', 'no stay here instead',
+  'no just stay here', 'no stay here', 'not right now', 'better not', 'please dont']);
+const CANCEL = new Set(['stop', 'stop that', 'cancel the activity', 'cancel that activity',
+  'stop doing that', 'stop what youre doing', 'stop doing it', 'please stop']);
 const OFFER_MS = 90_000;
 const TERMINAL = new Set(['none','completed','failed','cancelled','superseded','expired','abandoned']);
 const COOLDOWN_MS = 90_000;
-export const ACT5_SLOTS = Object.freeze({
-  hold_position: Object.freeze({}),
-  accompany: Object.freeze({ person: Object.freeze({ kind: 'player' }) }),
-  resume_previous: Object.freeze({}),
-  sit_here: Object.freeze({}),
-  // ACT3 choices are offered only when every native step has opted-in,
-  // probe-verified capabilities. Player is the only resolvable person here.
-  approach_and_face: Object.freeze({ person: Object.freeze({ kind: 'player' }) }),
-  leave_scene: Object.freeze({}),
-  take_cover_and_hold: Object.freeze({}),
+// Each option is a complete, closed, native-resolvable slot combination. The
+// model cannot make up seat indices, scenarios, entity handles or destinations.
+// The last scenario (sit_bench) deliberately stays blocked in ACT3.
+const frozen = values => Object.freeze(values.map(value => Object.freeze(value)));
+const player = Object.freeze({ kind: 'player' });
+const playerVehicle = Object.freeze({ kind: 'player_vehicle' });
+export const ACT5_CHOICES = Object.freeze({
+  hold_position: frozen([{}]),
+  accompany: frozen([{ person: player }]),
+  resume_previous: frozen([{}]),
+  sit_here: frozen([{}]),
+  approach_and_face: frozen([{ person: player }]),
+  leave_scene: frozen([{}]),
+  take_cover_and_hold: frozen([{}]),
+  scenario_here: frozen(['drink_coffee','smoke','phone','lean','stand_idle','clipboard','binoculars']
+    .map(scenario => ({ scenario }))),
+  board_vehicle: frozen(['any_passenger','passenger','rear']
+    .map(seat => ({ vehicle: playerVehicle, seat }))),
+  ride_along: frozen(['any_passenger','passenger','rear'].map(seat => ({ seat }))),
+  exit_vehicle_and_hold: frozen([{}]),
 });
-const clean = value => String(value || '').trim().toLowerCase().replace(/[.,!?]+/g, ' ').replace(/\s+/g, ' ').trim();
+// Backward-compatible primary option. Validation and provider schemas always
+// use ACT5_CHOICES, not this first-choice convenience map.
+export const ACT5_SLOTS = Object.freeze(Object.fromEntries(
+  Object.entries(ACT5_CHOICES).map(([intent, choices]) => [intent, choices[0]])));
+
+const clean = value => String(value || '').trim().toLowerCase()
+  .replace(/[’]/g, "'").replace(/[.,!?;:]+/g, ' ')
+  .replace(/\b(let's|we're|i'm|you're)\b/g, word => word.replace("'", ''))
+  .replace(/\s+/g, ' ').trim();
+const replyKind = (response, intent) => {
+  if (NO.has(response) || CANCEL.has(response)) return 'decline';
+  if (YES.has(response)) return 'approve';
+  if ((intent === 'board_vehicle' || intent === 'ride_along') &&
+      new Set(['okay get in','ok get in','sure hop in','yeah hop in','yes get in',
+        'go ahead get in','hop in','get in','come on in','ride with me']).has(response)) return 'approve';
+  if (intent === 'exit_vehicle_and_hold' &&
+      new Set(['go ahead get out','okay get out','sure get out','get out and wait']).has(response)) return 'approve';
+  if (intent === 'take_cover_and_hold' &&
+      new Set(['take cover','yeah take cover','okay take cover','go take cover']).has(response)) return 'approve';
+  if (intent === 'scenario_here' &&
+      new Set(['have at it','yeah do that','sure do that','okay do that']).has(response)) return 'approve';
+  return null;
+};
 const keyFor = identity => identity && String(identity.pedId) + ':' + String(identity.sessionNonce);
 const sameTurn = (a, b) => a?.pedId === b?.pedId && a?.sessionNonce === b?.sessionNonce &&
   a?.turnId === b?.turnId && a?.generationId === b?.generationId;
@@ -32,9 +75,16 @@ export function validateAct5Choice(activity, intents) {
   if (!activity || typeof activity !== 'object' || Array.isArray(activity) ||
       Object.keys(activity).sort().join(',') !== 'intent,slots' ||
       !Array.isArray(intents) || !intents.includes(activity.intent) ||
-      !Object.hasOwn(ACT5_SLOTS, activity.intent) ||
+      !Object.hasOwn(ACT5_CHOICES, activity.intent) ||
       !validateSlots(activity.intent, activity.slots)) return false;
-  return JSON.stringify(activity.slots) === JSON.stringify(ACT5_SLOTS[activity.intent]);
+  // Canonical structural equality, independent of object-key ordering.
+  const same = (a,b) => Object.keys(a).length === Object.keys(b).length &&
+    Object.keys(a).every(k => Object.hasOwn(b,k) &&
+      (a[k] && typeof a[k] === 'object'
+        ? b[k] && typeof b[k] === 'object' && Object.keys(a[k]).length === Object.keys(b[k]).length &&
+          Object.keys(a[k]).every(n => a[k][n] === b[k][n])
+        : a[k] === b[k]));
+  return ACT5_CHOICES[activity.intent].some(options => same(activity.slots, options));
 }
 
 export class Act5Dialogue {
@@ -99,27 +149,34 @@ export class Act5Dialogue {
         pending.owner.binding.encounterId !== owner.binding.encounterId ||
         pending.owner.binding.incarnationId !== owner.binding.incarnationId ||
         pending.owner.sessionKey !== owner.sessionKey ||
-        pending.owner.nativeRun !== owner.nativeRun)) this.pending.delete(characterId);
+        pending.owner.nativeRun !== owner.nativeRun ||
+        pending.owner.adapterEpoch !== owner.adapterEpoch ||
+        pending.owner.binding.ownershipToken !== owner.binding.ownershipToken ||
+        !sameHostContext(pending.owner.hostContext,owner.hostContext))) this.pending.delete(characterId);
     const activityStatus = this.activities.status(characterId);
     const busy = !TERMINAL.has(activityStatus?.status);
     const intents = busy || this.pending.has(characterId) || (this.cooldown.get(characterId) || 0) > this.now()
-      ? [] : Object.keys(ACT5_SLOTS).filter(intent => {
-          const spec = planSpec(intent, ACT5_SLOTS[intent]);
+      ? [] : Object.keys(ACT5_CHOICES).filter(intent => ACT5_CHOICES[intent].some(slots => {
+          const spec = planSpec(intent, slots);
           if (!Array.isArray(spec.steps) || !spec.steps.length) return false;
           return spec.steps.every(step => {
             const capability = step.capability;
             const row = this.activities.engine.registry.get(capability);
             if (!row || !['ACT2','ACT3'].includes(row.phase)) return false;
             if (row.phase === 'ACT3' && !(this.activities.engine.config.act3Capabilities || []).includes(capability)) return false;
+            if (!row.allowedSources.includes('player_dialogue') ||
+                !row.allowedPriority.includes('player_direct') || row.execution.path === 'none') return false;
             return this.activities.engine.registry.enabled(capability, {
               mode: 'on', hello: this.activities.engine.hello?.capabilities, requested: [capability],
               passedProbes: this.activities.engine.config.passedProbes || [],
               source: 'player_dialogue', priority: 'player_direct',
             });
           });
-        });
+        }));
     return Object.freeze({ owner, intents: Object.freeze(intents), activityStatus: activityStatus?.status || 'unknown',
-      pendingIntent: this.pending.get(characterId)?.activity.intent || null });
+      pendingIntent: this.pending.get(characterId)?.activity.intent || null,
+      availableChoices: Object.freeze(Object.fromEntries(intents.map(intent => [
+        intent, ACT5_CHOICES[intent].map(slots => structuredClone(slots))]))) });
   }
 
   async publish(turn, decision, context, isCurrent) {
@@ -132,6 +189,9 @@ export class Act5Dialogue {
         current.binding.ownershipToken !== context.owner.binding.ownershipToken ||
         current.binding.encounterId !== context.owner.binding.encounterId ||
         current.nativeRun !== context.owner.nativeRun ||
+        current.adapterEpoch !== context.owner.adapterEpoch ||
+        current.sessionKey !== context.owner.sessionKey ||
+        !sameHostContext(current.hostContext,context.owner.hostContext) ||
         (this.cooldown.get(current.binding.characterId) || 0) > this.now()) return false;
     const characterId = current.binding.characterId;
     if (this.pending.has(characterId) || !TERMINAL.has(this.activities.status(characterId).status)) return false;
@@ -159,18 +219,25 @@ export class Act5Dialogue {
     if (!pending) {
       if (!CANCEL.has(response)) return null;
       const last = this.lastAccepted.get(characterId);
-      if (!last || this.activities.engine.activities.find(a => a.activityId === last)?.status === undefined) return null;
+      if (!last) return null;
       const owner = await this.#owner(turn);
       if (!owner || !isCurrent() || owner.binding.encounterId !== context.owner.binding.encounterId) return null;
-      const running = this.activities.engine.activities.find(a => a.activityId === last && !['cancelled','failed','completed','superseded','expired','abandoned'].includes(a.status));
-      if (!running) return null;
+      const running = this.activities.engine.activities.find(a => a.activityId === last &&
+        a.source === 'player_dialogue' &&
+        !['cancelled','failed','completed','superseded','expired','abandoned'].includes(a.status));
+      // ActivityEngine.cancel addresses the current activity by CHARACTER, not ID.
+      // Never accidentally cancel a later player-UX or stock Essential action.
+      if (!running || this.activities.engine.activities.filter(a => a.actor.characterId === characterId).at(-1)?.activityId !== last ||
+          owner.binding.ownershipToken !== running.actor.ownershipToken ||
+          owner.binding.incarnationId !== running.actor.incarnationId) return null;
       const result = this.activities.cancel(characterId);
       this.report('act5_cancelled', { ok: result?.ok === true });
       return Object.freeze({ kind: result?.ok ? 'cancelled' : 'unavailable', intent: running.template });
     }
-    if (!YES.has(response) && !NO.has(response) && !CANCEL.has(response)) return null;
+    const answer = replyKind(response,pending.activity.intent);
+    if (!answer) return null;
     this.pending.delete(characterId);
-    if (!YES.has(response)) {
+    if (answer !== 'approve') {
       this.report('act5_declined', { intent: pending.activity.intent });
       return Object.freeze({ kind: 'declined', intent: pending.activity.intent });
     }
@@ -181,6 +248,8 @@ export class Act5Dialogue {
         owner.binding.incarnationId !== pending.owner.binding.incarnationId ||
         owner.binding.ownershipToken !== pending.owner.binding.ownershipToken ||
         owner.nativeRun !== pending.owner.nativeRun ||
+        owner.adapterEpoch !== pending.owner.adapterEpoch ||
+        !sameHostContext(owner.hostContext,pending.owner.hostContext) ||
         owner.sessionKey !== pending.owner.sessionKey ||
         !TERMINAL.has(this.activities.status(characterId).status)) {
       this.report('act5_rejected', { reason: 'owner_or_activity_changed' });
@@ -210,6 +279,7 @@ export class Act5Dialogue {
         current.binding.ownershipToken !== owner.binding.ownershipToken ||
         current.nativeRun !== owner.nativeRun || current.adapterEpoch !== owner.adapterEpoch ||
         current.sessionKey !== owner.sessionKey ||
+        !sameHostContext(current.hostContext,owner.hostContext) ||
         !TERMINAL.has(this.activities.status(characterId).status)) {
       this.report('act5_rejected',{reason:'owner_or_activity_changed'});
       return {ok:false,reason:'owner_or_activity_changed'};
