@@ -1,3 +1,5 @@
+> **Current distinction — 2026-10-17:** Playback-level mouth overlay code from #215 is present in canonical main's integration lineage, but remains **opt-in/default-off and unverified in GTA Enhanced**. Earlier #209 voice-presence PR was closed without directly merging; native Essential spatial audio is authoritative. Playback RMS samples are not proven synchronized to actual rendered PCM, and [G1 facial acting](plans/npc-facial-acting-g1-verdict.md) is blocked on face ownership. See [current matrix](IMPLEMENTATION-STATUS-20261017.md#act-and-presentation-readiness). The branch-local notes below remain useful implementation evidence, not a current PR-status claim.
+
 # NPC voice presence (mouth movement + positional voice)
 
 Status: **opt-in, experimental, default off. No GTA run has been performed.** Companion to the plan in PR #198 and the seam audit in `docs/investigations/npc-voice-presence-pinned-essential-seam-20261016.md`.

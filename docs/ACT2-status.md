@@ -1,3 +1,5 @@
+> **Updated interpretation — 2026-10-17:** The ACT2 implementation and October 6 evidence below remain historical and valid for that build. Main now includes additional C-05/C-06 and Memory K integration through #231. ACT0–ACT2 remain the active implemented activity path; [ACT3 registry entries](../contracts/activity-capabilities.v1.json) are **not** proof of fully wired ACT3 execution. Use the [current roadmap](ROADMAP.md), [implementation matrix](IMPLEMENTATION-STATUS-20261017.md#act-and-presentation-readiness) and [ACT3-A work package](NEXT-PHASES-20261017.md#act3-a--one-real-stop-and-face-capability) for what comes next.
+
 # ACT2 status — player-assigned basic activities
 
 Updated October 6, 2026. Branch `feature/act2-player-assigned-basic-activities` has been reconciled onto current `main`, includes ACT0/ACT1 underneath it, and has now been built, hash-deployed to the GTA Enhanced install, and exercised in GTA. The integrated ACT0→ACT2 stack was merged to `main` on October 6, 2026 via PR #18 (`b2221917`). Post-review hardening is included after the original `eb786c3` implementation.
