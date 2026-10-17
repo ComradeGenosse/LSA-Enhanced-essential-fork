@@ -509,7 +509,7 @@ export class ShadowRuntime {
   directorSocialFor(speaker) {
     const sample=this.socialScenes.get(speaker),now=this.now();
     if(!sample || !Number.isSafeInteger(now) ||
-       now<sample.receivedAt || now-sample.receivedAt>9000 ||
+       now<sample.receivedAt || now-sample.receivedAt>14000 ||
        now-sample.refreshedAt>3000 ||
        !this.epoch || !this.hostContext ||
        sample.hostRunId!==this.hostContext.hostRunId ||
