@@ -91,12 +91,12 @@ const keyFor = identity => identity && String(identity.pedId) + ':' + String(ide
 const sameTurn = (a, b) => a?.pedId === b?.pedId && a?.sessionNonce === b?.sessionNonce &&
   a?.turnId === b?.turnId && a?.generationId === b?.generationId;
 
-export function validateAct5Choice(activity, intents) {
+export function validateAct5Choice(activity, intents, choices = ACT5_CHOICES) {
   if (activity === null) return true;
   if (!activity || typeof activity !== 'object' || Array.isArray(activity) ||
       Object.keys(activity).sort().join(',') !== 'intent,slots' ||
       !Array.isArray(intents) || !intents.includes(activity.intent) ||
-      !Object.hasOwn(ACT5_CHOICES, activity.intent) ||
+      !Object.hasOwn(choices, activity.intent) ||
       !validateSlots(activity.intent, activity.slots)) return false;
   // Canonical structural equality, independent of object-key ordering.
   const same = (a,b) => Object.keys(a).length === Object.keys(b).length &&
@@ -105,7 +105,7 @@ export function validateAct5Choice(activity, intents) {
         ? b[k] && typeof b[k] === 'object' && Object.keys(a[k]).length === Object.keys(b[k]).length &&
           Object.keys(a[k]).every(n => a[k][n] === b[k][n])
         : a[k] === b[k]));
-  return ACT5_CHOICES[activity.intent].some(options => same(activity.slots, options));
+  return choices[activity.intent].some(options => same(activity.slots, options));
 }
 
 export class Act5Dialogue {
@@ -209,9 +209,7 @@ export class Act5Dialogue {
 
   async publish(turn, decision, context, isCurrent) {
     if (!decision?.activity || !context?.intents?.includes(decision.activity.intent) ||
-        !validateAct5Choice(decision.activity, context.intents) ||
-        !context.availableChoices?.[decision.activity.intent]?.some(slots =>
-          JSON.stringify(slots) === JSON.stringify(decision.activity.slots)) ||
+        !validateAct5Choice(decision.activity, context.intents, context.availableChoices) ||
         !isCurrent?.()) return false;
     const idKey = keyFor(turn.identity) + ':' + turn.identity.turnId + ':' + turn.identity.generationId;
     if (this.seenTurns.has(idKey)) return false;
