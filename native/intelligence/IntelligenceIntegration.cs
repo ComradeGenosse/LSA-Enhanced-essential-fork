@@ -449,6 +449,9 @@ namespace LSA.Intelligence
                     connectionVersion=channel.ConnectionVersion;
                     lock(rosterGate){publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}
                     nextRefresh=0;
+                    // Previously confirmed listeners require a fresh native
+                    // receipt on an authenticated consumer reconnect.
+                    radioCoveredOwned.Clear();nextRadio=0;
                 }
                 // Existing owner fiber only; never sample a model without the
                 // exact approved receiver, connection and native host epoch.
@@ -585,8 +588,11 @@ namespace LSA.Intelligence
                     var signals=sensors.Counters;
                     var damageCallbacks=sensors.DamageCallbacks;
                     var radio=new {samples=Clamp(sensors.RadioSamples),edges=Clamp(sensors.RadioEdges),nativeFailures=Clamp(sensors.RadioNativeFailures),witnessed=Clamp(radioWitnessed),witnessUnknown=Clamp(radioWitnessUnknown)};
+                    // Preserve the original radio payload contract for existing
+                    // diagnostics consumers; expose extra stage counters separately.
+                    var radioFailureStages=new {vehicle=Clamp(sensors.RadioVehicleFailures),station=Clamp(sensors.RadioStationFailures),sound=Clamp(sensors.RadioSoundFailures),textId=Clamp(sensors.RadioTextIdFailures)};
                     channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt",radio});
-                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" radio_routes="+RadioRoutes()+" radio_witness="+radio.witnessed+":"+radio.witnessUnknown+
+                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" radio_routes="+RadioRoutes()+" radio_failures="+radioFailureStages.vehicle+":"+radioFailureStages.station+":"+radioFailureStages.sound+":"+radioFailureStages.textId+" radio_witness="+radio.witnessed+":"+radio.witnessUnknown+
                           " director_challenges="+ps3Receipts.ActiveChallenges+":"+ps3Receipts.ChallengeIssued+":"+ps3Receipts.ChallengeExpired+":"+ps3Receipts.ChallengeRetired+":"+ps3Receipts.ChallengeCapacityRejected+" event_trace_suppressed="+Clamp(eventTraceSuppressed)+" owner_stalls="+Clamp(ownerStalls)+":"+Clamp(ownerStallMaxMs)+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
                 }
                 Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,host.MonotonicMs);
@@ -931,7 +937,7 @@ namespace LSA.Intelligence
         // identical failures report at most once per ten seconds.
         void RadioFailure(string stage,Exception error,long now)
         {
-            sensors.NoteRadioNativeFailure();
+            sensors.NoteRadioNativeFailure(stage=="station_name"||stage=="station_recheck"?"station":stage=="sound_name"?"sound":stage=="track_text_id"?"text_id":stage=="player"||stage=="vehicle"||stage=="vehicle_anchor"?"vehicle":"other");
             string type=error is InvalidOperationException ? "invalid_operation" :
                 error is EntryPointNotFoundException ? "missing_entrypoint" :
                 error is MissingMethodException ? "missing_method" :
@@ -979,9 +985,10 @@ namespace LSA.Intelligence
             // The text ID is the catalog key. An unsupported optional sound
             // native must never prevent a valid text ID from reaching PS2.
             stage="track_text_id";
-            reading.TrackTextId=RadioCall(radioTextIdNative,
+            try {reading.TrackTextId=RadioCall(radioTextIdNative,
                 hash=>NativeFunction.CallByHash<int>(hash),
-                name=>NativeFunction.CallByName<int>(name),0);
+                name=>NativeFunction.CallByName<int>(name),0);}
+            catch(Exception error) {reading.TrackTextId=0;RadioFailure("track_text_id",error,host.MonotonicMs);}
             stage="station_recheck";
             string after=RadioCall(radioStationNative,
                 hash=>NativeFunction.CallByHash(hash,typeof(string)) as string,

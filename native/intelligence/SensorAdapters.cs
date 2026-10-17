@@ -47,11 +47,26 @@ namespace LSA.Intelligence
         // unchanged verified track or a radio-off event behind this gate.
         const int RadioStableSamples=3;
         long nextRadioRevalidate,radioSamples,radioEdges,radioNativeFailures;
+        long radioVehicleFailures,radioStationFailures,radioSoundFailures,radioTextIdFailures;
         public long RadioSamples {get {lock(gate) return radioSamples;}}
         public long RadioEdges {get {lock(gate) return radioEdges;}}
         public long RadioNativeFailures {get {lock(gate) return radioNativeFailures;}}
         public void NoteRadioSample() {lock(gate) radioSamples=Math.Min(int.MaxValue,radioSamples+1);}
-        public void NoteRadioNativeFailure() {lock(gate) radioNativeFailures=Math.Min(int.MaxValue,radioNativeFailures+1);}
+        public long RadioVehicleFailures {get {lock(gate) return radioVehicleFailures;}}
+        public long RadioStationFailures {get {lock(gate) return radioStationFailures;}}
+        public long RadioSoundFailures {get {lock(gate) return radioSoundFailures;}}
+        public long RadioTextIdFailures {get {lock(gate) return radioTextIdFailures;}}
+        public void NoteRadioNativeFailure(string stage="other") {
+            lock(gate) {
+                Note(ref radioNativeFailures);
+                switch(stage) {
+                    case "vehicle": Note(ref radioVehicleFailures);break;
+                    case "station": Note(ref radioStationFailures);break;
+                    case "sound": Note(ref radioSoundFailures);break;
+                    case "text_id": Note(ref radioTextIdFailures);break;
+                }
+            }
+        }
         static void Note(ref long value) { value=Math.Min(int.MaxValue,value+1); }
         public bool Enqueue(RawSignal signal)
         {
@@ -164,6 +179,9 @@ namespace LSA.Intelligence
             if(same && (string.IsNullOrEmpty(current.Vehicle) || current.Station.Length==0 ||
                 now<nextRadioRevalidate && !newQualifiedListener)) return null;
             bool establishing=previous==null;
+            // Preserve the established baseline-only first sample. On the
+            // following live sample, verified new listeners can receive an
+            // immediate source-time receipt without waiting 60 seconds.
             if(establishing) {radioBaseline=current;return null;}
             if(!same && current.Station.Length>0 && current.Vehicle!=null) {
                 bool pendingSame=pendingRadio!=null && pendingRadio.Vehicle==current.Vehicle &&
@@ -189,7 +207,7 @@ namespace LSA.Intelligence
             return Enqueue(edge)?edge:null;
         }
         public void Retire(string captureRef) { baselines.Remove(captureRef); baselines.Remove("shot:"+captureRef); lastShot.Remove(captureRef);vehicles.Remove(captureRef);foreach(var state in baselines.Values) if(state.Vehicle==captureRef) state.VehicleBaseline=false; }
-        public void Reset() { lock(gate) {queue.Clear();sequences.Clear();baselines.Clear();lastShot.Clear();vehicles.Clear();received.Clear();radioBaseline=null;pendingRadio=null;pendingRadioSamples=0;nextRadioRevalidate=0;radioSamples=0;radioEdges=0;radioNativeFailures=0;foreach(var k in damageCallbacks.Keys.ToArray()) damageCallbacks[k]=0;Dropped=0;} }
+        public void Reset() { lock(gate) {queue.Clear();sequences.Clear();baselines.Clear();lastShot.Clear();vehicles.Clear();received.Clear();radioBaseline=null;pendingRadio=null;pendingRadioSamples=0;nextRadioRevalidate=0;radioSamples=0;radioEdges=0;radioNativeFailures=0;radioVehicleFailures=0;radioStationFailures=0;radioSoundFailures=0;radioTextIdFailures=0;foreach(var k in damageCallbacks.Keys.ToArray()) damageCallbacks[k]=0;Dropped=0;} }
     }
     public sealed class StateSample
     {
