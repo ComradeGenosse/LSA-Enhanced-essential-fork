@@ -176,7 +176,7 @@ export function validateM9SamplePayload(p) {
 }
 
 
-const SOCIAL_SCENES=new Set(['shared_vehicle_entry','reunion','shared_idle','travel','activity_transition','manual']);
+const SOCIAL_SCENES=new Set(['shared_vehicle_entry','reunion','shared_idle','travel','activity_transition','manual','personal_curiosity');
 export function validateDirectorSocialPayload(p) {
   return keys(p,['socialVersion','hostRunId','worldEpoch','sampledGameTick','sceneId',
     'sceneType','speakerCaptureRef','playerCaptureRef','ownerIncarnationId','ownerProofRevision','role']) &&
