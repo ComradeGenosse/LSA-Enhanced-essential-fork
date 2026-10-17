@@ -332,6 +332,19 @@ class Program
             SpeakerCaptureRef=request.SpeakerCaptureRef,PlayerCaptureRef=request.PlayerCaptureRef,
             OwnerIncarnationId=Guid.NewGuid().ToString("D"),ProofRevision=5,
             TicketId=request.TicketId}),"social source cannot borrow another owner");
+        // A fresh player conversation must suppress both the immediate
+        // boarding opening and stale delayed boarding after the first 10s.
+        long conversationClock=0;
+        var chatter=new DirectorSocialScenes(()=>conversationClock);
+        chatter.Sample(anchors.Current,roster,host,1,0,0);
+        conversationClock=100;
+        chatter.Sample(anchors.Current,roster,host,1,100,1);
+        conversationClock=1200;
+        Check(chatter.Sample(anchors.Current,roster,host,1,1200,1).Length==0,
+            "social greeting suppressed after a player turn");
+        conversationClock=11000;
+        Check(chatter.Sample(anchors.Current,roster,host,1,11000,1).Length==0,
+            "a missed boarding opening does not fire after travel began");
         actor.CurrentVehicle=null;
         clock=2200;sample();
         Check(!scenes.Current(request),"social vehicle departure invalidates old native grant");
