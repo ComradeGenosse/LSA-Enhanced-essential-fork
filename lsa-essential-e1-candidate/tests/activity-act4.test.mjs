@@ -160,10 +160,17 @@ test('ACT4 never infers whole-plan completion from an earlier ACT3 step receipt'
 test('ACT3 multi-step native receipts never advertise intermediate completion as whole-plan success',()=>{
  const f=fixture(),activity=f.engine.activities.at(-1);
  const first=activity.steps[0],second={...first,stepId:randomUUID(),capability:'stop_and_face',status:'pending'};
+ first.capability='approach_person'; first.attempts=1;
  activity.steps=[first,second];activity.template='approach_and_face';activity.status='running';
  const executionId=randomUUID();activity.currentExecutionId=executionId;
  f.engine.byExecution.set(executionId,activity);
- f.engine.ingest({type:'receipt',receipt:{executionId,state:'PHYSICALLY_COMPLETED',capability:'approach_person'}});
+ // The synthetic native completion must identify the exact active ACT3 step;
+ // a mismatched capability should be rejected, not silently promoted.
+ f.engine.ingest({type:'receipt',receipt:{
+  executionId,activityId:activity.activityId,stepId:first.stepId,
+  actorEncounterId:activity.actor.encounterId,attempt:first.attempts,
+  state:'PHYSICALLY_COMPLETED',capability:'approach_person',
+ }});
  assert.equal(activity.cursor,1);
  const completed=f.engine.factsForCharacter(f.binding).filter(x=>x.kind==='step_completed');
  assert.equal(completed.length,1);
