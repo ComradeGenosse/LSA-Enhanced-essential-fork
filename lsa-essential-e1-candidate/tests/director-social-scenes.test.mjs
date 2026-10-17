@@ -31,7 +31,7 @@ test('native social scene uses a closed schema and cannot invent actor or scene 
 });
 test('all social openings are bounded scene context, not fixed dialogue',()=>{
   const f=fixture();
-  for(const sceneType of ['shared_vehicle_entry','reunion','shared_idle','travel','activity_transition','manual']){
+  for(const sceneType of ['shared_vehicle_entry','reunion','shared_idle','travel','activity_transition','manual','personal_curiosity']){
     const s=renderDirectorSocialContext({...f.proposal,sceneType});
     assert.ok(s && s.length<=160,sceneType);
     assert.ok(!s.includes('Where we going, man?'));
