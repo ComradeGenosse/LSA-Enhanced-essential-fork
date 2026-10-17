@@ -47,6 +47,12 @@ ACT executor is introduced.**
   completed speech. Player conversation, unsafe behavior and audio playback
   continue to veto admission.
 
+The existing `spontaneousSpeech.preset` config controls both the Director's
+attempt pacing and native social-scene timing. `normal` uses the values above;
+`testing` (experimental mode only) shortens idle/travel/reunion windows for
+local verification while retaining one-scene deduplication and C-06 safety.
+No extra sidecar configuration is required.
+
 These windows are bounded default native heuristics, not a timed dialogue
 tree. Luna chooses its words using its existing character/personality/context
 pipeline. Social frames are source-fenced to P2 incarnation, current
