@@ -70,7 +70,7 @@ export function validateDecisionShape(decision) {
   return parseDecisionJson(JSON.stringify(decision));
 }
 
-export function act5ActivitySchema(intents) {
+export function act5ActivitySchema(intents, allowedChoices = ACT5_CHOICES) {
   // Generate the strict model schema from exactly the same closed-slot map
   // used by acceptance validation. Never expose native steps or arbitrary refs.
   const exact = value => value && typeof value === 'object'
@@ -78,8 +78,8 @@ export function act5ActivitySchema(intents) {
         properties:Object.fromEntries(Object.entries(value).map(([key,part])=>[key,exact(part)])) }
     : { type:typeof value, enum:[value] };
   const choices = intents.flatMap(intent => {
-    if (!Object.hasOwn(ACT5_CHOICES,intent)) throw new TypeError('ACT5 unsupported intent');
-    return ACT5_CHOICES[intent].map(slots => ({
+    if (!Object.hasOwn(allowedChoices,intent)) throw new TypeError('ACT5 unsupported intent');
+    return allowedChoices[intent].map(slots => ({
       type:'object', additionalProperties:false, required:['intent','slots'],
       properties:{intent:{type:'string',enum:[intent]},slots:exact(slots)}
     }));
@@ -87,9 +87,9 @@ export function act5ActivitySchema(intents) {
   return { anyOf:[{type:'null'},...choices] };
 }
 
-export function withAct5Schema(schema, intents) {
+export function withAct5Schema(schema, intents, allowedChoices = ACT5_CHOICES) {
   return Object.freeze({...schema,required:[...schema.required,'activity'],
-    properties:{...schema.properties,activity:act5ActivitySchema(intents)}});
+    properties:{...schema.properties,activity:act5ActivitySchema(intents,allowedChoices)}});
 }
 
 export function buildRequest({ model, effort, systemInstruction, actor, listener, world, contextText, internalEvent, source, input, history = [], maxOutputTokens = 300, structuredSegments = false, lunaDeliveryVersion = 0, knowledgeProjection, activityContext = null }) {
@@ -131,7 +131,7 @@ export function buildRequest({ model, effort, systemInstruction, actor, listener
     max_output_tokens: maxOutputTokens,
     text: { format: { type: 'json_schema', name: act5 ? (structuredSegments ? (lunaDeliveryVersion === 1 ? 'e1_act5_segmented_delivery_v1' : 'e1_act5_segmented_decision') : 'e1_act5_decision') :
         (structuredSegments ? (lunaDeliveryVersion === 1 ? 'e1_segmented_delivery_v1' : 'e1_segmented_decision') : 'e1_decision'), strict: true,
-      schema: act5 ? withAct5Schema(structuredSegments ? (lunaDeliveryVersion === 1 ? segmentedDeliveryV1Schema : segmentedDecisionSchema) : decisionSchema, activityContext.intents) :
+      schema: act5 ? withAct5Schema(structuredSegments ? (lunaDeliveryVersion === 1 ? segmentedDeliveryV1Schema : segmentedDecisionSchema) : decisionSchema, activityContext.intents, activityContext.availableChoices || ACT5_CHOICES) :
         (structuredSegments ? (lunaDeliveryVersion === 1 ? segmentedDeliveryV1Schema : segmentedDecisionSchema) : decisionSchema) } },
     input: [
       { role: 'system', content: composeKnowledgeInstruction(systemInstruction,scene,outputRules+act5Context) },
