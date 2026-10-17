@@ -1,4 +1,4 @@
-# ACT6 — NPC navigation and travel (integration candidate)
+# ACT6 — NPC navigation and travel (mainline source; GTA acceptance pending)
 
 **Integration:** ACT6's native-execution source is already on `main` (originating in PR #239). Conversational command recognition and ACT4 status presentation are being hardened independently. **GTA physical navigation remains unverified for this exact build**; source and unit tests cannot prove that GTA V Enhanced performed a journey.
 
@@ -49,4 +49,4 @@ Enable ACT6 **only in a controlled GTA session** after testing the corresponding
 
 ## Acceptance status
 
-**Production-path source:** existing native ACT6 on main, with closed conversational recognition and ACT4 status projection hardened in the current changes. **Offline tests:** see PR CI/results at its exact head. **GTA Enhanced test:** NOT RUN here. **Merge readiness:** blocked on proven GTA walking/driving and native build/CI results, especially remote waypoint resolution, native task signature behavior, cancellation, and route/road access. Native task invocation is present; it is not proof of success.
+**Production-path source:** existing native ACT6 on main, with closed conversational recognition and ACT4 status projection hardened in the current changes. **Offline tests:** see PR CI/results at its exact head. **GTA Enhanced test:** NOT RUN here. **GTA acceptance:** blocked on proven walking/driving, especially remote waypoint resolution, native task signature behavior, cancellation, and route/road access. The conversational fix can be reviewed separately against source/CI because it leaves the existing native travel execution contract intact. Native task invocation is present; it is not proof of success.
