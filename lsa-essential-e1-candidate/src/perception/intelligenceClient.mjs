@@ -640,8 +640,8 @@ export class IntelligenceClient {
     this.directorOwnerReservations.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
   }
 
-  constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,radioCatalog,consumers=null,acceptedObservationTap=null,m9Events=null,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.memoryAuthoritySubscriptions=new Set();this.currentOwnerPlayerSubscriptions=new Set();this.m7DiagnosticSubscriptions=new Set();this.m7LastDiagnostic=null;this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,acceptedObservationTap,consumers,m9Events,
+  constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,ambientSpeech=false,now,situationFor,radioCatalog,consumers=null,acceptedObservationTap=null,m9Events=null,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
+    this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.memoryAuthoritySubscriptions=new Set();this.currentOwnerPlayerSubscriptions=new Set();this.m7DiagnosticSubscriptions=new Set();this.m7LastDiagnostic=null;this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,acceptedObservationTap,consumers,m9Events,ambientSpeech,
       // Bounded fixed-vocabulary diagnostics only (see ShadowRuntime.emitTrace).
       trace:(event,record)=>this.persist(event,record),
       stall:info=>this.persist('intelligence_status',{stage:info.stage==='stalled'?'owner_stalled':'owner_resumed',durationMs:info.stallMs})});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
@@ -682,7 +682,9 @@ export class IntelligenceClient {
       capabilities:this.runtime.capabilities,
       damageCallbacks:diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0},
       ps2:{...this.runtime.ps2Diagnostics,dropReasons:{...(this.runtime.correlator?.dropReasons??{})},dedupeEvicted:this.runtime.correlator?.dedupeEvicted??0,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts?.diagnostics??null},
-      ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons}},
+      ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons},
+        ownedReasons:{...this.runtime.ps3Diagnostics.ownedReasons},
+        ownedByEvent:Object.fromEntries(Object.entries(this.runtime.ps3Diagnostics.ownedByEvent).map(([event,counts])=>[event,{...counts}]))},
       radioCatalog:{unknownTextIds:counter(this.runtime.radioCatalog?.unknownTextIds),catalogMismatches:counter(this.runtime.radioCatalog?.catalogMismatches)},
       radio:{...this.runtime.radioDiagnostics},
       ownerStall:{...this.runtime.stallDiagnostics},
