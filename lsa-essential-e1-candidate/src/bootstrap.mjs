@@ -566,6 +566,7 @@ export async function createRuntimeForBundle(options = {}) {
           // attempt to perception_trace and the native [PS] log lines.
           traceCode:outcome?.traceCode??null,urgency:outcome?.urgency??null,
           eventType:outcome?.eventType,
+          source:outcome?.source??'reactive',sceneType:outcome?.sceneType??null,
           configuredMode:config.spontaneousSpeech.mode,
           executionAvailable:experimental &&
             client.runtime.directorPriority?.experimentalEnabled===true,
@@ -592,6 +593,8 @@ export async function createRuntimeForBundle(options = {}) {
         client.runtime.directorPriority?.experimentalEnabled===true &&
         client.runtime.directorRequestVersion===1,
       reason:experimental?'native_opt_in_and_live_C06_required':'shadow_only',
+      social:client.runtime.socialDiagnostics?Object.freeze({...client.runtime.socialDiagnostics}):null,
+      lastManualResult:client.runtime.socialManualResult??null,
     });
     owner.own('director.subscription',client.subscribeKnowledgeInvalidation(()=>{void pump.tick();}),unsubscribe=>unsubscribe());
   }
