@@ -186,3 +186,31 @@ test('preflight reports model unavailable or voice restricted without billing',a
   assert.equal(result.readyToAttemptSpeech,false);
   assert.equal(result.voiceLookupHttp,403);
 });
+
+test('ElevenLabs reassembles PCM16 split between WS frames and accepts empty final marker',async()=>{
+  const bytes=Buffer.from([1,2,3,4,5,6]);
+  const {FakeSocket}=socketFactory([
+    {audio:bytes.subarray(0,3).toString('base64')},
+    {audio:bytes.subarray(3).toString('base64')},
+    {audio:'',is_final:true},
+  ]);
+  const frames=[];
+  const p=createElevenLabsSpeechProvider({config:configured(),WebSocketImpl:FakeSocket});
+  const result=await p.synthesize({identity,dialogue:'Say the names',onPcm:async b=>frames.push(Buffer.from(b))});
+  assert.equal(result.bytes,6);
+  assert.deepEqual(Buffer.concat(frames),bytes);
+  assert(frames.every(b=>b.length%2===0),'native PCM chunks must remain sample-aligned');
+});
+
+test('ElevenLabs rejects dangling PCM halves and malformed/empty nonfinal audio',async()=>{
+  for(const messages of [
+    [{audio:Buffer.from([1,2,3]).toString('base64')},{audio:'',is_final:true}],
+    [{audio:''},{is_final:true}],
+    [{audio:'!!',is_final:true}],
+  ]){
+    const {FakeSocket}=socketFactory(messages);
+    const p=createElevenLabsSpeechProvider({config:configured(),WebSocketImpl:FakeSocket});
+    await assert.rejects(p.synthesize({identity,dialogue:'Hi',onPcm:async()=>{}}),
+      {code:'elevenlabs_invalid_audio'});
+  }
+});
