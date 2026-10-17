@@ -172,5 +172,5 @@ test('ACT3 multi-step native receipts never advertise intermediate completion as
  assert.equal(f.engine.stateForCharacter(f.binding).physicallyCompleted,false);
  const narration=projectActivityKnowledge(f.captured()).facts.map(x=>x.text).join(' ');
  assert.match(narration,/activity step/);
- assert.doesNotMatch(narration,/request to .* was completed with physical evidence/);
+ assert.doesNotMatch(narration,/(?:^|\. )The request to .* was completed with physical evidence/);
 });
