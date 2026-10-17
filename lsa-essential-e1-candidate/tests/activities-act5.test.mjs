@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ActivityEngine } from '../src/activities/activityEngine.mjs';
-import { Act5Dialogue, validateAct5Choice } from '../src/activities/act5Dialogue.mjs';
+import { Act5Dialogue, validateAct5Choice, parseAct6PlayerRequest } from '../src/activities/act5Dialogue.mjs';
 import { normalizeActivityConfig } from '../src/activities/contracts.mjs';
 import { parseDecisionJson, buildRequest } from '../src/context/essentialDecision.mjs';
 import { createSegmentDecoder } from '../src/openai/segmentDecoder.mjs';
@@ -27,22 +27,22 @@ const turn = () => ({
   knowledgeInputs: { activityInputs: { binding: { encounterId: encounter, hostContext: host } } },
 });
 
-function harness({ enabled = true, act3Capabilities = [], extraProbes = [], baseProbes = probes } = {}) {
+function harness({ enabled = true, act3Capabilities = [], act6Capabilities = [], extraProbes = [], baseProbes = probes } = {}) {
   serial = 0;
   let now = 10000;
   const commands = [];
-  const config = normalizeActivityConfig({ mode: 'on', act5: enabled, act3Capabilities, passedProbes: [...baseProbes,...extraProbes] });
+  const config = normalizeActivityConfig({ mode: 'on', act5: enabled, act3Capabilities, act6Capabilities, passedProbes: [...baseProbes,...extraProbes] });
   const engine = new ActivityEngine({ config, now: () => now, id, onCommand: v => commands.push(v) });
   const hello = {type:'hello', ...host, nativeRun, adapterEpoch, capabilities: {
     hold_position:true, follow_person:true, sit_on_ground:true, resume_ambient:true,
     stop_and_face:true, approach_person:true, walk_away_from:true, take_cover:true, begin_driving:true,
-    scenario_here:true, enter_vehicle_seat:true, exit_vehicle:true,
+    scenario_here:true, enter_vehicle_seat:true, exit_vehicle:true, walk_to:true, drive_to:true,
   }};
   engine.noteHello(hello);
   let currentEncounter = encounter;
   let currentToken = 'native-token';
   let currentIncarnation = incarnation;
-  let activityOffer = {version:1,safe:true,actorInVehicle:false,actorOnFoot:true,
+  let activityOffer = {version:1,safe:true,actorInVehicle:false,actorOnFoot:true,actorIsDriver:false,
     playerNearby:true,vehicleAvailable:true,vehicleStopped:true,
     passengerFree:true,frontFree:true,rearFree:true,scenarioReady:true};
   const native = {request: async operation => operation === 'capture'
@@ -523,4 +523,44 @@ test('contextual approval retains mainline speakable coffee and boarding affirma
     const reply=turn(),next=await h.dialogue.prepare(reply,'player_text');
     assert.equal((await h.dialogue.onPlayerInput(reply,phrase,next,()=>true))?.kind,'approval_pending',intent);
   }
+});
+
+
+test('ACT6 navigation suggestions remain explicitly gated and reflect real native travel eligibility',async()=>{
+  const walk=harness({act6Capabilities:['walk_to'],extraProbes:['NV1','Q2','L1']});
+  const w=await walk.dialogue.prepare(turn(),'player_mic');
+  assert.ok(w.intents.includes('go_to_place'));
+  assert.equal(w.intents.includes('vehicle_trip'),false);
+  walk.setOffer({actorOnFoot:false,actorInVehicle:true,actorIsDriver:false});
+  assert.equal((await walk.dialogue.prepare(turn(),'player_mic')).intents.includes('go_to_place'),false);
+  const drive=harness({act6Capabilities:['drive_to'],extraProbes:['NV2','Q2','L1','D1','D2','D3','SVE1']});
+  assert.equal((await drive.dialogue.prepare(turn(),'player_mic')).intents.includes('vehicle_trip'),false);
+  drive.setOffer({actorOnFoot:false,actorInVehicle:true,actorIsDriver:true});
+  assert.equal((await drive.dialogue.prepare(turn(),'player_mic')).intents.includes('vehicle_trip'),true);
+});
+
+test('ACT6 closed player requests stage exactly one approved goal under current main ACT5 epochs',async()=>{
+  const h=harness({act6Capabilities:['walk_to'],extraProbes:['NV1','Q2','L1']});
+  const t=turn(),context=await h.dialogue.prepare(t,'player_mic');
+  assert.deepEqual(parseAct6PlayerRequest('Head over to my map marker'),{intent:'go_to_place',slots:{place:{kind:'waypoint'}}});
+  assert.equal(parseAct6PlayerRequest('Go to 123 -54 9'),null);
+  assert.equal((await h.dialogue.onPlayerInput(t,'Go to the waypoint',context,()=>true))?.kind,'approval_pending');
+  assert.equal(h.commands.filter(x=>x.type==='actor.acquire').length,0);
+  assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,true);
+  assert.equal(h.commands.filter(x=>x.type==='actor.acquire').length,1);
+  assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,false);
+});
+
+test('ACT6 explicit stop can cancel owner-matched UX navigation without reopening generic ACT5 cancellation',async()=>{
+  const h=harness({act6Capabilities:['drive_to'],extraProbes:['NV2','Q2','L1','D1','D2','D3','SVE1']});
+  h.setOffer({actorOnFoot:false,actorInVehicle:true,actorIsDriver:true});
+  const t=turn(),context=await h.dialogue.prepare(t,'player_mic');
+  const result=h.engine.assign({
+    proposalVersion:1,proposalId:id(),source:'player_ux',subject:{characterId:actor},
+    intent:'vehicle_trip',slots:{place:{kind:'waypoint'}},priority:'player_direct',origin:{},proposedAtMs:10000
+  },context.owner.binding);
+  assert.equal(result.ok,true);
+  assert.equal((await h.dialogue.onPlayerInput(t,'Stop walking',context,()=>true)),null);
+  assert.equal((await h.dialogue.onPlayerInput(t,'Stop driving',context,()=>true))?.kind,'cancelled');
+  assert.equal(h.engine.activities[0].status,'cancelled');
 });

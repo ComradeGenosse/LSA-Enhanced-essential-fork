@@ -93,7 +93,7 @@ These probes can run in parallel with ACT3-A and R-02.
 
 ## Longer horizon — ACT6, PS8, standalone parity
 
-**ACT6 navigation:** walk_to and drive_to are "missing" extension rows in the v1 registry. One place-resolved physical destination with native arrival/failure/timeout, path constraints, cancellation, world/actor/vehicle scope and genuine game proof must precede more destinations. Do not relabel existing startdriving or followvehicle as destination navigation.
+**ACT6 navigation:** PR #239 implements gated ACT-owned native navmesh walk and long-range drive with verified retained destination, native task progress/arrival/failure, road-node targeting, cancellation and world/actor/vehicle scope. Contract exposure remains historically "missing" pending GTA Enhanced exact-build acceptance. Do not call task invocation or passing CI proof of physical game completion; do not relabel startdriving as navigation.
 
 **PS8 world awareness:** source audit first, one new event at a time. Expand PS2 witness semantics and PS3 salience, then PS4/Director output, with strong negation/occlusion tests. Proposed explosion/theft/siren/event vocabularies are not current claims. New public APIs/SDKs require pinned native tests.
 

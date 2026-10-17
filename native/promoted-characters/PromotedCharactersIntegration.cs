@@ -305,12 +305,13 @@ namespace LSA.PromotedCharacters
         // preflights every selected anchor after explicit player consent.
         object ActivityOfferSnapshot(Encounter encounter)
         {
-            bool inVehicle=false, safe=false, scenarioReady=false, nearby=false;
+            bool inVehicle=false, actorIsDriver=false, safe=false, scenarioReady=false, nearby=false;
             bool vehicleAvailable=false, vehicleStopped=false, frontFree=false, rearFree=false;
             try
             {
                 safe=Safe(encounter) && !encounter.Suspended;
                 inVehicle=NativeFunction.CallByName<bool>("IS_PED_IN_ANY_VEHICLE",encounter.Ped,false);
+                actorIsDriver=inVehicle && encounter.Ped.SeatIndex==-1;
                 var player=Game.LocalPlayer.Character;
                 if(safe && player!=null && player.Exists() && !player.IsDead)
                 {
@@ -349,11 +350,11 @@ namespace LSA.PromotedCharacters
             catch
             {
                 // Uncertain native state is never advertised as available.
-                return new {version=1,safe=false,actorInVehicle=false,actorOnFoot=false,
+                return new {version=1,safe=false,actorInVehicle=false,actorOnFoot=false,actorIsDriver=false,
                     playerNearby=false,vehicleAvailable=false,vehicleStopped=false,
                     passengerFree=false,frontFree=false,rearFree=false,scenarioReady=false};
             }
-            return new {version=1,safe,actorInVehicle=inVehicle,actorOnFoot=!inVehicle,
+            return new {version=1,safe,actorInVehicle=inVehicle,actorOnFoot=!inVehicle,actorIsDriver,
                 playerNearby=nearby,vehicleAvailable,vehicleStopped,
                 passengerFree=frontFree||rearFree,frontFree,rearFree,scenarioReady};
         }

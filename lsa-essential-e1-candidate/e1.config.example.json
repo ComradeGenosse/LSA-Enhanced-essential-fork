@@ -11,7 +11,9 @@
     "mode": "off",
     "pipeName": "LSA.Activities.v1",
     "dialogueReceipts": false,
-    "act5": false
+    "act5": false,
+    "act3Capabilities": [],
+    "act6Capabilities": []
   },
   "persistentIdentity": {
     "enabled": false,

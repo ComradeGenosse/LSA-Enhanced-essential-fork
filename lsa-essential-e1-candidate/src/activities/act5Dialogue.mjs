@@ -22,6 +22,18 @@ const NO = new Set(['no', 'nope', 'nah', 'not now', 'no thanks', 'maybe later',
 const CANCEL = new Set(['stop', 'stop that', 'cancel the activity', 'cancel that activity',
   'stop doing that', 'stop what youre doing', 'stop doing it', 'please stop',
   'stop please', 'cancel it']);
+// Explicit navigation stop commands may cancel the most recent owned ACT6
+// journey regardless of whether the trip came from ACT5 or player UX.
+// Generic ACT5 "stop" retains the stricter dialogue-only cancellation policy.
+const NAV_STOP = new Set(['stop driving','stop the car','stop the trip','cancel the trip',
+  'end the trip','stop walking','stop moving','stop navigation']);
+const DRIVE_STOP = new Set(['stop driving','stop the car','stop the trip','cancel the trip','end the trip']);
+const WALK_STOP = new Set(['stop walking','stop moving']);
+const NAV_NAMES = Object.freeze(new Map([
+  ['airport','airport'],['lsia','lsia'],['los santos international airport','los santos international airport'],
+  ['del perro pier','del perro pier'],['vespucci beach','vespucci beach'],
+  ['sandy shores airfield','sandy shores airfield'],['paleto bay','paleto bay'],
+]));
 const INTENT_YES = Object.freeze({
   board_vehicle: new Set(['sure hop in','yeah hop in','yes hop in','go ahead hop in',
     'sure get in','yes get in','go ahead get in','you can hop in']),
@@ -59,6 +71,9 @@ export const ACT5_CHOICES = Object.freeze({
     .map(seat => ({ vehicle: playerVehicle, seat }))),
   ride_along: frozen(['any_passenger','passenger','rear'].map(seat => ({ seat }))),
   exit_vehicle_and_hold: frozen([{}]),
+  // ACT6 is independently opt-in and requires current native availability.
+  go_to_place: frozen([{place:{kind:'waypoint'}}]),
+  vehicle_trip: frozen([{place:{kind:'waypoint'}}]),
 });
 // Backward-compatible primary option. Validation and provider schemas always
 // use ACT5_CHOICES, not this first-choice convenience map.
@@ -69,6 +84,20 @@ const clean = value => String(value || '').trim().toLowerCase()
   .replace(/[’]/g, "'").replace(/[.,!?;:]+/g, ' ')
   .replace(/'/g, '')
   .replace(/\s+/g, ' ').trim();
+// Closed player-origin text only. No free-form Lua/GTA coordinates, models or
+// arbitrary named locations may become a nav target.
+export function parseAct6PlayerRequest(input) {
+  const utterance = clean(input);
+  const match = /^(walk over to|walk to|go over to|go to|head to|head over to|drive us to|drive to|take me to|take us to|get us to|drive over to) (?:the |my )?([a-z0-9 ]+?)( and wait)?$/.exec(utterance);
+  if (!match) return null;
+  const target = ['waypoint','my waypoint','map marker','map waypoint','gps marker'].includes(match[2])
+    ? {kind:'waypoint'} : NAV_NAMES.has(match[2]) ? {kind:'named',query:NAV_NAMES.get(match[2])} : null;
+  if (!target) return null;
+  const driving = match[1].includes('drive') || ['take me to','take us to','get us to'].includes(match[1]);
+  if (driving && match[3]) return null;
+  const intent = driving ? 'vehicle_trip' : match[3] ? 'move_to_and_hold' : 'go_to_place';
+  return Object.freeze({intent,slots:Object.freeze({place:Object.freeze(target)})});
+}
 const replyKind = (response, intent) => {
   if (NO.has(response) || CANCEL.has(response)) return 'decline';
   if (YES.has(response) || INTENT_YES[intent]?.has(response) === true) return 'approve';
@@ -91,6 +120,11 @@ export function act5WorldAvailable(intent, slots, state) {
   if (state?.version === 1 && state.safe !== true) return false;
   // Older native installs have no advisory snapshot: retain ACT2's historical
   // checks, but never expose an ACT3 physical offer without native evidence.
+  if (intent === 'go_to_place' || intent === 'vehicle_trip') {
+    if (state?.version !== 1 || state.safe !== true) return false;
+    return intent === 'go_to_place' ? state.actorOnFoot === true :
+      state.actorInVehicle === true && state.actorIsDriver === true;
+  }
   if (intent === 'sit_here' || intent === 'accompany') {
     if (state?.version !== 1) return true;
     return state.safe === true && state.actorOnFoot === true &&
@@ -223,9 +257,11 @@ export class Act5Dialogue {
         return spec.steps.every(step => {
           const capability = step.capability;
           const row = this.activities.engine.registry.get(capability);
-          if (!row || !['ACT2','ACT3'].includes(row.phase)) return false;
+          if (!row || !['ACT2','ACT3','ACT6'].includes(row.phase)) return false;
           if (row.phase === 'ACT3' &&
               !(this.activities.engine.config.act3Capabilities || []).includes(capability)) return false;
+          if (row.phase === 'ACT6' &&
+              !(this.activities.engine.config.act6Capabilities || []).includes(capability)) return false;
           return row.allowedSources.includes('player_dialogue') &&
             row.allowedPriority.includes('player_direct') && row.execution.path !== 'none' &&
             this.activities.engine.registry.enabled(capability, {
@@ -285,7 +321,64 @@ export class Act5Dialogue {
     const characterId = context.owner.binding.characterId;
     const response = clean(input);
     const pending = this.pending.get(characterId);
+    if (!pending && NAV_STOP.has(response)) {
+      const owner = await this.#owner(turn);
+      if (!owner || !isCurrent?.() || owner.binding.characterId !== characterId ||
+          owner.binding.encounterId !== context.owner.binding.encounterId ||
+          owner.binding.incarnationId !== context.owner.binding.incarnationId ||
+          owner.binding.ownershipToken !== context.owner.binding.ownershipToken ||
+          owner.nativeRun !== context.owner.nativeRun ||
+          owner.adapterEpoch !== context.owner.adapterEpoch ||
+          owner.nativeClientRun !== context.owner.nativeClientRun ||
+          owner.sessionKey !== context.owner.sessionKey ||
+          !sameHostContext(owner.hostContext,context.owner.hostContext)) return null;
+      const latest = this.activities.engine.activities.filter(a=>a.actor.characterId === characterId).at(-1);
+      if (!latest || TERMINAL.has(latest.status) ||
+          latest.actor.encounterId !== owner.binding.encounterId ||
+          latest.actor.incarnationId !== owner.binding.incarnationId ||
+          latest.actor.ownershipToken !== owner.binding.ownershipToken ||
+          !['go_to_place','vehicle_trip','move_to_and_hold'].includes(latest.template) ||
+          DRIVE_STOP.has(response) && latest.template !== 'vehicle_trip' ||
+          WALK_STOP.has(response) && !['go_to_place','move_to_and_hold'].includes(latest.template)) return null;
+      const result = this.activities.cancel(characterId);
+      this.report('act6_player_stop',{ok:result?.ok===true,intent:latest.template});
+      return Object.freeze({kind:result?.ok?'cancelled':'unavailable',intent:latest.template});
+    }
     if (!pending) {
+      // Stage direct navigation only with ACT5's existing publication boundary.
+      const request=parseAct6PlayerRequest(response);
+      const needed=request?.intent==='vehicle_trip'?'drive_to':'walk_to';
+      if (request && TERMINAL.has(this.activities.status(characterId)?.status) &&
+          this.activities.engine.config.act6Capabilities?.includes(needed)) {
+        const owner=await this.#owner(turn);
+        if (!owner || !isCurrent?.() ||
+            owner.binding.characterId !== characterId ||
+            owner.binding.encounterId !== context.owner.binding.encounterId ||
+            owner.binding.incarnationId !== context.owner.binding.incarnationId ||
+            owner.binding.ownershipToken !== context.owner.binding.ownershipToken ||
+            owner.nativeRun !== context.owner.nativeRun ||
+            owner.adapterEpoch !== context.owner.adapterEpoch ||
+            owner.nativeClientRun !== context.owner.nativeClientRun ||
+            owner.sessionKey !== context.owner.sessionKey ||
+            !sameHostContext(owner.hostContext,context.owner.hostContext) ||
+            !act5WorldAvailable(request.intent,request.slots,owner.activityOffer)) return null;
+        const turnKey=keyFor(turn.identity)+':'+turn.identity.turnId+':'+turn.identity.generationId;
+        if (this.seenTurns.has(turnKey) || this.approvals.has(turnKey)) return null;
+        const now=this.now();
+        const proposed={
+          proposalVersion:1,proposalId:this.id(),source:'player_dialogue',
+          subject:{characterId},intent:request.intent,slots:request.slots,priority:'player_direct',
+          origin:{turn:{pedId:String(turn.identity.pedId),sessionNonce:turn.identity.sessionNonce,
+            turnId:turn.identity.turnId,generationId:turn.identity.generationId}},
+          proposedAtMs:now,
+        };
+        this.seenTurns.add(turnKey);
+        if (this.seenTurns.size>256) this.seenTurns.delete(this.seenTurns.values().next().value);
+        this.approvals.set(turnKey,{owner,pending:{activity:request,proposal:proposed,expiresAt:now+OFFER_MS}});
+        if (this.approvals.size>32) this.approvals.delete(this.approvals.keys().next().value);
+        this.report('act6_player_direct_staged',{intent:request.intent});
+        return Object.freeze({kind:'approval_pending',intent:request.intent});
+      }
       if (!CANCEL.has(response)) return null;
       const last = this.lastAccepted.get(characterId);
       if (!last) return null;

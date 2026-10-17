@@ -9,7 +9,7 @@ namespace LSA.Activities
         public string IncarnationId;
     }
 
-    // ACT2 resolves only "here": the actor position captured at admission.
+    // ACT2 captures "here"; ACT6 retains resolved native waypoint/landmark/player-nearby locations.
     public sealed class PlaceTable
     {
         public const int Limit = 32;
@@ -19,7 +19,9 @@ namespace LSA.Activities
         {
             if (place.PlaceRef == null || places.ContainsKey(place.PlaceRef)) return false;
             if (places.Count >= Limit) return false;
-            if (place.Kind != "here") return false;
+            if (place.Kind != "here" && place.Kind != "waypoint" && place.Kind != "named" && place.Kind != "near_player") return false;
+            if (float.IsNaN(place.X) || float.IsInfinity(place.X) || float.IsNaN(place.Y) || float.IsInfinity(place.Y) ||
+                float.IsNaN(place.Z) || float.IsInfinity(place.Z) || System.Math.Abs(place.X) > 9000 || System.Math.Abs(place.Y) > 9000 || place.Z < -150 || place.Z > 2500) return false;
             places.Add(place.PlaceRef, place);
             return true;
         }

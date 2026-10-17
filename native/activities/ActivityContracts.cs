@@ -151,7 +151,7 @@ namespace LSA.Activities
         public static readonly string[] SeatNames = { "driver","passenger","rear","any_passenger" };
         public static readonly string[] ScenarioKeys = { "smoke","drink_coffee","phone","lean","stand_idle","sit_bench","clipboard","binoculars" };
         public static readonly string[] ItemKeys = { "canned_goods","donut","breakfast_snack","snack","soda","beer","coffee","liquor","energy_drink","water" };
-        static bool FrameCapability(string value) => value == "hold_position" || value == "follow_person" || value == "resume_ambient" || value == "sit_on_ground" || Array.IndexOf(Act3Capabilities, value) >= 0;
+        static bool FrameCapability(string value) => value == "hold_position" || value == "follow_person" || value == "resume_ambient" || value == "sit_on_ground" || value == "walk_to" || value == "drive_to" || Array.IndexOf(Act3Capabilities, value) >= 0;
         static bool Token(string value) => value != null && Regex.IsMatch(value,"^[a-z][a-z0-9_]{0,47}$");
         static bool TokenArray(object[] value,int max)
         {
@@ -166,7 +166,12 @@ namespace LSA.Activities
             if (role == "vehicle") return Exact(slot,"kind") && slot["kind"] as string == "player_vehicle";
             if (role == "place") {
                 if (!Exact(slot,"kind","place") || slot["kind"] as string != "place" || !(slot["place"] is Dictionary<string,object> place)) return false;
-                return Exact(place,"kind") && place["kind"] as string == "here";
+                if (Exact(place,"kind") && (place["kind"] as string == "here" || place["kind"] as string == "waypoint")) return true;
+                if (Exact(place,"kind","query") && place["kind"] as string == "named" && place["query"] is string query)
+                    return query.Length > 0 && query.Length <= 40 && Regex.IsMatch(query, @"^[a-z0-9][a-z0-9 '\-]{0,39}$");
+                if (Exact(place,"kind","person") && place["kind"] as string == "near_person" && place["person"] is Dictionary<string,object> person)
+                    return Exact(person,"kind") && person["kind"] as string == "player";
+                return false;
             }
             return false;
         }
@@ -178,7 +183,7 @@ namespace LSA.Activities
                 var kind = target["kind"] as string;
                 return (kind == "player" || kind == "capture") && target["captureRef"] is string targetRef && IsUuid(targetRef);
             }
-            if (capability == "hold_position") {
+            if (capability == "hold_position" || capability == "walk_to" || capability == "drive_to") {
                 if (!Exact(value,"place") || !(value["place"] is Dictionary<string,object> place) || !Exact(place,"kind","placeRef")) return false;
                 return place["kind"] as string == "place" && place["placeRef"] is string placeRef && IsUuid(placeRef);
             }
@@ -202,7 +207,7 @@ namespace LSA.Activities
             foreach (var key in new[]{"establishMs","completeMs","holdMaxMs"}) if (value[key] != null && !NonNegative(value[key],3600000)) return false;
             return true;
         }
-        public static readonly string[] CompletionAdapterIds = { "hold_mode","follow_mode","pose_mode","cover_mode","drive_mode","approach","seat_occupancy","vehicle_exit","held_item","item_transfer","walk_away","resume_ambient","scenario","scenario_at" };
+        public static readonly string[] CompletionAdapterIds = { "hold_mode","follow_mode","pose_mode","cover_mode","drive_mode","approach","seat_occupancy","vehicle_exit","held_item","item_transfer","walk_away","resume_ambient","scenario","scenario_at","place_arrival","drive_arrival" };
         static bool Completion(Dictionary<string,object> value)
         {
             if (!Exact(value,"adapter","until") || !(value["adapter"] is string adapter) ||
