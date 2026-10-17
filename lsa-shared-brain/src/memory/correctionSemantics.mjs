@@ -21,7 +21,7 @@ const fail = code => { throw new Error(code); };
 
 // fact_revision is privileged administration of an extracted/reported memory,
 // never a conversational authority to rewrite witnessed events or raw speech.
-export const CORRECTION_MODES = Object.freeze(['transcript', 'counter_claim','fact_revision']);
+export const CORRECTION_MODES = Object.freeze(['transcript', 'counter_claim','fact_revision','player_fact']);
 const columnKnown = new WeakSet();
 
 /** Additive, idempotent migration under the single P2 writer. */
@@ -78,6 +78,13 @@ export function isPrivatelyCorrectableFact(db,scopeKeys,targetId,parents=new Set
 /** Effective semantics of one stored correction row. */
 export function resolveCorrectionMode(db, scopeKeys, row) {
   if (row.mode === 'counter_claim') return 'counter_claim';
+  if(row.mode==='player_fact'){
+    // Only authentic accepted player lines may be replaced conversationally.
+    const original=db.prepare("SELECT 1 AS ok FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=? AND speaker='player' AND delivery='accepted' AND source IN ('typed','stt')")
+      .get(...scopeKeys,row.targetId);
+    if(!original)fail('memory_correction_integrity_failed');
+    return 'player_fact';
+  }
   if(row.mode==='fact_revision') {
     if(!db.prepare('SELECT 1 FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?')
       .get(...scopeKeys,row.targetId)||!isPrivatelyCorrectableFact(db,scopeKeys,row.targetId))fail('memory_correction_integrity_failed');
@@ -88,7 +95,7 @@ export function resolveCorrectionMode(db, scopeKeys, row) {
 
 /**
  * All correction rows for an owner scope [world, character, timeline] with
- * their resolved mode. `supersedes` is true only for transcript corrections.
+ * their resolved mode. `supersedes` is true only for strictly verified replacements.
  */
 export function readCorrectionRows(db, scopeKeys) {
   const modeSql = hasModeColumn(db) ? 'c.correction_mode' : 'NULL';
@@ -109,7 +116,7 @@ export function readCorrectionRows(db, scopeKeys) {
   });
 }
 
-/** Targets hidden from recall/replay/candidates: transcript corrections only. */
+/** Targets hidden from recall/replay/candidates: verified superseding corrections. */
 export function supersededTargetIds(db, scopeKeys) {
   const ids = new Set();
   const rows=readCorrectionRows(db,scopeKeys);
@@ -119,6 +126,23 @@ export function supersededTargetIds(db, scopeKeys) {
   // extraction as well. Raw bytes remain available to private administration.
   // This prevents M6/M7 or a sibling derived record from reviving the old fact.
   const revised=new Set(rows.filter(r=>r.mode==='fact_revision').map(r=>r.targetId));
+  const playerFacts=new Set(rows.filter(r=>r.mode==='player_fact').map(r=>r.targetId));
+  if(playerFacts.size){
+    // A corrected accepted player line cannot remain an active premise of
+    // an older M6/M7 derived fact. Unlike privileged fact edits, do NOT revoke
+    // upstream sources unrelated to this particular player-name assertion.
+    const edges=db.prepare('SELECT memory_id AS id,evidence_ids_json AS json FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
+      .all(...scopeKeys).map(r=>({id:r.id,sources:JSON.parse(r.json)}));
+    for(const edge of edges)if(!Array.isArray(edge.sources)||edge.sources.length>64||
+      !edge.sources.every(isUuid))fail('memory_correction_integrity_failed');
+    let changed=true;
+    while(changed){changed=false;for(const edge of edges)
+      if(!playerFacts.has(edge.id)&&edge.sources.some(id=>playerFacts.has(id))){
+        playerFacts.add(edge.id);changed=true;
+      }
+    }
+    for(const id of playerFacts)ids.add(id);
+  }
   if(revised.size){
     const edges=db.prepare('SELECT memory_id AS id,evidence_ids_json AS json FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
       .all(...scopeKeys).map(r=>{
