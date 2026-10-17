@@ -14,7 +14,14 @@ export function bindTrustedTimelineSource({store,intelligenceClient,autoResume=f
   const revoke=(reason='unknown_source')=>{
     lastTrustedHost=null;
     try {store.setVerifiedHostContext(null);} finally {
-      store.onBoundary({reason});
+      // A transient native pipe disconnect revokes current reads/writes through
+      // setVerifiedHostContext(null), including already-queued operations. It
+      // is not itself evidence of a save fork or timeline change. Marking it
+      // as an ambiguous timeline boundary permanently prevents opt-in single-
+      // timeline auto-resume after the next authenticated C-13 HELLO.
+      // True source replacement, unknown provenance and qualified world/save
+      // boundaries still retire the selected timeline until re-confirmed.
+      if(reason!=='native_disconnect') store.onBoundary({reason});
     }
   };
   // Listen to post-validation C-13 events only, never raw socket messages or
