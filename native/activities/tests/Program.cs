@@ -438,11 +438,11 @@ partial class Program
         var dispatch = File.ReadAllText(Path.Combine(dispatchRoot, "native", "promoted-characters", "ActivityDispatch.cs"));
         // Only the newly opt-in ACT6 route extension may issue GTA task natives.
         // Keep the ACT2/ACT3 queue-only contract and the broad-control prohibition.
-        var taskCalls = System.Text.RegularExpressions.Regex.Matches(dispatch, "\\"TASK_[A-Z_]+\\"")
+        var taskCalls = System.Text.RegularExpressions.Regex.Matches(dispatch, "\"TASK_[A-Z_]+\"")
             .Cast<System.Text.RegularExpressions.Match>().Select(match => match.Value).ToArray();
-        Check(taskCalls.SequenceEqual(new[] { "\\"TASK_FOLLOW_NAV_MESH_TO_COORD\\"", "\\"TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE\\"", "\\"TASK_STAND_STILL\\"" }),
+        Check(taskCalls.SequenceEqual(new[] { "\"TASK_FOLLOW_NAV_MESH_TO_COORD\"", "\"TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE\"", "\"TASK_STAND_STILL\"" }),
             "only the three ACT6 native task calls are present");
-        Check(dispatch.Contains("capability == \\"walk_to\\" || capability == \\"drive_to\\""), "ACT6 task dispatch is capability-gated");
+        Check(dispatch.Contains("capability == \"walk_to\" || capability == \"drive_to\""), "ACT6 task dispatch is capability-gated");
         foreach (var forbidden in new[] { "CLEAR_PED", "CancelAll", "ReleaseExclusiveControl", "SetControlledBrain" }) Check(!dispatch.Contains(forbidden), "dispatch does not " + forbidden);
     }
     static StepMachine NewMachine(CapabilityTable table) => new StepMachine(table.NamesFor, id => table.Get(id)?.AcceptMs ?? 2000, id => table.Get(id)?.HoldMaxMs ?? 0, id => table.Get(id)?.Mode == true);
