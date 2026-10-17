@@ -173,6 +173,10 @@ namespace LSA.Intelligence
                         scenes.Remove(track.Current.Id);track.Current=null;
                     }
                 }
+                // An already claimed source belongs to one native ticket.
+                // A later idle/travel event must not replace its identity
+                // while Essential is still preparing or playing speech.
+                if(track.Current?.ClaimedTicket!=null)kind=null;
                 if(kind!=null)Emit(track,kind,anchor.CaptureRef,playerAnchor.CaptureRef,
                     owner.Lifetime,state.Revision,host,world,actorCar,
                     Role(ped,playerPed,actorCar),now);
@@ -225,7 +229,8 @@ namespace LSA.Intelligence
             }
             // Explicit user action can initiate a fresh opportunity, but a
             // duplicate click cannot queue overlapping native scenes.
-            if(track.Current!=null && track.Current.Expires>now &&
+            if(track.Current?.ClaimedTicket!=null ||
+               track.Current!=null && track.Current.Expires>now &&
                track.Current.Kind=="manual")return null;
             string car=VehicleHandle(selected),playerCar=VehicleHandle(local);
             var shared=car!=null && car==playerCar;
@@ -250,6 +255,17 @@ namespace LSA.Intelligence
                request.OwnerIncarnationId==scene.Owner &&
                request.ProofRevision==scene.OwnerRevision &&
                request.HostRunId==scene.Host && request.WorldEpoch==scene.World;
+        }
+        // A cancelled/completed native ticket retires its source permanently;
+        // never make a claimed scene available for duplicate admission.
+        public bool Release(DirectorAdmission.Request request) {
+            if(request?.Operation!="cancel" || !Current(request))return false;
+            Scene scene=scenes[request.ObservationId];
+            scenes.Remove(scene.Id);
+            Track track;
+            if(actors.TryGetValue(scene.Owner,out track) &&
+               track.Current?.Id==scene.Id)track.Current=null;
+            return true;
         }
         public bool Claim(DirectorAdmission.Request request) {
             if(!Current(request))return false;
