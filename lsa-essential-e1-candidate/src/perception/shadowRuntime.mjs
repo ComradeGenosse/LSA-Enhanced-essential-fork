@@ -139,6 +139,16 @@ export class ShadowRuntime {
       this.reset('manual');this.memoryCurrentOwnerPlayerVersion=memoryCurrentOwnerPlayerVersion;this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
       this.capabilities=capabilities;this.transcripts?.setActiveRun(epoch);this.lastReceipt=this.now();return true;
     }
+    // EA protagonist frame only confirms transport/order + current native host.
+    // It does not grant D01, D02, PS2 or a memory actor binding.
+    if(v.type==='protagonist_model') {
+      if(!this.hostContext ||
+         v.payload.hostRunId!==this.hostContext.hostRunId ||
+         v.payload.worldEpoch!==this.hostContext.worldEpoch) {
+        this.reset('fault');return false;
+      }
+      return true;
+    }
     if(v.type==='memory_authority') {
       if(!this.hostContext||v.payload.hostRunId!==this.hostContext.hostRunId||
          v.payload.worldEpoch!==this.hostContext.worldEpoch)return false;
