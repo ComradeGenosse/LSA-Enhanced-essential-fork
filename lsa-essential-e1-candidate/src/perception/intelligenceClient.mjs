@@ -226,6 +226,19 @@ export class IntelligenceClient {
   // Preview-only in v1.0's unaccepted native stage: no PS6 decisions are
   // selected here and the native preview endpoint cannot admit Essential turns.
   // Future admitted requests MUST use the same closed v1 encoder.
+  // Debug-only editor initiation: the native owner fiber resolves Essential's
+  // actual selected promoted NPC and creates an ordinary verified scene.
+  // A successful write only queues an invitation; it is not a speech receipt.
+  requestDirectorSocialManual() {
+    if(this.closed || this.config.mode!=='shadow' ||
+       this.runtime.directorRequestVersion!==1 ||
+       !this.getNativeStream().authenticated ||
+       !this.runtime.directorPriority?.experimentalEnabled ||
+       !this.socket || this.socket.destroyed || !this.socket.writable ||
+       this.socket.writableLength>BOUNDS.frameBytes)return false;
+    const line=JSON.stringify({version:1,type:'director.social_manual',operation:'start'})+'\\n';
+    try {this.socket.write(line);return true;}catch{return false;}
+  }
   sendDirectorPreview(args) {
     if(this.closed || this.runtime.directorRequestVersion!==1 ||
         !this.socket || this.socket.destroyed || !this.socket.writable ||
