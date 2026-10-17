@@ -133,7 +133,7 @@ async function boot(t,{root,capabilities,h=harness(),cloud=fakeCloud(),native=nu
 async function confirm(store,timelineId,native=null){
   const hostRunId=id();
   store.setVerifiedHostContext({hostContextVersion:1,hostRunId,worldEpoch:1});
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   if(native){native.hostRunId=hostRunId;native.timelineId=timelineId;native.quiet=true;}
   return hostRunId;
 }

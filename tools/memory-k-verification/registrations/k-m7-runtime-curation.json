@@ -1,6 +1,8 @@
 {
   "version": 1,
   "files": [
-    "lsa-essential-e1-candidate/tests/memory-m7-runtime-curation.test.mjs"
+    "lsa-essential-e1-candidate/tests/memory-m7-runtime-curation.test.mjs",
+    "lsa-essential-e1-candidate/tests/memory-m7-idle-proof-source.test.mjs",
+    "lsa-essential-e1-candidate/tests/memory-m7-native-diagnostic.test.mjs"
   ]
 }

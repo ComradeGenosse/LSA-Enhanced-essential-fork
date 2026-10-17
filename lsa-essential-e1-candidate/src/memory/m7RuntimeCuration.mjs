@@ -274,6 +274,8 @@ export function createM7RuntimeCuration({config,store,isPaused=()=>false,subscri
         completed:queueView.jobs.completed,deadLetter:queueView.jobs.dead_letter,dueNow:queueView.dueNow,
         curatedAppraisals:queueView.appraisals}):null,
       nativeIdle:sourceAvailable()?'source_registered':'source_unavailable',
+      // Content-free reason code from the idle source (e.g. backend_activity).
+      idleProof:(()=>{try{const r=nativeIdleSource()?.diagnostics?.()?.reason;return SAFE_CODE.test(r??'')?r:null;}catch{return null;}})(),
       curatedThisRun:stats.curated,checkpoints:stats.checkpoints,lastCheckpoint:stats.lastCheckpoint,
       lastErrorCode:stats.lastErrorCode,consecutiveFailures:stats.consecutiveFailures,
       recovered:recoveredKey!==null});

@@ -31,6 +31,9 @@ import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
 import {createMemoryKRuntimeComposition,memoryKDialogueActivation,memoryKM6Activation,memoryKM7Activation,runtimeCleanupError} from './memory/runtimeComposition.mjs';
 import {createM6RuntimeRetention} from './memory/m6RuntimeRetention.mjs';
 import {createM7RuntimeCuration} from './memory/m7RuntimeCuration.mjs';
+import {createM7IdleProofSource} from './memory/m7IdleProofSource.mjs';
+import {createNativeMemoryAuthority} from './memory/nativeMemoryAuthority.mjs';
+import {resolveLivePromotedProfile} from './memory/livePromotedProfile.mjs';
 import {memoryKSourceActivation} from './memory/sourceActivation.mjs';
 import {bindTrustedTimelineSource} from './characters/timelineSourceBridge.mjs';
 import {memoryKM3Activation,unavailableM3States} from './memory/m3Activation.mjs';
@@ -177,9 +180,9 @@ export async function createRuntimeForBundle(options = {}) {
       const cloudCuration=createM7RuntimeCuration({config,store:cloudStore,
         isPaused:()=>runtime.memoryPause.paused||runtime.closed===true,
         subscribePause:listener=>runtime.memoryPause.subscribe(listener),
-        // Authenticated native producer only. None is registered by the pinned
-        // Core today (see W07), so the state stays blocked until one exists.
-        nativeIdleSource:()=>options.m7NativeIdleSource??runtime.intelligence?.m7NativeIdleSource??null,
+        // W07: the joined native + original-backend proof source (m7IdleProofSource),
+        // registered once the authenticated native channel exists. Absent => blocked.
+        nativeIdleSource:()=>options.m7NativeIdleSource??runtime.m7IdleSource??null,
         fetchImpl:options.fetchImpl??globalThis.fetch,
         ...options.m7CloudCurationOptions});
       owner.own('memory.cloudCuration',cloudCuration,value=>value.dispose());
@@ -418,6 +421,29 @@ export async function createRuntimeForBundle(options = {}) {
           owner.own('m7.boundary',runtime.intelligence.subscribeWorldBoundary(()=>{
             try{runtime.cloudCuration?.invalidate();}catch{}
           }),unsubscribe=>unsubscribe());
+          // W07 idle proof: authenticated native diagnostic joined to the ORIGINAL
+          // backend turn timeline. Needs only P2 + the native owner ledger; it uses
+          // no M3/M4/H1/M8 state and no PS3 ticket, receipt or Director grant.
+          try{
+            const idleStore=runtime.memoryPause.optionalStore(runtime.characterService.store);
+            const idleAuthority=createNativeMemoryAuthority({
+              subscribeAuthenticatedNativeFrames:(onFrame,onRetire)=>
+                runtime.intelligence.subscribeAuthenticatedNativeMemoryAuthority(onFrame,onRetire),
+              profileForAlias:alias=>resolveLivePromotedProfile(idleStore,alias)});
+            owner.own('m7.idleAuthority',idleAuthority,value=>value.close());
+            const idleSource=createM7IdleProofSource({intelligence:runtime.intelligence,store:idleStore,
+              resolveOwner:input=>idleAuthority.resolveNativeOwner(input),
+              backend:Object.freeze({
+                sample:()=>runtime.host.directorTurnPrioritySnapshot(),
+                observe:observer=>runtime.observeOriginalTurnTransitions(observer),
+                leaseActive:()=>runtime.originalTurnLeaseActive()}),
+              // A configured Director whose state cannot be read counts as busy.
+              directorBusy:()=>config.spontaneousSpeech.mode==='off'?false:
+                (runtime.spontaneousSpeechBusy?.()??true),
+              ...options.m7IdleSourceOptions});
+            owner.own('m7.idleSource',idleSource,value=>value.dispose());
+            runtime.m7IdleSource=idleSource;
+          }catch{runtime.m7IdleSource=null;try{console.warn('[M7] idle_proof_source_unavailable');}catch{}}
         }
         runtime.intelligence.start();
       }catch{
@@ -493,6 +519,7 @@ export async function createRuntimeForBundle(options = {}) {
       },
     });
     runtime.director=pump;
+    runtime.spontaneousSpeechBusy=()=>admission.active!==null&&admission.active!==undefined;
     owner.own('director.pump',pump,value=>value.stop());
     runtime.services.spontaneousSpeechStatus=()=>Object.freeze({
       requested:config.spontaneousSpeech.mode,

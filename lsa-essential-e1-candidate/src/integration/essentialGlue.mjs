@@ -52,6 +52,7 @@ export const MEMORY_K_COMPOSITION_VERSION=1;
 export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner, memoryNativeAuthority = null, deferCharacterInitialization = false, verifiedProtagonistAuthority = null } = {}) {
   const actorPresence=new ActorPresenceStore();
   const originalTurnTimeline=new OriginalEssentialTurnTimeline();
+  const originalTurnObservers=new Set();
   dialogueTrace ||= createNoopDialogueTrace();
   const history = new DialogueHistory({ maxMessages: config.maxHistoryMessages, onMetric: (event, data) => telemetry?.emit(event, null, null, data) });
   const connections = new Set();
@@ -755,7 +756,21 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // These callbacks execute on the original backend's single JS event loop,
     // at source-pinned turn intake/terminal/session entrypoints. No actor
     // effect, turn creation, artificial terminal or stock scheduling.
-    originalTurnTransition:(event,ticketId)=>originalTurnTimeline.transition(event,ticketId),
+    originalTurnTransition:(event,ticketId)=>{
+      try{return originalTurnTimeline.transition(event,ticketId);}
+      finally{
+        // M7 idle fence: synchronous, read-only notification on the stock path.
+        // Observers cannot alter the transition, throw into it or see its ticket.
+        for(const observer of [...originalTurnObservers])try{observer(event);}catch{}
+      }
+    },
+    observeOriginalTurnTransitions(observer) {
+      if(typeof observer!=='function'||originalTurnObservers.size>=8)throw new TypeError('original_turn_observer_invalid');
+      originalTurnObservers.add(observer);
+      return ()=>originalTurnObservers.delete(observer);
+    },
+    // True while a Director reservation holds the original backend lease.
+    originalTurnLeaseActive:()=>originalTurnTimeline.leaseCount>0,
     awaitDirectorNativeBinding:ticket=>runtime.intelligence?.awaitDirectorNativeBinding?.(ticket) ?? Promise.resolve(false),
     beginDirectorOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.beginDirector(ticketId,snapshot),
     directorOriginalPhase:ticketId=>originalTurnTimeline.directorPhase(ticketId),

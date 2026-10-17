@@ -757,7 +757,9 @@ export class IntelligenceClient {
           sawLiveFrame=true;this.emptyHelloStreak=0;
         }
         if(accepted&&(v?.type==='hello'||v?.type==='world_epoch'))this.retireAuthenticatedNativeMemoryAuthority();
-        if(!accepted||['hello','world_epoch','anchors','retire','retire_batch','observer_index'].includes(v?.type))
+        // anchors/observer_index are periodic roster re-sends, so they must not retire a
+        // still-valid sample: the M7 source re-verifies the exact observer on every frame.
+        if(!accepted||['hello','world_epoch','retire','retire_batch'].includes(v?.type))
           this.retireAuthenticatedNativeM7Diagnostic();
         // Any source/protocol fault, anchor/owner change or epoch boundary
         // invalidates in-flight leases, not merely the next TTL refresh.
