@@ -1,3 +1,4 @@
+import {isDirectorSocialContext} from '../perception/directorSocialContext.mjs';
 // H1-A: source-authorized, read-only P2 CONVERSE preparation.
 // The module creates no SQLite connection, writer, model frame or native proof.
 // The caller must supply the existing D03/M2 accepted-line and owner authority.
@@ -200,4 +201,131 @@ export async function openH1ConversationSource({store,turn,acceptedReceipt,input
 export async function prepareH1ConversationHistory(args={}){
   const source=await openH1ConversationSource(args);
   return source.status==='ready'?source.prepare():source;
+}
+
+// Read-only H1 for the already-admitted native Director social lane. Unlike a
+// player turn, there is no accepted player line to anchor the read. The
+// authenticated social ticket and still-current native owner replace that
+// anchor; P2 remains the ONLY transcript and privacy source.
+export function assembleDirectorSocialConversation({rows,scope,suppressed=[],nowUtc}={}){
+  if(!Array.isArray(rows)||!scope||!Array.isArray(suppressed))return null;
+  const now=Date.parse(nowUtc);
+  if(!Number.isFinite(now))return null;
+  const hidden=new Set(suppressed),unique=new Map();
+  for(const row of rows){
+    if(!validLine(row)||!matchesScope(row,scope)||hidden.has(row.recordId)||
+       !uuid.test(row.attribution?.sessionId))continue;
+    const at=Date.parse(row.committedAtUtc);
+    // Only a current five-minute window. Do not replay ancient greetings,
+    // undelivered speech, or a future-dated line as something just said.
+    if(at>now+60_000||now-at<0||now-at>MAX_AGE)continue;
+    if(!unique.has(row.recordId))unique.set(row.recordId,row);
+  }
+  const ordered=[...unique.values()].sort((a,b)=>
+    Date.parse(b.committedAtUtc)-Date.parse(a.committedAtUtc)||
+    b.recordId.localeCompare(a.recordId));
+  const recent=[];
+  for(const row of ordered){
+    const item={role:row.speaker==='player'?'user':'assistant',content:row.content};
+    if(recent.length>=20||bytes([item,...recent])>12*1024)break;
+    recent.unshift(Object.freeze(item));
+  }
+  return Object.freeze({recent:Object.freeze(recent),earlier:Object.freeze([])});
+}
+
+export async function prepareDirectorSocialConversationHistory({
+  store,turn,source,isCurrent,isDirectorCurrent,nowUtc=new Date().toISOString()
+}={}){
+  const ticket=turn?.directorTicket,profile=turn?.characterProjection?.profile;
+  if(source!=='special_event'||!ticket?.decisionKey?.startsWith('social:')||
+     !isDirectorSocialContext(turn?.context?.internalEvent)||
+     typeof isCurrent!=='function'||typeof isDirectorCurrent!=='function'||
+     !store||typeof store.readDialogueLines!=='function'||
+     typeof store.listSuppressedMemoryIds!=='function'||
+     turn.characterProjection?.persistent!==true||
+     profile?.characterId!==turn.characterInputs?.profile?.characterId||
+     !uuid.test(profile?.characterId)||
+     !profile?.promotion?.ownerAlias)return unavailable('source_authority_missing');
+  try{
+    const characterId=profile.characterId,alias=profile.promotion.ownerAlias;
+    const scope=Object.freeze({characterId,worldProfileId:store.worldProfileId,
+      timelineId:store.activeTimelineId});
+    const host=store.verifiedHostContext;
+    const stamp=Object.freeze({...scope,hostRunId:host?.hostRunId,
+      worldEpoch:host?.worldEpoch,ownerIncarnationId:ticket.ownerIncarnationId,
+      speakerCaptureRef:ticket.speakerCaptureRef});
+    const current=()=>isCurrent()===true&&isDirectorCurrent(ticket)===true&&
+      turn.characterProjection?.persistent===true&&
+      turn.characterProjection.profile?.characterId===characterId&&
+      turn.characterProjection.profile?.promotion?.ownerAlias===alias&&
+      turn.characterInputs?.profile?.characterId===characterId&&
+      uuid.test(scope.worldProfileId)&&uuid.test(scope.timelineId)&&
+      store.timelineWritable===true&&store.activeTimelineId===scope.timelineId&&
+      store.worldProfileId===scope.worldProfileId&&
+      sameHost(store.verifiedHostContext,host)&&
+      store.get(characterId)?.promotion?.ownerAlias===alias;
+    if(!host||!sameHost(host,ticket)||!current())
+      return unavailable('source_authority_missing');
+    const privacy=async()=>{
+      const hidden=await store.listSuppressedMemoryIds(scope,{includeCorrections:true});
+      if(!current()||!Array.isArray(hidden))throw Error('privacy_source_revoked');
+      const overlays=await store.readCorrectionOverlays?.(scope)??[];
+      if(!current()||!Array.isArray(overlays))throw Error('privacy_source_revoked');
+      return [...new Set([...hidden,...overlays.filter(x=>x.supersedesTarget!==false)
+        .map(x=>x.targetId)])].sort();
+    };
+    const snapshot=async()=>{
+      const fence=store.memoryReadFence;
+      if(fence===null||fence===undefined||!current())return null;
+      const hidden=await privacy();
+      const rows=await store.readDialogueLines({characterId,timelineId:scope.timelineId,limit:200});
+      if(!current()||store.memoryReadFence!==fence)return null;
+      const journal=assembleDirectorSocialConversation({rows,scope,suppressed:hidden,nowUtc});
+      return journal?{journal,fence}:null;
+    };
+    const initial=await snapshot();
+    if(!initial)return unavailable('history_unavailable');
+    if(!initial.journal.recent.length)return unavailable('no_recent_dialogue');
+    const seal=JSON.stringify(initial.journal);
+    let verifiedFence=null,verifiedRequestFence=null;
+    const verifyPrepared=async()=>{
+      verifiedFence=null;
+      try{
+        const fresh=await snapshot();
+        if(!fresh||JSON.stringify(fresh.journal)!==seal)
+          return invalidated('history_changed');
+        verifiedFence=fresh.fence;
+        verifiedRequestFence=store.memoryRequestFence??fresh.fence;
+        return readyVerification;
+      }catch{return invalidated('history_read_failed');}
+    };
+    const sendCurrent=()=>verifiedFence!==null&&current()&&
+      store.memoryReadFence===verifiedFence;
+    const sendCurrentInFlight=()=>verifiedFence!==null&&current()&&
+      (store.memoryRequestFence??store.memoryReadFence)===verifiedRequestFence;
+    const invalidationReason=()=>!current()?'authority_revoked':
+      verifiedFence===null?'not_verified':
+      store.memoryRequestFenceFailure?.(verifiedRequestFence)??
+      (sendCurrentInFlight()?null:'source_changed');
+    return Object.freeze({status:'ready',conversationJournal:initial.journal,stamp,
+      verifyPrepared,sendCurrent,sendCurrentInFlight,invalidationReason});
+  }catch{return unavailable('history_unavailable');}
+}
+
+// Keep M9's independent event recall if a scene has both verified sources.
+// Neither lane is allowed to bootstrap or relax the other's source proof.
+export function combineDirectorSocialMemory(callback,history){
+  if(history?.status!=='ready')return callback??null;
+  if(callback?.status!=='ready')return history;
+  return Object.freeze({...callback,
+    conversationJournal:history.conversationJournal,stamp:history.stamp,
+    async verifyPrepared(){
+      const a=await callback.verifyPrepared?.();
+      const b=await history.verifyPrepared();
+      return (a===true||a?.status==='ready')&&b?.status==='ready';
+    },
+    sendCurrent:()=>callback.sendCurrent()&&history.sendCurrent(),
+    sendCurrentInFlight:()=>callback.sendCurrentInFlight()&&history.sendCurrentInFlight(),
+    invalidationReason:()=>callback.invalidationReason?.()??history.invalidationReason(),
+  });
 }
