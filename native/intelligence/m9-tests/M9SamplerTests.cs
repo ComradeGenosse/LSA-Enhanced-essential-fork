@@ -85,9 +85,11 @@ internal static class M9SamplerTests
     public static void Run(Action<bool, string> check)
     {
         var json = new JavaScriptSerializer { MaxJsonLength = 8192, RecursionLimit = 8 };
-        // 1. Idle on foot sends nothing and spends no witness geometry.
+        // 1. Idle on foot sends a sparse verified heartbeat, never witness geometry.
         var f = new Fixture();
-        check(f.Sampler.Build(f.Foot(), 1000, 1000, f.Witnesses(1000)) == null, "idle foot sample is skipped");
+        var quiet = f.Sampler.Build(f.Foot(), 1000, 1000, f.Witnesses(1000));
+        check(quiet != null && quiet["vehicleCaptureRef"] == null && quiet["outcome"] == null,
+              "idle foot sample is an event-free heartbeat");
         check(f.WitnessCalls == 0, "no witness geometry spent while idle");
 
         // 2. Plain driving sample: strict wire shape, nothing invented.
