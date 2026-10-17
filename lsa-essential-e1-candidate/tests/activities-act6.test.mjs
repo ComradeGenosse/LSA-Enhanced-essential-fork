@@ -5,7 +5,7 @@ import { validateAdmission } from '../src/activities/activityValidator.mjs';
 import { ACT6_CAPABILITY_IDS, normalizeActivityConfig, validateFrame } from '../src/activities/contracts.mjs';
 import { ACT6_INTENTS, planSpec, buildPlan } from '../src/activities/intentTemplates.mjs';
 import { loadCapabilityRegistry } from '../src/activities/capabilityRegistry.mjs';
-import { validateAct5Choice, parseAct6PlayerRequest } from '../src/activities/act5Dialogue.mjs';
+import { validateAct5Choice, parseAct6PlayerRequest, navigationRequestKind } from '../src/activities/act5Dialogue.mjs';
 
 const registry = loadCapabilityRegistry();
 const character = '11111111-1111-4111-8111-111111111111';
@@ -114,4 +114,23 @@ test('ACT6 player language is closed to real named locations and waypoint, never
   assert.equal(parseAct6PlayerRequest('Walk over to that building'),null);
   assert.equal(parseAct6PlayerRequest('Go to 244 -66 9'),null);
   assert.equal(parseAct6PlayerRequest('Get us to a random building'),null);
+});
+
+test('ACT6 understands bounded conversational driving without guessing a destination',()=>{
+  const waypoint={intent:'vehicle_trip',slots:{place:{kind:'waypoint'}}};
+  const airport={intent:'vehicle_trip',slots:{place:{kind:'named',query:'airport'}}};
+  assert.deepEqual(parseAct6PlayerRequest('All right, drive to the waypoint'),waypoint);
+  assert.deepEqual(parseAct6PlayerRequest('Okay Nathan, can you just drive to my map marker?'),waypoint);
+  assert.deepEqual(parseAct6PlayerRequest('Take us to my marker'),waypoint);
+  assert.deepEqual(parseAct6PlayerRequest('Drive us over there',{waypointAvailable:true}),waypoint);
+  assert.deepEqual(parseAct6PlayerRequest('Head to the airport',{actorInVehicle:true,actorIsDriver:true}),airport);
+  assert.deepEqual(parseAct6PlayerRequest('Head to the airport'),{intent:'go_to_place',slots:{place:{kind:'named',query:'airport'}}});
+  assert.deepEqual(parseAct6PlayerRequest('Drive us to the airport'),airport);
+  assert.equal(parseAct6PlayerRequest('Drive us over there'),null,'there cannot guess an absent waypoint');
+  assert.equal(parseAct6PlayerRequest('Drive us to that building'),null);
+  assert.equal(parseAct6PlayerRequest('We could drive to the waypoint tomorrow'),null);
+  assert.equal(parseAct6PlayerRequest('Drive to 12 34 56'),null);
+  assert.equal(navigationRequestKind('All right drive us over there'),'vehicle_trip');
+  assert.equal(navigationRequestKind('Take us to an unknown place'),'vehicle_trip');
+  assert.equal(navigationRequestKind('We talked about driving to the airport'),null);
 });
