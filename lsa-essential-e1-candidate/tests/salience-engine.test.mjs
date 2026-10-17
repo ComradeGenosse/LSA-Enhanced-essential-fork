@@ -85,7 +85,8 @@ test('opt-in PS6 ambient grants require verified source, keep radio/report quiet
   const observer=randomUUID(),player=randomUUID(),other=randomUUID();
   const make=(eventType,kind='presence',channel='visual',certainty='supported')=>
     observation({observer,eventType,severity:'routine',claims:[claim({kind,channel,
-      certainty,basis:'sampled_state',target:other})]});
+      certainty,basis:channel==='report'?'dialogue_report':channel==='auditory'?'audibility_model':'sampled_state',
+      reportRef:channel==='report'?randomUUID():undefined,target:other})]});
   const enabled=new SalienceCache({now:()=>NOW,ambientSpeech:true});
   const inactive=new SalienceCache({now:()=>NOW});
   for(const event of ['character_present','activity_changed','vehicle_transition']) {
