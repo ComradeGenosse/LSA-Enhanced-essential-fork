@@ -300,6 +300,63 @@ namespace LSA.PromotedCharacters
             if (!identity.Owner.TryResolveCurrent(encounter.Ped,out var claim)) throw new InvalidOperationException("ownership_conflict");
             return new {pedId = encounter.Ped.Handle.ToString(),encounterId = encounter.Id,ownerAlias = encounter.OwnerAlias,ownershipToken = encounter.OwnershipToken,claim,alreadyOwned};
         }
+        // ACT5 availability is a fresh, read-only GTA snapshot. It carries no
+        // handles or task authority across the pipe; C-02 still resolves and
+        // preflights every selected anchor after explicit player consent.
+        object ActivityOfferSnapshot(Encounter encounter)
+        {
+            bool inVehicle=false, safe=false, scenarioReady=false, nearby=false;
+            bool vehicleAvailable=false, vehicleStopped=false, frontFree=false, rearFree=false;
+            try
+            {
+                safe=Safe(encounter) && !encounter.Suspended;
+                inVehicle=NativeFunction.CallByName<bool>("IS_PED_IN_ANY_VEHICLE",encounter.Ped,false);
+                var player=Game.LocalPlayer.Character;
+                if(safe && player!=null && player.Exists() && !player.IsDead)
+                {
+                    var dx=encounter.Ped.Position.X-player.Position.X;
+                    var dy=encounter.Ped.Position.Y-player.Position.Y;
+                    var dz=encounter.Ped.Position.Z-player.Position.Z;
+                    nearby=dx*dx+dy*dy+dz*dz<=10000f;
+                    Vehicle vehicle=null;
+                    try { vehicle=player.IsInAnyVehicle(false)?player.CurrentVehicle:player.LastVehicle; } catch {}
+                    if(vehicle!=null && vehicle.Exists() && vehicle.IsAlive && vehicle.MemoryAddress!=IntPtr.Zero)
+                    {
+                        dx=encounter.Ped.Position.X-vehicle.Position.X;
+                        dy=encounter.Ped.Position.Y-vehicle.Position.Y;
+                        dz=encounter.Ped.Position.Z-vehicle.Position.Z;
+                        // Suggestions should be practical, not for a distant last car.
+                        vehicleAvailable=dx*dx+dy*dy+dz*dz<=2500f;
+                        if(vehicleAvailable)
+                        {
+                            vehicleStopped=vehicle.Speed<1.0f;
+                            frontFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,0,false);
+                            rearFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,1,false) ||
+                                NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,2,false);
+                        }
+                    }
+                    if(!inVehicle)
+                    {
+                        var state=NpcStateStore.TryGetState(encounter.Ped);
+                        scenarioReady=state!=null && !state.TakeCoverMode &&
+                            !state.EnterDriverSeatWhenPlayerVehicleNearby &&
+                            !state.EnterPassengerSeatWhenPlayerVehicleNearby &&
+                            !state.EnterBackPassengerSeatWhenPlayerVehicleNearby &&
+                            !state.DriveToXWhenBothSeated && !state.AssignedVehicleSeatEntryActive;
+                    }
+                }
+            }
+            catch
+            {
+                // Uncertain native state is never advertised as available.
+                return new {version=1,safe=false,actorInVehicle=false,actorOnFoot=false,
+                    playerNearby=false,vehicleAvailable=false,vehicleStopped=false,
+                    passengerFree=false,frontFree=false,rearFree=false,scenarioReady=false};
+            }
+            return new {version=1,safe,actorInVehicle=inVehicle,actorOnFoot=!inVehicle,
+                playerNearby=nearby,vehicleAvailable,vehicleStopped,
+                passengerFree=frontFree||rearFree,frontFree,rearFree,scenarioReady};
+        }
         object Handle(ControlRequest request)
         {
             var args = request.Args;
@@ -308,7 +365,13 @@ namespace LSA.PromotedCharacters
             if (request.Operation == "roster") {
                 Fields(args); return new {owned = encounters.Values.Where(item => item.Registration != null && Alive(item)).Select(item => new {ownerAlias = item.OwnerAlias,status = item.Suspended ? "suspended" : "spawned"}).ToArray(),encounters = encounters.Values.Where(Alive).Select(item => item.Id).ToArray()};
             }
-            if (request.Operation == "inspect") { Fields(args,"ownerAlias"); var item = Owned(Text(args,"ownerAlias")); return item == null ? null : Binding(item,true); }
+            if (request.Operation == "inspect") {
+                Fields(args,"ownerAlias"); var item=Owned(Text(args,"ownerAlias"));
+                if(item==null)return null;
+                if (!identity.Owner.TryResolveCurrent(item.Ped,out var claim)) throw new InvalidOperationException("ownership_conflict");
+                return new {pedId=item.Ped.Handle.ToString(),encounterId=item.Id,ownerAlias=item.OwnerAlias,
+                    ownershipToken=item.OwnershipToken,claim,alreadyOwned=true,activityOffer=ActivityOfferSnapshot(item)};
+            }
             if (request.Operation == "capture") {
                 Fields(args); var ped = CurrentPed();
                 var encounter = EncounterFor(ped);
