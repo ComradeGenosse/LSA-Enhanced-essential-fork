@@ -8,7 +8,7 @@ import {renderDirectorSocialContext} from './directorSocialContext.mjs';
 // Native admission statuses are a small fixed protocol vocabulary; never log
 // arbitrary response bodies, claim text, ticket IDs or owner identity.
 const NATIVE_VETOES = new Set(['unsafe','busy','stale','invalid','not_found']);
-const nativeVeto = receipt => NATIVE_VETOES.has(receipt?.status) ? receipt.status : 'unknown';
+const nativeVeto = receipt => !receipt ? 'missing_receipt' : NATIVE_VETOES.has(receipt.status) ? receipt.status : 'unknown';
 
 export class SceneDirectorSpeech {
   constructor({admission,nativeRequest,dispatch,now,originalEntitlement,mode='off'}={}) {

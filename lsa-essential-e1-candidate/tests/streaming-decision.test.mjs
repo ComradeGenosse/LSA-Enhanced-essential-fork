@@ -151,3 +151,9 @@ test('reflow stays within hard dialogue, segment and command validation limits',
     segments:[{text:'x '.repeat(119)+'DO WaitHere'}],command:''});
   assert.throws(()=>createSegmentDecoder().append(command),error=>error.code==='segment_invalid_text');
 });
+
+test('empty Luna dialogue is a separate failure, not segment budget exhaustion',()=>{
+ const decoder=createSegmentDecoder();
+ decoder.append(JSON.stringify({mode:'dialogue_only',segments:[],command:''}));
+ assert.throws(()=>decoder.finish(),error=>error.code==='segment_empty_dialogue');
+});

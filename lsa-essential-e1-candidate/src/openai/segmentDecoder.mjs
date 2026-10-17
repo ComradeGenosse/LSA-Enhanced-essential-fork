@@ -148,8 +148,14 @@ function validateDecision(value, limits) {
       throw new Error('ACT5 requires buffered_action and no stock command.');
   }
   if (!['dialogue_only', 'buffered_action'].includes(value.mode)) throw new Error('Decision mode is invalid.');
-  if (!Array.isArray(value.segments) || value.segments.length < 1 || value.segments.length > limits.maxSegments)
-    throw segmentFailure('segment_budget_exceeded', 'Decision segment count is invalid.');
+  if (!Array.isArray(value.segments))
+    throw segmentFailure('segment_invalid_text', 'Decision speech segments are missing.');
+  // An intentional silent decision is not a size-budget overflow. Treat
+  // it as failed speech, without publishing a fictitious completed turn.
+  if (value.segments.length===0)
+    throw segmentFailure('segment_empty_dialogue', 'Decision included no spoken dialogue.');
+  if (value.segments.length>limits.maxSegments)
+    throw segmentFailure('segment_budget_exceeded', 'Decision segment count exceeds the limit.');
   const normalized = normalizeSegments(value.segments, limits);
   if (typeof value.command !== 'string' || value.command.length > 300) throw new Error('Decision command is invalid or too long.');
   if (value.mode === 'dialogue_only' && value.command.trim())

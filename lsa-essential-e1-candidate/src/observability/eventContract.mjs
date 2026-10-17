@@ -96,9 +96,11 @@ const closedValues = new Map([
     'novelty_escalation','novelty_material','situation_occupied','situation_conversation','trait_policy','environment_requested',
     'routine_low_relevance','ambient_direct_witness'])],
   ['urgency', new Set(['urgent','routine'])],
+  ['sceneType', new Set(['shared_vehicle_entry','reunion','shared_idle','travel','activity_transition','manual','personal_curiosity'])],
 ]);
 const safeTokens = new Set([
   'delivered','expired','ack_key_retired','observation_expired',
+  'social','reactive','native_social_unavailable',
   'native_memory_source_timeout','memory_capture_unavailable','memory_receipt_unavailable','memory_capture_timeout','memory_capture_failed','memory_prepare_timeout','memory_prepare_failed','pre_request_stale',
   'memory_stale','recall_stale','opinion_stale','revision_mismatch','unclassified_stale_reason',
   'invalid_json','invalid_order','invalid_contract','sequence_gap','runtime_consistency',
@@ -118,6 +120,7 @@ const safeTokens = new Set([
   'reset_initialization','reset_disconnect','reset_fault','reset_timeout','reset_manual',
   'shadow_only','native_opt_in_and_live_c06_required','experimental',
   'reserved','submitted','bound','unsafe','busy','stale','no_candidate','not_admitted',
+  'segment_empty_dialogue',
   'no_eligible_evidence','event_context_unavailable','original_ps3_unavailable',
   'native_rejected','stale_after_reserve','stale_before_submit','native_submit_rejected',
   'stale_before_intake','incomplete_intake','tuple_rejected','not_delivered',
