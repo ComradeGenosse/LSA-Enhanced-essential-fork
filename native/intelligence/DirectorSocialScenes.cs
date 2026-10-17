@@ -25,7 +25,7 @@ namespace LSA.Intelligence
             public string Activity;
             public long NearSince,IdleSince,TripSince,LastSeen,LastSharedExit,NextPublish;
             public long LastTransition=-90000;
-            public long LastGreeting=-600000,LastEntry=-600000,LastIdle=-600000,LastTravel=-600000;
+            public long LastGreeting=-600000,LastEntry=-600000,LastIdle=-600000,LastTravel=-600000,LastCuriosity=-600000;
             public string LastEntryVehicle;
             public Rage.Vector3 LastPlayer,LastActor;
             public Scene Current;
@@ -127,6 +127,10 @@ namespace LSA.Intelligence
                 if(kind==null && sharedCar &&
                    now-track.TripSince>=45000 && now-track.LastTravel>=150000) {
                     kind="travel";track.LastTravel=now;
+                }
+                if(kind==null && near && now-track.NearSince>=95000 &&
+                   now-track.LastCuriosity>=240000) {
+                    kind="personal_curiosity";track.LastCuriosity=now;
                 }
                 if(kind==null && near && !sharedCar && track.Activity!=null &&
                    track.Activity!=state.Mode && now-track.LastTransition>=90000 &&
