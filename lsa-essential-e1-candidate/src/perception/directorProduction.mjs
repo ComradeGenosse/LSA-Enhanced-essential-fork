@@ -226,6 +226,9 @@ export class DirectorObservationPump {
           this.socialRetry.set(key,{count:(prior?.count??0)+1,at:now,nextAt:now+3000});
         }
       }
+      // A delivered social opening already covered this shared moment. Do
+      // not follow it with a duplicate PS3 ambient scene-change remark.
+      if(selected.social && outcome?.status==='delivered')this.ambientAt.set(selected.speaker,now);
       // A missing stamp previously appeared as a misleading PS3 grant failure.
       // Preserve the coordinator's status and execution behavior.
       const diagnosticReason=outcome?.status==='original_ps3_unavailable' ?
