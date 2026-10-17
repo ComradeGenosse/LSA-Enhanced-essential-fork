@@ -2,8 +2,8 @@ export const EVENT_NAMES = new Set([
   'run_started','bridge_ready','bridge_disconnected','run_shutdown','turn_bound','turn_stage','mic_input_captured','stt_completed','memory_bypass','memory_fallback','audio_handoff_started','phase_started','phase_finished','phase_failed','pcm_first_forwarded','voice_profile_assigned','speech_provider_selected',
   'input_ready','capture_started','capture_stopped','mic_chunk','input_overflow','provider_request_started',
   'provider_headers','provider_first_byte','provider_request_finished','provider_request_failed','model_usage',
-  'model_first_content_delta','stream_segment_validated','stream_tts_segment_started','stream_tts_segment_finished',
-  'decision_validated','decision_rejected','pcm_first_ready','pcm_delivery_summary','native_authorization_requested',
+  'model_first_content_delta','stream_segment_validated','stream_segments_reflowed','model_decision_validation_failure','stream_tts_segment_started','stream_tts_segment_finished',
+  'decision_validated','decision_rejected','pcm_first_ready','pcm_delivery_summary','elevenlabs_tts_timing_summary','native_authorization_requested',
   'native_authorization_accepted','native_authorization_rejected','native_playback_started','native_stream_end_handoff',
   'native_playback_ended','provider_deadline_fired','playback_watchdog_armed','playback_watchdog_fired','late_pcm_ignored',
   'provider_selected','provider_attempt_started','provider_attempt_succeeded','provider_retry_scheduled','provider_retry_skipped','provider_retry_exhausted','provider_retry_recovered',
@@ -19,6 +19,8 @@ export const EVENT_NAMES = new Set([
   'memory_journal_committed','memory_journal_not_committed',
   'memory_m3_intake_loss','memory_m3_coverage',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
+
+  'stream_segments_reflowed','model_decision_validation_failure','elevenlabs_tts_timing_summary','perception_trace','radio_trace','native_pcm_forward_failed', // Main/EA allowed vocab preserved alongside Memory K
 ]);
 
 const safeKeys = new Set([
@@ -57,17 +59,52 @@ const safeKeys = new Set([
   'traitsIncluded','memoryCount','biographyIncluded','relationshipIncluded','generatedPersonaPolicy',
   'truncatedFields','truncatedFieldCount','droppedMemoryCount',
   'activityId','intent','capability','receiptState','stepIndex','delivery',
+
+  'reflowedSegments','originalSegments','firstPcmMs','wallMs','generatedChunks','forwardedChunks','modelId','maxSegmentChars','maxDialogueChars','responseChars','playbackBufferMode','receivedChunks','generationDurationMs','forwardDurationMs','maxChunkGapMs','p95ChunkGapMs','slowChunkCount','forwardWaitMaxMs','underRealtime','streamRate','bufferedBytes','underrunRiskCount','fallbackUsed','captureEventRadio','selectedRadio','radioQuestion','traceCode','signalKind','producer','catalog','receipts','selfReceipts','qualified','ownedQualified','ownedObservers','ps2','ps2Reason','observations','ownedObservations','ps3Owned','ps3Reason','urgency','ps2OwnedWitnessed','ps2DedupeEvicted','ps2DropInvalidInput','ps2DropRadioIdentityMismatch','ps2DropUnsupportedEvent','ps2DropEpisodeClaimCapacity','ps2DropEpisodeRejected','ps2DropObservationClaimCapacity','ps2DropObservationRejected','ps3OwnedDecisions','ps3OwnedEligible','ps3OwnedUrgent','radioChanged','radioStopped','radioKnown','radioUnknown','radioMismatch','radioOff','radioObservations','radioOwnedObservations','nativeRadioSamples','nativeRadioEdges','nativeRadioFailures','nativeRadioWitnessed','nativeRadioWitnessUnknown','nativeWitnessDeferred','nativeWitnessUnknown','nativeWitnessRejected','ownerStalls','ownerStallMaxMs','traceEmitted','traceSuppressed', // Main/EA allowed vocab preserved alongside Memory K
+  // Bounded PS2/PS3/PS6 correlation diagnostics (closed vocabularies below).
+  'captureEventRadio','selectedRadio','radioQuestion',
+  'traceCode','signalKind','producer','catalog','receipts','selfReceipts','qualified','ownedQualified','ownedObservers',
+  'ps2','ps2Reason','observations','ownedObservations','ps3Owned','ps3Reason','urgency',
+  'ps2OwnedWitnessed','ps2DedupeEvicted','ps2DropInvalidInput','ps2DropRadioIdentityMismatch','ps2DropUnsupportedEvent',
+  'ps2DropEpisodeClaimCapacity','ps2DropEpisodeRejected','ps2DropObservationClaimCapacity','ps2DropObservationRejected',
+  'ps3OwnedDecisions','ps3OwnedEligible','ps3OwnedUrgent',
+  'radioChanged','radioStopped','radioKnown','radioUnknown','radioMismatch','radioOff','radioObservations','radioOwnedObservations',
+  'nativeRadioSamples','nativeRadioEdges','nativeRadioFailures','nativeRadioWitnessed','nativeRadioWitnessUnknown',
+  'nativeWitnessDeferred','nativeWitnessUnknown','nativeWitnessRejected',
+  'ownerStalls','ownerStallMaxMs','traceEmitted','traceSuppressed',
+  'chunkBytes','forwardedBytes','playbackStarted',
+]);
+// Per-key closed vocabularies for the correlation diagnostics. Anything else
+// is dropped by the sanitizer, so no actor, ref, transcript or content leaks.
+const closedValues = new Map([
+  ['signalKind', new Set(['firing','damage','death','injury_state','radio_changed','radio_stopped'])],
+  ['producer', new Set(['shooting','ped_damage','player_damage','vehicle_damage','state','action','playback','radio'])],
+  ['catalog', new Set(['known','unknown','mismatch','off','stopped','invalid'])],
+  ['ps2', new Set(['accepted','unwitnessed','duplicate','dropped'])],
+  ['ps2Reason', new Set(['none','invalid_input','radio_derived_identity_mismatch','unsupported_event','episode_claim_capacity',
+    'episode_rejected','unsupported_claim_detail','radio_normalization_failed'])],
+  ['ps3Owned', new Set(['urgent','eligible','none','not_evaluated'])],
+  ['ps3Reason', new Set(['none','evidence_expired','evidence_lifetime_ended','evidence_channel_unhealthy','evidence_unsupported',
+    'evidence_uncertain','revision_stale','repetition_suppressed','suppression_capacity','safety_self_danger','safety_player_harm',
+    'safety_nearby_threat','involvement_self','involvement_player','relationship_close','relationship_conflict','prior_memory',
+    'novelty_escalation','novelty_material','situation_occupied','situation_conversation','trait_policy','environment_requested',
+    'routine_low_relevance'])],
+  ['urgency', new Set(['urgent','routine'])],
 ]);
 const safeTokens = new Set([
   'delivered','expired','ack_key_retired','observation_expired',
   'native_memory_source_timeout','memory_capture_unavailable','memory_receipt_unavailable','memory_capture_timeout','memory_capture_failed','memory_prepare_timeout','memory_prepare_failed','pre_request_stale',
   'memory_stale','recall_stale','opinion_stale','revision_mismatch','unclassified_stale_reason',
   'invalid_json','invalid_order','invalid_contract','sequence_gap','runtime_consistency',
+  'firing_burst','vehicle_impact','injury','death_seen','body_found','threat',
+  'non_13a_event','ps3_entitlement_stale','ps3_response_ineligible',
+  'direct_witness_unavailable','ps3_evidence_expired',
   'hello','anchors','retire','retire_batch','observer_index','observer_situation',
   'world_epoch','director_priority','director_response','signal','diagnostics',
   'channel_or_protocol_unavailable','player_anchor_unavailable','no_owned_observer',
   'owner_proof_unavailable','no_ps3_response_candidate','candidate_filtered',
   'dedupe_capacity','player_priority_or_owner_stamp_unavailable','producer_failed',
+  'native_owner_stalled','deferred_ticket_already_active','deferred_rate_limited','deferred_scene_or_speaker_cooldown',
   'player_priority_missing','native_director_not_enabled','player_priority_invalid','player_priority_stale','player_priority_host_mismatch','stamp_provider_unavailable',
   'stamp_unavailable','original_ps3_entitlement_unverified',
   'retire','retire_batch','lease_expired','not_tracked','none',
@@ -78,7 +115,7 @@ const safeTokens = new Set([
   'native_rejected','stale_after_reserve','stale_before_submit','native_submit_rejected',
   'stale_before_intake','incomplete_intake','tuple_rejected','not_delivered',
   'verified_observer','contract_unavailable','missing','index_missing','lease_expired','not_observer','kind_mismatch',
-  'off','shadow','active','unsupported_contract','no_actor_capture','no_observer_index','wrong_actor','host_mismatch','world_epoch_changed','channel_unhealthy','anchor_expired','participant_retired','owner_unverified','projection_failed',
+  'off','shadow','active','unsupported_contract','missing_dialogue_knowledge_contract','native_payload_unavailable','perception_contract_mismatch','dialogue_contract_mismatch','native_observer_index_unavailable','native_observer_situation_unavailable','native_host_context_unavailable','no_actor_capture','no_observer_index','wrong_actor','host_mismatch','world_epoch_changed','channel_unhealthy','anchor_expired','participant_retired','owner_unverified','projection_failed',
   'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed','npc','player',
   'cancelled','superseded','disconnected','provider_timeout','stt_error','model_error','model_refusal',
   'invalid_decision','tts_error','native_auth_rejected','playback_error','playback_interrupted',
@@ -91,6 +128,9 @@ const safeTokens = new Set([
   'present','explicitly_cleared','omitted','available','unavailable','already_unavailable','known','changed','cleared','replaced','target_changed','target_missing','target_invalid','reference_map_revision_changed','missing_or_unknown',
   'persistent','ephemeral','conflict','owner_verified','no_evidence','invalid_evidence','contradictory_claim','incarnation_mismatch','character_already_active','native_stale','actor_mismatch','owner_retired','stale_evidence','binding_limit','store_unavailable','evidence_unavailable','voice_incompatible','session_closed','persistent-character',
   'profile_store_unavailable','promotion_failed','owner_unavailable','scripted_state','ownership_conflict','native_operation_failed','identity_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model','profile_projection_failed',
+
+  'native_authorization_rejected','chunk_after_end','stale_or_cancelled','provider_attempt_inactive','streaming_pcm_limit','unclassified_pcm_forward_error',
+  'native_owner_stalled','deferred_ticket_already_active','deferred_rate_limited','deferred_scene_or_speaker_cooldown','adaptive','complete-utterance','streaming', // Main/EA allowed vocab preserved alongside Memory K
 ]);
 
 // Closed PS6 reason vocabulary: preserve diagnostics without arbitrary text.
@@ -102,12 +142,15 @@ const safeDirectorReasons = new Set([
   'reservation_recheck_veto','completion_tuple_invalid',
   'native_playback_unverified','completion_safety_veto',
   'ps6_ack_rejected','completion_unclassified',
+  'native_reserve_exception','native_submit_exception','stock_dispatch_exception','playback_terminal_exception',
 ]);
 function safeScalar(key, value) {
   if (value === null || typeof value === 'boolean') return value;
   if (typeof value === 'number') return Number.isFinite(value) && Math.abs(value) < 1e15 ? value : null;
   if (typeof value !== 'string' || !safeKeys.has(key)) return undefined;
   const token = value.trim();
+  if (key === 'traceCode') return /^[0-9a-f]{10}$/.test(token) ? token : undefined;
+  if (closedValues.has(key)) return closedValues.get(key).has(token) ? token : undefined;
   if (safeTokens.has(token.toLowerCase())) return token.toLowerCase();
   if (['diagnosticReason','reason','terminalReason'].includes(key) &&
       safeDirectorReasons.has(token)) return token;

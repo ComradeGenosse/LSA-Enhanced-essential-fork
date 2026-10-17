@@ -119,6 +119,10 @@ test('upsert is idempotent, closed is sticky, identity conflicts are rejected, t
   await r.tracker.idle();
   r.tracker.retire('host_disconnected');
   await r.tracker.idle();
+  assert.equal(r.d.prepare("SELECT status FROM m3_observer_coverage WHERE kind='window'").get().status,
+    'open','revoked source cannot write the closing status');
+  r.frames(1); // fresh authenticated frame on the same currently selected timeline
+  await r.tracker.idle();
   const row=r.d.prepare("SELECT * FROM m3_observer_coverage WHERE kind='window'").get();
   assert.equal(row.status,'closed');
   assert.equal(row.close_reason,'host_disconnected');

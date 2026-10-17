@@ -28,7 +28,7 @@ async function create(t){
   const timelineId=await store.createTimeline({label:'W06'});
   const host={hostContextVersion:1,hostRunId:id(),worldEpoch:1};
   store.setVerifiedHostContext(host);
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const scopes=persons.map(p=>({characterId:p.characterId,worldProfileId,timelineId}));
   return {store,filePath,host,persons,scopes,timelineId};
 }
@@ -61,7 +61,7 @@ async function reopen(x){
   const store=createP2MemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
   await store.initialize();
   store.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:x.host.worldEpoch+1});
-  await store.confirmTimeline(x.timelineId);
+  await store.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
   x.store=store;
   return store;
 }

@@ -19,9 +19,9 @@ test('M1 source-gated timeline operations need live proof and explicit player co
   try {
     await store.initialize();
     const selected=await store.createTimeline({label:'First game'});
-    await store.confirmTimeline(selected);
+    await assert.rejects(store.confirmTimeline(selected,{confirmation:selected}),/timeline_write_suspended/);
     assert.equal(store.timelineSourceStatus,'unavailable');
-    assert.equal(store.timelinePendingReason,'native_source_unavailable');
+    assert.equal(store.timelinePendingReason,'selection_required');
     assert.equal(store.timelineWritable,false);
     assert.throws(()=>store.assertTimelineWrite(selected),/timeline_write_suspended/);
     let written=0;
@@ -32,7 +32,7 @@ test('M1 source-gated timeline operations need live proof and explicit player co
     store.setVerifiedHostContext(first);
     assert.equal(store.timelineSourceStatus,'confirmation_required');
     await assert.rejects(store.withTimelineWrite(selected,()=>++written),/timeline_write_suspended/);
-    await store.confirmTimeline(selected);
+    await store.confirmTimeline(selected,{confirmation:selected});
     assert.equal(store.timelineSourceStatus,'verified');
     assert.equal(store.timelineWritable,true);
     assert.equal(await store.withTimelineWrite(selected,()=>++written),1);
@@ -54,12 +54,12 @@ test('M1 source-gated timeline operations need live proof and explicit player co
     assert.equal(await store.withTimelineWrite(selected,()=>++written),2);
     store.setVerifiedHostContext(host(first.hostRunId,2));
     assert.equal(store.timelineWritable,false,'native epoch must not carry approval across saves');
-    await store.confirmTimeline(selected);
+    await store.confirmTimeline(selected,{confirmation:selected});
     assert.equal(store.timelineWritable,true);
     store.onBoundary({reason:'clock_regression'});
     assert.equal(store.timelineWritable,false);
     await assert.rejects(store.withTimelineWrite(selected,()=>++written),/timeline_write_suspended/);
-    await store.confirmTimeline(selected);
+    await store.confirmTimeline(selected,{confirmation:selected});
     assert.equal(await store.withTimelineWrite(selected,()=>++written),3);
     assert.equal(written,3);
   } finally { await store.close(); }
@@ -72,7 +72,7 @@ test('M1 verifies timeline provenance after a queued write, not only before enqu
     const id=await store.createTimeline({label:'Queue'});
     const origin=host();
     store.setVerifiedHostContext(origin);
-    await store.confirmTimeline(id);
+    await store.confirmTimeline(id,{confirmation:id});
     let committed=0;
     const queued=store.withTimelineWrite(id,()=>++committed);
     // This source revocation occurs after submitting the operation but before
@@ -81,7 +81,7 @@ test('M1 verifies timeline provenance after a queued write, not only before enqu
     await assert.rejects(queued,/timeline_write_suspended/);
     assert.equal(committed,0);
     store.setVerifiedHostContext(origin);
-    await store.confirmTimeline(id);
+    await store.confirmTimeline(id,{confirmation:id});
     await assert.rejects(store.withTimelineWrite(id,()=>Promise.resolve('bad')),
       /timeline_write_async_not_supported/);
   } finally {await store.close();}
@@ -96,7 +96,7 @@ test('M1 restart never reuses native source confirmation from previous process',
   const id=await first.createTimeline({label:'Played session'});
   const source=host();
   first.setVerifiedHostContext(source);
-  await first.confirmTimeline(id);
+  await first.confirmTimeline(id,{confirmation:id});
   assert.equal(first.timelineWritable,true);
   await first.close();
   const second=createEssentialMemoryStorage({filePath,worldProfileId,sourceRequired:true});
@@ -106,7 +106,7 @@ test('M1 restart never reuses native source confirmation from previous process',
     assert.equal(second.timelineWritable,false);
     second.setVerifiedHostContext(source);
     assert.equal(second.timelineWritable,false);
-    await second.confirmTimeline(id);
+    await second.confirmTimeline(id,{confirmation:id});
     assert.equal(second.timelineWritable,true);
   } finally {await second.close();}
 });
@@ -118,7 +118,7 @@ test('M1 host-free standalone storage retains explicit timeline guard contract',
     const id=await store.createTimeline({label:'Standalone fixture'});
     assert.equal(store.timelineSourceStatus,'not_required');
     await assert.rejects(store.withTimelineWrite(id,()=>1),/timeline_write_suspended/);
-    await store.confirmTimeline(id);
+    await store.confirmTimeline(id,{confirmation:id});
     assert.equal(await store.withTimelineWrite(id,()=>42),42);
     store.onBoundary({reason:'timeline_change'});
     await assert.rejects(store.withTimelineWrite(id,()=>42),/timeline_write_suspended/);

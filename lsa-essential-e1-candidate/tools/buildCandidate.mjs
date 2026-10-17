@@ -388,7 +388,26 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   const identityContract = await verifyIdentityContract(dllHash);
   const characterContract = await verifyCharactersContract(dllHash);
   const perceptionContract = await verifyPerceptionContract(dllHash);
-  const knowledgePayload=await verifyDialogueKnowledgePayload(nativePayloadPath,perceptionContract);
+  // The native build script writes a source- and DLL-hash-attested payload to
+  // dist/promoted-characters. An ordinary candidate rebuild must not silently
+  // disable PS4 merely because LSA_PS4_NATIVE_PAYLOAD was not passed again.
+  // Explicit paths remain authoritative and invalid/stale artifacts fail closed.
+  let resolvedNativePayloadPath=nativePayloadPath;
+  if(resolvedNativePayloadPath===undefined) {
+    const nativeBuild=path.join(root,'dist/promoted-characters');
+    try {
+      await readFile(path.join(nativeBuild,'build-manifest.json'));
+      resolvedNativePayloadPath=nativeBuild;
+    } catch(error) {
+      if(error?.code!=='ENOENT')throw error;
+    }
+  }
+  const knowledgePayload=await verifyDialogueKnowledgePayload(resolvedNativePayloadPath,perceptionContract);
+  if(!knowledgePayload.contract.available) {
+    console.warn('[PS4] Build has no verified native knowledge payload; perceived '+
+      'context will be unavailable. Run npm run build:ps4 or provide '+
+      'LSA_PS4_NATIVE_PAYLOAD from the matching native build.');
+  }
   const patched = patchSource(source);
   if (patched.edits.length !== expectedPatchCount) throw new Error(`AST patch inventory changed: expected ${expectedPatchCount}, found ${patched.edits.length}. Re-audit the source seam list before building.`);
   const entry = path.join(target, launcherName);
@@ -406,6 +425,8 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   await mkdir(path.join(target,'data'),{recursive:true});
   await copyFile(path.join(root,'data','radioTrackTextIds.v2.json'),path.join(target,'data','radioTrackTextIds.v2.json'));
   const e1SourceTreeSha256 = await directoryDigest(stagedE1);
+  // Digest of the staged shared-brain copy alone (also covered by e1SourceTreeSha256).
+  const sharedBrainSourceTreeSha256 = await directoryDigest(path.join(stagedE1, '_shared'));
   const releasePayloadSha256 = await directoryDigest(target);
   const manifest = {
     nativeContract,
@@ -423,7 +444,7 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
       dialogueLogging: { defaultEnabled:false,provider:'openai',storage:'rotating-jsonl' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),
-    e1SourceTreeSha256, releasePayloadSha256,
+    e1SourceTreeSha256, sharedBrainSourceTreeSha256, releasePayloadSha256,
     astPatchCount: patched.edits.length, astPatches: patched.edits,
     externalRuntimePackaging: 'not included; no GTA-folder deployment performed',
     realApiCalls: false, gtaRuntimeTest: false,

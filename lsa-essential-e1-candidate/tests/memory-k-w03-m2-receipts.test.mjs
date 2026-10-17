@@ -27,7 +27,7 @@ async function sqliteFixture(t){
   const timelineId=await store.createTimeline({label:'W03 actual SQLite'});
   const host={hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1};
   store.setVerifiedHostContext(host);
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   return {filePath,store,character,timelineId,host,
     read:()=>store.readDialogueLines({characterId:character.characterId,timelineId,limit:1000})};
 }
@@ -266,7 +266,7 @@ test('W03 A03: queued P2 write, epoch loss, timeline suspension and late source 
     x.store.setVerifiedHostContext(null);
     assert.equal((await changed.capture.acceptPlayer({source:'typed',text:'Epoch gone.'})).status,'not_stored');
     x.store.setVerifiedHostContext(x.host);
-    await x.store.confirmTimeline(x.timelineId);
+    await x.store.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
     assert.equal((await changed.capture.acceptPlayer({source:'typed',text:'Epoch gone.'})).status,'not_stored');
     assert.equal((await x.read()).length,0);
   }finally{await x.store.close();}

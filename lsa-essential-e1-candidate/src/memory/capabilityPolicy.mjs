@@ -37,7 +37,9 @@ const rows = [
   { id:'memory.deterministic', modes:['off','on'], dependencies:['source.core','p2.sqlite','privacy.core'], support:'conditional', reason:'retention_runtime_unavailable' },
   // M7 consumes *existing* authorized queue entries without M6 scheduling.
   { id:'memory.cloudCuration', modes:['off','on'], dependencies:['source.core','p2.sqlite','privacy.core'], support:'absent', reason:'production_worker_not_registered' },
-  { id:'memory.interpretation', modes:['off','shadow','on'], dependencies:['p2.sqlite','privacy.core'], support:'conditional', reason:'interpretation_reader_unavailable' },
+  // The live reader needs the native-verified accepted-turn identity M2 proves; it
+  // needs none of M4/H1/M5/M7.
+  { id:'memory.interpretation', modes:['off','shadow','on'], dependencies:['p2.sqlite','privacy.core','memory.dialogue.player'], support:'conditional', reason:'interpretation_reader_unavailable' },
   // Callback admission needs the existing single PS4 assembler, NOT the optional
   // PERCEIVED lane. M3 committed evidence, PS3 grant and PS6 remain required.
   { id:'memory.callbacks', modes:['off','shadow','on'], dependencies:['memory.events','ps3.salience','ps4.assembler','ps6.speech'], support:'conditional', reason:'production_callback_unavailable' },

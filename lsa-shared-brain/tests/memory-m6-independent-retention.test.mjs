@@ -33,7 +33,7 @@ async function open(filePath,host,timelineId){
   const store=createP2MemoryStorage({filePath,worldProfileId,sourceRequired:true});
   await store.initialize();
   store.setVerifiedHostContext(host);
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   return store;
 }
 async function setup(t){
@@ -46,7 +46,7 @@ async function setup(t){
   const timelineId=await store.createTimeline({label:'J-A retention'});
   const host={hostContextVersion:1,hostRunId:id(),worldEpoch:1};
   store.setVerifiedHostContext(host);
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const x={dir,filePath,store,npcs,timelineId,host,
     scopes:npcs.map(p=>({characterId:p.characterId,worldProfileId,timelineId}))};
   return x;

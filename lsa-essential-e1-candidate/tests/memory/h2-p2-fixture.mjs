@@ -23,18 +23,18 @@ export const sha=x=>createHash('sha256').update(x).digest('hex');
 export const ago=(seconds,base=Date.now())=>new Date(base-seconds*1000).toISOString();
 export {worldProfileId};
 
-export async function p2Fixture(t,{characters=2}={}){
+export async function p2Fixture(t,{characters=2,profiles=[]}={}){
   const dir=await mkdtemp(path.join(tmpdir(),'h2-p2-'));
   const filePath=path.join(dir,'p2.sqlite');
   const store=createP2MemoryStorage({filePath,worldProfileId,sourceRequired:true});
   await store.initialize();
   t.after(async()=>{try{await store.close();}catch{}await rm(dir,{recursive:true,force:true});});
   const chars=[];
-  for(let i=0;i<characters;i++)chars.push(await store.create(profile()));
+  for(let i=0;i<characters;i++)chars.push(await store.create(profile(profiles[i]??{})));
   const timelineId=await store.createTimeline({label:'H2 isolated source simulation'});
   let host={hostContextVersion:1,hostRunId:id(),worldEpoch:1};
   store.setVerifiedHostContext(host);
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const recorder=createConversationJournalRecorder(store);
   const f={store,chars,filePath,recorder,live:true,calls:0,
     get host(){return host;},timelineId,

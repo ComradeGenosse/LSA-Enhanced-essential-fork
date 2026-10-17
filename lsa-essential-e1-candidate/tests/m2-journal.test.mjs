@@ -30,7 +30,7 @@ async function setup(t,{standalone=false,sourceRequired=true}={}){
   const timeline=await store.createTimeline({label:'Save A'});
   const host=native();
   store.setVerifiedHostContext(host);
-  await store.confirmTimeline(timeline);
+  await store.confirmTimeline(timeline,{confirmation:timeline});
   const recorder=createConversationJournalRecorder(store);
   return {dir,filePath,store,Factory,a,timeline,host,recorder};
 }
@@ -110,7 +110,7 @@ test('M2 idempotent replay across reconnect, retry, and restart; conflicts fail'
     // user confirms the timeline for the newly authenticated source.
     x.store.setVerifiedHostContext({...x.host,worldEpoch:x.host.worldEpoch+1});
     await assert.rejects(player(x,{identity:turn('t4')}),/timeline_write_suspended/);
-    await x.store.confirmTimeline(x.timeline);
+    await x.store.confirmTimeline(x.timeline,{confirmation:x.timeline});
     await player(x,{identity:turn('t4')});
     assert.equal((await read(x)).length,3);
   }finally{await x.store.close();}
@@ -152,14 +152,14 @@ test('M2 rejects nonexistent owners and lineage/source changes at the actual wri
     await assert.rejects(queued,/timeline_write_suspended/);
     assert.equal((await read(x)).length,0);
     x.store.setVerifiedHostContext(native(x.host.hostRunId,2));
-    await x.store.confirmTimeline(x.timeline);
+    await x.store.confirmTimeline(x.timeline,{confirmation:x.timeline});
     await player(x,{identity:turn('epoch2')});
     x.store.onBoundary({reason:'clock_regression'});
     await assert.rejects(player(x,{identity:turn('rewind')}),/timeline_write_suspended/);
-    await x.store.confirmTimeline(x.timeline);
+    await x.store.confirmTimeline(x.timeline,{confirmation:x.timeline});
     await player(x,{identity:turn('new-lineage')});
     const other=await x.store.createTimeline({label:'Different save'});
-    await x.store.confirmTimeline(other);
+    await x.store.confirmTimeline(other,{confirmation:other});
     assert.equal((await x.store.readDialogueLines({characterId:x.a.characterId,timelineId:other})).length,0);
   }finally{await x.store.close();}
 });
@@ -357,17 +357,17 @@ test('M2 completion never silently rebinds old turns across disconnected host, r
     x.store.setVerifiedHostContext(null);
     assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'offline'})).status,'not_stored');
     x.store.setVerifiedHostContext(x.host);
-    await x.store.confirmTimeline(x.timeline);
+    await x.store.confirmTimeline(x.timeline,{confirmation:x.timeline});
     assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'reconnected'})).status,'not_stored',
       'once a suspended host was observed an old capture cannot resurrect');
     x.store.setVerifiedHostContext(native(x.host.hostRunId,2));
-    await x.store.confirmTimeline(x.timeline);
+    await x.store.confirmTimeline(x.timeline,{confirmation:x.timeline});
     assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'new epoch same turn'})).reason,'m2_turn_retired',
       'retirement on disconnect is sticky even after host epoch changes');
     const fresh=bindM2(x,'fresh-host').capture;
     assert.equal((await fresh.recordPlayerAccepted({accepted:true,source:'typed',text:'new epoch new turn'})).status,'stored');
     const other=await x.store.createTimeline({label:'Another save'});
-    await x.store.confirmTimeline(other);
+    await x.store.confirmTimeline(other,{confirmation:other});
     assert.equal((await fresh.recordNpcCompleted({historyAccepted:true,
       text:'delayed from other timeline',receipt:receipt(turn('fresh-host'))})).reason,
       'timeline_write_suspended');
@@ -595,7 +595,7 @@ test('M2 closure never resurrects a host, ped incarnation, protagonist, or timel
     third.commitInput({text:'Suspended save'});
     x.store.setVerifiedHostContext(null);
     assert.equal((await c.acceptPlayer({source:'typed',text:'Suspended save'})).status,'not_stored');
-    x.store.setVerifiedHostContext(x.host);await x.store.confirmTimeline(x.timeline);
+    x.store.setVerifiedHostContext(x.host);await x.store.confirmTimeline(x.timeline,{confirmation:x.timeline});
     assert.equal((await c.acceptPlayer({source:'typed',text:'Suspended save'})).status,'not_stored');
     assert.equal((await read(x)).length,1);
   }finally{await x.store.close();}

@@ -1,0 +1,65 @@
+name: NPC gestures native and companion regression
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'native/reactions/**'
+      - 'native/promoted-characters/RuntimeEntry.cs'
+      - 'native/promoted-characters/runtime-tests/**'
+      - 'lsa-essential-e1-candidate/src/reactions/**'
+      - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/src/voice/emotion/deliveryContract.mjs'
+      - 'lsa-essential-e1-candidate/src/config/e1Config.mjs'
+      - 'lsa-essential-e1-candidate/e1.config.example.json'
+      - 'native/promoted-characters/LSA.PromotedCharacters.example.json'
+      - 'lsa-essential-e1-candidate/tests/reactions*.test.mjs'
+      - '.github/workflows/npc-gestures.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: npc-gestures-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-policy:
+    name: Native reaction policy (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Run isolated real reaction policy and executor
+        run: dotnet run --project native/reactions/tests/ReactionTests.csproj --configuration Release
+  native-host-lifetime:
+    name: Native RuntimeEntry owner checks (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Run source-only promoted host lifecycle and ownership tests
+        run: dotnet run --project native/promoted-characters/runtime-tests/RuntimeTests.csproj --configuration Release
+  companion:
+    name: Companion gesture tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Offline selection, gating, native handshake and turn hooks
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/reactions.test.mjs lsa-essential-e1-candidate/tests/reactions-turn-hook.test.mjs lsa-essential-e1-candidate/tests/reactions-gestures.test.mjs

@@ -23,7 +23,7 @@ async function fixture(t){
  const timelineId=await store.createTimeline({label:'D03 synthetic port contract only'});
  const host={hostContextVersion:1,hostRunId:n(),worldEpoch:1};
  store.setVerifiedHostContext(host);
- await store.confirmTimeline(timelineId);
+ await store.confirmTimeline(timelineId,{confirmation:timelineId});
  t.after(async()=>{try{await store.close()}catch{}await rm(dir,{recursive:true,force:true});});
  const identity={pedId:'101',turnId:n(),generationId:1,sessionNonce:1};
  const captureRef=n(),incarnationId=n(),encounterId=n(),playerCaptureRef=n(),streamId=n(),adapterEpoch=n();

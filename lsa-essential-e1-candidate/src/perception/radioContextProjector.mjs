@@ -1,7 +1,15 @@
 const DIRECT_RADIO_PATTERNS = Object.freeze([
+  // Natural spoken questions, including punctuation-free ASR transcripts.
+  /\b(?:do|did|can|could|would)\s+(?:you|ya)\s+(?:hear|recognize|recognise|identify|catch)\s+(?:(?:that|this|the|a)\s+)?(?:song|track|music|radio)\b/i,
+  /\b(?:you|ya)\s+(?:hear|heard|hearing|recognize|recognise|listening to)\s+(?:(?:that|this|the|a)\s+)?(?:song|track|music|radio)\b/i,
+  /\b(?:hear|hearing|heard|listening to)\s+(?:that|this|the)\s+(?:song|track|music|radio)\b/i,
+  /\bwhat (?:do|did) (?:you|ya) think (?:of|about) (?:that|this|the) (?:song|track|music)\b/i,
   /\bwhat(?:'s| is) (?:this|that|the) (?:song|track|music)\b/i,
-  /\bwhat(?:'s| is) playing\b/i,
-  /\bwhat(?:'s| is) on (?:the )?radio\b/i,
+  /\bwhat(?:'s|s| is| was) playing\b/i,
+  /\b(?:whats|what is|what's) (?:that|this) (?:song|track|music)\b/i,
+  /\b(?:do|did|can|could) (?:you|ya) (?:know|remember|recognize|recognise) (?:this|that|the) (?:song|track|music)\b/i,
+  /\b(?:do|did|can|could) (?:you|ya) (?:hear|remember) (?:the|that|this) (?:song|music|radio)\b/i,
+  /\bwhat(?:'s|s| is) on (?:the )?radio\b/i,
   /\bwhat (?:radio )?station (?:is this|is that|are we listening to|is playing)\b/i,
   /\bwho (?:sings|is singing|performs|performed) (?:this|that|it|the song|the track)\b/i,
   /\b(?:song|track|music|radio|station|artist)\b[^?!.]{0,80}\b(?:playing|called|name|hear|hearing|listening to|this|that)\b/i,
@@ -38,7 +46,7 @@ export function latestRadioObservation(runtime, observerRef) {
   return selected;
 }
 
-export function renderRadioContext(observation) {
+export function renderRadioContext(observation,{currentlyPlaying=true}={}) {
   if (!observation || observation.eventType !== 'radio_heard') return null;
   const claim = observation.claims?.find(item =>
     item?.kind === 'sound' && item.certainty === 'supported' &&
@@ -46,6 +54,13 @@ export function renderRadioContext(observation) {
   if (!claim) return null;
   const details = claim.details;
   const station = safeLine(details.stationName) ? details.stationName : '';
+  if(!currentlyPlaying) {
+    if(details.trackKnown===true && details.contentKind==='music' && safeLine(details.title) && safeLine(details.artist))
+      return 'Audible history: you previously heard '+JSON.stringify(details.title)+' by '+details.artist+(station?' on '+station:'')+'; it is not confirmed playing now.';
+    if(details.trackKnown===true && details.contentKind==='commercial' && safeLine(details.title))
+      return 'Audible history: you previously heard a commercial titled '+JSON.stringify(details.title)+(station?' on '+station:'')+'; it is not confirmed playing now.';
+    return 'Audible history: you previously heard the vehicle radio'+(station?' on '+station:'')+'; the content was not identified and is not confirmed playing now.';
+  }
   if (details.trackKnown === true && details.contentKind === 'music' && safeLine(details.title) && safeLine(details.artist)) {
     const title = JSON.stringify(details.title);
     return station
@@ -81,7 +96,10 @@ export function selectRadioContext(runtime, input) {
     requestedEnvironmentChannels: ['radio'],
   });
   if (!decision || decision.context !== 'candidate' || decision.response !== 'none' || decision.memory !== 'none') return null;
-  const text = renderRadioContext(observation);
+  const activeEpisodes=runtime.correlator?.radioCurrent;
+  const isCurrent=!activeEpisodes || [...activeEpisodes.entries()].some(([vehicle,id])=>
+    id===observation.episodeId && runtime.current(vehicle));
+  const text = renderRadioContext(observation,{currentlyPlaying:isCurrent});
   if (!text) return null;
   return Object.freeze({
     kind: 'radio',

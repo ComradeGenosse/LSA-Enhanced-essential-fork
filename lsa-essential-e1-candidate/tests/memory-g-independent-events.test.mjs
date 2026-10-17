@@ -171,9 +171,9 @@ test('G timeline and world transitions retire admitted evidence rather than reat
   const held=[],h=await harness(t,{scheduler:fn=>held.push(fn)});
   await h.advance(1000);await h.fire([h.npcs[0]]);
   const next=await h.store.createTimeline({label:'G next timeline'});
-  await h.store.confirmTimeline(next);held.shift()();await h.drain();
+  await h.store.confirmTimeline(next,{confirmation:next});held.shift()();await h.drain();
   assert.equal(h.m3.snapshot().committed,0);
-  await h.store.confirmTimeline(h.timelineId);
+  await h.store.confirmTimeline(h.timelineId,{confirmation:h.timelineId});
   await h.advance(5500);await h.fire([h.npcs[0]]);
   h.send('world_epoch',{epoch:2,reason:'clock_regression'});await h.flush();
   held.splice(0).forEach(fn=>fn());await h.drain();
@@ -210,7 +210,7 @@ test('G forgotten in-flight replay, correction, purge and restart cannot revive 
   await h.m3.close();await h.store.close();
   const reopened=createP2MemoryStorage({filePath:h.filePath,worldProfileId,sourceRequired:true});
   await reopened.initialize();t.after(()=>reopened.close());
-  reopened.setVerifiedHostContext(h.host);await reopened.confirmTimeline(h.timelineId);
+  reopened.setVerifiedHostContext(h.host);await reopened.confirmTimeline(h.timelineId,{confirmation:h.timelineId});
   const m3=createM3ProductionMemory({intelligence:h.client,memoryStore:reopened,eventMode:'on',coverageMode:'off',
     authorityOptions:{now:()=>h.clock.ms}});t.after(()=>m3.close());
   h.send('memory_authority',h.authorityPayload(h.clock.ms));await h.flush();

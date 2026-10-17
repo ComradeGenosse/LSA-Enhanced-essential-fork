@@ -31,7 +31,7 @@ async function setup(t){
  const timelineId=await store.createTimeline({label:'current'});
  const host={hostContextVersion:1,hostRunId:id(),worldEpoch:1};
  store.setVerifiedHostContext(host);
- await store.confirmTimeline(timelineId);
+ await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const scope={characterId:p.characterId,worldProfileId,timelineId,protagonistKey:'franklin'};
  return {filePath,store,scope,recorder:createConversationJournalRecorder(store),host};
 }

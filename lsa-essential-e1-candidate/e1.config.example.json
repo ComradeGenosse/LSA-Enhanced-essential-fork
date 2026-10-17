@@ -30,9 +30,6 @@
     "editorPort": 37921,
     "summonWaitMs": 30000
   },
-  "memoryK": {
-    "capabilities": {}
-  },
   "dialogueLogging": {
     "enabled": false,
     "maxFileBytes": 10485760,
@@ -60,6 +57,7 @@
   ],
   "voiceAssignment": "character-aware-session",
   "ttsSpeed": 1,
+  "ttsVolume": 1,
   "actingEnabled": true,
   "maxOutputTokens": 300,
   "providerWorkDeadlineMs": 45000,
@@ -128,5 +126,24 @@
   "spontaneousSpeech": {
     "mode": "off",
     "preset": "normal"
+  },
+  "speechProvider": "openai",
+  "elevenLabs": {
+    "modelId": "eleven_v4_turbo",
+    "voices": {}
+  },
+  "expressiveDelivery": {
+    "mode": "off",
+    "intensity": "subtle",
+    "maxTaggedSegmentsPerTurn": 2,
+    "lunaDeliveryVersion": 0
+  },
+  "reactions": {
+    "mode": "off",
+    "pipeName": "LSA.Reactions.v1",
+    "enabled": []
+  },
+  "memoryK": {
+    "capabilities": {}
   }
 }

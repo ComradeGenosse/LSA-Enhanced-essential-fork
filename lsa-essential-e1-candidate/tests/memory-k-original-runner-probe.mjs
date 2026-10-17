@@ -50,7 +50,7 @@ export async function executeOriginalRunnerProbe(scenarioId){
     // Real P2 guard is exercised, but this synthetic source confirmation
     // is test setup, NOT a native authenticated C-13 observation.
     store.setVerifiedHostContext(hostContext);
-    await store.confirmTimeline(timelineId);
+    await store.confirmTimeline(timelineId,{confirmation:timelineId});
     const text=scenarioTexts[scenarioId];
     const accepted=[],emitted=[],events=[],provider=[];
     const identity={pedId:'101',turnId:'w09-probe-'+scenarioId,

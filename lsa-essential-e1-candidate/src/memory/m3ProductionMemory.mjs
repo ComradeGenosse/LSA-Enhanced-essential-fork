@@ -19,7 +19,10 @@ export function m3CoverageDiagnostic(stage,detail){
   ...(typeof detail?.reason==='string'?{nativeReason:detail.reason}:{}),
   ...(typeof detail?.code==='string'?{code:detail.code}:{}),
   ...(typeof detail?.errorType==='string'?{errorType:detail.errorType}:{}),
-  ...(typeof detail?.retryable==='boolean'?{retryable:detail.retryable}:{})};
+  ...(typeof detail?.retryable==='boolean'?{retryable:detail.retryable}:{}),
+  ...(typeof detail?.hadCheckpoint==='boolean'?{hadCheckpoint:detail.hadCheckpoint}:{}),
+  ...(Number.isSafeInteger(detail?.abandoned)?{abandoned:Math.min(detail.abandoned,2147483647)}:{}),
+  ...(Number.isSafeInteger(detail?.gapsAbandoned)?{gapsAbandoned:Math.min(detail.gapsAbandoned,2147483647)}:{})};
 }
 export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthority=null,
     telemetry=null,attribution='observation_time',coverage={},authorityOptions={},
@@ -68,9 +71,18 @@ export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthori
   let epoch=null;
   unsubHost=intelligence.subscribeVerifiedHostContext(host=>{
     const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
+    // Disconnect is a coverage authority cut, not a permanent M2/M4
+    // conversation failure. Freeze verified M3 frontiers immediately.
+    if(!host)adapter.coverageRetire('host_disconnected');
+    // An unsolicited replacement HELLO, even with reused run/epoch scalars,
+    // is a new provenance boundary. Never reuse its retired coverage tail.
+    else if(epoch!==null&&stamp===epoch)adapter.coverageRetire('timeline_changed');
     if(stamp!==epoch){adapter.retire();epoch=stamp;}
   });
-  unsubBoundary=intelligence.subscribeWorldBoundary(()=>{adapter.retire();});
+  unsubBoundary=intelligence.subscribeWorldBoundary(()=>{
+    adapter.coverageRetire('timeline_changed');
+    adapter.retire();
+  });
   return Object.freeze({
     authority:ownsAuthority?authority:null,
     adapter,

@@ -30,7 +30,7 @@ async function fixture(t){
   const npc=await store.create(profile());
   const timelineId=await store.createTimeline({label:'one human'});
   store.setVerifiedHostContext(host);
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const scope={characterId:npc.characterId,worldProfileId,timelineId,protagonistKey:'franklin'};
   const recorder=createConversationJournalRecorder(store);
   let turn=0;
@@ -111,7 +111,7 @@ test('A: Trevor dialogue persists through reopen for Franklin; Michael forget cr
     // until the caller has re-established the native host and chosen save.
     assert.equal((await ask(restored,scope,'albatross')).bundle.status,'unavailable');
     restored.setVerifiedHostContext(x.host);
-    await restored.confirmTimeline(scope.timelineId);
+    await restored.confirmTimeline(scope.timelineId,{confirmation:scope.timelineId});
     assert.ok((await ask(restored,scope,'albatross')).bundle.items.some(r=>r.recordId===trevor.recordId));
     const recorder=createConversationJournalRecorder(restored);
     const receipt=await recorder.recordPlayerAccepted({characterId:scope.characterId,

@@ -40,7 +40,9 @@ export const COVERAGE_DEFAULTS=Object.freeze({
   gapCoalesceMs:2000,
   retryMs:1000,
 });
-const RETRYABLE=/^(timeline_write_suspended|timeline_not_selected|profile_store_unavailable|m3_coverage_owner_or_epoch_unconfirmed|m3_coverage_stale|timeline_write_async_not_supported)$/;
+const RETRYABLE=/^(timeline_write_suspended|timeline_not_selected|profile_store_unavailable|m3_coverage_owner_or_epoch_unconfirmed|m3_coverage_stale)$/;
+const retryableWriteError=(error,message)=>RETRYABLE.test(message)||
+  /^SQLITE_(?:BUSY|LOCKED)(?:_[A-Z0-9_]{1,32})?$/.test(error?.code??'');
 // A raw database exception may include SQL or local paths: telemetry gets codes only.
 const M3_CODES=new Set('timeline_write_suspended timeline_not_selected profile_store_unavailable m3_coverage_owner_or_epoch_unconfirmed m3_coverage_stale timeline_write_async_not_supported m3_coverage_commit_unconfirmed m3_observer_coverage_identity_conflict m3_observer_coverage_invalid m3_observer_coverage_invalid_window m3_observer_coverage_invalid_gap m3_observer_coverage_corrupt'.split(' '));
 const diagnosticCode=(error,message)=>typeof error?.code==='string'&&
@@ -67,7 +69,8 @@ export function createM3ObserverCoverageTracker({
   const cfg={...COVERAGE_DEFAULTS,...options};
   const stats={samples:0,windowsOpened:0,windowsClosed:0,closedBy:{},ownersSeen:0,
     ownersSkipped:0,gapsRecorded:0,gapsUnattributed:0,checkpoints:0,persistFailures:0,
-    persistRejectedStale:0,pendingHighWater:0,degraded:false,sealed:false,historyThinned:0};
+    persistRejectedStale:0,pendingHighWater:0,degraded:false,sealed:false,historyThinned:0,
+    suspensions:0,resumptions:0,windowsAbandoned:0,gapsAbandoned:0,pendingRetired:0};
   const emit=(kind,detail)=>{try{onEvent(kind,detail);}catch{/* diagnostics never disrupt capture */}};
 
   let stream=null;                    // last accepted frame's context
@@ -77,16 +80,18 @@ export function createM3ObserverCoverageTracker({
   const pending=new Map();            // key -> {characterId,tick}
   const gaps=new Map();               // coverageId -> {record,characterId,tick}
   let inFlight=null,retryAt=0,sealRequired=true,closedFlag=false;
+  let sourceSuspended=false,discardRetiredOnResume=false;
 
   const bump=(k,n=1)=>{stats[k]=Math.min(2147483647,stats[k]+n);};
-  const minPending=characterId=>{
+  const minPending=w=>{
     let min=Infinity;
-    for(const p of pending.values())if(p.characterId===characterId&&p.tick<min)min=p.tick;
+    for(const p of pending.values())if((p.windowId===w.coverageId||
+      (p.windowId===null&&p.tick>=w.startTick&&p.tick<=w.last.tick+cfg.maxTickGapMs))&&p.tick<min)min=p.tick;
     return min;
   };
-  const minGap=characterId=>{
+  const minGap=w=>{
     let min=Infinity;
-    for(const g of gaps.values())if(g.characterId===characterId&&g.tick<min)min=g.tick;
+    for(const g of gaps.values())if(g.windowId===w.coverageId&&g.tick<min)min=g.tick;
     return min;
   };
 
@@ -138,6 +143,42 @@ export function createM3ObserverCoverageTracker({
   }
   const closeAll=reason=>{for(const w of [...open.values()])close(w,reason);};
 
+  // An authenticated stream cut freezes each old window at its last safe
+  // frontier. Pending/lost observations can no longer make the frontier grow.
+  // Already committed SQLite rows are never altered or deleted.
+  function suspend(reason){
+    if(!sourceSuspended){bump('suspensions');emit('suspended',{reason});}
+    sourceSuspended=true;
+    for(const w of closing){
+      if(!Object.hasOwn(w,'retiredEnd'))w.retiredEnd=desiredEnd(w);
+    }
+    // The frozen frontier already excludes every uncommitted observation.
+    // Old queue keys must not hold a new window for the same NPC hostage.
+    bump('pendingRetired',pending.size);
+    pending.clear();
+  }
+  function abandon(w,reason){
+    w.abandoned=true;closing.delete(w);bump('windowsAbandoned');
+    emit('window_abandoned',{reason,hadCheckpoint:!!w.persisted});
+  }
+  function resume(timelineId,s){
+    for(const w of [...closing]){
+      if(discardRetiredOnResume||w.timelineId!==timelineId||
+         w.hostRunId!==s.hostRunId||w.worldEpoch!==s.worldEpoch||
+         (Object.hasOwn(w,'retiredEnd')&&!w.retiredEnd))
+        abandon(w,'stale_source_or_unverified_frontier');
+    }
+    for(const [id,g] of gaps){
+      if(discardRetiredOnResume||g.timelineId!==timelineId||
+         g.record.hostRunId!==s.hostRunId||g.record.worldEpoch!==s.worldEpoch){
+        gaps.delete(id);bump('gapsAbandoned');
+      }
+    }
+    sourceSuspended=false;discardRetiredOnResume=false;retryAt=0;
+    bump('resumptions');
+    emit('resumed',{abandoned:stats.windowsAbandoned,gapsAbandoned:stats.gapsAbandoned});
+  }
+
   // ------------------------------------------------------------------ frames
   function sample(s){
     if(closedFlag||degradedReason)return {accepted:false,reason:degradedReason??'closed'};
@@ -148,6 +189,13 @@ export function createM3ObserverCoverageTracker({
     }
     const mono=monotonicNow(),utc=utcNow();
     if(!Number.isFinite(mono)||typeof utc!=='string'){closeAll('delivery_gap');stream=null;return {accepted:false,reason:'invalid_clock'};}
+    let timelineId=null;
+    try{timelineId=activeTimeline();}catch{timelineId=null;}
+    if(!isUuid(timelineId)){
+      retire('timeline_unwritable');
+      return {accepted:false,reason:'timeline_unwritable'};
+    }
+    if(sourceSuspended)resume(timelineId,s);
     bump('samples');
     if(stream){
       if(stream.hostRunId!==s.hostRunId||stream.worldEpoch!==s.worldEpoch)closeAll('epoch_boundary');
@@ -168,8 +216,6 @@ export function createM3ObserverCoverageTracker({
     stream={streamId:s.streamId,adapterEpoch:s.adapterEpoch,hostRunId:s.hostRunId,
       worldEpoch:s.worldEpoch,sequence:s.sequence,tick:s.sampledGameTick,utc,mono};
 
-    let timelineId=null;
-    try{timelineId=activeTimeline();}catch{timelineId=null;}
     const seen=new Set(),duplicated=new Set(),byCharacter=new Map();
     for(const o of s.owners){
       bump('ownersSeen');
@@ -203,15 +249,25 @@ export function createM3ObserverCoverageTracker({
   // Authenticated stream cut: disconnect, reset, world boundary, timeline
   // suspension or shutdown. Closes at the last real sample; claims nothing more.
   function retire(reason='stream_retired'){
-    // Only reasons the durable ledger knows may be written; anything else is a
-    // generic stream retirement (never an unvalidated string into SQL).
-    closeAll(CLOSE_REASONS.has(reason)?reason:'stream_retired');stream=null;kick(true);
+    const qualified=CLOSE_REASONS.has(reason)?reason:'stream_retired';
+    // Only reasons the durable ledger knows may be written.
+    closeAll(qualified);stream=null;
+    if(qualified==='shutdown'){
+      if(!sourceSuspended)kick(true); // orderly teardown while still authorized
+      return;
+    }
+    // Genuine save/epoch/source changes cannot replay even an old tail into
+    // another authorization, including one that reuses the same timeline ID.
+    if(['timeline_changed','epoch_boundary','stream_changed'].includes(qualified))
+      discardRetiredOnResume=true;
+    suspend(qualified);
   }
 
   // --------------------------------------------------- intake bookkeeping
   function noteQueued({key,characterId,tick}={}){
     if(typeof key!=='string'||!isUuid(characterId)||!tickOk(tick))return false;
-    pending.set(key,{characterId,tick});
+    if(sourceSuspended)return false;
+    pending.set(key,{characterId,tick,windowId:open.get(characterId)?.coverageId??null});
     stats.pendingHighWater=Math.max(stats.pendingHighWater,pending.size);
     return true;
   }
@@ -228,7 +284,8 @@ export function createM3ObserverCoverageTracker({
     // uncovered by definition and must not fabricate a loss inside this window.
     // (An open window's newest sample may trail the observation by up to a frame or two.)
     const inside=x=>tickOk(tick)&&tick>=x.startTick&&
-      tick<=x.last.tick+(x.status==='open'?cfg.maxTickGapMs:0);
+      tick<=(Object.hasOwn(x,'retiredEnd')?(x.retiredEnd?.tick??-1):
+        x.last.tick+(x.status==='open'?cfg.maxTickGapMs:0));
     let w=characterId?open.get(characterId):null;
     if(w&&!inside(w))w=null;
     if(!w&&observerCaptureRef)
@@ -257,7 +314,7 @@ export function createM3ObserverCoverageTracker({
     }
     const id=uuidFrom('M3-OBS-GAP',w.characterId,w.timelineId,observationId,reason);
     if(gaps.has(id))return true;
-    gaps.set(id,{characterId:w.characterId,timelineId:w.timelineId,tick,record:Object.freeze({
+    gaps.set(id,{characterId:w.characterId,windowId:w.coverageId,timelineId:w.timelineId,tick,record:Object.freeze({
       coverageId:id,kind:'gap',characterId:w.characterId,worldProfileId,timelineId:w.timelineId,
       processId,hostRunId:w.hostRunId,worldEpoch:w.worldEpoch,adapterEpoch:w.adapterEpoch,
       streamId:w.streamId,ownerProof:w.ownerProof,startTick:tick,endTick:tick,
@@ -276,7 +333,8 @@ export function createM3ObserverCoverageTracker({
 
   // ------------------------------------------------------------- persistence
   function desiredEnd(w){
-    const hold=Math.min(minPending(w.characterId),minGap(w.characterId))-1;
+    if(Object.hasOwn(w,'retiredEnd'))return w.retiredEnd;
+    const hold=Math.min(minPending(w),minGap(w))-1;
     // An open window has not settled up to its last sample; a closed window
     // is final (no more upstream samples are expected for it).
     let limit=w.status==='open'?w.last.tick-cfg.settleMs:w.last.tick;
@@ -325,7 +383,7 @@ export function createM3ObserverCoverageTracker({
     return {ops,meta};
   }
   function kick(force){
-    if(!durable||inFlight||closedFlag||monotonicNow()<retryAt)return;
+    if(!durable||sourceSuspended||inFlight||closedFlag||monotonicNow()<retryAt)return;
     const {ops,meta}=collect(force);
     if(ops.length===0)return;
     const sentAt=monotonicNow();
@@ -352,7 +410,8 @@ export function createM3ObserverCoverageTracker({
           w.lastEmitMono=sentAt;
           w.history=w.history.filter(h=>h.tick>=w.persisted.tick);
           bump('checkpoints');
-          if(w.persisted.status==='closed'&&w.persisted.tick>=w.last.tick)closing.delete(w);
+          if(w.persisted.status==='closed'&&
+             (Object.hasOwn(w,'retiredEnd')||w.persisted.tick>=w.last.tick))closing.delete(w);
         });
       }catch(error){
         bump('persistFailures');
@@ -360,8 +419,9 @@ export function createM3ObserverCoverageTracker({
         retryAt=monotonicNow()+cfg.retryMs;
         // A durable-ledger invariant failure (identity conflict, corruption,
         // invalid record) is not transient: stop claiming coverage.
-        if(!RETRYABLE.test(message))degrade('ledger_write_rejected');
-        emit('persist_failed',{code:diagnosticCode(error,message),errorType:diagnosticType(error),retryable:RETRYABLE.test(message)});
+        const retryable=retryableWriteError(error,message);
+        if(!retryable)degrade('ledger_write_rejected');
+        emit('persist_failed',{code:diagnosticCode(error,message),errorType:diagnosticType(error),retryable});
       }finally{
         inFlight=null;
       }
@@ -379,7 +439,8 @@ export function createM3ObserverCoverageTracker({
     return snapshot();
   }
   function snapshot(){
-    return Object.freeze({...stats,closedBy:{...stats.closedBy},open:open.size,closing:closing.size,
+    return Object.freeze({...stats,closedBy:{...stats.closedBy},sourceSuspended,
+      open:open.size,closing:closing.size,
       pending:pending.size,unpersistedGaps:gaps.size,degradedReason,processId,
       basis:'authenticated_owner_frames',eventIntakeEnabled,durable,
       windows:[...open.values()].map(w=>({characterId:w.characterId,startTick:w.startTick,

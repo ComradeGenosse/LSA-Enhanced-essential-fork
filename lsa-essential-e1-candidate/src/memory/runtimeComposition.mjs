@@ -200,6 +200,25 @@ export function memoryKM5Activation(config) {
 }
 
 
+// L: independent M8 interpretation activation. The accepted M2 player line is
+// the authenticated per-turn identity M8's P2 reader requires (native-verified
+// owner/turn stamp), so it is the only optional-memory prerequisite; none of
+// H1, H2/M4, M5, M6 or M7 is. Explicit 'off' (or an absent key in an explicit
+// map) never starts it. An absent/empty map keeps the inherited combined path,
+// where M8 stays coupled to M4 exactly as before.
+export function memoryKM8Activation(config) {
+  const legacy=memoryKConsumersAllowed(config);
+  const requests=config.memoryK?.capabilities??{};
+  const requestedMode=legacy?'on':requests['memory.interpretation']??'off';
+  const player=memoryKDialogueActivation(config).player;
+  const reason=requestedMode==='shadow'?'shadow_not_supported':
+    requestedMode==='on'&&!player?'dependency_not_requested_or_available:memory.dialogue.player':
+    requestedMode==='off'?'optional_consumer_stopped':null;
+  return Object.freeze({legacy,requestedMode,
+    mode:requestedMode==='on'&&player?'on':'off',reason});
+}
+
+
 // J-B: M6 deterministic long-term retention. Unlike the optional foreground
 // consumers above, this is NEVER on by inheritance: an absent/empty capability
 // map keeps it off, and only an explicit memory.deterministic='on' starts it.

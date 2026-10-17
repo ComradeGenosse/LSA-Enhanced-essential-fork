@@ -1,0 +1,73 @@
+name: EA + Memory K conversation compatibility (draft, offline)
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - '.github/workflows/ea-memoryk-compatibility.yml'
+      - 'lsa-essential-e1-candidate/src/openai/**'
+      - 'lsa-essential-e1-candidate/src/integration/**'
+      - 'lsa-essential-e1-candidate/src/voice/**'
+      - 'lsa-essential-e1-candidate/src/providers/**'
+      - 'lsa-essential-e1-candidate/src/perception/**'
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/src/config/e1Config.mjs'
+      - 'lsa-shared-brain/src/characters/**'
+      - 'lsa-shared-brain/src/memory/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  ELEVENLABS_API_KEY: ''
+  OPENAI_API_KEY: ''
+  LSA_EA9_BILLING_APPROVED: '0'
+jobs:
+  compatibility:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate reconciled runtime source syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for source in \
+            lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs \
+            lsa-essential-e1-candidate/src/integration/essentialGlue.mjs \
+            lsa-essential-e1-candidate/src/bootstrap.mjs \
+            lsa-essential-e1-candidate/src/config/e1Config.mjs \
+            lsa-essential-e1-candidate/src/perception/contracts.mjs \
+            lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs \
+            lsa-essential-e1-candidate/src/perception/shadowRuntime.mjs \
+            lsa-shared-brain/src/characters/sqliteProfileStore.mjs; do
+            node --check "$source"
+          done
+      - name: Original EA regression corpus (no paid provider keys)
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(lsa-essential-e1-candidate/tests/ea*.test.mjs
+                 lsa-essential-e1-candidate/tests/elevenlabs*.test.mjs
+                 lsa-essential-e1-candidate/tests/emotional*.test.mjs
+                 lsa-essential-e1-candidate/tests/pcm-volume.test.mjs
+                 lsa-essential-e1-candidate/tests/scene-delivery.test.mjs
+                 lsa-essential-e1-candidate/tests/speech-provider-retirement.test.mjs)
+          test "${#files[@]}" -ge 20
+          node --test --test-concurrency=1 "${files[@]}"
+      - name: Memory K accepted-input and memory-fallback regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --import ./tools/memory-k-verification/offline.mjs --test --test-concurrency=1 \
+            lsa-essential-e1-candidate/tests/memory/memoryFallbackReliability.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/memoryRequestFence.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/independentForegroundMemory.test.mjs

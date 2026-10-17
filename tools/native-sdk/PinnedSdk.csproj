@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Restore-only manifest of the exact public, compile-only references the
+       production native plugin is built against. Nothing here is built or
+       packaged; compileProductionNative.mjs verifies every SHA-256 pin before
+       compiling native/promoted-characters with these files. -->
+  <PropertyGroup>
+    <TargetFramework>net481</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="RagePluginHook" Version="[1.124.0]" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="RAGENativeUI" Version="[1.9.3]" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="DamageTrackerLib" Version="[2.0.0]" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net481" Version="[1.0.3]" ExcludeAssets="all" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

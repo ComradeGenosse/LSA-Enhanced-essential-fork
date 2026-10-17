@@ -70,6 +70,63 @@ static class Program
         Check(witness.Status=="witnessed"&&witness.Channel=="visual"&&witness.SampledGameTick==5&&!witness.KnowsTarget&&!witness.KnowsSource,"m9 incident visual witness is source-time only");
         Check(WitnessPolicy.Evaluate(new WitnessGeometry{EventKind="m9_incident",Observer=Guid.NewGuid().ToString("D"),DistanceMeters=41,SameInterior=true,ClearLosInFront=true}).Status=="did_not_witness","m9 range bound");
         Check(WitnessPolicy.Evaluate(new WitnessGeometry{EventKind="m9_incident",Observer=Guid.NewGuid().ToString("D"),DistanceMeters=10,SameInterior=true,ClearLosInFront=false}).Status=="did_not_witness","blocked line is not a witness");
+        Check(WitnessPolicy.FreshCallbackWindow(900,920,1000,1050),
+              "callback owner-fiber sight within 100ms is eligible");
+        Check(!WitnessPolicy.FreshCallbackWindow(900,1100,1000,1050)&&
+              !WitnessPolicy.FreshCallbackWindow(900,920,1000,1101)&&
+              !WitnessPolicy.FreshCallbackWindow(900,920,1000,999),
+              "stale and future callback samples cannot prove witnessing");
+        Check(WitnessPolicy.FreshCallbackWindow(uint.MaxValue-10,10,1000,1020),
+              "game tick rollover preserves valid bounded callback sample");
+        var ledger=new BodyDiscoveryLedger();
+        Check(ledger.NoteDead("body",100)&&!ledger.CanDiscover("nathan","body",1599),
+              "newly deceased is not an immediate discovery");
+        Check(ledger.CanDiscover("nathan","body",1600)&&ledger.MarkSeen("nathan","body"),
+              "body can be discovered once after bounded delay");
+        Check(!ledger.CanDiscover("nathan","body",1700)&&ledger.CanDiscover("other","body",1700),
+              "distinct owner-fiber witnesses remain independent");
+        Check(!ledger.CanDiscover("other","body",30200),"corpse TTL is bounded");
+        ledger.Retire("nathan");Check(ledger.SeenCount==0,"retirement clears witness");
+        ledger.Reset();Check(ledger.BodyCount==0,"world reset clears corpse evidence");
+        // Anchor retirement, not corpse age, releases lifetime tracking.
+        // Expiring a tombstone while the corpse is retained would replay discovery.
+        var capacity=new BodyDiscoveryLedger();
+        bool allBodies=true,allPairs=true;
+        for(int i=0;i<BodyDiscoveryLedger.MaxRetainedBodies;i++)
+            allBodies &= capacity.NoteDead("body"+i,1000);
+        Check(allBodies&&capacity.BodyCount==256,
+              "all 256 retained native anchors fit without the prior 128-body stall");
+        for(int i=0;i<BodyDiscoveryLedger.MaxRetainedBodies;i++)
+            for(int j=0;j<16;j++) {
+                string observer="observer"+j,bodyRef="body"+i;
+                allPairs &= capacity.CanDiscover(observer,bodyRef,2500) &&
+                            capacity.MarkSeen(observer,bodyRef);
+            }
+        Check(allPairs&&capacity.SeenCount==4096,
+              "all 16 bounded observers may witness each of 256 retained corpses");
+        Check(!capacity.CanDiscover("observer0","body0",32000) &&
+              !capacity.NoteDead("fresh",32000),
+              "expired retained corpse stays non-replayable and full anchor ledger fails closed");
+        capacity.Retire("body0");
+        Check(capacity.NoteDead("fresh",32000)&&
+              capacity.CanDiscover("observer0","fresh",33500),
+              "retired anchor reclaims corpse and pair capacity for new lifetime");
+        var visual=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="vehicle_damage",Observer="nathan",
+            Target="vehicle",DistanceMeters=10,SameInterior=true,ClearLosInFront=true,SampledGameTick=77});
+        Check(visual.Status=="witnessed"&&visual.Channel=="visual"&&visual.KnowsTarget&&!visual.KnowsSource,
+              "fresh impact sight does not invent an attacker");
+        visual=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="body_discovered",Observer="nathan",
+            Target="body",DistanceMeters=10,SameInterior=true,ClearLosInFront=false});
+        Check(visual.Status!="witnessed","blocked corpse visibility cannot discover a body");
+        var bodyProducer=new SensorAdapters(new NativeProducerPolicy("on",
+            new Dictionary<string,object>{{"state","on"}})){Enabled=true};
+        Check(!bodyProducer.BodyDiscovered("body",new WitnessReceipt {Observer="nathan",
+            Status="witnessed",Channel="visual",Basis="native_callback",SampledGameTick=10},10,1600),
+            "callback cannot impersonate sampled body discovery");
+        Check(bodyProducer.BodyDiscovered("body",new WitnessReceipt {Observer="nathan",
+            Status="witnessed",Channel="visual",Basis="sampled_state",SampledGameTick=10},10,1600) &&
+            bodyProducer.Take().kind=="body_discovered",
+            "bounded owner-fiber corpse producer");
         Console.WriteLine("PASS "+checks+" portable production producer policy/queue assertions (not GTA)");
     }
 }

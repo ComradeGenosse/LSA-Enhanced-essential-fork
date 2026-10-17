@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { SalienceCache } from '../src/perception/salienceEngine.mjs';
+import { SalienceCache, evaluateSalience, normalizeSalienceSituation } from '../src/perception/salienceEngine.mjs';
+import { selectKnowledge } from '../src/context/knowledgeSelector.mjs';
 import { radioTurnRelevant, currentConversationObserver, latestRadioObservation, renderRadioContext, selectRadioContext } from '../src/perception/radioContextProjector.mjs';
 
 const NOW=1000;
@@ -37,8 +38,34 @@ function runtimeFixture({known=true,conversation=true}={}) {
 }
 
 test('radio selector recognizes direct music questions but not incidental radio words',()=>{
-  for(const input of ["what song is this?","what's playing?","what station is this?","who sings this song?","what's on the radio?","can you identify this track?"]) assert.equal(radioTurnRelevant(input),true,input);
+  for(const input of ["what song is this?","what's playing?","what station is this?","who sings this song?","what's on the radio?","can you identify this track?","you hear that song man","you hear that song?","can you hear the music?","did you hear that track","what do you think of this song?","whats playing","whats on the radio","whats that song"]) assert.equal(radioTurnRelevant(input),true,input);
   for(const input of ["I bought a radio yesterday.","Turn left at the station.","Music is important to me.","How are you?","Drive faster."]) assert.equal(radioTurnRelevant(input),false,input);
+});
+
+test('natural song question selects qualified PS4 radio evidence for the model',()=>{
+  const f=runtimeFixture();
+  const situation=normalizeSalienceSituation({nowMonotonicMs:NOW});
+  const decision=evaluateSalience(f.heard,situation);
+  const inputs={association:{captureRef:f.ped},psAdapterEpoch:f.heard.observedAt.nativeRun,
+    frozenAt:NOW,liveReferences:{[f.ped]:'ped',[f.vehicle]:'vehicle'},
+    pairs:[{observation:f.heard,situation,decision}]};
+  const withQuestion=selectKnowledge(inputs,{radioInput:'you hear that song man'});
+  assert.equal(withQuestion.selected.length,1);
+  assert.equal(withQuestion.observations[0].claims[0].kind,'audible_radio');
+  assert.match(withQuestion.observations[0].claims[0].description,/Track A/);
+  assert.equal(selectKnowledge(inputs,{radioInput:'How are you?'}).selected.length,0);
+  const retained=selectKnowledge({...inputs,radioCurrentEpisodeIds:[]},{radioInput:'whats playing'});
+  assert.equal(retained.selected.length,1);
+  assert.match(retained.observations[0].claims[0].description,/previously heard/);
+  assert.doesNotMatch(retained.observations[0].claims[0].description,/is playing/);
+});
+
+test('radio current and past descriptions are distinct and never invent a playing song',()=>{
+  const f=runtimeFixture();
+  assert.match(renderRadioContext(f.heard,{currentlyPlaying:false}),/previously heard/);
+  assert.match(renderRadioContext(f.heard,{currentlyPlaying:false}),/not confirmed playing now/);
+  assert.match(renderRadioContext(f.heard),/is playing/);
+  assert.equal(selectRadioContext(f.runtime,'I like music.'),null);
 });
 
 test('R5 selects only the current conversation observer and renders one bounded fact',()=>{
@@ -51,6 +78,7 @@ test('R5 selects only the current conversation observer and renders one bounded 
   assert.match(selected.text,/Track A/);assert.match(selected.text,/Artist A/);assert.match(selected.text,/Test Radio/);
   assert.doesNotMatch(selected.text,/Wrong Passenger Track|captureRef|RADIO_TEST_A|same_vehicle_radio/);
   assert.equal(selectRadioContext(f.runtime,'How are you?'),null);
+  assert.match(selectRadioContext(f.runtime,'you hear that song man').text,/Track A/);
 });
 
 test('R5 omits when actor hearing is ambiguous or missing',()=>{
