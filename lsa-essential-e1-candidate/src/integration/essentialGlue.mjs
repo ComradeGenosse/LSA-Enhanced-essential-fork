@@ -24,7 +24,8 @@ import {createOpenAIRuntimeAcceptedInputSource} from '../memory/openaiRuntimeAcc
 import {createOriginalTurnActorLedger} from '../memory/originalTurnActorLedger.mjs';
 import {createNpcSpeechDeliverySource} from '../memory/npcSpeechDeliveryLedger.mjs';
 import {prepareLiveTurnMemory} from '../memory/liveTurnMemory.mjs';
-import {prepareH1ConversationHistory} from '../memory/h1ConversationHistory.mjs';
+import {prepareH1ConversationHistory,prepareDirectorSocialConversationHistory} from '../memory/h1ConversationHistory.mjs';
+import {isDirectorSocialContext} from '../perception/directorSocialContext.mjs';
 import {prepareFactualRecall} from '../memory/h2FactualRecall.mjs';
 import {composeIndependentForegroundMemory} from '../memory/independentForegroundMemory.mjs';
 import {prepareM5Commands} from '../memory/m5IndependentCommands.mjs';
@@ -161,6 +162,35 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   });
   const emotionalMood = createMoodRuntime({getRuntime:()=>runtime,
     protagonistAuthority:verifiedProtagonistAuthority??liveNativeProtagonist});
+  const verifiedSocialPlaybackProof=turn=>{
+    if(runtime.closed||memoryPause.paused||
+       !(journalActivation.mode==='on'||optionalMemoryEnabled)||
+       config.promotedCharacters?.storageMode!=='sqlite'||!journalStore?.timelineWritable)return null;
+    const t=turn?.directorTicket,live=runtime.intelligence?.runtime;
+    const profile=turn?.characterProjection?.profile;
+    if(!t?.decisionKey?.startsWith('social:')||!live||
+       !isDirectorSocialContext(turn?.context?.internalEvent)||
+       turn.characterProjection?.persistent!==true||
+       profile?.characterId!==turn.characterInputs?.profile?.characterId||
+       !profile?.promotion?.ownerAlias||
+       !live.current(t.speakerCaptureRef)||!live.current(t.playerCaptureRef)||
+       !runtime.host.isCurrent(turn.identity)||
+       (identityService&&!identityService.current(turn.identity)))return null;
+    const owner=live.directorOwnerProofFor(t.speakerCaptureRef);
+    const host=journalStore.verifiedHostContext;
+    if(!owner||owner.hostRunId!==t.hostRunId||owner.worldEpoch!==t.worldEpoch||
+       owner.ownerIncarnationId!==t.ownerIncarnationId||
+       owner.proofRevision<t.proofRevision||
+       host?.hostRunId!==t.hostRunId||host?.worldEpoch!==t.worldEpoch||
+       journalStore.get(profile.characterId)?.promotion?.ownerAlias!==profile.promotion.ownerAlias||
+       journalStore.memoryReadFence==null)return null;
+    return Object.freeze({
+      characterId:profile.characterId,worldProfileId:journalStore.worldProfileId,
+      timelineId:journalStore.activeTimelineId,hostRunId:t.hostRunId,
+      worldEpoch:t.worldEpoch,ownerIncarnationId:t.ownerIncarnationId,
+      speakerCaptureRef:t.speakerCaptureRef,privacyFence:journalStore.memoryReadFence
+    });
+  };
   const services = {
     // Every segment rechecks real P1 binding and PS2 observer lifetime.
     emotionalActing: config.speechProvider === 'elevenlabs' &&
@@ -309,6 +339,40 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     async prepareDirectorCallbackMemory(args) {
       if(runtime.closed||memoryPause.paused)return null;
       return (await runtime.m9Callbacks?.prepareForTurn(args))??null;
+    },
+    // The social lane has no newly accepted player line. Reuse H1's existing
+    // P2 privacy/journal read under the post-hydration Director owner proof.
+    async prepareDirectorSocialHistory({turn,source,isCurrent}) {
+      if(runtime.closed||memoryPause.paused||
+         !(journalActivation.mode==='on'||optionalMemoryEnabled)||
+         config.promotedCharacters?.storageMode!=='sqlite')return null;
+      const live=runtime.intelligence?.runtime,ticket=turn?.directorTicket;
+      const memoryEpoch=memoryPause.stamp();
+      const directorCurrent=t=>{
+        if(runtime.closed||!memoryPause.current(memoryEpoch)||!live||t!==ticket||!t||
+           !t.decisionKey?.startsWith('social:')||
+           !live.current(t.speakerCaptureRef)||!live.current(t.playerCaptureRef))return false;
+        const owner=live.directorOwnerProofFor(t.speakerCaptureRef);
+        return !!owner&&owner.hostRunId===t.hostRunId&&
+          owner.worldEpoch===t.worldEpoch&&
+          owner.ownerIncarnationId===t.ownerIncarnationId&&
+          Number.isSafeInteger(owner.proofRevision)&&
+          owner.proofRevision>=t.proofRevision&&
+          (!identityService||identityService.current(turn.identity));
+      };
+      return prepareDirectorSocialConversationHistory({
+        store:journalStore,turn,source,isCurrent,isDirectorCurrent:directorCurrent,
+        readVerifiedSocialSpeech:()=>this.readDirectorCompletedSpeech({turn})
+      });
+    },
+    // Captured at the original runner's stage and queried only after native
+    // playback completion. A new privacy fence, host or speaker retires it.
+    socialPlaybackProof:turn=>{try{return verifiedSocialPlaybackProof(turn);}catch{return null;}} ,
+    readDirectorCompletedSpeech({turn}={}){
+      const proof=verifiedSocialPlaybackProof(turn);
+      if(!proof)return [];
+      return history.readCompletedSocialForSession(
+        turn.identity.pedId,turn.identity.sessionNonce,proof);
     },
     noteH1Skipped() {
       if(journalActivation.mode==='on'){
