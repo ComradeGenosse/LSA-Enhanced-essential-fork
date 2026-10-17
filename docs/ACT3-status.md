@@ -1,6 +1,6 @@
 # ACT3 status — rich short-range NPC physical activities
 
-Branch `feature/act3-rich-npc-physical-activities`. Code complete and offline-tested; **nothing here has been run in GTA and nothing is enabled by default.** Every ACT3 capability needs a local opt-in and a GTA probe before it counts as validated.
+ACT3 merged to `main` in PR #237. Source implementation and earlier offline tests exist; **nothing here has been run in GTA and nothing is enabled by default.** PR #238 extends ACT5's explicit-consent invitations to all seven executable ACT3 plan families without adding an engine. Every ACT3 capability needs a local opt-in and a GTA probe before it counts as validated.
 
 ACT3 reuses the ACT0–ACT2 machinery unchanged in kind: the capability registry, the `LSA.Activities.v1` pipe (transport only), lease/epoch fencing, owner-before-dispatch, the receipt state machine and supersession observation. Essential remains the only thing that performs NPC actions. ACT3 adds no task controllers, no raw GTA task natives and no second queue. `contracts/activity-capabilities.v1.json` is untouched (SHA-256 `31ed6e6d…6ee6486`).
 
@@ -43,7 +43,7 @@ Menu-less intents that now plan, through `engine.assign` and the existing editor
 Safeguards that are tested, not just documented:
 
 - **Local per-capability gate.** `activities.act3Capabilities` (default absent) must list each ACT3 capability, on top of `mode: "on"`, the native `hello`, and that row's `activities.passedProbes`. This exists because probe `Q1` is shared with ACT2, so ACT2's probe opt-in can never enable ACT3 by accident. A multi-step plan needs every step enabled.
-- **Ownership and priority.** Admission is `player_ux` / `player_direct` only; dialogue, commitment, recovery and director sources stay closed until ACT4+. A lower-priority proposal is rejected with `activity_busy` and never displaces a higher-priority live activity. Native owner-before-dispatch, foreign-callback supersession and `p2_control` handling are unchanged and covered for the new capabilities.
+- **Ownership and priority.** ACT3 menu admission is `player_ux` / `player_direct`. ACT5 also allows source `player_dialogue` only behind its separate `act5` opt-in, exact speaker/owner and explicit player-approval checks. Commitment/recovery/director sources remain closed for general admission. A lower-priority proposal is rejected with `activity_busy` and never displaces a higher-priority live activity. Native owner-before-dispatch, foreign-callback supersession and `p2_control` handling are unchanged and covered for the new capabilities.
 - **Stale targets.** Anchors are re-proven at preflight, at dispatch, and every tick. A retired target or vehicle ends the step with `target_retired` / `vehicle_invalid`, and a changed target is `target_changed`. Late receipts from a finished step are counted stale and ignored.
 - **Multi-step plans.** Each step resolves its own anchors; a step that is already satisfied advances the plan instead of completing it.
 - **Typed refusals.** `sit_bench` and a missing scenario → `unsupported_combination`; non-player people/vehicle slots → `unsupported_combination`; blocked intents → `capability_unavailable`. Nothing is silently substituted.

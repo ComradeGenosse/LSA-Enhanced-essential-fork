@@ -37,6 +37,8 @@ namespace Rage
         public bool Existing = true;
         public bool Exists() { Game.PedReads++; return Existing; }
         public bool IsDead,IsPersistent;
+        public Vehicle CurrentVehicle, LastVehicle;
+        public bool IsInAnyVehicle(bool includeEntering) { Game.NativeCalls++; return CurrentVehicle != null; }
         public Vector3 Position, Bone;
         public float ScreenX, ScreenY;
         public IntPtr MemoryAddress = new IntPtr(123);
@@ -49,6 +51,17 @@ namespace Rage
         public Vector3 GetOffsetPosition(Vector3 offset) { Game.NativeCalls++; return offset; }
         public void Dismiss() { Game.NativeCalls++; }
         public void Delete() { Game.NativeCalls++; }
+    }
+    // Source-only lifecycle fixture: this is not a GTA simulator. P2 ACT5
+    // snapshot reads these fields; any accidental native access remains counted.
+    public sealed class Vehicle
+    {
+        public bool Existing = true,IsAlive = true;
+        public IntPtr MemoryAddress = new IntPtr(321);
+        public int Handle = 34;
+        public Vector3 Position;
+        public float Speed;
+        public bool Exists() { Game.NativeCalls++; return Existing; }
     }
     public struct Model
     {
@@ -147,6 +160,8 @@ namespace LosSantosAlive.NPC
     public sealed class NpcState
     {
         public bool SitOnGroundMode,FollowPlayerOnFoot,FollowPaused,EnterPassengerSeatWhenPlayerEnters,ExitVehicleWhenPlayerExits,StayUnderLsaControl,InDirectedInteraction,AccompliceMode,HasActiveReflex;
+        public bool TakeCoverMode,EnterDriverSeatWhenPlayerVehicleNearby,EnterPassengerSeatWhenPlayerVehicleNearby,
+            EnterBackPassengerSeatWhenPlayerVehicleNearby,DriveToXWhenBothSeated,AssignedVehicleSeatEntryActive;
         public int LastReflexTime;
         public void DemoteToPassiveRuntime() { Rage.Game.NativeCalls++; }
     }
@@ -222,7 +237,7 @@ namespace LosSantosAlive.Core
 }
 namespace LSA.Intelligence
 {
-    public sealed class DirectorOwnerSample { public string Owner,Mode; public bool Suspended; public int Revision; }
+    public sealed class DirectorOwnerSample { public string Owner,Mode,SpeechActivityCapability; public bool Suspended; public int Revision; }
     public sealed class OwnedParticipant { public Rage.Ped Ped; public string Lifetime,EncounterId; public Func<bool> Current; public Func<object> PrimaryOwner; public Func<DirectorOwnerSample> DirectorOwner; }
     // Static logging for P2; the instance surface is what RuntimeEntry hosts.
     public sealed class IntelligenceIntegration

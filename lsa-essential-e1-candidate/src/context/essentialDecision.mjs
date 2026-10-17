@@ -1,5 +1,5 @@
 import {renderKnowledge} from './knowledgeRenderer.mjs';
-import {ACT5_SLOTS,validateAct5Choice} from '../activities/act5Dialogue.mjs';
+import {ACT5_CHOICES,validateAct5Choice} from '../activities/act5Dialogue.mjs';
 import {captureReferenceMap} from './turnSnapshot.mjs';
 import {composeKnowledgeInstruction,separateKnowledgeInstruction,KNOWLEDGE_GROUNDING} from './knowledgeInstructions.mjs';
 import {KNOWLEDGE_LIMITS,jsonBytes} from './knowledgeSelector.mjs';
@@ -70,24 +70,26 @@ export function validateDecisionShape(decision) {
   return parseDecisionJson(JSON.stringify(decision));
 }
 
-export function act5ActivitySchema(intents) {
+export function act5ActivitySchema(intents, allowedChoices = ACT5_CHOICES) {
   // Generate the strict model schema from exactly the same closed-slot map
   // used by acceptance validation. Never expose native steps or arbitrary refs.
   const exact = value => value && typeof value === 'object'
     ? { type:'object', additionalProperties:false, required:Object.keys(value),
         properties:Object.fromEntries(Object.entries(value).map(([key,part])=>[key,exact(part)])) }
     : { type:typeof value, enum:[value] };
-  const choices = intents.map(intent => {
-    if (!Object.hasOwn(ACT5_SLOTS,intent)) throw new TypeError('ACT5 unsupported intent');
-    return { type:'object', additionalProperties:false, required:['intent','slots'],
-      properties:{intent:{type:'string',enum:[intent]},slots:exact(ACT5_SLOTS[intent])} };
+  const choices = intents.flatMap(intent => {
+    if (!Object.hasOwn(allowedChoices,intent)) throw new TypeError('ACT5 unsupported intent');
+    return allowedChoices[intent].map(slots => ({
+      type:'object', additionalProperties:false, required:['intent','slots'],
+      properties:{intent:{type:'string',enum:[intent]},slots:exact(slots)}
+    }));
   });
   return { anyOf:[{type:'null'},...choices] };
 }
 
-export function withAct5Schema(schema, intents) {
+export function withAct5Schema(schema, intents, allowedChoices = ACT5_CHOICES) {
   return Object.freeze({...schema,required:[...schema.required,'activity'],
-    properties:{...schema.properties,activity:act5ActivitySchema(intents)}});
+    properties:{...schema.properties,activity:act5ActivitySchema(intents,allowedChoices)}});
 }
 
 export function buildRequest({ model, effort, systemInstruction, actor, listener, world, contextText, internalEvent, source, input, history = [], maxOutputTokens = 300, structuredSegments = false, lunaDeliveryVersion = 0, knowledgeProjection, activityContext = null }) {
@@ -114,7 +116,10 @@ export function buildRequest({ model, effort, systemInstruction, actor, listener
     outputRules += ' ACT5: activity is null or ONE offered, closed intent/slot combination. An activity requires buffered_action (never early audio), an empty stock command, and a short natural invitation asking for player consent. The player has NOT approved yet. Never say it was executed. Do not propose while busy; do not invent targets, coordinates or capabilities.';
   }
   const act5Context = act5 ? '\n[ACT5 VERIFIED ACTIVITY OFFER]\n' +
-    JSON.stringify({availableIntents:activityContext.intents,pendingIntent:activityContext.pendingIntent,
+    JSON.stringify({availableIntents:activityContext.intents,
+      availableChoices:activityContext.availableChoices || Object.fromEntries(
+        activityContext.intents.map(intent=>[intent,ACT5_CHOICES[intent]])),
+      pendingIntent:activityContext.pendingIntent,
       ownActivityState:activityContext.activityStatus}) : '';
   const trustedInstruction=`${separateKnowledgeInstruction(systemInstruction)}\n\n[C-04 CONTEXT RULES]\n${KNOWLEDGE_GROUNDING}\n\n[E1 OUTPUT RULES]\n${outputRules}${act5Context}`;
   if(jsonBytes(trustedInstruction)>KNOWLEDGE_LIMITS.instructionBytes)throw new RangeError('knowledge_instruction_bytes');
@@ -126,7 +131,7 @@ export function buildRequest({ model, effort, systemInstruction, actor, listener
     max_output_tokens: maxOutputTokens,
     text: { format: { type: 'json_schema', name: act5 ? (structuredSegments ? (lunaDeliveryVersion === 1 ? 'e1_act5_segmented_delivery_v1' : 'e1_act5_segmented_decision') : 'e1_act5_decision') :
         (structuredSegments ? (lunaDeliveryVersion === 1 ? 'e1_segmented_delivery_v1' : 'e1_segmented_decision') : 'e1_decision'), strict: true,
-      schema: act5 ? withAct5Schema(structuredSegments ? (lunaDeliveryVersion === 1 ? segmentedDeliveryV1Schema : segmentedDecisionSchema) : decisionSchema, activityContext.intents) :
+      schema: act5 ? withAct5Schema(structuredSegments ? (lunaDeliveryVersion === 1 ? segmentedDeliveryV1Schema : segmentedDecisionSchema) : decisionSchema, activityContext.intents, activityContext.availableChoices || ACT5_CHOICES) :
         (structuredSegments ? (lunaDeliveryVersion === 1 ? segmentedDeliveryV1Schema : segmentedDecisionSchema) : decisionSchema) } },
     input: [
       { role: 'system', content: composeKnowledgeInstruction(systemInstruction,scene,outputRules+act5Context) },

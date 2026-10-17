@@ -96,9 +96,29 @@ namespace LSA.PromotedCharacters
             // Read-only lifetime validity includes the terminal dead state until Retire;
             // no identity proof or action authority is inferred from this roster.
             return new LSA.Intelligence.OwnedParticipant {Ped=e.Ped,Lifetime=registration.IncarnationId,EncounterId=e.Id,PrimaryOwner=()=>e.Owner,
-                DirectorOwner=()=>ReferenceEquals(e.Registration,registration) && e.Owner!=null
-                    ? new LSA.Intelligence.DirectorOwnerSample {Owner=e.Owner.owner,Mode=e.Owner.mode,Suspended=e.Suspended,Revision=e.DirectorProofRevision}
-                    : null,
+                DirectorOwner=()=> {
+                    if(!ReferenceEquals(e.Registration,registration) || e.Owner==null)return null;
+                    string speechCapability=null;
+                    if(e.Owner.owner=="act" && e.Owner.mode=="activity") {
+                        // Read the actual current native runner, not an ACT
+                        // intent, cached dialogue fact or companion assertion.
+                        // Only established modes or physically progressing
+                        // movement can qualify. Transitions cannot borrow a
+                        // previous task's compatible state.
+                        var step=activityRunner?.Active(e.Id);
+                        if(step!=null && !step.Terminal &&
+                           step.EncounterId==e.Id &&
+                           step.IncarnationId==registration.IncarnationId &&
+                           ((step.State=="MODE_ESTABLISHED" && step.LostSince<0 && step.ModeHealth!="lost") ||
+                            (step.State=="HANDLER_ACCEPTED" && step.ProgressSeen &&
+                             (step.Capability=="approach_person" || step.Capability=="walk_away_from"))))
+                            speechCapability=step.Capability;
+                    }
+                    return new LSA.Intelligence.DirectorOwnerSample {
+                        Owner=e.Owner.owner,Mode=e.Owner.mode,Suspended=e.Suspended,
+                        Revision=e.DirectorProofRevision,SpeechActivityCapability=speechCapability
+                    };
+                },
                 Current=()=>ReferenceEquals(e.Registration,registration) && e.Ped.Exists() && e.Ped.MemoryAddress==e.Address && (e.Ped.IsDead || identity?.Owner?.TryResolveCurrent(e.Ped,out var claim)==true && claim.incarnationId==registration.IncarnationId)};
         }).ToArray();
         public string Id => "characterProfile";
@@ -280,6 +300,64 @@ namespace LSA.PromotedCharacters
             if (!identity.Owner.TryResolveCurrent(encounter.Ped,out var claim)) throw new InvalidOperationException("ownership_conflict");
             return new {pedId = encounter.Ped.Handle.ToString(),encounterId = encounter.Id,ownerAlias = encounter.OwnerAlias,ownershipToken = encounter.OwnershipToken,claim,alreadyOwned};
         }
+        // ACT5 availability is a fresh, read-only GTA snapshot. It carries no
+        // handles or task authority across the pipe; C-02 still resolves and
+        // preflights every selected anchor after explicit player consent.
+        object ActivityOfferSnapshot(Encounter encounter)
+        {
+            bool inVehicle=false, actorIsDriver=false, safe=false, scenarioReady=false, nearby=false;
+            bool vehicleAvailable=false, vehicleStopped=false, frontFree=false, rearFree=false;
+            try
+            {
+                safe=Safe(encounter) && !encounter.Suspended;
+                inVehicle=NativeFunction.CallByName<bool>("IS_PED_IN_ANY_VEHICLE",encounter.Ped,false);
+                actorIsDriver=inVehicle && encounter.Ped.SeatIndex==-1;
+                var player=Game.LocalPlayer.Character;
+                if(safe && player!=null && player.Exists() && !player.IsDead)
+                {
+                    var dx=encounter.Ped.Position.X-player.Position.X;
+                    var dy=encounter.Ped.Position.Y-player.Position.Y;
+                    var dz=encounter.Ped.Position.Z-player.Position.Z;
+                    nearby=dx*dx+dy*dy+dz*dz<=10000f;
+                    Vehicle vehicle=null;
+                    try { vehicle=player.IsInAnyVehicle(false)?player.CurrentVehicle:player.LastVehicle; } catch {}
+                    if(vehicle!=null && vehicle.Exists() && vehicle.IsAlive && vehicle.MemoryAddress!=IntPtr.Zero)
+                    {
+                        dx=encounter.Ped.Position.X-vehicle.Position.X;
+                        dy=encounter.Ped.Position.Y-vehicle.Position.Y;
+                        dz=encounter.Ped.Position.Z-vehicle.Position.Z;
+                        // Suggestions should be practical, not for a distant last car.
+                        vehicleAvailable=dx*dx+dy*dy+dz*dz<=2500f;
+                        if(vehicleAvailable)
+                        {
+                            vehicleStopped=vehicle.Speed<1.0f;
+                            frontFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,0,false);
+                            rearFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,1,false) ||
+                                NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,2,false);
+                        }
+                    }
+                    if(!inVehicle)
+                    {
+                        var state=NpcStateStore.TryGetState(encounter.Ped);
+                        scenarioReady=state!=null && !state.TakeCoverMode &&
+                            !state.EnterDriverSeatWhenPlayerVehicleNearby &&
+                            !state.EnterPassengerSeatWhenPlayerVehicleNearby &&
+                            !state.EnterBackPassengerSeatWhenPlayerVehicleNearby &&
+                            !state.DriveToXWhenBothSeated && !state.AssignedVehicleSeatEntryActive;
+                    }
+                }
+            }
+            catch
+            {
+                // Uncertain native state is never advertised as available.
+                return new {version=1,safe=false,actorInVehicle=false,actorOnFoot=false,actorIsDriver=false,
+                    playerNearby=false,vehicleAvailable=false,vehicleStopped=false,
+                    passengerFree=false,frontFree=false,rearFree=false,scenarioReady=false};
+            }
+            return new {version=1,safe,actorInVehicle=inVehicle,actorOnFoot=!inVehicle,actorIsDriver,
+                playerNearby=nearby,vehicleAvailable,vehicleStopped,
+                passengerFree=frontFree||rearFree,frontFree,rearFree,scenarioReady};
+        }
         object Handle(ControlRequest request)
         {
             var args = request.Args;
@@ -288,7 +366,13 @@ namespace LSA.PromotedCharacters
             if (request.Operation == "roster") {
                 Fields(args); return new {owned = encounters.Values.Where(item => item.Registration != null && Alive(item)).Select(item => new {ownerAlias = item.OwnerAlias,status = item.Suspended ? "suspended" : "spawned"}).ToArray(),encounters = encounters.Values.Where(Alive).Select(item => item.Id).ToArray()};
             }
-            if (request.Operation == "inspect") { Fields(args,"ownerAlias"); var item = Owned(Text(args,"ownerAlias")); return item == null ? null : Binding(item,true); }
+            if (request.Operation == "inspect") {
+                Fields(args,"ownerAlias"); var item=Owned(Text(args,"ownerAlias"));
+                if(item==null)return null;
+                if (!identity.Owner.TryResolveCurrent(item.Ped,out var claim)) throw new InvalidOperationException("ownership_conflict");
+                return new {pedId=item.Ped.Handle.ToString(),encounterId=item.Id,ownerAlias=item.OwnerAlias,
+                    ownershipToken=item.OwnershipToken,claim,alreadyOwned=true,activityOffer=ActivityOfferSnapshot(item)};
+            }
             if (request.Operation == "capture") {
                 Fields(args); var ped = CurrentPed();
                 var encounter = EncounterFor(ped);

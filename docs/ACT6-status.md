@@ -1,11 +1,11 @@
 # ACT6 — NPC navigation and travel (integration candidate)
 
-**Base:** `integration/act3-act4-act5-unified-20261017` at `6d0a0ebd` (unmerged ACT3–ACT5). **Branch:** `feature/act6-native-navigation-20261017`. This is a native-execution candidate, **not GTA-accepted**. Source and unit tests cannot prove that GTA V Enhanced actually performed the journey. Do not merge solely on offline tests.
+**Integration:** ACT6 rebased by a two-parent reconciliation onto the latest `main`, preserving newer ACT5 spoken-consent and activity-epoch protections. **PR:** #239. This is a native-execution candidate, **not GTA-accepted**. Source and unit tests cannot prove that GTA V Enhanced actually performed the journey. Do not merge solely on offline tests.
 
 ## Implemented paths
 
-- **`go_to_place` → `walk_to`:** owner-scoped destination reference, on-foot preflight, GTA navmesh walk task (`TASK_FOLLOW_NAV_MESH_TO_COORD`), native ped-position/progress samples and bounded stuck/timeout detection.
-- **`vehicle_trip` → `drive_to`:** driver/vehicle preflight, on-road destination gate, GTA long-range driving task (`TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE`), original driver/vehicle identity and movement/arrival evidence.
+- **`go_to_place` → `walk_to`:** owner-scoped destination reference, on-foot preflight, GTA navmesh walk task (`TASK_FOLLOW_NAV_MESH_TO_COORD`), matching script-task status, 3D movement/progress samples and bounded stuck/timeout detection.
+- **`vehicle_trip` → `drive_to`:** driver/vehicle preflight, nearby validated street-node destination gate, GTA long-range driving task (`TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE`), original driver/vehicle identity and movement/arrival evidence.
 - **`move_to_and_hold`:** real finite walking step followed by the existing ACT2 hold-position step. Intermediate completion does **not** complete the entire plan.
 - **Direct player dialogue:** with ACT5 and the relevant ACT6 capability independently opted in, a closed parser supports “go to the waypoint”, “head over to my map marker”, “get us to the GPS marker”, “drive us to the airport”, and “walk to Vespucci Beach and wait”. Publication-bound admission and current-owner checks still apply. “Stop driving” and “stop walking” can cancel an ACT-owned trip even when it started via player UX; they cannot cancel another owner's activity. Generic “that building” and arbitrary coordinate strings remain unsupported, never guessed.
 - All three run through existing ActivityEngine/GoalStore, actor leases, StepRunner, completion adapters, status/ACT4 facts, ACT5 consent, world-change and player-priority fences. No second scheduler or free-form Luna coordinates.
