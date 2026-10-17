@@ -1005,6 +1005,24 @@ namespace LSA.Intelligence
                             TraceCode(sourceGrant.SignalId));
                     continue;
                 }
+                // An authenticated editor debug request is only an invitation
+                // to observe an actual selected promoted actor on this native
+                // owner fiber, never a fabricated speech ticket or idle grant.
+                if(frame=="{\"version\":1,\"type\":\"director.social_manual\",\"operation\":\"start\"}") {
+                    object emitted=null;
+                    try {
+                        emitted=socialScenes.Manual(anchors.Current,
+                            roster()??new OwnedParticipant[0],
+                            NpcTargeting.GetPlayerConversationPed(),
+                            host.HostRunId,host.WorldEpoch,unchecked((uint)Game.GameTime));
+                    }catch { }
+                    if(emitted!=null)channel.Send("director_social",emitted);
+                    channel.Send("director_social_manual_result",new {
+                        status=emitted!=null?"accepted":"rejected",
+                        reason=emitted!=null?"opportunity_created":"selected_promoted_npc_unavailable"
+                    });
+                    continue;
+                }
                 if(!DirectorFrameCodec.TryDecode(frame,out var request))continue;
                 var receipt=director.Handle(request);
                 // The original source proof can be reserved only with its
