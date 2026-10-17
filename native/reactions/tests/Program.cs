@@ -62,6 +62,9 @@ static class Tests
         public readonly HashSet<string> TrueNatives = new HashSet<string>();
         public readonly HashSet<string> Throwing = new HashSet<string>();
         public readonly ReactionOptions Options;
+        public readonly List<string> Logs = new List<string>();
+        // null = every dictionary exists; otherwise only those the predicate accepts.
+        public Func<string, bool> DictFilter;
 
         public Rig(string mode, Action<ReactionOptions> tune = null)
         {
@@ -75,7 +78,7 @@ static class Tests
                 if (Throwing.Contains(name)) throw new InvalidOperationException("scripted fault in " + name);
                 switch (name)
                 {
-                    case "DOES_ANIM_DICT_EXIST": return DictExists;
+                    case "DOES_ANIM_DICT_EXIST": return DictExists && (DictFilter == null || DictFilter((string)args[0]));
                     case "HAS_ANIM_DICT_LOADED": return DictLoaded;
                     case "REQUEST_ANIM_DICT": DictLoaded = true; return null;
                     case "GET_ANIM_DURATION": return Duration;
@@ -83,7 +86,7 @@ static class Tests
                     default: return TrueNatives.Contains(name) ? (object)true : null;
                 }
             };
-            Ex = new ReactionExecutor(Options, Transport, Host, () => Epoch, () => Now, null, null);
+            Ex = new ReactionExecutor(Options, Transport, Host, () => Epoch, () => Now, null, Logs.Add);
             Ex.Attach();
         }
 
@@ -146,7 +149,9 @@ static class Tests
         Run("catalog: closed set, secondary+upper-body flags, bounded durations, candidates for both genders", () =>
         {
             Check(ReactionCatalog.PlayFlags == 48, "flags 16|32");
-            Check(ReactionCatalog.Names.OrderBy(n => n).SequenceEqual(new[] { "facepalm", "middle_finger" }), "exactly facepalm + middle_finger");
+            Check(ReactionCatalog.Names.OrderBy(n => n).SequenceEqual(new[] { "facepalm", "middle_finger", "nod", "shrug" }), "exactly facepalm, middle_finger, nod, shrug");
+            Check(!ReactionCatalog.Get("facepalm").OptIn && !ReactionCatalog.Get("middle_finger").OptIn, "the two #204 gestures keep their behavior");
+            Check(ReactionCatalog.Get("nod").OptIn && ReactionCatalog.Get("shrug").OptIn, "nod and shrug are opt-in");
             foreach (var name in ReactionCatalog.Names)
             {
                 var spec = ReactionCatalog.Get(name);
@@ -155,6 +160,17 @@ static class Tests
                 Check(spec.BlendIn > 0 && spec.BlendOut < 0, name + " blends");
             }
             Check(!ReactionCatalog.IsKnown("smile") && !ReactionCatalog.IsKnown(null) && !ReactionCatalog.IsKnown("Facepalm"), "unknown names rejected");
+        });
+
+        Run("catalog: nod/shrug use ambient gesture dictionaries per gender, with the male clip as the female fallback, and start inside the late-start bound", () =>
+        {
+            var nod = ReactionCatalog.Get("nod"); var shrug = ReactionCatalog.Get("shrug");
+            Check(nod.Candidates(true)[0].Dict == "gestures@m@standing@casual" && nod.Candidates(true)[0].Clip == "gesture_nod_yes_soft", "male nod");
+            Check(nod.Candidates(false)[0].Dict == "gestures@f@standing@casual" && nod.Candidates(false).Any(c => c.Dict == "gestures@m@standing@casual"), "female nod then male fallback");
+            Check(shrug.Candidates(true)[0].Clip == "gesture_shrug_soft" && shrug.Candidates(false)[0].Dict == "gestures@f@standing@casual", "shrug candidates");
+            foreach (var spec in new[] { nod, shrug })
+                Check(spec.StartMinMs >= 0 && spec.StartMinMs + spec.StartSpanMs - 1 < new ReactionOptions().MaxLateStartMs && spec.MaxMs <= 1800, spec.Name + " window and ceiling");
+            Check(ReactionCatalog.FacialProbeDicts.Length > 0 && ReactionCatalog.FacialProbeDicts.All(d => d.StartsWith("mp_facial") || d.StartsWith("facials@")), "facial probe dictionaries are existence-only and from the overlay's own set");
         });
 
         Run("source: executor calls only allow-listed natives; no task clearing, movement, weapon, gaze or heading code in any reaction file", () =>
@@ -268,6 +284,23 @@ static class Tests
             Check(Eval(F("middle_finger")).Reason == "global_cooldown", "cooldown applies");
         });
 
+        Run("admission: opt-in reactions need native reactions.enabled; disabled still wins; others unaffected", () =>
+        {
+            var book = new PlaybackBook();
+            book.Started(K("1", "t"), "x", 1000, out _);
+            ReactionFrame F(string reaction) { ReactionFrameCodec.TryParse(MakeFrame("1", "t", 1, reaction, Host, 1), out var f, out _); return f; }
+            AdmissionDecision Eval(string reaction, ReactionOptions o) =>
+                ReactionAdmission.Evaluate(o, F(reaction), Host, 1, book, new ReactionCooldowns(o), 1100, 1200, false);
+            var none = new ReactionOptions { Mode = "on" };
+            Check(Eval("nod", none).Reason == "reaction_not_enabled" && Eval("shrug", none).Reason == "reaction_not_enabled", "default: refused");
+            Check(Eval("facepalm", none).Outcome == AdmissionOutcome.Admit && Eval("middle_finger", none).Outcome == AdmissionOutcome.Admit, "#204 gestures need no opt-in");
+            var nodOnly = new ReactionOptions { Mode = "on" }; nodOnly.Enabled.Add("nod");
+            Check(Eval("nod", nodOnly).Outcome == AdmissionOutcome.Admit, "listed nod admitted");
+            Check(Eval("shrug", nodOnly).Reason == "reaction_not_enabled", "shrug still refused");
+            nodOnly.Disabled.Add("nod");
+            Check(Eval("nod", nodOnly).Reason == "reaction_disabled", "disabled overrides enabled");
+        });
+
         Run("timing: start offset is deterministic and inside 500..1199 ms", () =>
         {
             var seen = new HashSet<int>();
@@ -278,6 +311,20 @@ static class Tests
                 seen.Add(a);
             }
             Check(seen.Count > 50, "offsets vary between turns");
+        });
+
+        Run("timing: nod starts early, shrug a little later, both deterministic inside their own windows", () =>
+        {
+            var nod = ReactionCatalog.Get("nod"); var shrug = ReactionCatalog.Get("shrug");
+            for (int i = 0; i < 200; i++)
+            {
+                int a = ReactionTiming.StartDelayMs(K("1", "turn-" + i), nod), b = ReactionTiming.StartDelayMs(K("9", "turn-" + i), nod);
+                Check(a == b && a >= 250 && a < 700, "nod window " + a);
+                int c = ReactionTiming.StartDelayMs(K("1", "turn-" + i), shrug);
+                Check(c >= 400 && c < 900, "shrug window " + c);
+                Check(ReactionTiming.StartDelayMs(K("1", "turn-" + i), ReactionCatalog.Get("facepalm")) == ReactionTiming.StartDelayMs(K("1", "turn-" + i)), "#204 timing unchanged");
+            }
+            Check(ReactionTiming.StartDelayMs(K("1", "t"), null) == ReactionTiming.StartDelayMs(K("1", "t")), "null spec falls back to the default window");
         });
 
         // ---- run lifecycle (pure)
@@ -676,6 +723,112 @@ static class Tests
                 rig.Step(2000);
                 Check(!rig.Ex.HasActiveRun && rig.Count("TASK_PLAY_ANIM") == 0, "nothing runs");
                 Check(rig.Ex.Rejected("unknown_reaction") == 1 && rig.Ex.Rejected("frame_invalid") == 2, "counted");
+            }
+        });
+
+        Run("executor on: enabled nod plays the male or female ambient gesture clip, upper-body and finite", () =>
+        {
+            foreach (var male in new[] { true, false })
+            {
+                using (var rig = new Rig("on", o => o.Enabled.Add("nod")))
+                {
+                    rig.Ped.IsMale = male;
+                    rig.Start("t1"); rig.Frame("t1", reaction: "nod");
+                    rig.Step(0); rig.Step(800); rig.Playing = true; rig.Step(200);
+                    int i = rig.Calls.IndexOf("TASK_PLAY_ANIM");
+                    Check(i >= 0, "played");
+                    var args = NativeFunction.Args[i];
+                    Check((string)args[1] == (male ? "gestures@m@standing@casual" : "gestures@f@standing@casual") && (string)args[2] == "gesture_nod_yes_soft", "clip for gender");
+                    Check((int)args[6] == 48 && (int)args[5] > 0 && (int)args[5] <= 1400, "flags and finite duration");
+                    Check(rig.Ex.Played == 1 && rig.Transport.LastStatus() == "played", "confirmed");
+                }
+            }
+        });
+
+        Run("executor on: a missing female dictionary falls back to the male clip, and no dictionary skips quietly", () =>
+        {
+            using (var rig = new Rig("on", o => o.Enabled.Add("shrug")))
+            {
+                rig.Ped.IsMale = false;
+                rig.DictFilter = d => d.Contains("@m@");
+                rig.Start("t1"); rig.Frame("t1", reaction: "shrug");
+                rig.Step(0); rig.Step(1000); rig.Step(50);
+                var args = NativeFunction.Args[rig.Calls.IndexOf("TASK_PLAY_ANIM")];
+                Check((string)args[1] == "gestures@m@standing@casual" && (string)args[2] == "gesture_shrug_soft", "male fallback");
+            }
+            using (var rig = new Rig("on", o => o.Enabled.Add("shrug")))
+            {
+                rig.DictExists = false;
+                rig.Start("t1"); rig.Frame("t1", reaction: "shrug");
+                rig.Step(0); rig.Step(1000);
+                Check(rig.Count("TASK_PLAY_ANIM") == 0 && rig.Transport.LastStatus() == "skipped" && rig.Transport.LastReason() == "no_clip", "no_clip, no fault");
+                Check(!rig.Ex.Disabled, "not a native fault");
+            }
+        });
+
+        Run("executor: nod/shrug are refused without native opt-in, in shadow and on, and touch no ped native", () =>
+        {
+            foreach (var mode in new[] { "shadow", "on" })
+            {
+                using (var rig = new Rig(mode))
+                {
+                    rig.Start("t1"); rig.Frame("t1", reaction: "nod"); rig.Step(2000);
+                    Check(rig.Transport.LastStatus() == "rejected" && rig.Transport.LastReason() == "reaction_not_enabled", mode + " refused");
+                    Check(rig.Calls.Count == 0 && !rig.Ex.HasActiveRun && rig.Ex.Rejected("reaction_not_enabled") == 1, mode + " no natives at all");
+                }
+            }
+            using (var rig = new Rig("shadow", o => o.Enabled.Add("nod")))
+            {
+                rig.StartAndPlay("t1", "nod");
+                Check(rig.Transport.LastStatus() == "shadow" && rig.Count("TASK_PLAY_ANIM") == 0 && rig.Count("REQUEST_ANIM_DICT") == 0, "enabled nod is shadow-only in shadow");
+            }
+        });
+
+        Run("executor on: nod interrupted by the line stops only its own clip", () =>
+        {
+            using (var rig = new Rig("on", o => o.Enabled.Add("nod")))
+            {
+                rig.Start("t1"); rig.Frame("t1", reaction: "nod");
+                rig.Step(0); rig.Step(800); rig.Playing = true; rig.Step(200);
+                rig.End("t1", interrupted: true); rig.Step(50);
+                var args = NativeFunction.Args[rig.Calls.IndexOf("STOP_ANIM_TASK")];
+                Check(rig.Count("STOP_ANIM_TASK") == 1 && (string)args[1] == "gestures@m@standing@casual" && (string)args[2] == "gesture_nod_yes_soft", "clip-scoped stop");
+            }
+        });
+
+        Run("diagnostics: off by default; on reports each candidate once per reaction and gender, plus facial dictionary existence only", () =>
+        {
+            using (var rig = new Rig("on"))
+            {
+                rig.StartAndPlay("t1");
+                Check(!rig.Logs.Any(l => l.Contains("probe")) && !rig.Logs.Any(l => l.Contains("clip=")), "silent without diagnostics");
+            }
+            using (var rig = new Rig("on", o => o.Diagnostics = true))
+            {
+                rig.DictFilter = d => d != "anim@mp_player_intcelebrationmale@face_palm";
+                rig.StartAndPlay("t1");
+                var probe = rig.Logs.Where(l => l.StartsWith("[RX] probe reaction=facepalm")).ToList();
+                Check(probe.Count == 1 && probe[0].Contains("gender=m") && probe[0].Contains("anim@mp_player_intupperface_palm/idle_a=loaded")
+                    && probe[0].Contains("face_palm/face_palm=missing"), "candidate states: " + string.Join("|", probe));
+                Check(rig.Logs.Count(l => l.StartsWith("[RX] probe_facial")) == 1 && rig.Logs.Any(l => l.Contains("mp_facial=exists") && l.Contains("existence only")), "facial existence line");
+                Check(rig.Logs.Any(l => l.StartsWith("[RX] played reaction=facepalm clip=anim@mp_player_intupperface_palm/idle_a ms=")), "played line names the winning clip");
+                // second turn for the same reaction and gender: no repeated probe lines
+                rig.End("t1"); rig.Step(3000); rig.Playing = false; rig.Step(3000);
+                rig.Now += 70000; rig.Start("t2", 2); rig.Frame("t2", 2); rig.Step(0); rig.Step(1300); rig.Playing = true; rig.Step(200);
+                Check(rig.Logs.Count(l => l.StartsWith("[RX] probe reaction=facepalm")) == 1 && rig.Logs.Count(l => l.StartsWith("[RX] probe_facial")) == 1, "probed once per session");
+                Check(rig.Logs.All(l => !l.Contains("hello") && !l.Contains("dialogue")), "no dialogue in logs");
+            }
+        });
+
+        Run("diagnostics: shadow probe reads only (exists/loaded) and never plays or requests", () =>
+        {
+            using (var rig = new Rig("shadow", o => { o.Diagnostics = true; o.Enabled.Add("shrug"); }))
+            {
+                rig.Ped.IsMale = false;
+                rig.StartAndPlay("t1", "shrug");
+                Check(rig.Logs.Any(l => l.StartsWith("[RX] probe reaction=shrug gender=f")), "probe line");
+                foreach (var native in new[] { "TASK_PLAY_ANIM", "REQUEST_ANIM_DICT", "STOP_ANIM_TASK", "REMOVE_ANIM_DICT", "GET_ANIM_DURATION" })
+                    Check(rig.Count(native) == 0, "no " + native);
             }
         });
 

@@ -9,6 +9,10 @@ on:
       - 'lsa-essential-e1-candidate/src/reactions/**'
       - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
       - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/src/voice/emotion/deliveryContract.mjs'
+      - 'lsa-essential-e1-candidate/src/config/e1Config.mjs'
+      - 'lsa-essential-e1-candidate/e1.config.example.json'
+      - 'native/promoted-characters/LSA.PromotedCharacters.example.json'
       - 'lsa-essential-e1-candidate/tests/reactions*.test.mjs'
       - '.github/workflows/npc-gestures.yml'
   workflow_dispatch:
@@ -58,4 +62,4 @@ jobs:
         with:
           node-version: '24'
       - name: Offline selection, gating, native handshake and turn hooks
-        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/reactions.test.mjs lsa-essential-e1-candidate/tests/reactions-turn-hook.test.mjs
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/reactions.test.mjs lsa-essential-e1-candidate/tests/reactions-turn-hook.test.mjs lsa-essential-e1-candidate/tests/reactions-gestures.test.mjs
