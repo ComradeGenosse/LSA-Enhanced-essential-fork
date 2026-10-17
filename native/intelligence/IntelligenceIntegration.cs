@@ -20,7 +20,7 @@ namespace LSA.Intelligence
     // read-only fields. Unknown/foreign/residual ownership never means idle.
     public sealed class DirectorOwnerSample
     {
-        public string Owner,Mode;
+        public string Owner,Mode,SpeechActivityCapability;
         public bool Suspended;
         public int Revision;
     }
