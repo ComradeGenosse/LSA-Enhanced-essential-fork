@@ -4,7 +4,7 @@ import {validateDecisionShape} from './essentialDecision.mjs';
 const STALE_REASONS=new Set('superseded memory_stale recall_stale opinion_stale revision_mismatch observation_expired participant_retired owner_unverified wrong_actor world_epoch_changed host_mismatch anchor_expired channel_unhealthy unsupported_contract projection_failed'.split(' '));
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 // Per-generation request state only; the existing salience ledger owns consumption.
-export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,pruneRecall=null,recallCurrent=()=>false,pruneOpinion=null,opinionCurrent=()=>false,memoryCurrent=()=>true,verifyPrepared=null,acknowledge=()=>false,onRequest=()=>{},onOutcome=()=>{},onStale=()=>{}}) {
+export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,pruneMemory=null,pruneRecall=null,recallCurrent=()=>false,pruneOpinion=null,opinionCurrent=()=>false,memoryCurrent=()=>true,verifyPrepared=null,acknowledge=()=>false,onRequest=()=>{},onOutcome=()=>{},onStale=()=>{}}) {
  let projection=frame,sent=false,terminal=false,requestHash=null,projectionHash=null,unsubscribe=null,staleReported=false;
  const dispose=()=>{unsubscribe?.();unsubscribe=null;};
  const hasOptional=()=>projection.delivery.length>0 || (projection.activityReferences?.length??0)>0 ||
@@ -29,13 +29,13 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
  };
  return Object.freeze({
   async prepareAsync(){
-   if(!sent&&projection.memoryStamp&&typeof verifyPrepared==='function'){
+   if(!sent&&(projection.memoryStamp||projection.opinionStamp)&&typeof verifyPrepared==='function'){
     try{await verifyPrepared();}catch{}
    }
    return this.prepare();
   },
   async verifyBeforeRequest(){
-   if(!sent&&projection.memoryStamp&&typeof verifyPrepared==='function'){
+   if(!sent&&(projection.memoryStamp||projection.opinionStamp)&&typeof verifyPrepared==='function'){
     try{await verifyPrepared();}catch{}
    }
    // The request body is already composed. Never silently prune it here.
@@ -57,7 +57,11 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
    // Unsent optional evidence can be wholly removed; a sent source must
    // abort even if the provider is retrying the very same request body.
    for(let n=0;!sent&&n<3;n++){
-     if(reason==='memory_stale'){projection=baseFrame;reason=currentReason();continue;}
+     if(reason==='memory_stale'){
+       // Pre-send only: drop stale foreground memory while preserving current M8.
+       projection=typeof pruneMemory==='function'?pruneMemory(projection):baseFrame;
+       reason=currentReason();continue;
+     }
      if(reason==='recall_stale'&&typeof pruneRecall==='function'){
        projection=pruneRecall(projection);reason=currentReason();continue;
      }

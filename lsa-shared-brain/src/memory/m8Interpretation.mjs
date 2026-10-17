@@ -77,6 +77,10 @@ function feeling(cat,p){
 function freshness(at,now){const age=now-ms(at);return age<=120_000?'live':age<=7*86400000?'recent':'archive';}
 function trimProjection(project,maxBytes,{preferDurableJokes=false}={}){
  const bytes=()=>Buffer.byteLength(JSON.stringify(project),'utf8');
+ // Trim against a worst-case-width totalBytes. With the 1-digit placeholder the
+ // loop could stop at maxBytes-3 and the converged multi-digit total then
+ // exceeded the cap, so preparePs4M8 silently dropped the whole frame.
+ project.totalBytes=maxBytes;
  while(bytes()>maxBytes){
   // Long-term relationship and joke summaries should survive a crowded
   // recent-facts projection; never make durable friendship disappear because
