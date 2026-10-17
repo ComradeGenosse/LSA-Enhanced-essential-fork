@@ -305,13 +305,14 @@ export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
 export function readCorrectionOverlays(db,scope,world){
  dbOwnerScope(db,scope,world);
  const data=readCorrectionRows(db,stmtScope(scope));
- const sources=new Map(db.prepare('SELECT m.command_id AS id,m.protagonist_key AS p FROM memory_commands m JOIN memory_corrections c ON c.command_id=m.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=?').all(...stmtScope(scope)).map(x=>[x.id,x.p]));
+ const sources=new Map(db.prepare('SELECT m.command_id AS id,m.protagonist_key AS p,m.requested_by_line_id AS requestLineId FROM memory_commands m JOIN memory_corrections c ON c.command_id=m.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=?').all(...stmtScope(scope)).map(x=>[x.id,x]));
  const records=[];
  for(const c of data){
    if(!sources.has(c.commandId))continue; // a correction without its command receipt is never exposed
    if(digest(c.content)!==c.checksum)fail('memory_correction_integrity_failed');
    records.push({characterId:scope.characterId,worldProfileId:scope.worldProfileId,
-     timelineId:scope.timelineId,protagonistKey:sources.get(c.commandId),
+     timelineId:scope.timelineId,protagonistKey:sources.get(c.commandId).p,
+     ...(c.mode==='player_fact'?{requestLineId:sources.get(c.commandId).requestLineId}:{}),
      recordId:c.commandId,sourceKind:'permanent_memory',atUtc:c.atUtc,evidenceState:'verified',
      targetId:c.targetId,correctionMode:c.mode,supersedesTarget:c.supersedes,
      envelope:{version:1,kind:'permanent_memory',recordId:c.commandId,
