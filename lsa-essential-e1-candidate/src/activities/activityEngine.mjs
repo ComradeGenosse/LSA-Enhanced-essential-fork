@@ -180,15 +180,22 @@ export class ActivityEngine {
   noteHello(frame) {
     if(frame.clientRestart) {
       for(const activity of this.#live()) this.#finish(activity,'abandoned','lease_lost',this.now(),'detach',false);
-      this.facts.clear();this.hello=null;return;
+      this.facts.clear();this.hello=null;
+      this.byRequest.clear();this.byExecution.clear();this.acceptedProposals.clear();
+      return;
     }
     const context=readHostContext(frame);
     if((this.hostContext || context) && !sameHostContext(this.hostContext,context)) this.#resetWorld();
     this.hostContext=context;
     const changed = this.hello && frame.nativeRun !== this.hello.nativeRun;
+    const authorityChanged = this.hello &&
+      (frame.nativeRun !== this.hello.nativeRun || frame.adapterEpoch !== this.hello.adapterEpoch);
     if (this.hello && (frame.nativeRun !== this.hello.nativeRun || frame.adapterEpoch !== this.hello.adapterEpoch || frame.clientRestart)) {
       for (const activity of this.#live()) this.#finish(activity, 'abandoned', frame.nativeRun !== this.hello.nativeRun ? 'epoch_changed' : 'lease_lost', this.now(), 'detach');
       this.facts.clear();
+    }
+    if (authorityChanged) {
+      this.byRequest.clear();this.byExecution.clear();this.acceptedProposals.clear();
     }
     this.hello = { nativeRun: frame.nativeRun, adapterEpoch: frame.adapterEpoch, capabilities: frame.capabilities || {} };
     if (changed) this.failures = [];
@@ -237,6 +244,8 @@ export class ActivityEngine {
   clockReset() {
     for (const activity of this.#live()) this.#finish(activity, 'abandoned', 'clock_reset', this.now(), 'detach');
     this.facts.clear();
+    this.acceptedProposals.clear();
+    this.byRequest.clear();this.byExecution.clear();
   }
 
   #recordFact(activity,partial) {return this.facts.record(partial,activity.factProvenance);}
@@ -407,7 +416,23 @@ export class ActivityEngine {
   #onReceipt(receipt) {
     if (!receipt) return;
     const activity = this.byExecution.get(receipt.executionId);
-    if (!activity || activity.currentExecutionId !== receipt.executionId) { this.staleReceipts += 1; this.onEvent('activity_receipt', { receiptState: 'stale_receipt' }); return; }
+    const step = activity?.steps[activity.cursor];
+    // ActivityClient validates the complete native wire receipt. Recheck its
+    // execution association here before any state transition or fact is written.
+    // Optional checks permit the existing concise offline-engine test fixtures.
+    const wrong = !activity || !step || TERMINAL.has(activity.status) ||
+      activity.currentExecutionId !== receipt.executionId ||
+      (receipt.activityId !== undefined && receipt.activityId !== activity.activityId) ||
+      (receipt.stepId !== undefined && receipt.stepId !== step.stepId) ||
+      (receipt.capability !== undefined && receipt.capability !== step.capability) ||
+      (receipt.actorEncounterId !== undefined && receipt.actorEncounterId !== activity.actor.encounterId) ||
+      (receipt.attempt !== undefined && receipt.attempt !== step.attempts);
+    if (wrong) { this.staleReceipts += 1; this.onEvent('activity_receipt', { receiptState: 'stale_receipt' }); return; }
+    if (receipt.sequence !== undefined) {
+      const previous = activity.seen[receipt.executionId] || 0;
+      if (receipt.sequence <= previous) { this.staleReceipts += 1; return; }
+      activity.seen[receipt.executionId] = receipt.sequence;
+    }
     if (receipt.epochs && (receipt.epochs.leaseEpoch !== activity.leaseEpoch || (this.hello && (receipt.epochs.nativeRun !== this.hello.nativeRun || receipt.epochs.adapterEpoch !== this.hello.adapterEpoch)))) {
       this.staleReceipts += 1; return;
     }
@@ -418,7 +443,6 @@ export class ActivityEngine {
       else if (unsignedElapsed(receipt.milestones.requestedGameMs, activity.gameStart) > 0xf0000000) return this.clockReset();
     }
     activity.updatedAtMs = now;
-    const step = activity.steps[activity.cursor];
     this.onEvent('activity_receipt', { activityId: activity.activityId, capability: receipt.capability, receiptState: receipt.state, reason: receipt.reason });
     if (receipt.state === 'HANDLER_ACCEPTED' || receipt.state === 'VALIDATED' || receipt.state === 'DISPATCHED') { step.status = 'executing'; activity.status = 'running'; return; }
     if (receipt.state === 'MODE_ESTABLISHED') {

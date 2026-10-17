@@ -61,6 +61,8 @@ export class Act5Dialogue {
 
   async #owner(turn) {
     const runtime = this.#ready();
+    const initialNativeRun = runtime?.nativeRun;
+    const initialAdapterEpoch = runtime?.adapterEpoch;
     const profile = turn?.characterInputs?.profile;
     const claim = turn?.characterInputs?.claim;
     if (!runtime || turn?.characterProjection?.persistent !== true ||
@@ -78,7 +80,9 @@ export class Act5Dialogue {
           live.encounterId !== capture.encounterId ||
           live.encounterId !== turn.knowledgeInputs.activityInputs.binding.encounterId ||
           live.claim?.incarnationId !== claim.incarnationId ||
-          !this.#ready() || !sameHostContext(runtime.hostContext, this.activities.client.runtime.hostContext)) return null;
+          !this.#ready() || this.activities.client.runtime.nativeRun !== initialNativeRun ||
+          this.activities.client.runtime.adapterEpoch !== initialAdapterEpoch ||
+          !sameHostContext(runtime.hostContext, this.activities.client.runtime.hostContext)) return null;
       return {
         binding: { characterId: profile.characterId, ownerAlias: live.ownerAlias,
           ownershipToken: live.ownershipToken, encounterId: live.encounterId,
@@ -99,7 +103,10 @@ export class Act5Dialogue {
         pending.owner.binding.encounterId !== owner.binding.encounterId ||
         pending.owner.binding.incarnationId !== owner.binding.incarnationId ||
         pending.owner.sessionKey !== owner.sessionKey ||
-        pending.owner.nativeRun !== owner.nativeRun)) this.pending.delete(characterId);
+        pending.owner.nativeRun !== owner.nativeRun ||
+        pending.owner.adapterEpoch !== owner.adapterEpoch ||
+        pending.owner.binding.ownershipToken !== owner.binding.ownershipToken ||
+        !sameHostContext(pending.owner.hostContext, owner.hostContext))) this.pending.delete(characterId);
     const activityStatus = this.activities.status(characterId);
     const busy = !TERMINAL.has(activityStatus?.status);
     const intents = busy || this.pending.has(characterId) || (this.cooldown.get(characterId) || 0) > this.now()
@@ -131,7 +138,11 @@ export class Act5Dialogue {
     if (!current || !isCurrent() || current.binding.characterId !== context.owner.binding.characterId ||
         current.binding.ownershipToken !== context.owner.binding.ownershipToken ||
         current.binding.encounterId !== context.owner.binding.encounterId ||
+        current.binding.incarnationId !== context.owner.binding.incarnationId ||
         current.nativeRun !== context.owner.nativeRun ||
+        current.adapterEpoch !== context.owner.adapterEpoch ||
+        current.sessionKey !== context.owner.sessionKey ||
+        !sameHostContext(current.hostContext, context.owner.hostContext) ||
         (this.cooldown.get(current.binding.characterId) || 0) > this.now()) return false;
     const characterId = current.binding.characterId;
     if (this.pending.has(characterId) || !TERMINAL.has(this.activities.status(characterId).status)) return false;
@@ -181,6 +192,8 @@ export class Act5Dialogue {
         owner.binding.incarnationId !== pending.owner.binding.incarnationId ||
         owner.binding.ownershipToken !== pending.owner.binding.ownershipToken ||
         owner.nativeRun !== pending.owner.nativeRun ||
+        owner.adapterEpoch !== pending.owner.adapterEpoch ||
+        !sameHostContext(owner.hostContext, pending.owner.hostContext) ||
         owner.sessionKey !== pending.owner.sessionKey ||
         !TERMINAL.has(this.activities.status(characterId).status)) {
       this.report('act5_rejected', { reason: 'owner_or_activity_changed' });
@@ -209,6 +222,7 @@ export class Act5Dialogue {
         current.binding.incarnationId !== owner.binding.incarnationId ||
         current.binding.ownershipToken !== owner.binding.ownershipToken ||
         current.nativeRun !== owner.nativeRun || current.adapterEpoch !== owner.adapterEpoch ||
+        !sameHostContext(current.hostContext, owner.hostContext) ||
         current.sessionKey !== owner.sessionKey ||
         !TERMINAL.has(this.activities.status(characterId).status)) {
       this.report('act5_rejected',{reason:'owner_or_activity_changed'});
