@@ -3,6 +3,7 @@
 import {createHash} from 'node:crypto';
 import {ensureSuppressionSchema,suppressedMemoryIds,suppressionClosure,retainSuppression,isSuppressedSource} from './suppressionSqlite.mjs';
 import {isUuid,immutableSnapshot} from '../util/identity.mjs';
+import {parseNaturalPetNameCorrection,replaceNamedPetFact} from './explicitCommands.mjs';
 import {ensureCorrectionModeColumn,normalizeCorrectionMode,isProtectedEvidence,readCorrectionRows,supersededTargetIds,overlayContent} from './correctionSemantics.mjs';
 const digest=v=>createHash('sha256').update(typeof v==='string'?v:JSON.stringify(v)).digest('hex');
 const fail=reason=>{throw new Error(reason)};
@@ -164,7 +165,7 @@ export function commitPersistedMemoryCommand(db,o,world){
    const old=db.prepare('SELECT request_sha256,receipt_json FROM memory_commands WHERE command_id=?').get(o.commandId);
    const requestHash=digest(o);
    if(old){if(old.request_sha256!==requestHash)fail('memory_conflicting_command');return JSON.parse(old.receipt_json);}
-   const source=db.prepare('SELECT source,speaker,delivery,protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(o.requestedByLineId,...stmtScope(scope));
+   const source=db.prepare('SELECT content,source,speaker,delivery,protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(o.requestedByLineId,...stmtScope(scope));
    if(!source||source.speaker!=='player'||!['typed','stt'].includes(source.source)||
       source.delivery!=='accepted'||source.protagonist!==(scope.protagonistKey??'unknown'))fail('memory_source_not_accepted');
    const suppressed=suppressedMemoryIds(db,scope);
@@ -183,6 +184,17 @@ export function commitPersistedMemoryCommand(db,o,world){
      // legitimately correct, never a witnessed event or NPC speech (K-12).
      if(correctionMode==='transcript'&&isProtectedEvidence(db,stmtScope(scope),o.targetRecordId))
        fail('memory_transcript_target_invalid');
+     if(correctionMode==='player_fact'){
+       const original=db.prepare('SELECT content,source,speaker,delivery FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+         .get(o.targetRecordId,...stmtScope(scope));
+       const grammar=parseNaturalPetNameCorrection(source.content);
+       if(!grammar||!original||original.speaker!=='player'||
+         original.delivery!=='accepted'||!['typed','stt'].includes(original.source)||
+         replaceNamedPetFact(original.content,grammar)!==o.content||
+         suppressed.has(o.targetRecordId)||
+         supersededTargetIds(db,stmtScope(scope)).has(o.targetRecordId))
+         fail('memory_player_fact_source_invalid');
+     }
    }
    const memoryId=o.commandId,when=o.requestedAtUtc;
    if(!Number.isFinite(Date.parse(when)))fail('memory_invalid_time');
@@ -293,13 +305,14 @@ export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
 export function readCorrectionOverlays(db,scope,world){
  dbOwnerScope(db,scope,world);
  const data=readCorrectionRows(db,stmtScope(scope));
- const sources=new Map(db.prepare('SELECT m.command_id AS id,m.protagonist_key AS p FROM memory_commands m JOIN memory_corrections c ON c.command_id=m.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=?').all(...stmtScope(scope)).map(x=>[x.id,x.p]));
+ const sources=new Map(db.prepare('SELECT m.command_id AS id,m.protagonist_key AS p,m.requested_by_line_id AS requestLineId FROM memory_commands m JOIN memory_corrections c ON c.command_id=m.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=?').all(...stmtScope(scope)).map(x=>[x.id,x]));
  const records=[];
  for(const c of data){
    if(!sources.has(c.commandId))continue; // a correction without its command receipt is never exposed
    if(digest(c.content)!==c.checksum)fail('memory_correction_integrity_failed');
    records.push({characterId:scope.characterId,worldProfileId:scope.worldProfileId,
-     timelineId:scope.timelineId,protagonistKey:sources.get(c.commandId),
+     timelineId:scope.timelineId,protagonistKey:sources.get(c.commandId).p,
+     ...(c.mode==='player_fact'?{requestLineId:sources.get(c.commandId).requestLineId}:{}),
      recordId:c.commandId,sourceKind:'permanent_memory',atUtc:c.atUtc,evidenceState:'verified',
      targetId:c.targetId,correctionMode:c.mode,supersedesTarget:c.supersedes,
      envelope:{version:1,kind:'permanent_memory',recordId:c.commandId,

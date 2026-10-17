@@ -746,8 +746,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       if(!ready&&!signal.aborted&&runtime.host.isCurrent(turn.identity)){
         try{telemetry?.emit?.('memory_journal_not_committed',turn.identity,turn.source,
           {role:'player',reason:'d03_native_readiness_timeout'});}catch{}
-        turn.memoryDisabledForTurn='native_memory_source_timeout';
-        // P1 identity is still independently validated by prepareIdentity.
+        // A readiness probe is not a terminal native revocation: don't
+        // permanently disable this turn's memory before the original turn
+        // attempts its legitimate preacceptance D02 lease. That later bind
+        // still fails closed if native owner proof has not returned.
         // Never synthesize a native ownership/memory receipt here.
       }
     },

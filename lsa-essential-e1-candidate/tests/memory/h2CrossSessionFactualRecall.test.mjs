@@ -3,6 +3,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {p2Fixture,ago} from './h2-p2-fixture.mjs';
 import {projectPreparedRecall} from '../../src/context/knowledgeSelector.mjs';
+import {createM5SqliteServices} from '../../../lsa-shared-brain/src/memory/m5SqlitePrivacy.mjs';
+import {handleExplicitMemoryCommand} from '../../../lsa-shared-brain/src/memory/explicitCommands.mjs';
+import {randomUUID} from 'node:crypto';
 
 function delivered(h2){
   assert.equal(h2.status,'ready',h2.reason);
@@ -169,4 +172,32 @@ test('H2 does not reinterpret an unrelated or expired repeat request as an old t
   const selected=h2.preparedRecall?.contribution?.items??[];
   assert(!selected.some(row=>row.content.includes('Prana')),'unrelated dog memory is not reintroduced');
   assert.equal(await h2.verifyPrepared(),true);
+});
+
+
+test('H2 PS4 recalls Prana Koba Nara Vladimir but excludes superseded Nora evidence after natural M5 correction',async t=>{
+ const f=await p2Fixture(t);
+ await f.say('Prana is our dog.',{at:ago(12000),sessionNonce:'prana'});
+ const old=await f.say('Our corgis are Koba and Nora.',{at:ago(11000),sessionNonce:'corgis'});
+ await f.say("Vladimir is our Pomsky.",{at:ago(10000),sessionNonce:'vlad'});
+ const request=await f.say('Her name is actually Nara, not Nora.',{at:ago(200),sessionNonce:'correction'});
+ const scope=f.scope();
+ const accepted=(await f.store.readDialogueLines({characterId:scope.characterId,timelineId:scope.timelineId,limit:200}))
+   .find(row=>row.recordId===request.recordId);
+ const service=createM5SqliteServices({store:f.store,filePath:f.filePath,authorize:()=>true});
+ try{
+   await service.ready(scope);
+   const corrected=await handleExplicitMemoryCommand({line:accepted,scope,
+     commandId:randomUUID(),store:service.bindCommands()});
+   assert.equal(corrected.outcome,'corrected');
+   const {h2}=await f.ask("What are all my dogs' names?");
+   const visible=delivered(h2),content=visible.map(item=>item.content).join(' | ');
+   for(const name of ['Prana','Koba','Nara','Vladimir'])
+     assert(content.includes(name),name+' absent from PS4 RECALLED: '+content);
+   assert(!visible.some(item=>item.recordId===old.recordId),'original incorrect source excluded');
+   assert(!visible.some(item=>item.recordId===request.recordId),'negated correction utterance hidden from factual recall');
+   assert(!content.includes('Nora'),'superseded name cannot leak into PS4');
+   assert.equal(await h2.verifyPrepared(),true);
+   assert.equal(h2.sendCurrent(),true);
+ }finally{await service.close();}
 });

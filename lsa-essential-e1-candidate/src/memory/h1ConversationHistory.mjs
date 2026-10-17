@@ -120,8 +120,18 @@ export async function openH1ConversationSource({store,turn,acceptedReceipt,input
       if(!current())throw Error('memory_source_revoked');
       const corrections=await store.readCorrectionOverlays?.(scope)??[];
       if(!current())throw Error('memory_source_revoked');
+      // The active accepted correction still belongs to THIS model turn.
+      // Suppress its negating source on later turns, but not before the
+      // current command acknowledgement when the exact M5 receipt exists.
+      const selfCorrection=corrections.some(x=>x.correctionMode==='player_fact'&&
+        x.supersedesTarget===true&&x.requestLineId===line.recordId);
+      const privacyHidden=selfCorrection
+        ?await store.listSuppressedMemoryIds(scope,{includeCorrections:false}):[];
+      if(!current())throw Error('memory_source_revoked');
       return [...new Set([...ids,...corrections.filter(x=>x.supersedesTarget!==false)
-        .map(x=>x.targetId)])].sort();
+        .map(x=>x.targetId)])]
+        .filter(id=>id!==line.recordId||!selfCorrection||privacyHidden.includes(id))
+        .sort();
     };
     // This read-only method is intentionally callable after any existing M5
     // durable command transaction, so correction/forget cannot leak stale text.

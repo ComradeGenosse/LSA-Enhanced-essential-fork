@@ -163,3 +163,41 @@ test('D03 UNIT fixture revocation AFTER journal INSERT rolls back BOTH dialogue 
  assert.equal((await capture.acceptPlayer({source:'typed',text:x.acceptedText})).status,'stored');
  assert.equal((await x.read()).details.length,1);
 });
+
+
+test('D03 synthetic original owner sample briefly stalls then recovers under the SAME preacceptance lease',async t=>{
+ const x=await fixture(t),capture=x.begin();
+ assert.ok(capture);
+ assert.equal(x.state.binds,1);
+ x.state.d02=false;
+ x.d02.status=()=>({connected:false});
+ const restored=setTimeout(()=>{x.state.d02=true;},55);
+ t.after(()=>clearTimeout(restored));
+ const result=await capture.acceptPlayer({source:'typed',text:x.acceptedText});
+ assert.equal(result.status,'stored');
+ assert.equal(result.durable,true);
+ assert.equal(x.state.binds,1,'never retroactively bind a new owner lease');
+ assert.equal((await x.read()).dialogue.length,1);
+ assert.equal((await capture.acceptPlayer({source:'typed',text:x.acceptedText})).status,'duplicate');
+ assert.equal((await x.read()).details.length,1);
+});
+
+test('D03 synthetic stalled owner never gains authority after a timeline or avatar switch',async t=>{
+ const x=await fixture(t),capture=x.begin();
+ assert.ok(capture);
+ // The mock D02 port must enforce the same original-player lease fence as
+ // nativeCurrentOwnerPlayerAuthority does on any avatar substitution.
+ const nativeVerify=x.d02.verifyCurrentOwnerAndPlayer;
+ x.d02.verifyCurrentOwnerAndPlayer=args=>
+   x.state.avatar==='franklin'?nativeVerify(args):null;
+ x.state.d02=false;
+ const restored=setTimeout(()=>{x.state.avatar='michael';x.state.d02=true;},50);
+ t.after(()=>clearTimeout(restored));
+ const outcome=await capture.acceptPlayer({source:'typed',text:x.acceptedText});
+ assert.equal(outcome.status,'not_stored');
+ // The original preacceptance player subject must not change during recovery.
+ const rows=await x.store.withP2SqliteRead({characterId:x.npc.characterId,
+   worldProfileId,timelineId:x.timelineId},db=>
+   db.prepare('SELECT count(*) AS total FROM dialogue_journal').get().total);
+ assert.equal(rows,0);
+});

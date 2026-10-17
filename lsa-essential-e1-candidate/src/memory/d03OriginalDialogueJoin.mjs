@@ -74,8 +74,8 @@ function authenticNative(n,identity,scope,alias,host,ped){
 }
 export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
   npcCompletedOnly=false,onDiagnostic=null,
-  clock=defaultClock,corroborationWaitMs=750,corroborationPollMs=20,
-  totalWaitMs=1500}={}){
+  clock=defaultClock,corroborationWaitMs=1400,corroborationPollMs=25,
+  totalWaitMs=2500}={}){
  if(!store||typeof backend?.hasAuthenticatedSource!=='function'||
     typeof backend?.verifyAccepted!=='function'||
     typeof clock?.now!=='function'||typeof clock?.sleep!=='function'||
@@ -170,10 +170,9 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
     const x=read(text,source,useLease);
     if(x.b)return x;
     if(x.lost!=='native')return null;
-    let connected=true;
-    try{connected=typeof d02.status!=='function'||d02.status()?.connected===true;}
-    catch{connected=false;}
-    if(!connected||clock.now()>=deadline)return null;
+    // A stale authenticated sample can recover under the SAME preacceptance
+    // lease. A true disconnect irrevocably retires it in D02; do not rebind.
+    if(clock.now()>=deadline)return null;
     await clock.sleep(corroborationPollMs);
    }
   }
