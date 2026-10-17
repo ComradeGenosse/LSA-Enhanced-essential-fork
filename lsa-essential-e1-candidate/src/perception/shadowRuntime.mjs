@@ -92,6 +92,11 @@ export class ShadowRuntime {
   // Companion state equals native's last publication on this live stream.
   // Negotiated Memory K evidence never inherits presentation stall tolerance.
   sourceSilenceMs() { return this.memoryCurrentOwnerPlayerVersion===1||!this.observations?3000:OWNER_STALL_BOUNDS.resetMs; }
+  // A short negotiated Memory K freshness veto must not destructively reset
+  // PS2's observer/episode history during a bounded GTA owner-fiber stall.
+  // P0 capture and authenticated native memory authority still require their
+  // independent 3s freshness proofs; this only controls transport retirement.
+  transportResetSilenceMs() { return this.observations?OWNER_STALL_BOUNDS.resetMs:3000; }
   channelFresh() { return Boolean(this.epoch) && this.now()-this.lastReceipt<=this.sourceSilenceMs(); }
   noteReceipt() {
     const now=this.now(),silent=now-this.lastReceipt;
@@ -126,7 +131,7 @@ export class ShadowRuntime {
   }
   current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.leaseNow() && this.epoch);}
   expire() {
-    if(this.epoch && this.now()-this.lastReceipt>this.sourceSilenceMs()) {this.reset('timeout');return;}
+    if(this.epoch && this.now()-this.lastReceipt>this.transportResetSilenceMs()) {this.reset('timeout');return;}
     for(const [ref,a] of this.anchors) if(a.expires<=this.leaseNow()) this.retire(ref,'lease_expired');
     this.signals=this.signals.filter(s=>{ if(s.expires<=this.now()) {this.bump(this.historyDiagnostics,'expired');return false;} return true; });
     this.observations?.expire();
