@@ -114,6 +114,46 @@ export class ActivityEngine {
 
   historyFor(characterId) { return this.history.filter(item => item.characterId === characterId).slice(-8); }
 
+  // ACT4: a read-only, exact-body view for the already-owned P0 turn. This
+  // never acquires leases, resumes a task, or turns handler ACKs into arrival.
+  stateForCharacter(binding) {
+    if (!this.hello || !isUuid(binding?.characterId) || !isUuid(binding?.encounterId) ||
+        !isUuid(binding?.incarnationId) || !sameHostContext(this.hostContext, binding.hostContext)) return null;
+    const activity = this.#current(binding.characterId);
+    if (!activity || activity.actor.encounterId !== binding.encounterId ||
+        activity.actor.incarnationId !== binding.incarnationId ||
+        !sameHostContext(activity.factProvenance, binding.hostContext)) return null;
+    const now = this.now();
+    if (TERMINAL.has(activity.status) &&
+        (!activity.terminal || now < activity.terminal.atMs || now - activity.terminal.atMs > 60_000)) return null;
+    const facts = this.facts.factsForCharacter(binding).filter(fact => fact.activityId === activity.activityId);
+    if (!facts.length) return null; // Includes native retirement and reconnect invalidation.
+    const step = activity.steps[activity.cursor];
+    const latestMode = facts.filter(fact => fact.kind === 'mode_established' &&
+      ['mode_flag', 'world_strong'].includes(fact.evidence)).at(-1);
+    const interruptedAfterMode = latestMode && facts.some(fact => fact.atMs >= latestMode.atMs &&
+      ['paused', 'failed', 'cancelled', 'abandoned'].includes(fact.kind) && fact.factId !== latestMode.factId);
+    const completion = facts.some(fact => fact.kind === 'completed' && fact.evidence === 'world_strong');
+    const token = activity.interrupt?.token;
+    const resumeEligible = activity.status === 'paused' && !!token &&
+      token.activityId === activity.activityId && token.planRevision === activity.planRevision &&
+      token.cursor === activity.cursor && token.nativeRun === this.hello.nativeRun &&
+      token.adapterEpoch === this.hello.adapterEpoch && now <= token.resumeDeadlineMs &&
+      activity.budgets.resumesLeft > 0 && activity.budgets.executionsLeft > 0;
+    return Object.freeze({
+      stateVersion: 1, characterId: binding.characterId, encounterId: binding.encounterId,
+      incarnationId: binding.incarnationId, hostContext: Object.freeze({...binding.hostContext}),
+      nativeRun: this.hello.nativeRun, adapterEpoch: this.hello.adapterEpoch,
+      activityId: activity.activityId, leaseId: activity.leaseId, leaseEpoch: activity.leaseEpoch,
+      intent: activity.template, capability: step?.capability || null, status: activity.status,
+      reason: activity.terminal?.reason || null,
+      modeObserved: activity.leaseEpoch > 0 && ['running', 'holding'].includes(activity.status) &&
+        !!latestMode && !interruptedAfterMode,
+      physicallyCompleted: activity.status === 'completed' && completion,
+      resumeEligible,
+    });
+  }
+
   noteHello(frame) {
     if(frame.clientRestart) {
       for(const activity of this.#live()) this.#finish(activity,'abandoned','lease_lost',this.now(),'detach',false);
