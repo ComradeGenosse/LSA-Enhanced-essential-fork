@@ -131,6 +131,10 @@ test('H2 preserves the actual player dog-name statements despite repeated incomp
   for(const original of [prana,corgis,vladimir]){
     assert(ids.has(original.recordId),'original player fact displaced by repeated failed answers');
   }
+  assert(!visible.some(x=>x.speaker==='npc'),
+    'repeated earlier NPC admissions cannot displace or contradict player facts');
+  assert(!visible.some(x=>x.speaker==='player'&&x.content.includes('?')),
+    'repeated questions should not use the factual recall budget');
   const text=visible.map(x=>x.content).join(' | ');
   for(const name of ['Prana','Koba','Nora','Vladimir'])
     assert(text.includes(name),'missing saved name from PS4: '+name);
