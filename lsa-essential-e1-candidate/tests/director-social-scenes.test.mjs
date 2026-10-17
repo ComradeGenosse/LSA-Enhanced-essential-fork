@@ -5,6 +5,7 @@ import {validateDirectorSocialPayload} from '../src/perception/contracts.mjs';
 import {renderDirectorSocialContext} from '../src/perception/directorSocialContext.mjs';
 import {DirectorObservationPump} from '../src/perception/directorProduction.mjs';
 import {SceneDirectorSpeech} from '../src/perception/sceneDirectorOrchestrator.mjs';
+import {DirectorSpeechReservations} from '../src/perception/sceneDirectorAdmission.mjs';
 
 const fixture=()=>{
   const speaker=randomUUID(),player=randomUUID(),scene=randomUUID(),owner=randomUUID(),host=randomUUID();
@@ -112,4 +113,68 @@ test('missing native social entitlement always blocks speech',async()=>{
   });
   assert.equal((await director.attempt({socialProposal:f.proposal,stamp:f.stamp})).status,'native_social_unavailable');
   assert.equal(requests,0);
+});
+
+test('native busy social admission defers one bounded retry, never a burst',async()=>{
+  const f=fixture();let clock=1000;const calls=[];
+  const runtime={
+    epoch:'native-run',hostContext:{worldEpoch:1},directorRequestVersion:1,
+    anchors:new Map([[f.player,{kind:'player',captureRef:f.player}]]),
+    observerIndex:new Map([[f.speaker,{owned:true,kind:'ped'}]]),
+    now:()=>clock,current:()=>true,stalled:()=>false,
+    directorOwnerProofFor:()=>f.stamp,directorCandidatesFor:()=>[],
+    directorSocialFor:()=>f.proposal,
+    directorPriority:{experimentalEnabled:true,playerTurnVersion:2,
+      receivedAt:1000,hostRunId:f.host,worldEpoch:1},
+  };
+  const pump=new DirectorObservationPump({
+    client:{runtime},now:()=>clock,stampFor:()=>f.stamp,
+    coordinator:{mode:'active',pacingVeto:()=>null,attempt:async()=>{
+      calls.push(clock);
+      return calls.length===1?{status:'native_rejected',nativeReason:'busy'}:{status:'delivered'};
+    }},
+  });
+  await pump.tick();await pump.tick();
+  assert.equal(calls.length,1);
+  clock=3999;runtime.directorPriority.receivedAt=3999;
+  await pump.tick();assert.equal(calls.length,1);
+  clock=4000;runtime.directorPriority.receivedAt=4000;
+  await pump.tick();await pump.tick();
+  assert.deepEqual(calls,[1000,4000]);
+});
+test('a native-busy unconsumed ticket restores local cooldown but retains attempt budget',()=>{
+  let clock=1000;
+  const f=fixture();
+  const reservations=new DirectorSpeechReservations({
+    now:()=>clock,checkCurrent:()=>true,acknowledge:()=>true,enabled:true,
+  });
+  const first=reservations.reserve(f.proposal,f.stamp);
+  assert.ok(first);
+  assert.equal(reservations.pacingVeto(f.proposal),'ticket_already_active');
+  assert.equal(reservations.deferNativeBusy(first.ticketId),true);
+  assert.equal(reservations.pacingVeto(f.proposal),null);
+  const retry=reservations.reserve(f.proposal,f.stamp);
+  assert.ok(retry);
+  assert.notEqual(first.ticketId,retry.ticketId);
+});
+test('native-reserved social ticket can finish hydration after scene initiation expires',()=>{
+  let clock=1000;
+  const f=fixture();
+  const proposal={...f.proposal,expiresAtMonotonicMs:2000};
+  const admission=new DirectorSpeechReservations({
+    now:()=>clock,checkCurrent:({stage})=>stage!=='reserve' || clock<=2000,
+    acknowledge:()=>true,enabled:true,
+  });
+  const ticket=admission.reserve(proposal,f.stamp);
+  assert.ok(ticket);
+  clock=1200;
+  assert.equal(admission.consume(ticket.ticketId,f.stamp),true);
+  clock=2400; // No NEW scene may start, but bound stock authority is preserved.
+  assert.equal(admission.afterHydration(ticket.ticketId,f.stamp),true);
+  assert.equal(admission.beforePublication(ticket.ticketId,f.stamp),true);
+  assert.equal(admission.bindNativeTuple(ticket.ticketId,f.stamp,{
+    pedId:'19',turnId:'trusted',sessionNonce:1,generationId:1,
+  }),true);
+  admission.cancel(ticket.ticketId);
+  assert.equal(admission.reserve(proposal,f.stamp),null);
 });
