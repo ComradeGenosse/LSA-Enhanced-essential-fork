@@ -21,6 +21,7 @@ import {DirectorSpeechReservations} from './perception/sceneDirectorAdmission.mj
 import {SceneDirectorSpeech} from './perception/sceneDirectorOrchestrator.mjs';
 import { ActivityClient } from './activities/activityClient.mjs';
 import { ActivityRuntime } from './activities/activityRuntime.mjs';
+import { Act5Dialogue } from './activities/act5Dialogue.mjs';
 import { ReactionClient } from './reactions/reactionClient.mjs';
 import { createReactionService } from './reactions/reactionService.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
@@ -603,6 +604,14 @@ export async function createRuntimeForBundle(options = {}) {
       owner.own('activities',runtime.activities,value=>value.stop());
       runtime.activities.start();
       runtime.characterService?.bindActivities?.(runtime.activities);
+      if (config.provider === 'openai' && config.activities.act5 === true &&
+          runtime.activities?.engine && runtime.characterService) {
+        runtime.services.act5 = new Act5Dialogue({
+          activities: runtime.activities, characterService: runtime.characterService,
+          report: (event, data) => onEvent(event, data),
+        });
+        owner.own('act5', runtime.services.act5, value => value.clear());
+      }
     } catch {
       const cleanup=await owner.rollback(checkpoint);
       if(cleanup.failures.length) throw runtimeCleanupError(owner,cleanup.failures);

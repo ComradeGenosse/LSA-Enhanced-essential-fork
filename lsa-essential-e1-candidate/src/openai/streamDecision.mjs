@@ -45,18 +45,20 @@ export const segmentedDeliveryV1Schema = Object.freeze({
 // The original JSON object remains buffered and is strictly reconciled at EOF.
 export async function streamDecision({
   config, body, signal, timeoutMs = config.providerWorkDeadlineMs, fetchImpl = globalThis.fetch,
-  telemetry, onSegment = () => {}, dialogueAttempt, beforeRequest, verifyBeforeRequest, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200, lunaDeliveryVersion = 0,
+  telemetry, onSegment = () => {}, dialogueAttempt, beforeRequest, verifyBeforeRequest, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200, lunaDeliveryVersion = 0, activityContext = null,
 }) {
   if (!String(config.reasoningKey || '').trim()) throw new ProviderRequestError('The selected OpenAI credential is missing.', { code: 'missing_credential' });
   if (lunaDeliveryVersion !== 0 && lunaDeliveryVersion !== 1)
     throw new TypeError('Unsupported Luna segment delivery protocol version.');
-  const expectedSchemaName = lunaDeliveryVersion === 1 ? 'e1_segmented_delivery_v1' : 'e1_segmented_decision';
+  const act5Intents = Array.isArray(activityContext?.intents) ? activityContext.intents : null;
+  const expectedSchemaName = act5Intents ? (lunaDeliveryVersion === 1 ? 'e1_act5_segmented_delivery_v1' : 'e1_act5_segmented_decision') :
+    (lunaDeliveryVersion === 1 ? 'e1_segmented_delivery_v1' : 'e1_segmented_decision');
   // Fail before any network request if caller and strict wire schema disagree.
-  if (lunaDeliveryVersion === 1 && body?.text?.format?.name !== expectedSchemaName)
+  if ((lunaDeliveryVersion === 1 || act5Intents) && body?.text?.format?.name !== expectedSchemaName)
     throw new TypeError('Luna segment delivery version does not match the requested schema.');
   if (lunaDeliveryVersion === 0 && body?.text?.format?.name === 'e1_segmented_delivery_v1')
     throw new TypeError('Luna segment delivery v1 requires explicit opt-in.');
-  const decoder = createSegmentDecoder({ maxSegments, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion });
+  const decoder = createSegmentDecoder({ maxSegments, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion, act5Intents });
   const streamStartedAt = performance.now();
   const controller = new AbortController();
   const abort = () => controller.abort(signal?.reason || new Error('turn_aborted'));

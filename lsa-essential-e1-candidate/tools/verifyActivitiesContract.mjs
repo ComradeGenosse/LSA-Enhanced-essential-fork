@@ -28,6 +28,17 @@ const EXPECTED = [
   ['LosSantosAlive.Integrations.IntegrationManager', 'ApplyActionStateModifiers', 'Void', ['Rage.Ped', 'LosSantosAlive.NPC.NpcState', 'String', 'ActionStateModifierPhase']],
   ['LosSantosAlive.NPC.Actions.NpcActionRegistry', 'HasAction', 'Boolean', ['String']],
   ['LosSantosAlive.NPC.NpcState', 'HasActiveReflex', 'Boolean', null],
+  // ACT3: the only native completion event and the state flags the completion adapters read.
+  ['LosSantosAlive.NPC.Behaviors.MovementBehavior', 'add_ApproachFinished', 'Void', ['System.Action`4<Rage.Ped,Rage.Ped,Boolean,String>']],
+  ['LosSantosAlive.NPC.Behaviors.MovementBehavior', 'remove_ApproachFinished', 'Void', ['System.Action`4<Rage.Ped,Rage.Ped,Boolean,String>']],
+  ['LosSantosAlive.NPC.NpcState', 'ApproachTargetMode', 'Boolean', null],
+  ['LosSantosAlive.NPC.NpcState', 'ApproachTargetPed', 'Rage.Ped', null],
+  ['LosSantosAlive.NPC.NpcState', 'TakeCoverMode', 'Boolean', null],
+  ['LosSantosAlive.NPC.NpcState', 'StopAndFaceTargetMode', 'Boolean', null],
+  ['LosSantosAlive.NPC.NpcState', 'StopAndFaceTargetPed', 'Rage.Ped', null],
+  ['LosSantosAlive.NPC.NpcState', 'WalkAway', 'Boolean', null],
+  ['LosSantosAlive.NPC.NpcState', 'AssignedVehicleSeatEntryActive', 'Boolean', null],
+  ['LosSantosAlive.NPC.NpcState', 'AssignedVehicle', 'Rage.Vehicle', null],
 ];
 
 function method(data, type, name, returns, parameters) {

@@ -11,7 +11,7 @@ function recordCanonRequest(telemetry,body,actor) {
   }); } catch {}
 }
 
-export async function decide({ config, context, input, history, signal, knowledgeProjection, knowledgeDelivery, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch, telemetry, dialogueAttempt }) {
+export async function decide({ config, context, input, history, signal, knowledgeProjection, knowledgeDelivery, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch, telemetry, dialogueAttempt, activityContext = null }) {
   const body = buildRequest({
     model: config.reasoningModel,
     effort: config.reasoningEffort,
@@ -26,6 +26,7 @@ export async function decide({ config, context, input, history, signal, knowledg
     input,
     history,
     maxOutputTokens: config.maxOutputTokens,
+    activityContext,
   });
   recordCanonRequest(telemetry,body,context.actor);
   const response = await requestJson({
@@ -60,12 +61,12 @@ export async function decide({ config, context, input, history, signal, knowledg
       model: typeof response.model === 'string' ? response.model : config.reasoningModel,
     });
   } else telemetry?.event('model_usage', { outcome: 'unknown' });
-  return parseDecisionJson(extractResponseText(response));
+  return parseDecisionJson(extractResponseText(response), {act5Intents: activityContext?.intents ?? null});
 }
 
 export async function decideStreaming({ config, context, input, history, signal, knowledgeProjection, knowledgeDelivery,
   timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch,
-  telemetry, onSegment, dialogueAttempt, lunaDeliveryVersion = 0 }) {
+  telemetry, onSegment, dialogueAttempt, lunaDeliveryVersion = 0, activityContext = null }) {
   const body = buildRequest({
     model: config.reasoningModel,
     effort: config.reasoningEffort,
@@ -82,6 +83,7 @@ export async function decideStreaming({ config, context, input, history, signal,
     maxOutputTokens: config.streamingMaxOutputTokens,
     structuredSegments: true,
     lunaDeliveryVersion,
+    activityContext,
   });
   recordCanonRequest(telemetry,body,context.actor);
   return streamDecision({
@@ -91,5 +93,6 @@ export async function decideStreaming({ config, context, input, history, signal,
     maxSegmentChars: config.streamingMaxSegmentChars,
     maxDialogueChars: config.streamingMaxDialogueChars,
     lunaDeliveryVersion,
+    activityContext,
   });
 }

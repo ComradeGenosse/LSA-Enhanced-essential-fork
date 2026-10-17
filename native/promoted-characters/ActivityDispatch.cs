@@ -14,10 +14,19 @@ namespace LSA.PromotedCharacters
     {
         partial void BindActivityWorld(StepRunner runner) { runner.Bind(new EssentialActivityWorld(this)); }
 
+        // Essential's only native completion event. It is pushed as a bounded callback record and consumed on the owner fiber.
+        partial void AttachActivityEvents() { MovementBehavior.ApproachFinished += OnEssentialApproachFinished; }
+        partial void DetachActivityEvents() { MovementBehavior.ApproachFinished -= OnEssentialApproachFinished; }
+        void OnEssentialApproachFinished(Ped actor, Ped target, bool ok, string reason) { PushApproachFinished(actor, target, ok, reason); }
+
         // Essential queue and the registry stop APIs only. No raw task natives and no broad task clearing.
         sealed class EssentialActivityWorld : IActivityWorld
         {
             sealed class SeatMemory { public bool Enter, Exit, Stay; }
+            // Capabilities this binding executes through Essential and can verify from a named state read.
+            // follow_vehicle, give_item, take_item, scenario_at and every extension row stay out on purpose.
+            static readonly HashSet<string> Implemented = new HashSet<string> { "stop_and_face", "approach_person", "walk_away_from", "exit_vehicle", "begin_driving", "take_cover", "enter_vehicle_seat", "scenario_here", "grab_item", "clear_held_item" };
+            public bool Supports(string capability) => capability != null && Implemented.Contains(capability);
             readonly PromotedCharactersIntegration host;
             // Entity references live exclusively in host.Host.Anchors.
             readonly Dictionary<string, string> own = new Dictionary<string, string>();
@@ -53,15 +62,28 @@ namespace LSA.PromotedCharacters
                     if(anchor==null) return new AnchorResult { Reason = "budget_exhausted" };
                     return new AnchorResult { Ok = true, Ref = anchor.CaptureRef, SlotKind = "player", Band = Distance(encounter.Ped, player), Label = null };
                 }
+                if (slotKind == "player_vehicle") {
+                    var player = Game.LocalPlayer.Character;
+                    if (player == null || !player.Exists()) return new AnchorResult { Reason = "vehicle_invalid" };
+                    Vehicle vehicle = null;
+                    try { vehicle = player.IsInAnyVehicle(false) ? player.CurrentVehicle : player.LastVehicle; } catch { }
+                    if (vehicle == null || !vehicle.Exists() || vehicle.MemoryAddress == IntPtr.Zero || !vehicle.IsAlive) return new AnchorResult { Reason = "vehicle_invalid" };
+                    var vehicleHandle = Convert.ToUInt64(vehicle.Handle); var vehicleAddress = vehicle.MemoryAddress;
+                    var held = host.Host.Anchors.Retain(vehicle, vehicleHandle, vehicleAddress, "vehicle", null,
+                        () => vehicle.Exists() && Convert.ToUInt64(vehicle.Handle) == vehicleHandle && vehicle.MemoryAddress == vehicleAddress && vehicle.IsAlive,
+                        host.Host.MonotonicMs, false, LSA.Intelligence.AnchorConsumer.ActTarget);
+                    if (held == null) return new AnchorResult { Reason = "budget_exhausted" };
+                    return new AnchorResult { Ok = true, Ref = held.CaptureRef, SlotKind = "player_vehicle", Band = PlaceTable.Band(encounter.Ped.Position.X - vehicle.Position.X, encounter.Ped.Position.Y - vehicle.Position.Y, encounter.Ped.Position.Z - vehicle.Position.Z), Label = null };
+                }
                 if (slotKind == "here") {
                     var position = encounter.Ped.Position;
                     return new AnchorResult { Ok = true, Ref = Guid.NewGuid().ToString("D"), SlotKind = "here", Band = "at", Label = "here", X = position.X, Y = position.Y, Z = position.Z };
                 }
                 return new AnchorResult { Reason = "place_unsupported" };
             }
-            public PreflightResult Preflight(string encounterId, string capability)
+            public PreflightResult Preflight(string encounterId, string capability, StepArgs args)
             {
-                var sample = Sample(encounterId);
+                var sample = Sample(encounterId, args);
                 if (!sample.Alive || sample.Dead) return new PreflightResult { Reason = "actor_dead" };
                 if (sample.Injured) return new PreflightResult { Reason = "actor_injured" };
                 if (sample.Scripted) return new PreflightResult { Reason = "scripted_state" };
@@ -71,23 +93,92 @@ namespace LSA.PromotedCharacters
                 if (capability == "hold_position" && sample.FollowPaused && !sample.FollowOnFoot) return new PreflightResult { Already = true };
                 if (capability == "follow_person" && sample.FollowOnFoot && sample.TargetSame) return new PreflightResult { Already = true };
                 if (capability == "sit_on_ground" && sample.SitOnGround) return new PreflightResult { Already = true };
+                if (capability == "stop_and_face" || capability == "approach_person" || capability == "walk_away_from") {
+                    if (sample.InVehicle) return new PreflightResult { Reason = "on_foot_required" };
+                    if (sample.TargetDistance < 0) return new PreflightResult { Reason = "target_retired" };
+                    if (capability == "stop_and_face" && sample.TargetDistance > 50f) return new PreflightResult { Reason = "target_out_of_range" };
+                    if (capability == "approach_person" && sample.TargetDistance > 100f) return new PreflightResult { Reason = "target_out_of_range" };
+                    if (capability == "stop_and_face" && sample.StopFaceMode && sample.StopFaceSame && sample.Facing) return new PreflightResult { Already = true };
+                    if (capability == "approach_person" && sample.TargetDistance <= CompletionAdapters.ApproachArrivedMeters) return new PreflightResult { Already = true };
+                    if (capability == "walk_away_from" && sample.TargetDistance >= CompletionAdapters.WalkAwayCompleteMeters) return new PreflightResult { Already = true };
+                }
+                if (capability == "exit_vehicle" && !sample.InVehicle) return new PreflightResult { Already = true };
+                if (capability == "begin_driving") {
+                    if (!sample.InVehicle) return new PreflightResult { Reason = "in_vehicle_required" };
+                    if (!sample.IsDriver) return new PreflightResult { Reason = "driver_required" };
+                }
+                if (capability == "take_cover" && sample.CoverMode) return new PreflightResult { Already = true };
+                if (capability == "enter_vehicle_seat") {
+                    var vehicle = host.Host.Anchors.Resolve(args?.Vehicle)?.Entity as Vehicle;
+                    if (vehicle == null || !vehicle.Exists() || !vehicle.IsAlive) return new PreflightResult { Reason = "vehicle_invalid" };
+                    if (sample.InVehicle && sample.VehicleIsAnchor && SeatMatches(sample, args.Seat)) return new PreflightResult { Already = true };
+                    if (sample.InVehicle) return new PreflightResult { Reason = "state_blocked" };
+                    if (vehicle.Speed >= 1.0f) return new PreflightResult { Reason = "vehicle_moving" };
+                    if (!SeatFree(vehicle, args.Seat)) return new PreflightResult { Reason = "seat_occupied" };
+                }
+                if (capability == "scenario_here") {
+                    if (sample.InVehicle) return new PreflightResult { Reason = "on_foot_required" };
+                    // UseScenario bypasses the executor and does not clear these, so ACT will not start over them.
+                    if (BlocksScenario(encounterId)) return new PreflightResult { Reason = "state_blocked" };
+                    if (sample.ScenarioActive) return new PreflightResult { Already = true };
+                }
+                if (capability == "grab_item" && sample.HoldingItem && sample.HeldItemName == args?.ItemName) return new PreflightResult { Already = true };
+                if (capability == "clear_held_item" && !sample.HoldingItem) return new PreflightResult { Already = true };
                 return new PreflightResult { Ok = true };
             }
-            public bool Dispatch(string encounterId, string capability, string targetRef)
+            static bool SeatMatches(ModeSample sample, string seat) => seat == "driver" ? sample.IsDriver : seat == "passenger" ? sample.SeatIndex == 0 : seat == "rear" ? sample.SeatIndex >= 1 : seat == "any_passenger" && sample.SeatIndex >= 0 && !sample.IsDriver;
+            static bool SeatFree(Vehicle vehicle, string seat)
+            {
+                var indexes = seat == "driver" ? new[] { -1 } : seat == "passenger" ? new[] { 0 } : seat == "rear" ? new[] { 1, 2 } : new[] { 0, 1, 2 };
+                try { foreach (var index in indexes) if (NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE", vehicle, index, false)) return true; } catch { }
+                return false;
+            }
+            bool BlocksScenario(string encounterId)
+            {
+                var encounter = Find(encounterId);
+                if (encounter?.Ped == null) return true;
+                try {
+                    var state = NpcStateStore.TryGetState(encounter.Ped);
+                    if (state == null) return true;
+                    return state.TakeCoverMode || state.EnterDriverSeatWhenPlayerVehicleNearby || state.EnterPassengerSeatWhenPlayerVehicleNearby || state.EnterBackPassengerSeatWhenPlayerVehicleNearby || state.DriveToXWhenBothSeated || state.AssignedVehicleSeatEntryActive;
+                } catch { return true; }
+            }
+            public bool Dispatch(string encounterId, string capability, StepArgs args)
             {
                 var encounter = Find(encounterId);
                 if (encounter == null || !PromotedCharactersIntegration.SameIncarnation(encounter)) return false;
                 var ped = encounter.Ped;
-                if (capability == "follow_person") {
-                    var anchor=host.Host.Anchors.Resolve(targetRef);
+                if (capability == "follow_person" || capability == "stop_and_face" || capability == "approach_person" || capability == "walk_away_from") {
+                    var anchor=host.Host.Anchors.Resolve(args.Target);
                     var target=anchor?.Entity as Ped;
-                    if (target==null || anchor.Kind!="player" || !AnchorLive(targetRef)) return false;
+                    if (target==null || anchor.Kind!="player" || !AnchorLive(args.Target)) return false;
+                    var command = capability == "follow_person" ? "followtarget" : args.Command;
+                    if (command == null) return false;
                     NpcFocus.SetFocus(ped, target, "lsa_activity");
-                    NpcActionQueue.QueueNpcAction("followtarget", null, null, ped, target);
-                    own[encounterId] = "followtarget";
+                    NpcActionQueue.QueueNpcAction(command, null, null, ped, target);
+                    own[encounterId] = command;
                 } else if (capability == "hold_position") { NpcActionQueue.QueueNpcAction("waithere", ped); own[encounterId] = "waithere"; }
                 else if (capability == "sit_on_ground") { NpcActionQueue.QueueNpcAction("sitonground", ped); own[encounterId] = "sitonground"; }
                 else if (capability == "resume_ambient") { NpcActionQueue.QueueNpcAction("resumeactivity", ped); own[encounterId] = "resumeactivity"; }
+                else if (capability == "exit_vehicle") { NpcActionQueue.QueueNpcAction("exitvehicle", ped); own[encounterId] = "exitvehicle"; }
+                else if (capability == "begin_driving") { NpcActionQueue.QueueNpcAction("startdriving", ped); own[encounterId] = "startdriving"; }
+                else if (capability == "take_cover") { NpcActionQueue.QueueNpcAction("takecover", ped); own[encounterId] = "takecover"; }
+                else if (capability == "enter_vehicle_seat") {
+                    // The vehicle is the one Essential resolves for the player. ACT only verifies it afterwards and cancels on a mismatch.
+                    if (args.Command == null || !AnchorLive(args.Vehicle) || host.Host.Anchors.Resolve(args.Vehicle)?.Kind != "vehicle") return false;
+                    NpcActionQueue.QueueNpcAction(args.Command, "", "", ped);
+                    own[encounterId] = args.Command;
+                }
+                else if (capability == "grab_item") { if (args.ItemName == null) return false; NpcActionQueue.QueueNpcAction("grabitem", args.ItemName, "", ped); own[encounterId] = "grabitem"; }
+                else if (capability == "clear_held_item") { NpcActionQueue.QueueNpcAction("clearhelditem", ped); own[encounterId] = "clearhelditem"; }
+                else if (capability == "scenario_here") {
+                    if (args.ScenarioName == null || args.Scenario == "sit_bench") return false;
+                    var state = NpcStateStore.GetStateForActiveBehavior(ped);
+                    // UseScenario does not clear follow. A player-directed scenario replaces the companion follow through the registered stop APIs.
+                    if (state.FollowPlayerOnFoot) { NpcActions.ClearFollowFlags(state); FollowBehavior.StopFollowTarget(state); }
+                    NpcActions.UseScenario(ped, args.ScenarioName);
+                    own[encounterId] = "usescenario";
+                }
                 else return false;
                 return true;
             }
@@ -98,13 +189,20 @@ namespace LSA.PromotedCharacters
                 var encounter = Find(encounterId);
                 if (encounter == null || !PromotedCharactersIntegration.SameIncarnation(encounter)) return;
                 var state = NpcStateStore.GetStateForActiveBehavior(encounter.Ped);
+                // Only the registry's stop APIs. Capabilities with a supersede or none cancel path have nothing to call.
                 if (capability == "follow_person") { NpcActions.ClearFollowFlags(state); FollowBehavior.StopFollowTarget(state); }
                 else if (capability == "sit_on_ground") ComplianceBehavior.StopSitOnGround(state);
+                else if (capability == "approach_person") MovementBehavior.StopApproachTarget(state);
+                else if (capability == "walk_away_from") CombatBehavior.StopWalkAwayFromTarget(encounter.Ped, state, false);
+                else if (capability == "take_cover") CombatBehavior.StopTakeCover(encounter.Ped, state, false);
+                else if (capability == "begin_driving") VehicleBehavior.StopVehicleTaskOnly(encounter.Ped);
+                else if (capability == "enter_vehicle_seat") VehicleBehavior.StopAllVehicleCommands(encounter.Ped, state);
+                else if (capability == "grab_item") NpcActions.ClearHeldItem(encounter.Ped);
                 own.Remove(encounterId);
             }
-            public ModeSample Sample(string encounterId)
+            public ModeSample Sample(string encounterId, StepArgs args)
             {
-                var sample = new ModeSample { Alive = false, Dead = true, DistanceBand = "far" };
+                var sample = new ModeSample { Alive = false, Dead = true, DistanceBand = "far", TargetDistance = -1f, SeatIndex = -1 };
                 var encounter = Find(encounterId);
                 if (encounter?.Ped == null || !encounter.Ped.Exists()) return sample;
                 NpcState state = null;
@@ -133,7 +231,51 @@ namespace LSA.PromotedCharacters
                 sample.Wandering = !memory;
                 sample.ContinuityReached = false;
                 sample.ControlReleased = state == null || encounter.Suspended;
+                if (state != null) SampleActThree(sample, encounter.Ped, state, args);
                 return sample;
+            }
+            // Named Essential flags and GTA reads only. Every value is observed state, never inferred from a command.
+            void SampleActThree(ModeSample sample, Ped actor, NpcState state, StepArgs args)
+            {
+                sample.StopFaceMode = state.StopAndFaceTargetMode; sample.ApproachMode = state.ApproachTargetMode;
+                sample.WalkAwayMode = state.WalkAway; sample.CoverMode = state.TakeCoverMode;
+                sample.AssignedSet = state.AssignedVehicle != null && state.AssignedVehicle.Exists();
+                sample.SeatEntryActive = state.AssignedVehicleSeatEntryActive;
+                try { sample.HoldingItem = state.HeldItem != null && state.HeldItem.IsHoldingItem; sample.HeldItemName = state.HeldItem?.ItemName; } catch { }
+                if (args == null) return;
+                if (args.Target != null) {
+                    var anchor = host.Host.Anchors.Resolve(args.Target);
+                    var target = anchor?.Entity as Ped;
+                    if (target != null && target.Exists() && AnchorLive(args.Target)) {
+                        var dx = target.Position.X - actor.Position.X; var dy = target.Position.Y - actor.Position.Y; var dz = target.Position.Z - actor.Position.Z;
+                        var flat = Math.Sqrt(dx * dx + dy * dy);
+                        sample.TargetDistance = (float)Math.Sqrt(flat * flat + dz * dz);
+                        sample.StopFaceSame = state.StopAndFaceTargetPed != null && ReferenceEquals(state.StopAndFaceTargetPed, target);
+                        sample.ApproachSame = state.ApproachTargetPed != null && ReferenceEquals(state.ApproachTargetPed, target);
+                        if (flat > 0.01) {
+                            var radians = actor.Heading * Math.PI / 180.0;
+                            var cosine = (-Math.Sin(radians) * dx + Math.Cos(radians) * dy) / flat;
+                            sample.Facing = cosine >= Math.Cos(CompletionAdapters.FacingToleranceDegrees * Math.PI / 180.0);
+                        }
+                    }
+                }
+                if (sample.InVehicle) {
+                    try {
+                        var current = actor.CurrentVehicle;
+                        if (current != null && current.Exists()) {
+                            sample.VehicleSpeed = current.Speed;
+                            sample.SeatIndex = actor.SeatIndex;
+                            sample.IsDriver = sample.SeatIndex == -1;
+                            sample.VehicleIsAnchor = SameVehicle(current, host.Host.Anchors.Resolve(args.Vehicle)?.Entity as Vehicle);
+                        }
+                    } catch { }
+                }
+                if (sample.AssignedSet) sample.AssignedIsAnchor = SameVehicle(state.AssignedVehicle, host.Host.Anchors.Resolve(args.Vehicle)?.Entity as Vehicle);
+                if (args.ScenarioName != null) { try { sample.ScenarioActive = NativeFunction.CallByName<bool>("IS_PED_USING_SCENARIO", actor, args.ScenarioName); } catch { } }
+            }
+            static bool SameVehicle(Vehicle left, Vehicle right)
+            {
+                try { return left != null && right != null && left.Exists() && right.Exists() && left.MemoryAddress == right.MemoryAddress && Convert.ToUInt64(left.Handle) == Convert.ToUInt64(right.Handle); } catch { return false; }
             }
             public void BeginOwnership(string encounterId)
             {
@@ -164,8 +306,10 @@ namespace LSA.PromotedCharacters
             }
             public bool AnchorLive(string captureRef) {
                 var anchor=host.Host.Anchors.Resolve(captureRef);
-                return anchor!=null && anchor.Kind=="player" && anchor.Entity is Ped &&
-                    ReferenceEquals(anchor.Entity,Game.LocalPlayer?.Character) && anchor.Consumers.Contains(LSA.Intelligence.AnchorConsumer.ActTarget);
+                if (anchor==null || !anchor.Consumers.Contains(LSA.Intelligence.AnchorConsumer.ActTarget)) return false;
+                if (anchor.Kind=="player") return anchor.Entity is Ped && ReferenceEquals(anchor.Entity,Game.LocalPlayer?.Character);
+                if (anchor.Kind=="vehicle") { var vehicle=anchor.Entity as Vehicle; return vehicle!=null && vehicle.Exists() && vehicle.IsAlive; }
+                return false;
             }
             Encounter Find(string encounterId) => encounterId == null ? null : host.encounters.Values.FirstOrDefault(item => item.Id == encounterId);
             static string Distance(Ped actor, Ped other)

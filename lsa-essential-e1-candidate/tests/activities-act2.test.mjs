@@ -60,7 +60,7 @@ test('ACT2 templates are the four closed plans', () => {
     assert.equal(plan.steps.length, 1);
     assert.equal(plan.steps[0].capability, expected[intent]);
     assert.equal(plan.onComplete, 'stay');
-    assert.equal(buildPlan('board_vehicle', {}, { id, registry }), null);
+    assert.equal(buildPlan('go_to_place', {}, { id, registry }), null); // still blocked after ACT3
   }
 });
 
