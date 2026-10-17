@@ -62,7 +62,7 @@ export class ActivityEngine {
     if (now < this.breakerUntil) return this.#reject(proposal, 'capability_disabled');
     if (!binding || binding.characterId !== proposal?.subject?.characterId || !binding.ownerAlias || !binding.ownershipToken) return this.#reject(proposal, 'actor_not_owned');
     const hello = this.hello?.capabilities || null;
-    const admission = validateAdmission(proposal, { registry: this.registry, mode: this.config.mode, hello, passedProbes: this.config.passedProbes || [], act3Capabilities: this.config.act3Capabilities || [], act5: this.config.act5 === true, playerApproved });
+    const admission = validateAdmission(proposal, { registry: this.registry, mode: this.config.mode, hello, passedProbes: this.config.passedProbes || [], act3Capabilities: this.config.act3Capabilities || [], act6Capabilities: this.config.act6Capabilities || [], act5: this.config.act5 === true, playerApproved });
     if (!admission.ok) return this.#reject(proposal, admission.reason);
     // A replay is idempotent only within the exact authenticated owner/run.
     const replay = proposal.source === 'player_dialogue' ? this.acceptedProposals.get(proposal.proposalId) : null;

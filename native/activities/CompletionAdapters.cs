@@ -15,6 +15,9 @@ namespace LSA.Activities
         public float VehicleSpeed, TargetDistance;
         public bool HoldingItem, ScenarioActive;
         public string HeldItemName;
+        // ACT6: sampled physical movement from one dispatched and owner-scoped native task.
+        public bool NavIssued, NavProgress, NavStuck, NavVehicleSame, NavArrived;
+        public float NavDistance;
     }
 
     // Per-execution facts the pure adapters need. None of these come from the game.
@@ -94,6 +97,8 @@ namespace LSA.Activities
             if (adapter == "walk_away") return WalkAway(sample, context);
             if (adapter == "held_item") return HeldItem(sample, context);
             if (adapter == "scenario") return Scenario(sample);
+            if (adapter == "place_arrival") return Navigation(sample, false);
+            if (adapter == "drive_arrival") return Navigation(sample, true);
             return Verdict.NotYet;
         }
 
@@ -188,6 +193,18 @@ namespace LSA.Activities
         }
 
         // Mode health only. A scenario is never PHYSICALLY_COMPLETED.
+        static Verdict Navigation(ModeSample sample, bool driving)
+        {
+            if (!sample.NavIssued) return Verdict.Fail("navigation_failed");
+            if (driving && (!sample.InVehicle || !sample.IsDriver)) return Verdict.Fail("driver_required");
+            if (driving && !sample.NavVehicleSame) return Verdict.Fail("vehicle_mismatch");
+            if (!driving && sample.InVehicle) return Verdict.Fail("on_foot_required");
+            if (sample.NavArrived && sample.NavProgress) return Verdict.Of("completed", driving ? "vehicle_motion" : "distance", "strong", "at");
+            if (sample.NavStuck) return Verdict.Fail("no_progress");
+            if (sample.NavProgress) return Verdict.Of("progress", driving ? "vehicle_motion" : "distance", "medium");
+            return Verdict.NotYet;
+        }
+
         static Verdict Scenario(ModeSample sample)
         {
             if (sample.InVehicle) return Verdict.Lost("on_foot_required");

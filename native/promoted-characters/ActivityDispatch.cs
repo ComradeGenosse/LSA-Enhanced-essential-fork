@@ -19,18 +19,39 @@ namespace LSA.PromotedCharacters
         partial void DetachActivityEvents() { MovementBehavior.ApproachFinished -= OnEssentialApproachFinished; }
         void OnEssentialApproachFinished(Ped actor, Ped target, bool ok, string reason) { PushApproachFinished(actor, target, ok, reason); }
 
-        // Essential queue and the registry stop APIs only. No raw task natives and no broad task clearing.
+        // ACT2/ACT3 use Essential queue/stop APIs. ACT6 is an ACT-owned, gated native extension:
+        // actual GTA navigation tasks, never a second activity scheduler or free-form command.
         sealed class EssentialActivityWorld : IActivityWorld
         {
             sealed class SeatMemory { public bool Enter, Exit, Stay; }
+            // Evidence for the ACT runner's single current step; not a task controller.
+            sealed class NavMemory {
+                public string PlaceRef, Capability;
+                public ulong PedHandle, VehicleHandle;
+                public IntPtr PedAddress, VehicleAddress;
+                public float InitialDistance, BestDistance;
+                public uint IssuedAt, LastProgressAt;
+                public bool Progress;
+                public int ArrivalSamples;
+            }
+            static readonly Dictionary<string, Vector3> Landmarks = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase) {
+                {"los santos international airport", new Vector3(-1037f,-2738f,13.75f)},
+                {"lsia", new Vector3(-1037f,-2738f,13.75f)},
+                {"airport", new Vector3(-1037f,-2738f,13.75f)},
+                {"del perro pier", new Vector3(-1847f,-1225f,13f)},
+                {"vespucci beach", new Vector3(-1394f,-1022f,5f)},
+                {"sandy shores airfield", new Vector3(1732f,3297f,41f)},
+                {"paleto bay", new Vector3(-100f,6400f,31f)}
+            };
             // Capabilities this binding executes through Essential and can verify from a named state read.
             // follow_vehicle, give_item, take_item, scenario_at and every extension row stay out on purpose.
-            static readonly HashSet<string> Implemented = new HashSet<string> { "stop_and_face", "approach_person", "walk_away_from", "exit_vehicle", "begin_driving", "take_cover", "enter_vehicle_seat", "scenario_here", "grab_item", "clear_held_item" };
+            static readonly HashSet<string> Implemented = new HashSet<string> { "stop_and_face", "approach_person", "walk_away_from", "exit_vehicle", "begin_driving", "take_cover", "enter_vehicle_seat", "scenario_here", "grab_item", "clear_held_item", "walk_to", "drive_to" };
             public bool Supports(string capability) => capability != null && Implemented.Contains(capability);
             readonly PromotedCharactersIntegration host;
             // Entity references live exclusively in host.Host.Anchors.
             readonly Dictionary<string, string> own = new Dictionary<string, string>();
             readonly Dictionary<string, SeatMemory> seats = new Dictionary<string, SeatMemory>();
+            readonly Dictionary<string, NavMemory> navigation = new Dictionary<string, NavMemory>();
             public EssentialActivityWorld(PromotedCharactersIntegration host) { this.host = host; }
             public uint GameTime => unchecked((uint)Game.GameTime);
 
@@ -79,7 +100,48 @@ namespace LSA.PromotedCharacters
                     var position = encounter.Ped.Position;
                     return new AnchorResult { Ok = true, Ref = Guid.NewGuid().ToString("D"), SlotKind = "here", Band = "at", Label = "here", X = position.X, Y = position.Y, Z = position.Z };
                 }
+                if (slotKind == "waypoint" || slotKind == "near_player" || slotKind != null && slotKind.StartsWith("named:", StringComparison.Ordinal)) {
+                    Vector3 destination; string label; string resolvedKind;
+                    if (slotKind == "waypoint") {
+                        // Sprite 8 is the player's real map waypoint. No client/model coordinate is accepted.
+                        try {
+                            var blip = NativeFunction.CallByName<int>("GET_FIRST_BLIP_INFO_ID", 8);
+                            if (blip == 0 || !NativeFunction.CallByName<bool>("DOES_BLIP_EXIST", blip))
+                                return new AnchorResult { Reason = "place_unresolved" };
+                            destination = NativeFunction.CallByName<Vector3>("GET_BLIP_INFO_ID_COORD", blip);
+                            // Waypoint blips often supply Z=0. Refuse an unsampled surface rather than invent height.
+                            if (Math.Abs(destination.Z) < 0.01f) {
+                                float? ground = World.GetGroundZ(new Vector3(destination.X,destination.Y,60f),true,false);
+                                if (!ground.HasValue) return new AnchorResult { Reason = "place_unresolved" };
+                                destination.Z = ground.Value;
+                            }
+                        } catch { return new AnchorResult { Reason = "place_unresolved" }; }
+                        label = "Player waypoint"; resolvedKind = "waypoint";
+                    } else if (slotKind == "near_player") {
+                        var player = Game.LocalPlayer.Character;
+                        if (player == null || !player.Exists()) return new AnchorResult { Reason = "target_invalid" };
+                        destination = player.GetOffsetPosition(new Vector3(3f,3f,0f));
+                        label = "Near player"; resolvedKind = "near_player";
+                    } else {
+                        var query = slotKind.Substring("named:".Length).Trim();
+                        if (!Landmarks.TryGetValue(query, out destination))
+                            return new AnchorResult { Reason = "place_unresolved" };
+                        label = query; resolvedKind = "named";
+                    }
+                    if (!ValidPlace(destination)) return new AnchorResult { Reason = "place_unresolved" };
+                    var actorPos = encounter.Ped.Position;
+                    return new AnchorResult { Ok = true, Ref = Guid.NewGuid().ToString("D"), SlotKind = resolvedKind, Label = label,
+                        Band = PlaceTable.Band(actorPos.X-destination.X,actorPos.Y-destination.Y,actorPos.Z-destination.Z),
+                        X = destination.X, Y = destination.Y, Z = destination.Z };
+                }
                 return new AnchorResult { Reason = "place_unsupported" };
+            }
+            static bool ValidPlace(Vector3 value) =>
+                !float.IsNaN(value.X) && !float.IsNaN(value.Y) && !float.IsNaN(value.Z) &&
+                !float.IsInfinity(value.X) && !float.IsInfinity(value.Y) && !float.IsInfinity(value.Z) &&
+                Math.Abs(value.X) < 9000 && Math.Abs(value.Y) < 9000 && value.Z > -150 && value.Z < 2500;
+            static float FlatDistance(Vector3 a, Vector3 b) {
+                var dx = a.X-b.X; var dy = a.Y-b.Y; return (float)Math.Sqrt(dx*dx + dy*dy);
             }
             public PreflightResult Preflight(string encounterId, string capability, StepArgs args)
             {
@@ -103,6 +165,22 @@ namespace LSA.PromotedCharacters
                     if (capability == "walk_away_from" && sample.TargetDistance >= CompletionAdapters.WalkAwayCompleteMeters) return new PreflightResult { Already = true };
                 }
                 if (capability == "exit_vehicle" && !sample.InVehicle) return new PreflightResult { Already = true };
+                if (capability == "walk_to" || capability == "drive_to") {
+                    if (args == null || !args.HasPlace || !ValidPlace(new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z)))
+                        return new PreflightResult { Reason = "place_unresolved" };
+                    if (capability == "walk_to" && sample.InVehicle) return new PreflightResult { Reason = "on_foot_required" };
+                    if (capability == "drive_to") {
+                        if (!sample.InVehicle || !sample.IsDriver) return new PreflightResult { Reason = "driver_required" };
+                        try {
+                            if (!NativeFunction.CallByName<bool>("IS_POINT_ON_ROAD", args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z,0))
+                                return new PreflightResult { Reason = "navigation_failed" };
+                        } catch { return new PreflightResult { Reason = "navigation_failed" }; }
+                    }
+                    // A nearby NPC is not a completed navigation. Require a real task and observed movement.
+                    var destination = new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z);
+                    if (FlatDistance(Find(encounterId).Ped.Position,destination) <= (capability == "walk_to" ? 3f : 8f))
+                        return new PreflightResult { Reason = "already_satisfied" };
+                }
                 if (capability == "begin_driving") {
                     if (!sample.InVehicle) return new PreflightResult { Reason = "in_vehicle_required" };
                     if (!sample.IsDriver) return new PreflightResult { Reason = "driver_required" };
@@ -169,6 +247,34 @@ namespace LSA.PromotedCharacters
                     NpcActionQueue.QueueNpcAction(args.Command, "", "", ped);
                     own[encounterId] = args.Command;
                 }
+                else if (capability == "walk_to" || capability == "drive_to") {
+                    if (args == null || !args.HasPlace || !ValidPlace(new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z)))
+                        return false;
+                    var state = NpcStateStore.GetStateForActiveBehavior(ped);
+                    if (state == null || state.HasActiveReflex || state.InDirectedInteraction) return false;
+                    Vehicle vehicle = null;
+                    if (capability == "drive_to") {
+                        vehicle = ped.CurrentVehicle;
+                        if (vehicle == null || !vehicle.Exists() || !vehicle.IsAlive || ped.SeatIndex != -1 ||
+                            !NativeFunction.CallByName<bool>("IS_POINT_ON_ROAD",args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z,0)) return false;
+                    } else if (ped.IsInAnyVehicle(false)) return false;
+                    // Supersede only our own held Essential modes before installing this ACT-owned task.
+                    if (state.FollowPlayerOnFoot) { NpcActions.ClearFollowFlags(state); FollowBehavior.StopFollowTarget(state); }
+                    if (state.SitOnGroundMode) ComplianceBehavior.StopSitOnGround(state);
+                    var dest = new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z);
+                    if (capability == "walk_to")
+                        NativeFunction.CallByName<int>("TASK_FOLLOW_NAV_MESH_TO_COORD",ped,dest.X,dest.Y,dest.Z,1.0f,-1,2.5f,0,0f);
+                    else
+                        NativeFunction.CallByName<int>("TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE",ped,vehicle,dest.X,dest.Y,dest.Z,18f,786603,8f);
+                    navigation[encounterId] = new NavMemory {
+                        PlaceRef=args.Place, Capability=capability, PedHandle=Convert.ToUInt64(ped.Handle), PedAddress=ped.MemoryAddress,
+                        VehicleHandle=vehicle == null ? 0 : Convert.ToUInt64(vehicle.Handle),
+                        VehicleAddress=vehicle == null ? IntPtr.Zero : vehicle.MemoryAddress,
+                        InitialDistance=FlatDistance(ped.Position,dest), BestDistance=FlatDistance(ped.Position,dest),
+                        IssuedAt=GameTime, LastProgressAt=GameTime
+                    };
+                    own[encounterId] = capability;
+                }
                 else if (capability == "grab_item") { if (args.ItemName == null) return false; NpcActionQueue.QueueNpcAction("grabitem", args.ItemName, "", ped); own[encounterId] = "grabitem"; }
                 else if (capability == "clear_held_item") { NpcActionQueue.QueueNpcAction("clearhelditem", ped); own[encounterId] = "clearhelditem"; }
                 else if (capability == "scenario_here") {
@@ -182,7 +288,7 @@ namespace LSA.PromotedCharacters
                 else return false;
                 return true;
             }
-            public void NoteForeign(string encounterId) { if (encounterId != null) {own.Remove(encounterId);RefreshPrimaryOwner(Find(encounterId));} }
+            public void NoteForeign(string encounterId) { if (encounterId != null) {own.Remove(encounterId); navigation.Remove(encounterId); RefreshPrimaryOwner(Find(encounterId));} }
             public void Cancel(string encounterId, string capability, bool stopIfCurrent)
             {
                 if (!stopIfCurrent || encounterId == null || !own.ContainsKey(encounterId)) return;
@@ -197,8 +303,14 @@ namespace LSA.PromotedCharacters
                 else if (capability == "take_cover") CombatBehavior.StopTakeCover(encounter.Ped, state, false);
                 else if (capability == "begin_driving") VehicleBehavior.StopVehicleTaskOnly(encounter.Ped);
                 else if (capability == "enter_vehicle_seat") VehicleBehavior.StopAllVehicleCommands(encounter.Ped, state);
+                else if ((capability == "walk_to" || capability == "drive_to") && navigation.TryGetValue(encounterId,out var nav) &&
+                         nav.Capability == capability && nav.PedHandle == Convert.ToUInt64(encounter.Ped.Handle) &&
+                         nav.PedAddress == encounter.Ped.MemoryAddress) {
+                    if (capability == "walk_to") NativeFunction.CallByName<int>("TASK_STAND_STILL",encounter.Ped,1);
+                    else VehicleBehavior.StopVehicleTaskOnly(encounter.Ped);
+                }
                 else if (capability == "grab_item") NpcActions.ClearHeldItem(encounter.Ped);
-                own.Remove(encounterId);
+                own.Remove(encounterId); navigation.Remove(encounterId);
             }
             public ModeSample Sample(string encounterId, StepArgs args)
             {
@@ -232,6 +344,7 @@ namespace LSA.PromotedCharacters
                 sample.ContinuityReached = false;
                 sample.ControlReleased = state == null || encounter.Suspended;
                 if (state != null) SampleActThree(sample, encounter.Ped, state, args);
+                if (args != null && args.HasPlace) SampleNavigation(sample, encounter.Ped, encounterId, args);
                 return sample;
             }
             // Named Essential flags and GTA reads only. Every value is observed state, never inferred from a command.
@@ -273,6 +386,34 @@ namespace LSA.PromotedCharacters
                 if (sample.AssignedSet) sample.AssignedIsAnchor = SameVehicle(state.AssignedVehicle, host.Host.Anchors.Resolve(args.Vehicle)?.Entity as Vehicle);
                 if (args.ScenarioName != null) { try { sample.ScenarioActive = NativeFunction.CallByName<bool>("IS_PED_USING_SCENARIO", actor, args.ScenarioName); } catch { } }
             }
+            void SampleNavigation(ModeSample sample, Ped actor, string encounterId, StepArgs args) {
+                if (!navigation.TryGetValue(encounterId,out var item) || item.PlaceRef != args.Place ||
+                    item.PedHandle != Convert.ToUInt64(actor.Handle) || item.PedAddress != actor.MemoryAddress) return;
+                sample.NavIssued = true;
+                var position = new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z);
+                sample.NavDistance = FlatDistance(actor.Position,position);
+                var now = GameTime;
+                if (item.Capability == "drive_to") {
+                    Vehicle current = null;
+                    try { current=actor.CurrentVehicle; } catch {}
+                    sample.NavVehicleSame=current!=null && current.Exists() && current.IsAlive &&
+                        Convert.ToUInt64(current.Handle)==item.VehicleHandle && current.MemoryAddress==item.VehicleAddress;
+                    if (!sample.NavVehicleSame) return;
+                } else sample.NavVehicleSame = true;
+                if (item.BestDistance - sample.NavDistance >= 1.5f) {
+                    item.BestDistance=sample.NavDistance;
+                    item.LastProgressAt=now;
+                    if (item.InitialDistance - sample.NavDistance >= 2.0f) item.Progress=true;
+                }
+                sample.NavProgress=item.Progress;
+                var close=sample.NavDistance <= (item.Capability=="drive_to"?8f:3f);
+                var stopped=item.Capability!="drive_to" || sample.VehicleSpeed<4f;
+                item.ArrivalSamples=close && stopped && item.Progress ? item.ArrivalSamples+1 : 0;
+                sample.NavArrived=item.ArrivalSamples>=3;
+                // Do not repeatedly issue tasks or fight another controller. Report loss after bounded stall.
+                sample.NavStuck=!sample.NavArrived && unchecked(now-item.LastProgressAt)>35000u &&
+                    unchecked(now-item.IssuedAt)>35000u;
+            }
             static bool SameVehicle(Vehicle left, Vehicle right)
             {
                 try { return left != null && right != null && left.Exists() && right.Exists() && left.MemoryAddress == right.MemoryAddress && Convert.ToUInt64(left.Handle) == Convert.ToUInt64(right.Handle); } catch { return false; }
@@ -292,6 +433,8 @@ namespace LSA.PromotedCharacters
             public void EndOwnership(string encounterId, bool preempted)
             {
                 if (encounterId == null || !seats.ContainsKey(encounterId)) return;
+                navigation.Remove(encounterId);
+                own.Remove(encounterId);
                 var memory = seats[encounterId]; seats.Remove(encounterId);
                 var encounter = Find(encounterId);
                 if (encounter == null || !PromotedCharactersIntegration.SameIncarnation(encounter)) return;

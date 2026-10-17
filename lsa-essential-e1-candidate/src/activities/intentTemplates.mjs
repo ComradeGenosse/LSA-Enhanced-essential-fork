@@ -7,8 +7,19 @@ export const ACT2_CAPABILITIES = Object.freeze(['hold_position', 'follow_person'
 // below with a typed reason instead of a plan.
 export const ACT3_INTENTS = Object.freeze(['scenario_here', 'approach_and_face', 'board_vehicle', 'ride_along', 'exit_vehicle_and_hold', 'leave_scene', 'take_cover_and_hold']);
 export const ACT3_BLOCKED_INTENTS = Object.freeze({
-  scenario_at: 'capability_unavailable', move_to_and_hold: 'capability_unavailable', hang_out_with: 'capability_unavailable',
-  go_to_place: 'capability_unavailable', vehicle_trip: 'capability_unavailable',
+  scenario_at: 'capability_unavailable', hang_out_with: 'capability_unavailable',
+});
+
+// ACT6 is a closed extension of the existing GoalStore/StepRunner; destinations are
+// resolved on the native owner fiber, never supplied as coordinates by Luna.
+export const ACT6_INTENTS = Object.freeze(['go_to_place', 'vehicle_trip', 'move_to_and_hold']);
+const ACT6_PLANS = Object.freeze({
+  go_to_place: slots => slots.place ? { steps: [{ capability: 'walk_to', args: {}, needs: [{ role: 'place', slot: { kind: 'place', place: slots.place } }], until: null }] } : { reason: 'place_unresolved' },
+  vehicle_trip: slots => !slots.place ? { reason: 'place_unresolved' } : slots.vehicle && !['current_vehicle','player_vehicle'].includes(slots.vehicle.kind) ? { reason: 'unsupported_combination' } : { steps: [{ capability: 'drive_to', args: {}, needs: [{ role: 'place', slot: { kind: 'place', place: slots.place } }], until: null }] },
+  move_to_and_hold: slots => !slots.place ? { reason: 'place_unresolved' } : { steps: [
+    { capability: 'walk_to', args: {}, needs: [{ role: 'place', slot: { kind: 'place', place: slots.place } }], until: null },
+    { capability: 'hold_position', args: {}, needs: here(), until: untilOf(slots) },
+  ] },
 });
 
 const ON = Object.freeze({
@@ -86,6 +97,7 @@ export function planSpec(intent, slots) {
     return { steps: [{ capability: template.capability, args: {}, needs: template.needs(safe), until: template.until ? (safe.until || { kind: 'player_command' }) : null }] };
   }
   if (ACT3_INTENTS.includes(intent)) return ACT3_PLANS[intent](safe);
+  if (ACT6_INTENTS.includes(intent)) return ACT6_PLANS[intent](safe);
   if (ACT3_BLOCKED_INTENTS[intent]) return { reason: ACT3_BLOCKED_INTENTS[intent] };
   return { reason: 'capability_unavailable' };
 }
@@ -124,7 +136,7 @@ export function planFor(intent, slots, { id, registry }) {
   const steps = [];
   for (const item of spec.steps) {
     const row = registry.get(item.capability);
-    if (!row || (row.phase !== 'ACT2' && row.phase !== 'ACT3')) return { reason: 'capability_unavailable' };
+    if (!row || !['ACT2','ACT3','ACT6'].includes(row.phase)) return { reason: 'capability_unavailable' };
     if (ACT2_INTENTS.includes(intent) && row.phase !== 'ACT2') return { reason: 'capability_unavailable' };
     steps.push(buildStep(item, row, id));
   }

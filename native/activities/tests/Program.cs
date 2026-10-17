@@ -114,6 +114,7 @@ partial class Program
         string sha; using (var hash = SHA256.Create()) sha = BitConverter.ToString(hash.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
         Check(sha == CapabilityTable.ContractSha256, "pinned capability hash");
         var table = CapabilityTable.Parse(bytes);
+        Act6Tests.Run(Check);
         HostResetContract(table);
         Check(CapabilityTable.LoadEmbedded().Get("hold_position") != null, "embedded contract loads");
         Check(!table.Enabled("chase_person", "on", new Dictionary<string, bool> {{"chase_person", true}}, new[] {"chase_person"}, new string[0], null, null), "never capability stays disabled");

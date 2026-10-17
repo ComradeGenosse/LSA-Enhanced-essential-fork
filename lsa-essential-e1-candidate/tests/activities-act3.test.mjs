@@ -89,10 +89,10 @@ test('unsupported and blocked intents get typed refusals, never a fake plan', ()
   const { engine, commands } = setup();
   const reasons = [
     [proposal('scenario_at', { place: { kind: 'here' }, scenario: 'smoke' }), 'capability_unavailable'],
-    [proposal('go_to_place', { place: { kind: 'here' } }), 'capability_unavailable'],
-    [proposal('vehicle_trip', { vehicle: { kind: 'player_vehicle' }, place: { kind: 'here' } }), 'capability_unavailable'],
+    [proposal('go_to_place', { place: { kind: 'here' } }), 'capability_disabled'],
+    [proposal('vehicle_trip', { vehicle: { kind: 'player_vehicle' }, place: { kind: 'here' } }), 'capability_disabled'],
     [proposal('hang_out_with', { person: { kind: 'player' } }), 'capability_unavailable'],
-    [proposal('move_to_and_hold', { place: { kind: 'here' } }), 'capability_unavailable'],
+    [proposal('move_to_and_hold', { place: { kind: 'here' } }), 'capability_disabled'],
     [proposal('scenario_here', { scenario: 'sit_bench' }), 'unsupported_combination'],
     [proposal('scenario_here'), 'unsupported_combination'],
     [proposal('ride_along', { seat: 'driver' }), 'unsupported_combination'],
@@ -100,7 +100,7 @@ test('unsupported and blocked intents get typed refusals, never a fake plan', ()
   ];
   for (const [item, reason] of reasons) assert.equal(engine.assign(item, binding()).reason, reason, item.intent);
   assert.equal(commands.length, 0);
-  assert.deepEqual(Object.keys(ACT3_BLOCKED_INTENTS).sort(), ['go_to_place', 'hang_out_with', 'move_to_and_hold', 'scenario_at', 'vehicle_trip']);
+  assert.deepEqual(Object.keys(ACT3_BLOCKED_INTENTS).sort(), ['hang_out_with', 'scenario_at']);
   assert.equal(buildPlan('scenario_at', {}, { id, registry }), null);
 });
 

@@ -21,6 +21,9 @@ export const ACT5_SLOTS = Object.freeze({
   approach_and_face: Object.freeze({ person: Object.freeze({ kind: 'player' }) }),
   leave_scene: Object.freeze({}),
   take_cover_and_hold: Object.freeze({}),
+  // Closed, player-approved waypoint trips; never accept model coordinates or freeform named locations.
+  go_to_place: Object.freeze({ place: Object.freeze({ kind: 'waypoint' }) }),
+  vehicle_trip: Object.freeze({ place: Object.freeze({ kind: 'waypoint' }) }),
 });
 const clean = value => String(value || '').trim().toLowerCase().replace(/[.,!?]+/g, ' ').replace(/\s+/g, ' ').trim();
 const keyFor = identity => identity && String(identity.pedId) + ':' + String(identity.sessionNonce);
@@ -109,8 +112,9 @@ export class Act5Dialogue {
           return spec.steps.every(step => {
             const capability = step.capability;
             const row = this.activities.engine.registry.get(capability);
-            if (!row || !['ACT2','ACT3'].includes(row.phase)) return false;
+            if (!row || !['ACT2','ACT3','ACT6'].includes(row.phase)) return false;
             if (row.phase === 'ACT3' && !(this.activities.engine.config.act3Capabilities || []).includes(capability)) return false;
+            if (row.phase === 'ACT6' && !(this.activities.engine.config.act6Capabilities || []).includes(capability)) return false;
             return this.activities.engine.registry.enabled(capability, {
               mode: 'on', hello: this.activities.engine.hello?.capabilities, requested: [capability],
               passedProbes: this.activities.engine.config.passedProbes || [],
