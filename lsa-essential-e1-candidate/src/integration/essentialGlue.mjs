@@ -347,8 +347,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
          !(journalActivation.mode==='on'||optionalMemoryEnabled)||
          config.promotedCharacters?.storageMode!=='sqlite')return null;
       const live=runtime.intelligence?.runtime,ticket=turn?.directorTicket;
+      const memoryEpoch=memoryPause.stamp();
       const directorCurrent=t=>{
-        if(runtime.closed||!live||t!==ticket||!t||
+        if(runtime.closed||!memoryPause.current(memoryEpoch)||!live||t!==ticket||!t||
            !t.decisionKey?.startsWith('social:')||
            !live.current(t.speakerCaptureRef)||!live.current(t.playerCaptureRef))return false;
         const owner=live.directorOwnerProofFor(t.speakerCaptureRef);
