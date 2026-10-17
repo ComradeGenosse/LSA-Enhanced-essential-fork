@@ -91,9 +91,9 @@ const stripLeadIn = input => {
   let utterance = clean(input);
   // Speech recognition commonly prepends harmless address/politeness words.
   // Allow only a small closed prefix list; never fuzzy-match an interior order.
-  utterance = utterance.replace(/^(?:(?:all right|alright|okay|ok|hey|yo|nathan|dude|man|well|so|now|then) ) {0,3}/, '');
+  utterance = utterance.replace(/^(?:(?:all right|alright|okay|ok|hey|yo|nathan|dude|man|well|so|now|then) ){0,3}/, '');
   utterance = utterance.replace(/^(?:can you|could you|would you|will you|why dont you) /, '');
-  utterance = utterance.replace(/^(?:(?:please|just|go ahead and) ) {0,2}/, '');
+  utterance = utterance.replace(/^(?:(?:please|just|go ahead and) ){0,2}/, '');
   return utterance;
 };
 const navigationMatch = input => NAV_VERB.exec(stripLeadIn(input));
