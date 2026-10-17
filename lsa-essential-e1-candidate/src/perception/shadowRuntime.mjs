@@ -298,7 +298,12 @@ export class ShadowRuntime {
          this.anchors.get(p.playerCaptureRef)?.kind!=='player'){
         this.count('stale');return true;
       }
-      this.socialScenes.set(p.speakerCaptureRef,Object.freeze({...p,receivedAt:this.now()}));
+      const old=this.socialScenes.get(p.speakerCaptureRef),at=this.now();
+      // Replayed native scenes retain the first *accepted* source clock,
+      // so their exact grant expiry never rebases during reserve/TTS.
+      const receivedAt=old?.sceneId===p.sceneId?old.receivedAt:at;
+      this.socialScenes.set(p.speakerCaptureRef,
+        Object.freeze({...p,receivedAt,refreshedAt:at}));
       return true;
     }
     if(v.type==='director_priority') {
@@ -502,6 +507,7 @@ export class ShadowRuntime {
     const sample=this.socialScenes.get(speaker),now=this.now();
     if(!sample || !Number.isSafeInteger(now) ||
        now<sample.receivedAt || now-sample.receivedAt>9000 ||
+       now-sample.refreshedAt>3000 ||
        !this.epoch || !this.hostContext ||
        sample.hostRunId!==this.hostContext.hostRunId ||
        sample.worldEpoch!==this.hostContext.worldEpoch ||
