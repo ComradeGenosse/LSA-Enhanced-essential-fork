@@ -111,7 +111,7 @@ namespace LSA.PromotedCharacters
                             destination = NativeFunction.CallByName<Vector3>("GET_BLIP_INFO_ID_COORD", blip);
                             // Waypoint blips often supply Z=0. Refuse an unsampled surface rather than invent height.
                             if (Math.Abs(destination.Z) < 0.01f) {
-                                float? ground = World.GetGroundZ(new Vector3(destination.X,destination.Y,60f),true,false);
+                                float? ground = World.GetGroundZ(new Vector3(destination.X,destination.Y,1000f),false,true);
                                 if (!ground.HasValue) return new AnchorResult { Reason = "place_unresolved" };
                                 destination.Z = ground.Value;
                             }
