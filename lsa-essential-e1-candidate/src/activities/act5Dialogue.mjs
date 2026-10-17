@@ -229,7 +229,7 @@ export class Act5Dialogue {
         this.report('act6_player_direct_staged',{intent:request.intent});
         return Object.freeze({kind:'approval_pending',intent:request.intent});
       }
-
+      return null;
     }
     if (!YES.has(response) && !NO.has(response) && !CANCEL.has(response)) return null;
     this.pending.delete(characterId);

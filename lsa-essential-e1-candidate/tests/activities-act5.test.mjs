@@ -204,7 +204,7 @@ test('ACT6 explicit player waypoint request stages one publication-bound ACT goa
 // ACT6 stop words cancel any currently owned trip (including player UX), not merely
 // the last conversation-admitted ACT5 offer.
 test('ACT6 spoken stop cancels an active UX-assigned trip and respects the owned character', async () => {
-  const h=harness({act6Capabilities:['drive_to'],extraProbes:['NV1','NV2','D1','D2','D3','SVE1','L1','Q2']});
+  const h=harness({act6Capabilities:['drive_to'],extraProbes:['NV2','D1','D2','D3','SVE1','L1','Q2']});
   const t=turn();
   const context=await h.dialogue.prepare(t,'player_mic');
   assert.ok(context?.owner);
