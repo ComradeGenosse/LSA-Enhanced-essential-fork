@@ -5,7 +5,7 @@ import { validateAdmission } from '../src/activities/activityValidator.mjs';
 import { ACT6_CAPABILITY_IDS, normalizeActivityConfig, validateFrame } from '../src/activities/contracts.mjs';
 import { ACT6_INTENTS, planSpec, buildPlan } from '../src/activities/intentTemplates.mjs';
 import { loadCapabilityRegistry } from '../src/activities/capabilityRegistry.mjs';
-import { validateAct5Choice } from '../src/activities/act5Dialogue.mjs';
+import { validateAct5Choice, parseAct6PlayerRequest } from '../src/activities/act5Dialogue.mjs';
 
 const registry = loadCapabilityRegistry();
 const character = '11111111-1111-4111-8111-111111111111';
@@ -101,4 +101,13 @@ test('ACT6 place frame accepts bounded waypoint and named query, refuses injecte
   assert.equal(validateFrame({...base,refs:[{role:'place',slot:{kind:'place',place:{kind:'waypoint'}}}]}),true);
   assert.equal(validateFrame({...base,refs:[{role:'place',slot:{kind:'place',place:{kind:'named',query:'airport'}}}]}),true);
   assert.equal(validateFrame({...base,refs:[{role:'place',slot:{kind:'place',place:{kind:'coord',x:0,y:0,z:0}}}]}),false);
+});
+
+test('ACT6 player language is closed to real named locations and waypoint, never hallucinated coordinates', () => {
+  assert.deepEqual(parseAct6PlayerRequest('Go to the waypoint'),{intent:'go_to_place',slots:{place:{kind:'waypoint'}}});
+  assert.deepEqual(parseAct6PlayerRequest('Drive us to the airport!'),{intent:'vehicle_trip',slots:{place:{kind:'named',query:'airport'}}});
+  assert.deepEqual(parseAct6PlayerRequest('Walk to the Vespucci Beach and wait'),{intent:'move_to_and_hold',slots:{place:{kind:'named',query:'vespucci beach'}}});
+  assert.equal(parseAct6PlayerRequest('Drive us to the airport and wait'),null);
+  assert.equal(parseAct6PlayerRequest('Walk over to that building'),null);
+  assert.equal(parseAct6PlayerRequest('Go to 244 -66 9'),null);
 });
