@@ -15,18 +15,21 @@ const IDLE_STORES={micStatus:'idle',micActiveTurnId:'',micReleasedBeforeContextR
   retiringOutputOwners:0,activeOutputOwners:0,pendingPlayerContext:0,pendingConversationContext:0,
   playerTurnRecoveries:0};
 
-function rig({resolves=true,director=false}={}){
+function rig({resolves=true,director=false,twoOwners=false}={}){
   const hostRunId=uuid(),adapterEpoch=uuid(),streamId=uuid(),ref=uuid(),
     incarnationId=uuid(),encounterId=uuid(),characterId=uuid();
   const r={hostRunId,streamId,ref,incarnationId,encounterId,characterId,mono:10_000,tick:5_000,seq:0,
     stores:{...IDLE_STORES},director,resolves,diagSubs:new Set(),boundary:new Set(),stock:new Set()};
+  r.owners=[{ref,incarnationId,encounterId,characterId}];
+  if(twoOwners)r.owners.push({ref:uuid(),incarnationId:uuid(),encounterId:uuid(),characterId:uuid()});
   const runtime=new ShadowRuntime({mode:'shadow',now:()=>1000});
   const frame=(type,payload)=>({version:1,type,adapterEpoch,streamId,sequence:++r.seq,payload});
   const ingest=f=>assert.equal(runtime.ingest(f,{authenticated:true}),true);
   ingest({version:1,type:'hello',adapterEpoch,streamId,hostContextVersion:1,hostRunId,worldEpoch:1,
     observerIndexVersion:1,capabilities:Object.fromEntries(CAPABILITIES.map(x=>[x,false]))});
-  ingest(frame('anchors',[{captureRef:ref,kind:'ped',observer:true,owned:true}]));
-  ingest(frame('observer_index',[{captureRef:ref,kind:'ped',owned:true,incarnationId,encounterId}]));
+  ingest(frame('anchors',r.owners.map(o=>({captureRef:o.ref,kind:'ped',observer:true,owned:true}))));
+  ingest(frame('observer_index',r.owners.map(o=>({captureRef:o.ref,kind:'ped',owned:true,
+    incarnationId:o.incarnationId,encounterId:o.encounterId}))));
   const intelligence={runtime,
     subscribeAuthenticatedNativeM7Diagnostic:(listener,onRetire)=>{
       const s={listener,onRetire};r.diagSubs.add(s);return()=>r.diagSubs.delete(s);},
@@ -35,20 +38,26 @@ function rig({resolves=true,director=false}={}){
   r.timeline=timeline;
   const backend={sample:()=>timeline.sample({...r.stores}),leaseActive:()=>timeline.leaseCount>0,
     observe:o=>{r.stock.add(o);return()=>r.stock.delete(o);}};
-  r.store={get:id=>id===characterId?{characterId}:null,worldProfileId:uuid(),activeTimelineId:uuid(),
+  r.store={get:id=>r.owners.some(o=>o.characterId===id)?{characterId:id}:null,worldProfileId:uuid(),activeTimelineId:uuid(),
     timelineWritable:true,verifiedHostContext:{hostRunId,worldEpoch:1}};
   r.timers=[];
   r.source=createM7IdleProofSource({intelligence,backend,store:r.store,
-    resolveOwner:x=>r.resolves&&x.observerCaptureRef===ref&&x.hostRunId===hostRunId?
-      {nativeVerified:true,current:true,characterId,ownerProof:{observerCaptureRef:ref,incarnationId,encounterId}}:null,
+    resolveOwner:x=>{
+      const o=r.owners.find(o=>o.ref===x.observerCaptureRef);
+      return r.resolves&&o&&x.hostRunId===hostRunId?
+        {nativeVerified:true,current:true,characterId:o.characterId,
+          ownerProof:{observerCaptureRef:o.ref,incarnationId:o.incarnationId,encounterId:o.encounterId}}:null;
+    },
     directorBusy:()=>r.director,monotonicNow:()=>r.mono,wallNow:()=>Date.now(),
     setIntervalFn:fn=>{const t={fn,unref(){}};r.timers.push(t);return t;},
     clearIntervalFn:t=>{r.timers=r.timers.filter(x=>x!==t);}});
   // One authenticated native sample, 1 s after the previous one.
-  r.sample=({advance=1000,tick=advance,quiet={}}={})=>{
+  r.sample=({advance=1000,tick=advance,quiet={},owner=0}={})=>{
     r.mono+=advance;r.tick+=tick;
+    const o=r.owners[owner];
     const payload={nativeM7DiagnosticVersion:1,kind:'native_idle_diagnostic_v1',nativeVerified:false,
-      hostRunId,worldEpoch:1,sampledGameTick:r.tick,observerCaptureRef:ref,incarnationId,encounterId,
+      hostRunId,worldEpoch:1,sampledGameTick:r.tick,observerCaptureRef:o.ref,
+      incarnationId:o.incarnationId,encounterId:o.encounterId,
       priorityEvidence:{...Object.fromEntries(M7_NATIVE_CORE_QUIET_FIELDS.map(k=>[k,true])),
         ...Object.fromEntries(M7_UNAVAILABLE_CORE_FIELDS.map(k=>[k,false])),...quiet},
       missingCoreCapabilities:[...M7_UNAVAILABLE_CORE_FIELDS]};
@@ -78,6 +87,43 @@ test('W07 mints verified_native_idle_v1 only from sustained native + backend agr
   // Forged and copied proofs are never authenticated, even field-for-field equal.
   assert.equal(r.source.verifyAuthenticatedSource({...proof}),false);
   assert.equal(r.source.verifyAuthenticatedSource(JSON.parse(JSON.stringify(proof))),false);
+});
+
+test('W07 needs at least three authenticated samples even if two span 1.6 seconds',()=>{
+  const r=rig();
+  r.sample({advance:1000});
+  r.sample({advance:1800});
+  assert.equal(r.source.snapshot(),null,'two separated samples must not establish idle');
+  r.sample();
+  assert.ok(r.source.snapshot(),'the third matching sample completes the proof');
+});
+
+test('W07 samples multiple owners independently and rotates without interrupting another owner',()=>{
+  const r=rig({twoOwners:true});
+  for(let i=0;i<3;i++){
+    r.sample({owner:0});
+    r.sample({owner:1,advance:0,tick:0});
+  }
+  const first=r.source.snapshot();
+  assert.ok(first,'both owners have continuous native proof');
+  const index=r.owners.findIndex(o=>o.characterId===first.characterId);
+  assert.ok(index>=0);
+  let aborted=0;
+  const off=r.source.subscribeInvalidation(()=>aborted++);
+  // A bad sample from an UNSELECTED NPC is not a global turn interruption.
+  r.sample({owner:1-index,quiet:{ownerIdle:false}});
+  assert.equal(aborted,0);
+  assert.equal(r.source.verifyAuthenticatedSource(first),true);
+  r.source.advanceSelection();
+  assert.equal(r.source.verifyAuthenticatedSource(first),false,'completed proof retires');
+  for(let i=0;i<3;i++){
+    r.sample({owner:0});
+    r.sample({owner:1,advance:0,tick:0});
+  }
+  const second=r.source.snapshot();
+  assert.ok(second);
+  assert.notEqual(second.characterId,first.characterId,'next checkpoint fairly selects another NPC');
+  off();
 });
 
 test('W07 backend turn activity aborts at once and a lease/PS3-style reservation grants nothing',()=>{
