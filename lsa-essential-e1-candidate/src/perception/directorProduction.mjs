@@ -138,6 +138,20 @@ export class DirectorObservationPump {
       if(this.seen.has(proposal.decisionKey))continue;
       eligible.push({speaker,candidates:unattempted,facts,proposal});
     }
+    // Social opportunities originate from authenticated native owner-fiber
+    // scene observations. They never need or manufacture a PS3 candidate.
+    // Reuse the same owner, player, priority, C-06 and stock speech gates.
+    for(const [speaker,index] of runtime.observerIndex) {
+      if(eligible.length>=32)break;
+      if(!index?.owned || index.kind!=='ped' ||
+         !runtime.current(speaker) || !runtime.directorOwnerProofFor(speaker))continue;
+      const proposal=runtime.directorSocialFor?.(speaker);
+      if(!proposal || proposal.playerCaptureRef!==player ||
+         this.seen.has(proposal.decisionKey))continue;
+      eligible.push({speaker,candidates:[],facts:{
+        speakerCaptureRef:speaker,playerCaptureRef:player,nowMonotonicMs:now
+      },proposal,social:true});
+    }
     eligible.sort((a,b)=>(b.proposal.urgency==='urgent')-(a.proposal.urgency==='urgent') ||
       a.proposal.expiresAtMonotonicMs-b.proposal.expiresAtMonotonicMs ||
       a.proposal.observationId.localeCompare(b.proposal.observationId));
@@ -185,6 +199,7 @@ export class DirectorObservationPump {
     try {
       const outcome=await this.coordinator.attempt({
         candidates:selected.candidates,facts:selected.facts,stamp,
+        ...(selected.social?{socialProposal:selected.proposal}:{}),
       });
       // A missing stamp previously appeared as a misleading PS3 grant failure.
       // Preserve the coordinator's status and execution behavior.
@@ -192,6 +207,7 @@ export class DirectorObservationPump {
         (stamp?'original_ps3_entitlement_unverified':'stamp_unavailable'):null;
       try {this.onResult(Object.freeze({...outcome,...(diagnosticReason?{diagnosticReason}:{}),
         traceCode:trace,urgency:selected.proposal.urgency,
+        ...(selected.social?{sceneType:selected.proposal.sceneType,source:'social'}:{}),
          ...(speechTypes.has(eventType)?{eventType}:{})}));}catch{}
       return outcome;
     } catch {
