@@ -1,3 +1,4 @@
+import {combineDirectorSocialMemory} from '../memory/h1ConversationHistory.mjs';
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 import {scalePcm16} from '../voice/pcmVolume.mjs';
 import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
@@ -431,14 +432,27 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     if(isPlayer&&services.memoryCaptureEnabled&&durablePlayerReceipt?.durable!==true)
       turn.memoryDisabledForTurn||='memory_receipt_unavailable';
-    // M9: a Director (PS6) turn may carry ONE armed, durably verified memory of
-    // this same NPC. Never for player turns; the service validates the ticket,
-    // speaker, P2 visibility and fences, and returns null unless all hold.
-    if(!isPlayer && source==='special_event' && turn.directorTicket && services.prepareDirectorCallbackMemory){
-      try{
-        turn.memoryPrepared=await services.prepareDirectorCallbackMemory({turn,source,isCurrent:valid})??null;
-      }catch{turn.memoryPrepared=null;}
-      check();
+    // M9: the independently verified event callback remains optional.
+    if(!isPlayer && source==='special_event' && turn.directorTicket){
+      if(services.prepareDirectorCallbackMemory){
+        try{
+          turn.memoryPrepared=await services.prepareDirectorCallbackMemory({turn,source,isCurrent:valid})??null;
+        }catch{turn.memoryPrepared=null;}
+        check();
+      }
+      // A social scene has no player-input receipt. Let H1 read existing
+      // completed/accepted P2 lines under the *current* native Director proof.
+      // This cannot veto a spontaneous scene when P2 is slow or unavailable.
+      if(services.prepareDirectorSocialHistory){
+        try{
+          const result=await boundedMemory(()=>services.prepareDirectorSocialHistory({
+            turn,source,isCurrent:valid
+          }));
+          if(!result.timedOut)
+            turn.memoryPrepared=combineDirectorSocialMemory(turn.memoryPrepared,result.value);
+        }catch{ /* history unavailable: scene proceeds with no transcript */ }
+        check();
+      }
     }
     transition('model_running');
     if(services.finalizeKnowledgeFrame){
