@@ -223,6 +223,14 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
   const rejectedEvidence=result.rows.some(r=>r?.evidenceState==='verified'&&!supportedRow(r,scope));
   let rows=result.rows.map(r=>supportedRow(r,scope)).filter(Boolean)
     .filter(r=>r.atMs<=nowMs+60000&&(!window.fromUtc||r.atUtc>=window.fromUtc)&&(!window.toUtc||r.atUtc<window.toUtc));
+  // If an authenticated player name assertion exists, use the player's factual
+  // statements as the recall evidence. Repeated NPC admissions of missing names
+  // (and earlier player questions) cannot contradict or consume the 12 slots.
+  // Queries without a verified player name assertion keep the original fallback.
+  if(petNamesQuestion&&rows.some(row=>playerPetFactBoost(row,petNamesQuestion)===24)){
+    rows=rows.filter(row=>row.sourceKind!=='dialogue_line'||
+      (row.envelope?.speaker==='player'&&!row.content.includes('?')));
+  }
   const anchoredIds=new Set(rows.filter(row=>row.sourceKind==='dialogue_line'&&
     searchTerms.some(t=>tokenize(row.content).includes(t))).map(row=>row.recordId));
   const sortRecent=/\b(last|latest|most recent|just|earlier today)\b/i.test(query.question);
