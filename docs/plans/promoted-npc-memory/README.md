@@ -1,3 +1,5 @@
+> **Current project hub update — 2026-10-17:** The original stacked M0/M1 status immediately below is a **historical planning checkpoint**. Production Memory K was promoted through merged #224; main subsequently gained #213 M9, #230 M7/W07 and #231 D03/natural corrections. This directory continues to own the original Memory K architecture and acceptance specifications, **not** a competing live status report. Consult [current Memory K matrix](../../IMPLEMENTATION-STATUS-20261017.md#memory-k-status-m0m10), [roadmap](../../ROADMAP.md) and [next tasks](../../NEXT-PHASES-20261017.md) for active work and GTA verification.
+
 # Promoted NPC memory and experience — project hub
 
 **Status:** accepted architecture; M0 contracts and **M1 offline implementation/acceptance gates** are on this stacked branch. **M2 may begin from the validated M1 head; no production switch or GTA acceptance is implied.** **Only promoted NPCs get persistent personal memory.**
