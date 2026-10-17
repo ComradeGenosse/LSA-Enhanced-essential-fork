@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { ActivityEngine } from '../src/activities/activityEngine.mjs';
 import { Act5Dialogue, validateAct5Choice, parseAct6PlayerRequest } from '../src/activities/act5Dialogue.mjs';
 import { normalizeActivityConfig } from '../src/activities/contracts.mjs';
-import { loadCapabilityRegistry } from '../src/activities/capabilityRegistry.mjs';
 import { parseDecisionJson, buildRequest } from '../src/context/essentialDecision.mjs';
 import { createSegmentDecoder } from '../src/openai/segmentDecoder.mjs';
 
@@ -566,8 +565,9 @@ test('ACT6 explicit stop can cancel owner-matched UX navigation without reopenin
   assert.equal(h.engine.activities[0].status,'cancelled');
 });
 
-const act6Probes=[...new Set(['walk_to','drive_to'].flatMap(capability=>
-  loadCapabilityRegistry().get(capability).probes))];
+// Registry includes FR1 in the baseline. Keep all D3/SVE1 driver proofs inside
+// normalizeActivityConfig's twelve-probe limit, as the existing ACT6 tests do.
+const act6Probes=['NV2','Q2','L1','D1','D2','D3','SVE1'];
 const drivingHarness=({enabled=true,act6Capabilities=['drive_to'],baseProbes=probes}={})=>{
   const h=harness({enabled,act6Capabilities,extraProbes:act6Probes,baseProbes});
   h.setOffer({actorOnFoot:false,actorInVehicle:true,actorIsDriver:true,waypointAvailable:true});
