@@ -8,10 +8,10 @@ const player='24846870-fdcc-444f-9aca-7487d4c01048';
 const observationId='c9f50874-c003-4437-a944-9200cf6e30e5';
 const facts={speakerCaptureRef:speaker,playerCaptureRef:player,nowMonotonicMs:10000};
 function evidence(eventType,channel='visual',response='eligible'){
- const kind={firing_burst:'firing',vehicle_impact:'injured',injury:'injured',death_seen:'dead',body_found:'dead',threat:'attack'}[eventType]??'location';
+ const kind={firing_burst:'firing',vehicle_impact:'injured',injury:'injured',death_seen:'dead',body_found:'dead',threat:'attack',character_present:'presence',activity_changed:'presence',vehicle_transition:'presence'}[eventType]??'location';
  return {entitlementCurrent:true,observedAtMonotonicMs:9900,
    observation:{observationId,revision:1,eventType,observer:{captureRef:speaker,kind:'ped'},
-     expiresAtMonotonicMs:15000,claims:[{kind,certainty:'supported',evidence:{channel}}]},
+     expiresAtMonotonicMs:15000,severity:['character_present','location_changed','activity_changed','vehicle_transition'].includes(eventType)?'routine':'danger',claims:[{kind,certainty:'supported',evidence:{channel}}]},
    decision:{observationId,revision:1,decisionKey:'ps3-13a-grant',policyVersion:1,
      response,expiresAtMonotonicMs:15000},
    situation:{lifetimeCurrent:true,channelHealthy:true,perceptionSupported:true,playerCaptureRef:player}};
@@ -24,8 +24,11 @@ test('13a eligible event matrix: only PS3-granted, directly qualified threats en
   assert.equal(selectDirectorIntent([evidence(eventType,'visual','none')],facts),null,eventType+' no grant');
   assert.equal(selectDirectorIntent([{...evidence(eventType),entitlementCurrent:false}],facts),null,eventType+' stale grant');
  }
- for(const eventType of ['radio_heard','location_changed','activity_changed',
-   'vehicle_transition','character_present','speech_heard','action_observed']){
+ for(const eventType of ['character_present','location_changed','activity_changed','vehicle_transition']) {
+  assert.equal(selectDirectorIntent([evidence(eventType)],facts)?.kind,'speech',eventType+' direct-witness ambient');
+  assert.equal(selectDirectorIntent([evidence(eventType,'report')],facts),null,eventType+' report denied');
+ }
+ for(const eventType of ['radio_heard','speech_heard','action_observed']){
   assert.equal(selectDirectorIntent([evidence(eventType)],facts),null,eventType+' cannot spontaneously speak');
  }
  const expired=evidence('injury');
@@ -118,7 +121,7 @@ test('spent top-ranked event does not starve another independently PS3-granted e
 
 test('selection diagnostic distinguishes non-13a chatter, unqualified witness and stale evidence without granting speech',async()=>{
  const {directorCandidateBlockReason}=await import('../src/perception/directorProduction.mjs');
- assert.equal(directorCandidateBlockReason([evidence('radio_heard')],facts),'non_13a_event');
+ assert.equal(directorCandidateBlockReason([evidence('radio_heard')],facts),'unsupported_director_event');
  assert.equal(directorCandidateBlockReason([evidence('injury','report')],facts),'direct_witness_unavailable');
  assert.equal(directorCandidateBlockReason([{...evidence('injury'),entitlementCurrent:false}],facts),'ps3_entitlement_stale');
  assert.equal(directorCandidateBlockReason([evidence('threat','visual','none')],facts),'ps3_response_ineligible');
