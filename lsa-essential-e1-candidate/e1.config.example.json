@@ -10,7 +10,8 @@
   "activities": {
     "mode": "off",
     "pipeName": "LSA.Activities.v1",
-    "dialogueReceipts": false
+    "dialogueReceipts": false,
+    "act5": false
   },
   "persistentIdentity": {
     "enabled": false,
