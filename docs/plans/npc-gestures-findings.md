@@ -143,7 +143,7 @@ They use the same fenced pipeline as the other two: exact `playback_started` for
 
 ### Delivery intent: veto only
 
-When the speech resolver attached a trusted delivery value to the turn (ElevenLabs experimental delivery only), its first value can cancel a gesture whose tone contradicts it:
+When the speech resolver attaches trusted delivery values to the turn's segments (ElevenLabs experimental delivery only), **any** contradicting segment can veto a gesture. Neutral or matching earlier segments do not conceal a later veto; the service waits for validated dialogue and native playback before sending a frame:
 
 | Reaction | Vetoed by |
 |---|---|
