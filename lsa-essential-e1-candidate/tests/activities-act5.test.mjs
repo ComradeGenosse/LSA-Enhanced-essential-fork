@@ -249,8 +249,8 @@ test('native adapter replacement retires pending offers and previously admitted 
   await h.dialogue.publish(p,decision(choice('hold_position')),ctx,()=>true);
   const yes = turn(), before=await h.dialogue.prepare(yes,'player_text');
   h.restart();
-  assert.equal(await h.dialogue.onPlayerInput(yes,'sure',before,()=>true),null,
-    'pending invite from old adapter is discarded');
+  assert.equal((await h.dialogue.onPlayerInput(yes,'sure',before,()=>true))?.kind,'unavailable',
+    'stale adapter consent is explicitly rejected');
   assert.equal(h.engine.goals.goals.length,0);
   const owner={characterId:actor,ownerAlias,ownershipToken:'native-token',encounterId:encounter,incarnationId:incarnation};
   const proposal={proposalVersion:1,proposalId:id(),source:'player_dialogue',subject:{characterId:actor},
@@ -297,7 +297,7 @@ test('client-session replacement without native epoch rotation invalidates prior
   await h.dialogue.publish(proposed,decision(choice('sit_here')),context,()=>true);
   const yes=turn(), previous=await h.dialogue.prepare(yes,'player_text');
   h.sessionChange(); // Same nativeRun and adapterEpoch; only the authenticated pipe session changed.
-  assert.equal(await h.dialogue.onPlayerInput(yes,'yes',previous,()=>true),null);
+  assert.equal((await h.dialogue.onPlayerInput(yes,'yes',previous,()=>true))?.kind,'unavailable');
   assert.equal(h.engine.goals.goals.length,0);
 });
 
