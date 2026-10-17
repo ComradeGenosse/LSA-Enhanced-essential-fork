@@ -279,7 +279,7 @@ test('M9 minimum cue cooldown is ten minutes',()=>{
 
 const ps3=(observer=id(14),observationId=id(11))=>({
   observation:{observer:{kind:'ped',captureRef:observer},
-    observationId,revision:1,expiresAtMonotonicMs:1500,
+    observationId,revision:1,eventType:'vehicle_impact',expiresAtMonotonicMs:1500,
     claims:[{certainty:'supported',evidence:{channel:'visual'}}]},
   decision:{observationId,revision:1,decisionKey:'genuine-ps3-decision',
     policyVersion:1,response:'eligible',expiresAtMonotonicMs:1500},
