@@ -195,6 +195,8 @@ test('H2 PS4 recalls Prana Koba Nara Vladimir but excludes superseded Nora evide
    for(const name of ['Prana','Koba','Nara','Vladimir'])
      assert(content.includes(name),name+' absent from PS4 RECALLED: '+content);
    assert(!visible.some(item=>item.recordId===old.recordId),'original incorrect source excluded');
+   assert(!visible.some(item=>item.recordId===request.recordId),'negated correction utterance hidden from factual recall');
+   assert(!content.includes('Nora'),'superseded name cannot leak into PS4');
    assert.equal(await h2.verifyPrepared(),true);
    assert.equal(h2.sendCurrent(),true);
  }finally{await service.close();}
