@@ -245,7 +245,9 @@ export class IntelligenceClient {
     if(this.closed || this.config.mode!=='shadow' ||
        !this.socket || this.socket.destroyed || !this.socket.writable ||
        this.runtime.directorRequestVersion!==1 || !this.runtime.epoch)return null;
-    try{return this.runtime.directorOriginalEntitlementFor(proposal,stamp);}
+    try{return proposal?.source==='native_director_social'?
+      this.runtime.directorSocialEntitlementFor(proposal,stamp):
+      this.runtime.directorOriginalEntitlementFor(proposal,stamp);}
     catch{return null;}
   }
 
@@ -365,7 +367,8 @@ export class IntelligenceClient {
          !this.sendDirectorOwnerReceipt(args.ticket,args.stamp,owner)) {
         finish(null);return;
       }
-      if(args.operation==='reserve' && !this.sendDirectorPs3Receipt(args.ticket,original)) {
+      if(args.operation==='reserve' && original.source!=='native_director_social' &&
+         !this.sendDirectorPs3Receipt(args.ticket,original)) {
         finish(null);return;
       }
       if(!this.sendDirectorPreview(nativeArgs)) {finish(null);return;}
