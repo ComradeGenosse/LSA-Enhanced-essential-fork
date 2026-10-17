@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {ActivityEngine} from '../src/activities/activityEngine.mjs';
 import {loadCapabilityRegistry} from '../src/activities/capabilityRegistry.mjs';
 import {normalizeActivityConfig} from '../src/activities/contracts.mjs';
-import {projectActivityKnowledge,assertActivityKnowledgeCurrent} from '../src/activities/activityKnowledge.mjs';
+import {projectActivityKnowledge,assertActivityKnowledgeCurrent,captureActivityKnowledge,releaseActivityKnowledge} from '../src/activities/activityKnowledge.mjs';
 import {renderKnowledge,pruneKnowledgeFrame} from '../src/context/knowledgeRenderer.mjs';
 
 function fixture() {
@@ -97,4 +97,26 @@ test('ACT4 rejects incorrect host, body, lease replacement and unfamiliar state 
  assert.equal(projectActivityKnowledge(malicious).facts.some(x=>x.kind==='activity_state'),false);
  f.engine.noteHello({clientRestart:true});
  assert.equal(f.engine.stateForCharacter(f.binding),null);
+});
+
+test('ACT4 P0 capture preserves the original owner state and rejects a later native lifecycle change',()=>{
+ const f=fixture();
+ const turn={pedId:'17',turnId:'request',generationId:1,sessionNonce:1};
+ const claim={incarnationId:f.binding.incarnationId,worldProfileId:randomUUID(),
+  sourceNamespace:'lsa.promoted-characters',sourceKey:'promoted.'+f.binding.characterId,
+  adapterEpoch:randomUUID(),claimRevision:1};
+ const knowledgeInputs={turn,association:{owned:true,captureRef:randomUUID(),
+   encounterId:f.binding.encounterId,incarnationId:f.binding.incarnationId},
+  ownerClaim:claim,hostRunId:f.binding.hostContext.hostRunId,worldEpoch:1,reason:null};
+ const characterInputs={identity:turn,profile:{characterId:f.binding.characterId},claim};
+ const captured=captureActivityKnowledge({knowledgeInputs,characterInputs,activities:f.activities});
+ assert.equal(captured.ownerPendingProof,true);
+ assert.equal(projectActivityKnowledge(captured).facts.length,0);
+ const released=releaseActivityKnowledge(captured,f.binding.characterId);
+ assert.equal(released.state.status,'admitting');
+ assert.equal(projectActivityKnowledge(released).facts[0].kind,'activity_state');
+ assert.equal(assertActivityKnowledgeCurrent(released,f.activities),null);
+ f.engine.pause(f.binding.characterId);
+ assert.equal(released.state.status,'admitting'); // No post-P0 mutation/refill.
+ assert.equal(assertActivityKnowledgeCurrent(released,f.activities),'participant_retired');
 });
