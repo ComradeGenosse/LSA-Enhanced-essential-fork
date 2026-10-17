@@ -65,7 +65,7 @@ namespace LSA.Intelligence
             var scene=new Scene{
                 Id=Guid.NewGuid().ToString("D"),Kind=kind,Speaker=speaker,Player=player,
                 Owner=owner,OwnerRevision=revision,Host=host,World=world,
-                Role=role,Vehicle=vehicle,Revision=1,Created=now,Expires=now+10000
+                Role=role,Vehicle=vehicle,Revision=1,Created=now,Expires=now+15000
             };
             if(track.Current!=null)scenes.Remove(track.Current.Id);
             track.Current=scene;track.NextPublish=now;scenes[scene.Id]=scene;return scene;
