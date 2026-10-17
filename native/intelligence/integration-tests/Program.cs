@@ -152,10 +152,11 @@ class Program
         Set(integration,"lineOfSightBudget",8);
         RawSignal Damage(string type,string kind,string target,string classification,long received,uint tick)
         {
+            var facts=new Dictionary<string,object>{{"damage",20},{"armour",0},
+                {"classification",classification}};
+            if(kind=="vehicle_damage")facts["collision"]=new {x=0.0,y=0.0,z=0.0};
             return new RawSignal{producer=type,kind=kind,target=target,source=null,
-                gameTick=tick,receivedMs=received,facts=new Dictionary<string,object>{
-                    {"damage",20},{"armour",0},{"classification",classification},
-                    {"collision",new {x=0.0,y=0.0,z=0.0}}}};
+                gameTick=tick,receivedMs=received,facts=facts};
         }
         try {
             var ped=Damage("ped_damage","damage",body.CaptureRef,"bullet",1000,100);
