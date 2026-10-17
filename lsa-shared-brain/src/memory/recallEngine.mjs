@@ -211,7 +211,9 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
   const expandDialogueContext=terms.length>0&&focusKind===null&&speaker===null&&
     /\b(?:all|every|each|list|names?|which|remember.*(?:dogs?|pets?))\b/i.test(query.question);
   const expandRelatedFacts=expandDialogueContext&&!window.fromUtc&&!window.toUtc;
-  const petNamesQuestion=expandRelatedFacts&&terms.some(term=>PET_GROUPS[1].includes(term));
+  const petNamesQuestion=expandRelatedFacts&&terms.some(term=>PET_GROUPS[1].includes(term))&&
+    (/\b(?:all|every|names?|list|remember)\b/i.test(query.question)||
+      /\bwhat\s+(?:dogs?|pets?)\s+do\s+i\s+have\b/i.test(query.question));
   let result;
   try{result=await readAdapter.read({scope,terms:searchTerms,fromUtc:window.fromUtc,toUtc:window.toUtc,
     sourceKind:focusKind,speaker,limit:384,expandDialogueContext,expandRelatedFacts});}
