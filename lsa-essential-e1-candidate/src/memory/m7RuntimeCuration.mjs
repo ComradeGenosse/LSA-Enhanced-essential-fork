@@ -205,7 +205,11 @@ export function createM7RuntimeCuration({config,store,isPaused=()=>false,subscri
       let outcome;
       try{outcome=await active.scheduler.checkpoint();}
       catch(error){outcome={status:'failed_closed',processed:0};stats.lastErrorCode=codeOf(error,'m7_checkpoint_failed');}
-      finally{checkpointing=false;}
+      finally{
+        checkpointing=false;
+        // Rotate only when checkpoint has finished, never mid-request.
+        try{nativeIdleSource()?.advanceSelection?.();}catch{}
+      }
       stats.checkpoints++;stats.lastCheckpoint=outcome.status;
       if(outcome.status==='failed_closed')stats.consecutiveFailures++;else stats.consecutiveFailures=0;
       stats.curated+=Number.isSafeInteger(outcome.processed)?outcome.processed:0;
