@@ -5,7 +5,7 @@ const SOCIAL_CONTEXT=Object.freeze({
   shared_vehicle_entry:'You and the player have just boarded together. Start a natural conversation about the trip.',
   reunion:'You have just rejoined the player after time apart. Greet them naturally in character.',
   shared_idle:'You and the player have spent quiet time together. Start a natural, potentially unrelated conversation.',
-  travel:'You and the player are traveling together. Initiate a casual conversation; avoid repetitive destination questions.',
+  travel:'You are traveling together. Start a casual conversation without repeating known plans.',
   activity_transition:'A shared activity has changed. Start a natural conversation only if it fits the moment.',
   manual:'The player has invited you to choose a topic. Initiate a natural conversation; do not merely answer a command.',
 });
