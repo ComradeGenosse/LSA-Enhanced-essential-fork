@@ -41,7 +41,7 @@ export const M9_CALLBACK_LIMITS = Object.freeze({
   pendingTtlMs:90_000,
   journalPage:64,
   evidenceReadsPerAttempt:3,
-  preflightBudgetMs:250,
+  preflightBudgetMs:1000,
   prepareDeadlineMs:200,
   maxContributionBytes:2048,
 });
@@ -390,7 +390,7 @@ export function createM9Callbacks({activation,store,runtime,native,quiet,directo
       if (wallNow() < globalUntil) {refuse('global_cooldown','skipped');return attemptDirector(input);}
       const speaker = speakerFor(proposal.speakerCaptureRef);
       if (!speaker) {refuse('speaker_unresolved','skipped');return attemptDirector(input);}
-      const preflightDeadline=performance.now()+Math.max(1,Math.min(500,L.preflightBudgetMs));
+      const preflightDeadline=performance.now()+Math.max(1,Math.min(1500,L.preflightBudgetMs));
       const eligible=await boundedPreflightRead(()=>loadEligible(speaker),
         Math.max(0,preflightDeadline-performance.now()));
       if(eligible.timedOut||eligible.failed) {

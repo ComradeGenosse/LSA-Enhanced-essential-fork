@@ -138,7 +138,7 @@ not available at the time of writing.
 * A native-only on-foot quiet heartbeat (once per ~1 s, no witness LOS calls) now
   keeps real wanted-level/owner evidence fresh when the player leaves a vehicle;
   null or failed wanted reads stay unknown and veto callback admission.
-* Callback optional SQLite discovery plus visibility check has one 250 ms
+* Callback optional SQLite discovery plus visibility check has one 1 s
   preflight budget. A late read cannot arm a callback, and original Director
   reserve/submit is never timed out or retried by the M9 wrapper.
 * A Director invocation is recorded before calling its attempt method,
