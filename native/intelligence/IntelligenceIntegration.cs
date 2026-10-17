@@ -594,7 +594,8 @@ namespace LSA.Intelligence
                     nextSocialSample=now+250;
                     try {
                         foreach(var scene in socialScenes.Sample(anchors.Current,roster()??new OwnedParticipant[0],
-                            host.HostRunId,host.WorldEpoch,tick))
+                            host.HostRunId,host.WorldEpoch,tick,
+                            LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read()))
                             channel.Send("director_social",scene);
                     }catch {LogDirectorVeto("social_sample","native_scene_read_failed");}
                 }
