@@ -1,4 +1,5 @@
 import {combineDirectorSocialMemory} from '../memory/h1ConversationHistory.mjs';
+import { drivingIntentKind, activeAct6Driving, drivingModelGuidance, reconcileDrivingDecision, stockDrivingCommand } from '../activities/vehicleDrivingIntent.mjs';
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 import {scalePcm16} from '../voice/pcmVolume.mjs';
 import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
@@ -339,6 +340,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       ]);}
       finally{clearTimeout(timer);}
     };
+    const vehicleIntent = isPlayer ? drivingIntentKind(finalInput) : null;
+    // ACT4 state is source-qualified by the same P2 owner/host knowledge boundary.
+    // This advisory cannot authorize driving; it only prevents stock takeover.
+    const act6OwnsDrive = isPlayer && activeAct6Driving(turn.knowledgeInputs?.activityInputs?.state);
+    if (vehicleIntent) metrics?.event('vehicle_request_classified',{kind:vehicleIntent});
     const reasoningContext=()=>{
       const activity=turn.act5Reply;
       const navigation=['go_to_place','vehicle_trip','move_to_and_hold'].includes(activity?.intent);
@@ -353,6 +359,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
               : '\nThe previous ACT5 invitation is no longer actionable. Do not repeat or execute it. If the player explicitly requested a DIFFERENT existing Essential action, normal player-directed DO validation may still apply; otherwise just respond naturally. Never claim an action already happened.')
         : '';
       return {...context,source,systemInstruction:context.systemInstruction+activityInstruction+
+        drivingModelGuidance(vehicleIntent,act6OwnsDrive)+
         (turn.memoryDisabledForTurn
           ? '\n[MEMORY AVAILABILITY] Learned memory is unavailable for this turn. Do not claim to have saved, corrected or forgotten a memory unless a verified durable outcome was supplied. Do not invent prior memories.'
           : '')};
@@ -654,6 +661,16 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // Validate the PS6 passive-speech restriction before the stock action
     // validator or output_transcript, which can synchronously dispatch effects.
     assertDirectorSpeechDecision(decision,{source,directorTicket:turn.directorTicket,streamMode});
+    if (isPlayer && (vehicleIntent || act6OwnsDrive)) {
+      const guarded = reconcileDrivingDecision(decision,{kind:vehicleIntent,act6OwnsDrive});
+      if (guarded.blocked) {
+        // In early audio mode speech can already be out; never alter its
+        // accepted words after handoff. No competing command is published.
+        if (nativeHandoffStarted) throw Object.assign(new TypeError('Vehicle command conflicts with player intent or ACT6 ownership.'),{code:'vehicle_command_conflict'});
+        decision=guarded.decision;
+        metrics?.event('vehicle_command_reconciled',{reason:guarded.blocked});
+      }
+    }
     recordReasoningSuccess(decision);
     check();
     transition('decision_validation');
@@ -706,6 +723,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       try {const result=services.recordDialogueActionPublication({turn,validated,publishedAtMs:Date.now()});result?.catch?.(()=>{});}catch{}
     }
     await emit({ type: 'output_transcript', text: validated.internalTranscript });
+    // Publication is not the Essential handler ACK and not evidence of motion.
+    if (stockDrivingCommand(decision.command)) metrics?.event('vehicle_stock_command_published',{
+      action:stockDrivingCommand(decision.command),execution:'unverified'});
     check();
     if (turn.act5Reply?.kind === 'approval_pending') {
       const accepted = await services.act5?.commitApproved(turn, valid);
