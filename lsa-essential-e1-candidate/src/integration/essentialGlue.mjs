@@ -24,7 +24,7 @@ import {createOpenAIRuntimeAcceptedInputSource} from '../memory/openaiRuntimeAcc
 import {createOriginalTurnActorLedger} from '../memory/originalTurnActorLedger.mjs';
 import {createNpcSpeechDeliverySource} from '../memory/npcSpeechDeliveryLedger.mjs';
 import {prepareLiveTurnMemory} from '../memory/liveTurnMemory.mjs';
-import {prepareH1ConversationHistory} from '../memory/h1ConversationHistory.mjs';
+import {prepareH1ConversationHistory,prepareDirectorSocialConversationHistory} from '../memory/h1ConversationHistory.mjs';
 import {prepareFactualRecall} from '../memory/h2FactualRecall.mjs';
 import {composeIndependentForegroundMemory} from '../memory/independentForegroundMemory.mjs';
 import {prepareM5Commands} from '../memory/m5IndependentCommands.mjs';
@@ -309,6 +309,29 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     async prepareDirectorCallbackMemory(args) {
       if(runtime.closed||memoryPause.paused)return null;
       return (await runtime.m9Callbacks?.prepareForTurn(args))??null;
+    },
+    // The social lane has no newly accepted player line. Reuse H1's existing
+    // P2 privacy/journal read under the post-hydration Director owner proof.
+    async prepareDirectorSocialHistory({turn,source,isCurrent}) {
+      if(runtime.closed||memoryPause.paused||
+         !(journalActivation.mode==='on'||optionalMemoryEnabled)||
+         config.promotedCharacters?.storageMode!=='sqlite')return null;
+      const live=runtime.intelligence?.runtime,ticket=turn?.directorTicket;
+      const directorCurrent=t=>{
+        if(runtime.closed||!live||t!==ticket||!t||
+           !t.decisionKey?.startsWith('social:')||
+           !live.current(t.speakerCaptureRef)||!live.current(t.playerCaptureRef))return false;
+        const owner=live.directorOwnerProofFor(t.speakerCaptureRef);
+        return !!owner&&owner.hostRunId===t.hostRunId&&
+          owner.worldEpoch===t.worldEpoch&&
+          owner.ownerIncarnationId===t.ownerIncarnationId&&
+          Number.isSafeInteger(owner.proofRevision)&&
+          owner.proofRevision>=t.proofRevision&&
+          (!identityService||identityService.current(turn.identity));
+      };
+      return prepareDirectorSocialConversationHistory({
+        store:journalStore,turn,source,isCurrent,isDirectorCurrent:directorCurrent
+      });
     },
     noteH1Skipped() {
       if(journalActivation.mode==='on'){
