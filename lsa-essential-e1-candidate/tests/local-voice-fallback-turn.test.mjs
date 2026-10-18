@@ -29,7 +29,7 @@ async function withAssets(run) {
     return await run(folder);
   } finally {await rm(directory,{recursive:true,force:true});}
 }
-async function turnRun(assetDirectory,{fail='model',action=false,abort=false}={}) {
+async function turnRun(assetDirectory,{fail='model',action=false,abort=false,rejectTranscript=false,noNativeReceipt=false}={}) {
   const history=new DialogueHistory(),controller=new AbortController(),events=[];
   let failedNative=0,attemptedCommand=0;
   const nativeReceipt={...ID,ok:true,type:'playback_ended',reason:'completed',
@@ -39,7 +39,7 @@ async function turnRun(assetDirectory,{fail='model',action=false,abort=false}={}
     assertCapabilities:()=>{},
     observe:()=>({
       authorization:async()=>({ok:true}),
-      completion:async()=>nativeReceipt,
+      completion:async()=>noNativeReceipt?{ok:false,reason:'native_ack_timeout'}:nativeReceipt,
       dispose:()=>{},
     }),
     authorize:async()=>true,
@@ -49,6 +49,7 @@ async function turnRun(assetDirectory,{fail='model',action=false,abort=false}={}
     emit:async event=>{
       events.push(event);
       if(event.type==='output_transcript'&&event.text.startsWith('DO WaitHere'))attemptedCommand++;
+      if(rejectTranscript&&event.type==='output_transcript')return false;
       return true;
     },
     failTurn:async()=>{failedNative++;return true;},
@@ -133,5 +134,24 @@ test('post-native-PCM corruption and explicit cancellation must never start fall
     assert.notEqual(cancelled.result.status,'completed');
     assert.equal(cancelled.events.filter(e=>e.type==='turn_complete').length,0);
     assert.equal(cancelled.failedNative,1);
+  });
+});
+
+test('ambiguous failed transcript dispatch must never publish fallback or duplicate stock DO command',async()=>{
+  await withAssets(async folder=>{
+    const x=await turnRun(folder,{fail:'tts',action:true,rejectTranscript:true});
+    assert.notEqual(x.result.status,'completed');
+    assert.equal(x.attemptedCommand,1);
+    assert.equal(x.events.filter(e=>e.type==='audio').length,0);
+    assert.equal(x.failedNative,1);
+  });
+});
+
+test('missing exact native completion after prerecorded PCM never commits audible speech',async()=>{
+  await withAssets(async folder=>{
+    const x=await turnRun(folder,{fail:'model',noNativeReceipt:true});
+    assert.notEqual(x.result.status,'completed');
+    assert.equal(x.failedNative,1);
+    assert.equal(x.history.readForSession(ID.pedId,ID.sessionNonce).filter(m=>m.role==='assistant').length,0);
   });
 });
