@@ -203,7 +203,7 @@ export function createElevenLabsSpeechProvider({
         close();
       };
       const abort = () => fail(fault('cancelled'), 'interruption');
-      const timeout = setTimeout(() => fail(fault('timeout'), 'provider_timeout');
+      const timeout = setTimeout(() => fail(fault('timeout'), 'provider_timeout'), timeoutMs);
       signal?.addEventListener('abort', abort, { once:true });
       const record = (name, data) => telemetry?.event(name, {
         provider:'elevenlabs', modelId:config.elevenLabs.modelId, ...data,
