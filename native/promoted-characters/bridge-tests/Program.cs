@@ -422,7 +422,6 @@ static class Program
     // and P1 registration so the candidate ranking cannot silently steal him.
     static void CommittedConversationContinuity(DomainHost host,Driver driver)
     {
-        const string alias = "promoted.11111111-1111-4111-8111-111111111111";
         long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         driver.Clock(start);
         driver.PlayerAt(0,0,0); driver.ClearNearby(); driver.ResetTalkCounters();
@@ -509,8 +508,9 @@ static class Program
     {
         const string alias = "promoted.11111111-1111-4111-8111-111111111111";
         var lease = new TalkRecipientContinuity();
-        var ownerA = TalkRecipientFeedback.Promoted("owner_verified",alias,"incarnation-A");
-        var ownerB = TalkRecipientFeedback.Promoted("owner_verified",alias,"incarnation-B");
+        var ownerA = TalkRecipientFeedback.Promoted("owner_verified",alias,"incarnation-A","token-A");
+        var ownerB = TalkRecipientFeedback.Promoted("owner_verified",alias,"incarnation-B","token-B");
+        var tokenChanged = TalkRecipientFeedback.Promoted("owner_verified",alias,"incarnation-A","token-B");
         lease.Remember("20",320,ownerA,1000);
         Check(lease.Problem("20",320,ownerA,true,false,12f,20f,1500) == null,
             "valid promoted identity survives mic release and next press");
@@ -518,6 +518,8 @@ static class Program
             "same vehicle preserves continuity through position/camera changes");
         Check(lease.Problem("20",320,ownerB,true,true,0f,20f,1600) == "owner_unverified",
             "same alias with a different native incarnation is rejected");
+        Check(lease.Problem("20",320,tokenChanged,true,true,0f,20f,1600) == "owner_unverified",
+            "changed P2 ownership token is rejected even if the P1 incarnation is unchanged");
         Check(lease.Problem("20",321,ownerA,true,true,0f,20f,1600) == "ped_lifetime_changed",
             "reused ped handle cannot substitute a changed native address");
         Check(lease.Problem("20",320,TalkRecipientFeedback.Unknown("owner_suspended"),true,true,0f,20f,1600) == "owner_unverified",
