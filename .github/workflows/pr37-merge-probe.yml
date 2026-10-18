@@ -48,6 +48,7 @@ jobs:
               s=s.replace(pr+'\\n','')
               p.write_text(s)
           PY
+          sed -n '1,18p' lsa-essential-e1-candidate/src/perception/contracts.mjs
           node --check lsa-essential-e1-candidate/src/perception/contracts.mjs
       - name: C01 focused and cross-system Node regression
         shell: bash
