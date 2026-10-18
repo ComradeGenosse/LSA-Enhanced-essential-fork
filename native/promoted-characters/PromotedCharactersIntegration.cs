@@ -307,7 +307,7 @@ namespace LSA.PromotedCharacters
         {
             bool inVehicle=false, actorIsDriver=false, safe=false, scenarioReady=false, nearby=false;
             int actorSeatIndex=-2;
-            bool vehicleAvailable=false, vehicleStopped=false, driverFree=false, frontFree=false, rearFree=false, waypointAvailable=false;
+            bool vehicleAvailable=false, vehicleStopped=false, driverFree=false, frontFree=false, rearFree=false, waypointAvailable=false, actorVehicleIsPlayerVehicle=false;
             try
             {
                 safe=Safe(encounter) && !encounter.Suspended;
@@ -338,6 +338,12 @@ namespace LSA.PromotedCharacters
                         vehicleAvailable=dx*dx+dy*dy+dz*dz<=2500f;
                         if(vehicleAvailable)
                         {
+                            if(inVehicle) try {
+                                var current=encounter.Ped.CurrentVehicle;
+                                actorVehicleIsPlayerVehicle=current!=null && current.Exists() &&
+                                    current.MemoryAddress==vehicle.MemoryAddress &&
+                                    Convert.ToUInt64(current.Handle)==Convert.ToUInt64(vehicle.Handle);
+                            } catch { actorVehicleIsPlayerVehicle=false; }
                             vehicleStopped=vehicle.Speed<1.0f;
                             driverFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,-1,false);
                             frontFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,0,false);
@@ -361,11 +367,11 @@ namespace LSA.PromotedCharacters
                 // Uncertain native state is never advertised as available.
                 return new {version=1,safe=false,actorInVehicle=false,actorOnFoot=false,actorIsDriver=false,
                     playerNearby=false,vehicleAvailable=false,vehicleStopped=false,
-                    passengerFree=false,driverFree=false,frontFree=false,rearFree=false,actorSeatIndex=-2,scenarioReady=false,waypointAvailable=false};
+                    passengerFree=false,driverFree=false,frontFree=false,rearFree=false,actorSeatIndex=-2,actorVehicleIsPlayerVehicle=false,scenarioReady=false,waypointAvailable=false};
             }
             return new {version=1,safe,actorInVehicle=inVehicle,actorOnFoot=!inVehicle,actorIsDriver,
                 playerNearby=nearby,vehicleAvailable,vehicleStopped,
-                passengerFree=frontFree||rearFree,driverFree,frontFree,rearFree,actorSeatIndex,scenarioReady,waypointAvailable};
+                passengerFree=frontFree||rearFree,driverFree,frontFree,rearFree,actorSeatIndex,actorVehicleIsPlayerVehicle,scenarioReady,waypointAvailable};
         }
         object Handle(ControlRequest request)
         {

@@ -10,7 +10,7 @@ namespace LSA.Activities
         // ACT3. Every field is a read of a named Essential state flag or a GTA native, filled by the world.
         public bool StopFaceMode, StopFaceSame, Facing;
         public bool ApproachMode, ApproachSame, WalkAwayMode, CoverMode;
-        public bool IsDriver, VehicleIsAnchor, AssignedIsAnchor, AssignedSet, SeatEntryActive;
+        public bool IsDriver, VehicleIsAnchor, AssignedIsAnchor, AssignedSet, SeatEntryActive, SeatShuffleActive;
         public int SeatIndex;
         public float VehicleSpeed, TargetDistance;
         public bool HoldingItem, ScenarioActive;
@@ -150,6 +150,10 @@ namespace LSA.Activities
             if (sample.AssignedSet && !sample.AssignedIsAnchor && !sample.VehicleIsAnchor) return Verdict.Fail("vehicle_mismatch");
             if (sample.InVehicle && sample.VehicleIsAnchor) {
                 if (SeatMatches(sample, context.Seat)) return Verdict.Of("completed", "seat_occupancy", "strong", SeatName(sample));
+                // The native owner-issued shuffle is a pending transition, not
+                // occupancy. It may time out; never promote it to completion.
+                if (context.Seat=="driver" && sample.SeatIndex==0 && sample.SeatShuffleActive)
+                    return Verdict.Of("progress","queue_submitted","weak");
                 return Verdict.Fail("seat_unavailable");
             }
             if (sample.AssignedIsAnchor && sample.SeatEntryActive) return Verdict.Of("progress", "mode_flag", "medium");

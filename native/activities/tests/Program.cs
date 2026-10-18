@@ -476,12 +476,17 @@ partial class Program
 
         var dispatchRoot = Path.GetDirectoryName(Path.GetDirectoryName(ContractPath()));
         var dispatch = File.ReadAllText(Path.Combine(dispatchRoot, "native", "promoted-characters", "ActivityDispatch.cs"));
-        // Only the newly opt-in ACT6 route extension may issue GTA task natives.
-        // Keep the ACT2/ACT3 queue-only contract and the broad-control prohibition.
+        // Only the three opt-in ACT6 tasks and the owner/vehicle-anchored
+        // ACT3 front-passenger → driver shuffle may invoke task natives.
+        // This is not permission for broad ACT2 task execution.
         var taskCalls = System.Text.RegularExpressions.Regex.Matches(dispatch, "\"TASK_[A-Z_]+\"")
             .Cast<System.Text.RegularExpressions.Match>().Select(match => match.Value).ToArray();
-        Check(taskCalls.SequenceEqual(new[] { "\"TASK_FOLLOW_NAV_MESH_TO_COORD\"", "\"TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE\"", "\"TASK_STAND_STILL\"" }),
-            "only the three ACT6 native task calls are present");
+        Check(taskCalls.SequenceEqual(new[] { "\"TASK_SHUFFLE_TO_NEXT_VEHICLE_SEAT\"", "\"TASK_FOLLOW_NAV_MESH_TO_COORD\"", "\"TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE\"", "\"TASK_STAND_STILL\"" }),
+            "only the ACT3 owned seat shuffle and three ACT6 native task calls are present");
+        Check(dispatch.Contains("args.Seat!=\"driver\" || ped.SeatIndex!=0 || !SameVehicle(ped.CurrentVehicle,anchored)") &&
+            dispatch.Contains("anchored.Speed>=1.0f || !SeatFree(anchored,\"driver\")") &&
+            dispatch.Contains("seatShuffles.Add(encounterId)"),
+            "ACT3 native shuffle must be gated by same anchored car, driver intent, stopped speed, free seat, and owned task");
         Check(dispatch.Contains("capability == \"walk_to\" || capability == \"drive_to\""), "ACT6 task dispatch is capability-gated");
         foreach (var forbidden in new[] { "CLEAR_PED", "CancelAll", "ReleaseExclusiveControl", "SetControlledBrain" }) Check(!dispatch.Contains(forbidden), "dispatch does not " + forbidden);
     }

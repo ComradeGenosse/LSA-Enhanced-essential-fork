@@ -322,6 +322,7 @@ namespace LSA.Activities
                 if (TargetCapabilities.Contains(capability) && (!ActivityContracts.IsUuid(args.Target) || !World.AnchorLive(args.Target))) return Nack(session, request, "target_retired");
                 if (capability == "enter_vehicle_seat" && (!ActivityContracts.IsUuid(args.Vehicle) || !World.AnchorLive(args.Vehicle))) return Nack(session, request, "vehicle_invalid");
             }
+            args.ExecutionId = executionId;
             var execution = new LiveExecution {
                 ExecutionId = executionId, ActivityId = Text(frame, "activityId"), StepId = Text(frame, "stepId"), EncounterId = encounter,
                 IncarnationId = incarnationId, LeaseId = held, Capability = capability, EssentialName = row?.EssentialName, Adapter = row?.Kind == "finite_then_mode" ? "resume_ambient" : AdapterOf(capability),

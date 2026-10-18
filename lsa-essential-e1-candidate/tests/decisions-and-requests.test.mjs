@@ -17,7 +17,8 @@ test('config preserves Luna, the transcription alias, fixed TTS and bounded PTT 
   assert.equal(config.maxMicPcmBytes, 960_000);
   assert.equal(config.providerWorkDeadlineMs, 45_000);
   assert.equal(config.turnDeadlineMs, 45_000);
-  assert.equal(config.playbackCompletionMinMs, 60_000);
+  // Playback recovery intentionally reduced the default minimum to 10s; no receipt is forged.
+  assert.equal(config.playbackCompletionMinMs, 10_000);
   assert.equal(config.structuredStreamingEnabled, false);
   assert.equal(config.earlyTtsEnabled, false);
   assert.equal(config.streamingMaxPcmBytes, 6_291_456);

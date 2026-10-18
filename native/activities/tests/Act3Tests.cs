@@ -445,6 +445,17 @@ partial class Program
         wrongCar.Tick(250);
         Check(wrongCar.Live == null && wrongCar.Last.Reason == "vehicle_mismatch" && !wrongCar.Runner.HasPhysicalCompletion, "sitting in a different vehicle never completes");
 
+        var shuffle = Started(table, "enter_vehicle_seat", null, "EnterDriverSeatOfTargetVehicle");
+        shuffle.World.SampleState.InVehicle = true; shuffle.World.SampleState.VehicleIsAnchor = true;
+        shuffle.World.SampleState.SeatIndex = 0; shuffle.World.SampleState.SeatShuffleActive = true;
+        shuffle.Tick(250);
+        Check(shuffle.Live != null && !shuffle.Runner.HasPhysicalCompletion,
+            "native front-passenger shuffle is pending, not driver-seat completion");
+        shuffle.World.SampleState.SeatIndex = -1; shuffle.World.SampleState.IsDriver = true;
+        shuffle.Tick(250);
+        Check(shuffle.Live == null && shuffle.Last.Status == "completed" && Strong(shuffle.LastReceipt()),
+            "shuffle can complete only with verified anchored driver-seat occupancy");
+
         var wrongSeat = Started(table, "enter_vehicle_seat", null, "EnterDriverSeatOfTargetVehicle");
         wrongSeat.World.SampleState.InVehicle = true; wrongSeat.World.SampleState.VehicleIsAnchor = true; wrongSeat.World.SampleState.SeatIndex = 0;
         wrongSeat.Tick(250);

@@ -176,7 +176,8 @@ export function reconcileVehicleSeatDecision(decision, seatRequest, reply, {nati
       reply.reason==='vehicle_moving' ? "The car needs to stop before I can get in." :
       reply.reason==='vehicle_unavailable' ? "I can't verify which car to get into." :
       reply.reason==='actor_busy' ? "I'm busy with another activity right now." :
-      reply.reason==='actor_in_vehicle' ? "I'm already in a vehicle; I can't switch seats with this command." :
+      reply.reason==='seat_change_unavailable' ? "I can't safely change to that seat from here." :
+      reply.reason==='vehicle_mismatch' ? "I'm in a different vehicle." :
       reply.reason==='capability_disabled' ? "I can't use the seat-entry controller right now." :
       "I can't safely take that seat right now.";
   return Object.freeze({decision:Object.freeze({...decision,dialogue,command:'',
@@ -247,12 +248,16 @@ export function act5WorldAvailable(intent, slots, state) {
     // and exact seat before it returns alreadySatisfied. A seat index alone
     // is never proof the actor occupies the player's vehicle.
     if (state.actorInVehicle === true) {
+      // The actor must be in this exact player vehicle; a seat index alone is
+      // not an owner/vehicle binding. ACT3 still reacquires the native anchor.
+      if (state.vehicleAvailable!==true || state.actorVehicleIsPlayerVehicle!==true) return false;
       const index=state.actorSeatIndex;
-      return state.vehicleAvailable===true &&
-        (slots.seat==='driver' && index===-1 ||
-         slots.seat==='passenger' && index===0 ||
-         slots.seat==='rear' && index>=1 ||
-         slots.seat==='any_passenger' && index>=0);
+      if (slots.seat==='driver' && index===0)
+        return state.vehicleStopped===true && state.driverFree===true;
+      return (slots.seat==='driver' && index===-1 ||
+        slots.seat==='passenger' && index===0 ||
+        slots.seat==='rear' && index>=1 ||
+        slots.seat==='any_passenger' && index>=0);
     }
     if (state.actorInVehicle !== false || state.vehicleAvailable !== true ||
         state.vehicleStopped !== true) return false;
@@ -519,7 +524,10 @@ export class Act5Dialogue {
         const native=owner.activityOffer;
         if (!act5WorldAvailable(intent,seatRequest.slots,native)) {
           const reason=native?.safe!==true?'native_unavailable':
-            native.actorInVehicle===true?'actor_in_vehicle':
+            native.actorInVehicle===true && native.actorVehicleIsPlayerVehicle!==true?'vehicle_mismatch':
+            native.actorInVehicle===true && seat==='driver' && native.actorSeatIndex===0 && native.vehicleStopped!==true?'vehicle_moving':
+            native.actorInVehicle===true && seat==='driver' && native.actorSeatIndex===0 && native.driverFree!==true?'seat_occupied':
+            native.actorInVehicle===true?'seat_change_unavailable':
             native.vehicleAvailable!==true?'vehicle_unavailable':
             native.vehicleStopped!==true?'vehicle_moving':
             seat==='driver'&&native.driverFree!==true?'seat_occupied':

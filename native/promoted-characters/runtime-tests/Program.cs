@@ -9,7 +9,7 @@ using Rage;
 
 public sealed class Scenario:MarshalByRefObject
 {
-    const string Config="{\"enabled\":true,\"worldProfileId\":\"d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5\"}";
+    const string Config="{\"enabled\":true,\"personalTestMode\":false,\"worldProfileId\":\"d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5\"}";
     const string ResultId="00000000-0000-4000-8000-000000000000";
     int assertions;
     public override object InitializeLifetimeService()=>null;
@@ -88,7 +88,7 @@ public sealed class Scenario:MarshalByRefObject
     {
         var fields=new System.Collections.Generic.Dictionary<string,object>{{"mode",mode}};
         if(receipts!=null)fields["dialogueReceipts"]=receipts;
-        string config=new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new {enabled=true,worldProfileId="d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5",activities=fields});
+        string config=new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new {enabled=true,personalTestMode=false,worldProfileId="d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5",activities=fields});
         Check(RuntimeEntry.Start(config),"Collection configuration did not schedule the owner.");
         Check(PromotedCharactersIntegration.ActivityShadowStarts==0 && PromotedCharactersIntegration.ActivityExecutionStarts==0,"Collection was started outside the owner fiber.");
         GameFiber.OnSleep=()=>RuntimeEntry.Stop();GameFiber.ExecuteNext();
@@ -100,7 +100,7 @@ public sealed class Scenario:MarshalByRefObject
     }
     public int ReactionOwnerFailsClosed()
     {
-        var config="{\"enabled\":true,\"worldProfileId\":\"d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5\",\"reactions\":{\"mode\":\"on\"}}";
+        var config="{\"enabled\":true,\"personalTestMode\":false,\"worldProfileId\":\"d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5\",\"reactions\":{\"mode\":\"on\"}}";
         Check(RuntimeEntry.Start(config),"Reaction host was not scheduled.");
         GameFiber.OnSleep=()=>{
             var gate=typeof(RuntimeEntry).GetMethod("OwnedByLsaBehavior",BindingFlags.NonPublic|BindingFlags.Static);

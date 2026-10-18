@@ -25,7 +25,7 @@ namespace LSA.PromotedCharacters
         {
             sealed class SeatMemory { public bool Enter, Exit, Stay; }
             // Transition-only observations for a single ACT-owned seat task.
-            sealed class SeatTrace { public string Seat; public int LastState = int.MinValue; }
+            sealed class SeatTrace { public string Seat, ExecutionId; public int LastState = int.MinValue; }
             // Evidence for the ACT runner's single current step; not a task controller.
             sealed class NavMemory {
                 public string PlaceRef, Capability;
@@ -60,6 +60,7 @@ namespace LSA.PromotedCharacters
             readonly Dictionary<string, SeatMemory> seats = new Dictionary<string, SeatMemory>();
             readonly Dictionary<string, NavMemory> navigation = new Dictionary<string, NavMemory>();
             readonly Dictionary<string, SeatTrace> seatTraces = new Dictionary<string, SeatTrace>();
+            readonly HashSet<string> seatShuffles = new HashSet<string>();
             public EssentialActivityWorld(PromotedCharactersIntegration host) { this.host = host; }
             public uint GameTime => unchecked((uint)Game.GameTime);
             static void DriveLog(string stage, string encounterId, string data)
@@ -84,8 +85,11 @@ namespace LSA.PromotedCharacters
                 if(state==item.LastState)return;
                 item.LastState=state;
                 var label=state==-1?"actor_gone":state==0?"not_started":state==1?"entering_unverified":
-                    state==2?"entering_anchor":state==3?"physically_seated":"wrong_seat_or_vehicle";
-                SeatLog("sample",encounterId,"seat="+item.Seat+" status="+label+" occupationVerified="+(state==3));
+                    state==2?"entering_anchor":state==3?"physically_seated":
+                    sample.SeatShuffleActive && sample.VehicleIsAnchor ? "seat_transition_pending" : "wrong_seat_or_vehicle";
+                SeatLog("sample",encounterId,"executionId="+item.ExecutionId+" requestedSeat="+item.Seat+
+                    " actualSeat="+sample.SeatIndex+" anchorMatched="+sample.VehicleIsAnchor+
+                    " status="+label+" occupationVerified="+(state==3));
             }
             void TraceDriveSample(NavMemory item, ModeSample sample, Ped actor, string encounterId, int task)
             {
@@ -271,8 +275,12 @@ namespace LSA.PromotedCharacters
                 if (capability == "enter_vehicle_seat") {
                     var vehicle = host.Host.Anchors.Resolve(args?.Vehicle)?.Entity as Vehicle;
                     if (vehicle == null || !vehicle.Exists() || !vehicle.IsAlive) return new PreflightResult { Reason = "vehicle_invalid" };
-                    if (sample.InVehicle && sample.VehicleIsAnchor && SeatMatches(sample, args.Seat)) return new PreflightResult { Already = true };
-                    if (sample.InVehicle) return new PreflightResult { Reason = "state_blocked" };
+                    if (sample.InVehicle && !sample.VehicleIsAnchor) return new PreflightResult { Reason = "vehicle_mismatch" };
+                    if (sample.InVehicle && SeatMatches(sample, args.Seat)) return new PreflightResult { Already = true };
+                    // A front passenger can shuffle into an empty driver seat in the
+                    // same stopped, owner-anchored vehicle. Other transitions fail closed.
+                    if (sample.InVehicle && (args.Seat != "driver" || sample.SeatIndex != 0))
+                        return new PreflightResult { Reason = "seat_change_unavailable" };
                     if (vehicle.Speed >= 1.0f) return new PreflightResult { Reason = "vehicle_moving" };
                     if (!SeatFree(vehicle, args.Seat)) return new PreflightResult { Reason = "seat_occupied" };
                 }
@@ -326,10 +334,29 @@ namespace LSA.PromotedCharacters
                 else if (capability == "enter_vehicle_seat") {
                     // The vehicle is the one Essential resolves for the player. ACT only verifies it afterwards and cancels on a mismatch.
                     if (args.Command == null || !AnchorLive(args.Vehicle) || host.Host.Anchors.Resolve(args.Vehicle)?.Kind != "vehicle") return false;
-                    NpcActionQueue.QueueNpcAction(args.Command, "", "", ped);
-                    own[encounterId] = args.Command;
-                    seatTraces[encounterId] = new SeatTrace { Seat=args.Seat };
-                    SeatLog("queued",encounterId,"seat="+args.Seat+" action="+args.Command+" verified=false");
+                    var anchored=host.Host.Anchors.Resolve(args.Vehicle)?.Entity as Vehicle;
+                    if (anchored==null || !anchored.Exists() || !anchored.IsAlive) return false;
+                    var route="essential_queue";
+                    if (ped.IsInAnyVehicle(false)) {
+                        // Do not send Essential's on-foot enter command to an already
+                        // seated ped; it cannot change seats. Recheck all physical
+                        // preconditions on the actual dispatch fiber.
+                        if (args.Seat!="driver" || ped.SeatIndex!=0 || !SameVehicle(ped.CurrentVehicle,anchored) ||
+                            anchored.Speed>=1.0f || !SeatFree(anchored,"driver")) return false;
+                        var state=NpcStateStore.GetStateForActiveBehavior(ped);
+                        if (state==null || state.HasActiveReflex || state.InDirectedInteraction) return false;
+                        VehicleBehavior.StopAllVehicleCommands(ped,state);
+                        NativeFunction.CallByName<int>("TASK_SHUFFLE_TO_NEXT_VEHICLE_SEAT",ped,anchored,false);
+                        route="native_shuffle";
+                        seatShuffles.Add(encounterId);
+                        own[encounterId]="seat_shuffle_to_driver";
+                    } else {
+                        NpcActionQueue.QueueNpcAction(args.Command, "", "", ped);
+                        own[encounterId]=args.Command;
+                    }
+                    seatTraces[encounterId] = new SeatTrace { Seat=args.Seat, ExecutionId=args.ExecutionId };
+                    SeatLog("queued",encounterId,"executionId="+args.ExecutionId+" requestedSeat="+args.Seat+" route="+route+
+                        " anchor="+args.Vehicle.Substring(0,8)+" verified=false");
                 }
                 else if (capability == "walk_to" || capability == "drive_to") {
                     if (args == null || !args.HasPlace || !ValidPlace(new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z)))
@@ -392,8 +419,9 @@ namespace LSA.PromotedCharacters
             }
             public void NoteForeign(string encounterId) { if (encounterId != null) {
                 own.Remove(encounterId); navigation.Remove(encounterId);
-                if(seatTraces.ContainsKey(encounterId))SeatLog("superseded",encounterId,"reason=foreign_owner");
-                seatTraces.Remove(encounterId); RefreshPrimaryOwner(Find(encounterId));} }
+                if(seatTraces.TryGetValue(encounterId,out var foreign))SeatLog("superseded",encounterId,
+                    "executionId="+foreign.ExecutionId+" reason=foreign_owner");
+                seatTraces.Remove(encounterId); seatShuffles.Remove(encounterId); RefreshPrimaryOwner(Find(encounterId));} }
             public void Cancel(string encounterId, string capability, bool stopIfCurrent)
             {
                 if (!stopIfCurrent || encounterId == null || !own.ContainsKey(encounterId)) return;
@@ -409,8 +437,9 @@ namespace LSA.PromotedCharacters
                 else if (capability == "begin_driving") VehicleBehavior.StopVehicleTaskOnly(encounter.Ped);
                 else if (capability == "enter_vehicle_seat") {
                     VehicleBehavior.StopAllVehicleCommands(encounter.Ped, state);
-                    SeatLog("cancel",encounterId,"reason=cancel_or_supersede");
+                    SeatLog("cancel",encounterId,"executionId="+(seatTraces.TryGetValue(encounterId,out var cancelled) ? cancelled.ExecutionId : "none")+" reason=cancel_or_supersede");
                     seatTraces.Remove(encounterId);
+                    seatShuffles.Remove(encounterId);
                 }
                 else if ((capability == "walk_to" || capability == "drive_to") && navigation.TryGetValue(encounterId,out var nav) &&
                          nav.Capability == capability && nav.PedHandle == Convert.ToUInt64(encounter.Ped.Handle) &&
@@ -467,6 +496,7 @@ namespace LSA.PromotedCharacters
                 sample.ContinuityReached = false;
                 sample.ControlReleased = state == null || encounter.Suspended;
                 if (state != null) SampleActThree(sample, encounter.Ped, state, args);
+                sample.SeatShuffleActive=seatShuffles.Contains(encounterId);
                 TraceSeatSample(encounterId,sample);
                 if (args != null && args.HasPlace) SampleNavigation(sample, encounter.Ped, encounterId, args);
                 return sample;
@@ -583,8 +613,9 @@ namespace LSA.PromotedCharacters
                 navigation.Remove(encounterId);
                 own.Remove(encounterId);
                 if(seatTraces.ContainsKey(encounterId))
-                    SeatLog("ownership_ended",encounterId,"preempted="+preempted);
+                    SeatLog("ownership_ended",encounterId,"executionId="+seatTraces[encounterId].ExecutionId+" preempted="+preempted);
                 seatTraces.Remove(encounterId);
+                seatShuffles.Remove(encounterId);
                 var memory = seats[encounterId]; seats.Remove(encounterId);
                 var encounter = Find(encounterId);
                 if (encounter == null || !PromotedCharactersIntegration.SameIncarnation(encounter)) return;
