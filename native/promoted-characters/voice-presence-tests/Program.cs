@@ -332,6 +332,51 @@ static class Program {
         var zero=new VoicePresenceTurnTracker(0f);Assert(zero.OpenLevel==VoicePresenceTurnTracker.OpenThreshold,"zero open level falls back");
     }
 
+    static void TestPendingPlaybackAudit() {
+        Reset();
+        var player=NewPed(82,8200);var npc=NewPed(83,8300);
+        Rage.Game.LocalPlayer.Character=player;
+        var levels=new FakeLevels();levels.Set(npc,0f,false);
+        var o=new NpcVoicePresenceObserver("shadow",false,0.015f,false,levels);
+        o.Attach();
+        Start(npc,"npc-83","stalled-1",22);
+        o.Update(1,100);
+        o.Update(1,8099);
+        Assert(levels.Requests.Count==0,"shadow observer does no early or per-frame audio polling");
+        Assert(!Rage.Game.Log.Exists(x=>x.Contains("playback_pending_audit")),"no premature playback concern before threshold");
+        o.Update(1,8100);
+        var reports=Rage.Game.Log.FindAll(x=>x.Contains("playback_pending_audit"));
+        Assert(reports.Count==1&&reports[0].Contains("generation=22")&&
+            reports[0].Contains("age_ms=8000")&&reports[0].Contains("turn_buffered=1")&&
+            reports[0].Contains("audible=0")&&reports[0].Contains("speaking=1"),
+            "stale buffered and inaudible report is sourced from the exact live Essential turn");
+        o.Update(1,12000);
+        Assert(Rage.Game.Log.Count(x=>x.Contains("playback_pending_audit"))==1,
+            "audit not emitted repeatedly within five-second cadence");
+        End(npc,"npc-83","stalled-1",22);o.Update(1,13000);
+        o.Update(1,19000);
+        Assert(Rage.Game.Log.Count(x=>x.Contains("playback_pending_audit"))==1,
+            "native completion closes the audit without bogus post-end reads");
+        levels.Requests.Clear();
+        Start(npc,"npc-83","stalled-2",23);o.Update(1,20000);
+        o.Update(1,28000);
+        Assert(Rage.Game.Log.Count(x=>x.Contains("playback_pending_audit"))==2,
+            "new generation is sampled only after its own elapsed time");
+        // Empty buffer with missing completion is diagnosed as distinct from
+        // stuck buffer; neither reading is ever a fabricated native callback.
+        levels.Fail=true;
+        o.Update(1,33000);
+        reports=Rage.Game.Log.FindAll(x=>x.Contains("playback_pending_audit"));
+        Assert(reports[2].Contains("read=0")&&reports[2].Contains("turn_buffered=-1"),
+            "unavailable native playout proof is explicitly unknown, not silently unbuffered");
+        levels.Fail=false;
+        o.Update(2,33020);
+        int before=levels.Requests.Count;
+        o.Update(2,45000);
+        Assert(levels.Requests.Count==before,"world epoch change retires old queued audio diagnostics");
+        o.Dispose();
+    }
+
     static void Main() {
         var s=new VoicePresenceTurnTracker();
         var a=new VoicePresenceTurnTracker.Key("ped1","turnA",1);
@@ -370,6 +415,7 @@ static class Program {
         TestStopsAndSpeakerChanges();
         TestFailSafeAndLifecycle();
         TestProvidersAndLog();
+        TestPendingPlaybackAudit();
         Console.WriteLine("NPC voice presence policy + native event observer: "+count+" checks passed.");
     }
 }
