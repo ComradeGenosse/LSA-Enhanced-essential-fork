@@ -1,0 +1,29 @@
+name: Offline voice fallback validation
+on:
+  pull_request:
+    paths:
+      - 'lsa-essential-e1-candidate/src/voice/localFallback.mjs'
+      - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
+      - 'lsa-essential-e1-candidate/src/config/e1Config.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/**'
+      - 'lsa-essential-e1-candidate/tests/local-voice-fallback.test.mjs'
+      - '.github/workflows/offline-voice-fallback.yml'
+  push:
+    branches:
+      - feature/offline-voice-fallback-20261018
+jobs:
+  source-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check runtime and recorder
+        run: |
+          node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
+          node --check lsa-essential-e1-candidate/src/voice/localFallback.mjs
+          node --check lsa-essential-e1-candidate/tools/recordVoiceFallback.mjs
+      - name: Offline fallback and existing history regression
+        working-directory: lsa-essential-e1-candidate
+        run: node --test tests/local-voice-fallback.test.mjs tests/tts-and-history.test.mjs tests/playback-completion-recovery.test.mjs
