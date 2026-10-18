@@ -46,6 +46,7 @@ namespace LSA.Enhanced.Ui
         long nextRender, nextInterest, nextRoster, nextReadiness, nextDirectorPoll, nextBinding, aiReadAt = -1;
         long directorBefore = -1;
         bool directorPending;
+        string lastCharacterPresence;
         int dataVersion = -1;
         bool rendering, yielded;
         string aiConfig; bool aiCredential;
@@ -554,6 +555,20 @@ namespace LSA.Enhanced.Ui
                 // It repairs a delayed/unknown roster, but actual commands still
                 // revalidate ownership/lease in the original native executor.
                 var lines = CharacterList.Actions(row,data.CompanionReachable,context.Bridge.Available,binding != null);
+                // One durable RPH transition per visible state change. No private
+                // character/profile IDs, ownership tokens, or polling spam.
+                bool followAvailable = data.CompanionReachable && context.Bridge.Available &&
+                    (row.Spawned || row.Suspended || binding != null);
+                string rosterState = row.Spawned ? "spawned" : row.Suspended ? "suspended" :
+                    row.RuntimeStatus == "unverified" ? "unverified" : "absent";
+                string presence = row.CharacterId + "|" + rosterState + "|" + (binding != null) +
+                    "|" + followAvailable;
+                if (presence != lastCharacterPresence) {
+                    lastCharacterPresence = presence;
+                    context.Log("[GM] character_view roster=" + rosterState +
+                        " binding=" + (binding != null ? "verified" : "unavailable") +
+                        " follow=" + (followAvailable ? "enabled" : "disabled"));
+                }
                 if (binding != null) {
                     var action = MenuLine.Action("characterActivity","Activities for " + row.Name + "...","local.openNavigation",
                         "Select ACT and navigation commands directly for this native-owned incarnation; no UX4 selection needed.",
