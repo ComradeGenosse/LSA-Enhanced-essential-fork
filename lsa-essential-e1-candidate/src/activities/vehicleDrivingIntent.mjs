@@ -10,17 +10,36 @@ const normalize = value => String(value || '').toLowerCase().replace(/[’]/g, "
   .replace(/(?: man| dude| bro| nathan| please)$/,'')
   .trim();
 
+// Only these verified stock action names have a zero-argument form. We repair
+// *solely* a missing DO token, never an unknown action, placeholder, or argument.
+// Stock Essential's ordinary actor/capability/authority validation still runs.
+const BARE_DRIVE_ACTIONS = new Map([
+  ['driveevasively','DriveEvasively'],
+  ['drivenormally','DriveNormally'],
+]);
+export function normalizeBareStockDriveCommand(command) {
+  if (typeof command !== 'string') return command;
+  const trimmed = command.trim();
+  if (!/^[A-Za-z]+$/.test(trimmed)) return command;
+  const action = BARE_DRIVE_ACTIONS.get(trimmed.toLowerCase());
+  return action ? 'DO ' + action : command;
+}
+
 const phrases = Object.freeze({
   continue: /^(?:keep going|keep on going|keep driving|keep on driving|carry on driving|continue driving|just keep driving|keep rolling|keep moving|go on|carry on|don't stop driving|do not stop driving|keep it going)(?: now)?$/,
   speed_up: /^(?:drive faster|go faster|speed up|speed it up|pick up speed|pick up the speed|pick up the pace|drive a bit faster|drive a little faster|hurry up|step on it|floor it)(?: now)?$/,
   slow_down: /^(?:drive slower|go slower|slow down|slow it down|slow down a bit|take it slower|take it easy)(?: now)?$/,
   evasive: /^(?:drive evasively|start driving evasively|drive recklessly|lose the cops|evade the cops)$/,
   normal: /^(?:drive normally|stop driving evasively|drive carefully|drive more carefully)$/,
-  start: /^(?:start driving|begin driving|just drive|drive around|let's drive|lets drive|let's go for a drive|lets go for a drive|get us moving|get moving)$/,
+  start: /^(?:drive|start driving|begin driving|just drive|drive around|let's drive|lets drive|let's go for a drive|lets go for a drive|get us moving|get moving)$/,
   stop: /^(?:stop driving|stop the car|pull over|stop the vehicle|stop driving now)$/,
 });
-export function drivingIntentKind(input) {
+export function drivingIntentKind(input, { verifiedDriver = false } = {}) {
   const value = normalize(input);
+  // Single-word follow-ups are contextual. Never infer NPC driving from old
+  // dialogue or a model claim; require current Essential actor facts.
+  if (verifiedDriver && ['faster','quicker'].includes(value)) return 'speed_up';
+  if (verifiedDriver && value === 'slower') return 'slow_down';
   for (const [kind,pattern] of Object.entries(phrases)) if (pattern.test(value)) return kind;
   return null; // navigation and open-ended remarks are handled elsewhere
 }
