@@ -123,6 +123,11 @@ namespace LSA.BridgeTests
         {
             Game.LocalPlayer.Character.Position = new Vector3(x,y,z);
         }
+        public void SwitchPlayer()
+        {
+            var player = Game.LocalPlayer.Character;
+            Game.LocalPlayer.Character = new Ped {Handle = 2,MemoryAddress = new IntPtr(32),Position = player.Position};
+        }
 
         public bool MicIsCurrent(int handle) => InputController.LastMic != null && peds.ContainsKey(handle) && ReferenceEquals(InputController.LastMic,peds[handle]);
         public void Gates(bool textInput,bool controlsMenu,bool loading) { TextInputService.IsOpen = textInput; LsaControlsMenu.BlocksLsaInput = controlsMenu; Game.IsLoading = loading; }
