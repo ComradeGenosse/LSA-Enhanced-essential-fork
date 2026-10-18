@@ -181,7 +181,7 @@ export function createElevenLabsSpeechProvider({
       let completed = false, failed = null, closed = false, generatedBytes = 0;
       let chunks = 0, firstAudioAt = null, forwardedBytes = 0, forwardedChunks = 0;
       let queueBytes = 0, drained = false, wake = null;
-      let failureStage = 'none', emptyMarkers = 0;
+      let failureStage = 'none', emptyMarkers = 0, synthesized = false;
       // WS frames can split a PCM16 sample; only whole samples reach native.
       let pendingPcmByte = null;
       let resolveFinished, rejectFinished;
@@ -378,6 +378,7 @@ export function createElevenLabsSpeechProvider({
             tag:speechPayload.tag,
           });
         }
+        synthesized = true;
         return result;
       } catch(error) {
         fail(error);
@@ -392,7 +393,7 @@ export function createElevenLabsSpeechProvider({
         signal?.removeEventListener('abort', abort);
         close();
         record('elevenlabs_stream_stage', {
-          stage:'socket_cleanup', outcome:failed ? 'failed' : drained ? 'finished' : 'interrupted',
+          stage:'socket_cleanup', outcome:synthesized ? 'finished' : 'failed',
           forwardedBytes,forwardedChunks,
         });
       }
