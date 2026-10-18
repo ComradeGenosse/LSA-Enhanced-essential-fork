@@ -24,8 +24,16 @@ export function drivingIntentKind(input) {
   for (const [kind,pattern] of Object.entries(phrases)) if (pattern.test(value)) return kind;
   return null; // navigation and open-ended remarks are handled elsewhere
 }
-const STOCK_DRIVING = new Set(['begindriving','startdriving','driveevasively','driveevasive',
-  'drivenormally','stopdrivingevasively']);
+// Pinned Essential action catalog aliases, not only the prompt's display tags.
+// A model can emit a valid stock alias in a DO command; every alias must obey
+// the same ACT6/continuation guard as its canonical behavior.
+const DRIVE_START = new Set(['begindriving','startdriving','justdrive','drivearound',
+  'cruisearound','cruise','keepdriving','keepmoving','keeprolling','letsdrive','takeadrive']);
+const DRIVE_FAST = new Set(['driveevasively','driveevasive','drivefaster','gofaster',
+  'speedup','hurryup','steponit','floorit','punchit','runtheredlights','runredlights']);
+const DRIVE_NORMAL = new Set(['drivenormally','drivenormal','stopdrivingevasively',
+  'drivecareful','drivecarefully','slowdown','calmdown','relax','weregood']);
+const STOCK_DRIVING = new Set([...DRIVE_START,...DRIVE_FAST,...DRIVE_NORMAL]);
 export function stockDrivingCommand(command) {
   const match = /^DO\s*:?[ \t]*([a-z]+)/i.exec(String(command || '').trim());
   return match && STOCK_DRIVING.has(match[1].toLowerCase()) ? match[1].toLowerCase() : null;
@@ -78,11 +86,11 @@ export function reconcileDrivingDecision(decision, { kind = null, act6OwnsDrive 
   const blocked = action && (
     act6OwnsDrive ? 'act6_owns_drive' :
     kind === 'continue' ? 'continuation_must_not_reset_task' :
-    kind === 'speed_up' && !['driveevasively','driveevasive'].includes(action) ? 'speed_up_requires_essential_faster_mode' :
-    kind === 'slow_down' && !['drivenormally','stopdrivingevasively'].includes(action) ? 'slow_down_requires_normal_mode' :
+    kind === 'speed_up' && !DRIVE_FAST.has(action) ? 'speed_up_requires_essential_faster_mode' :
+    kind === 'slow_down' && !DRIVE_NORMAL.has(action) ? 'slow_down_requires_normal_mode' :
     kind === 'stop' ? 'stop_must_not_switch_driving_mode' :
-    kind === 'start' && ['driveevasively','driveevasive'].includes(action) ? 'start_must_not_be_evasive' :
-    kind === 'normal' && ['driveevasively','driveevasive'].includes(action) ? 'normal_must_not_be_evasive' :
+    kind === 'start' && DRIVE_FAST.has(action) ? 'start_must_not_be_evasive' :
+    kind === 'normal' && DRIVE_FAST.has(action) ? 'normal_must_not_be_evasive' :
     null);
   if (!blocked) return Object.freeze({ decision, blocked: null });
   const dialogue = act6OwnsDrive
