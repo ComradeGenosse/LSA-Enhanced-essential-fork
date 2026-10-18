@@ -84,6 +84,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet run --project native/standalone/tests/LSA.Standalone.Core.Tests.csproj -f net10.0 -c Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify safe CLR binding failure diagnostics (G2)
+        shell: pwsh
+        run: |
+          dotnet run --project native/standalone-host/tests/BindingFailureDiagnostics.Tests.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'G2 binding failure diagnostics regression' }
       - name: Compile real net481 host and test harness (no GTA deployment)
         shell: pwsh
         run: |
