@@ -43,7 +43,7 @@ namespace LSA.Standalone.RageHost
             try
             {
                 Ped player = Game.LocalPlayer.Character;
-                return player != null && player.Exists() && !player.IsDead &&
+                return player != null && RphPedValidity.Exists(player) && !player.IsDead &&
                     new RageWorld().AllowsNpcControl;
             }
             catch { return false; }
@@ -57,7 +57,7 @@ namespace LSA.Standalone.RageHost
             {
                 foreach (Ped ped in player.GetNearbyPeds(16))
                 {
-                    if (ped == null || ped == player || !ped.Exists() || ped.IsDead)
+                    if (ped == null || ped == player || !RphPedValidity.Exists(ped) || ped.IsDead)
                         continue;
                     float d = ped.DistanceTo(player);
                     if (d < 0.75f || d >= bestDistance) continue;
