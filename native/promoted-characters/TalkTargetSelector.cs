@@ -108,7 +108,7 @@ namespace LSA.PromotedCharacters
                         policy.SelectFirst(new[] {token},now,next);
                         frozenPeds.Clear(); frozenPeds.Add(continuityPed);
                         retainedForThisHold = true;
-                        Game.LogTrivial("[UX4] talk_target selected reason=verified_continuity kind=promoted evidence=owner_verified");
+                        Trace("[UX4] talk_target selected reason=verified_continuity kind=promoted evidence=owner_verified");
                     } else {
                         var selected = Select(now,next,false);
                         if (!selected.Present) { ptt.Fence(generation); throw new InvalidOperationException(selected.Reason ?? "no_nearby_npc"); }
@@ -370,12 +370,15 @@ namespace LSA.PromotedCharacters
                 feedback.Alias != null && feedback.IncarnationId != null) {
                 continuity.Remember(ped.Handle.ToString(),address,feedback,now);
                 continuityPed = ped;
-                var player = Game.LocalPlayer.Character;
-                continuityPlayerId = player?.Handle.ToString();
-                continuityPlayerAddress = player == null ? 0 : player.MemoryAddress.ToInt64();
+                try {
+                    var player = Game.LocalPlayer.Character;
+                    continuityPlayerId = player?.Handle.ToString();
+                    continuityPlayerAddress = player == null ? 0 : player.MemoryAddress.ToInt64();
+                    if (continuityPlayerId == null || continuityPlayerAddress == 0) { ClearContinuity("player_unavailable"); return; }
+                } catch { ClearContinuity("player_unavailable"); return; }
                 continuityInvalidated = false;
                 nextContinuityCheck = now + 500;
-                Game.LogTrivial("[UX4] conversation_continuity established kind=promoted evidence=owner_verified");
+                Trace("[UX4] conversation_continuity established kind=promoted evidence=owner_verified");
             } else ClearContinuity("recipient_changed");
         }
         string CheckContinuity(long now,float radius)
@@ -407,15 +410,16 @@ namespace LSA.PromotedCharacters
         void InvalidateContinuity(string reason)
         {
             if (!continuity.HasRecipient) return;
-            Game.LogTrivial("[UX4] conversation_continuity invalidated reason=" + reason + " action=fail_closed");
+            Trace("[UX4] conversation_continuity invalidated reason=" + reason + " action=fail_closed");
             continuity.Clear(); continuityPed = null; continuityPlayerId = null; continuityPlayerAddress = 0; continuityInvalidated = true; nextContinuityCheck = 0;
             Drop("continuity_lost");
         }
         void ClearContinuity(string reason)
         {
-            if (continuity.HasRecipient) Game.LogTrivial("[UX4] conversation_continuity released reason=" + reason);
+            if (continuity.HasRecipient) Trace("[UX4] conversation_continuity released reason=" + reason);
             continuity.Clear(); continuityPed = null; continuityPlayerId = null; continuityPlayerAddress = 0; continuityInvalidated = false; nextContinuityCheck = 0;
         }
+        static void Trace(string message) { try { Game.LogTrivial(message); } catch { } }
         void Drop(string reason)
         {
             if (!policy.HasSelection && frozenPeds.Count == 0) { indicator.Clear(); return; }
