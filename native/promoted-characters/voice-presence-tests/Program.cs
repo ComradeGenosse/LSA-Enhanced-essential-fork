@@ -332,6 +332,37 @@ static class Program {
         var zero=new VoicePresenceTurnTracker(0f);Assert(zero.OpenLevel==VoicePresenceTurnTracker.OpenThreshold,"zero open level falls back");
     }
 
+    sealed class FakeNativeTurn {
+        internal string PedId, TurnId;
+        internal long GenerationId;
+        internal bool StreamEnded,PlaybackStarted,CompletionEmitted,Cancelled;
+        internal int CreatedAt,LastChunkAt,EstimatedPlaybackEndAt;
+    }
+    static void TestOriginalNativeStateProbe() {
+        var monitor=new object();
+        var fake=new FakeNativeTurn {
+            PedId="ped1",TurnId="t1",GenerationId=17,
+            StreamEnded=true,PlaybackStarted=true,CompletionEmitted=false,
+            Cancelled=false,CreatedAt=100,LastChunkAt=490,EstimatedPlaybackEndAt=3010,
+        };
+        System.Collections.IDictionary turns=new System.Collections.Generic.Dictionary<string,FakeNativeTurn> {
+            ["ped1:t1:17"]=fake,
+        };
+        var state=NpcPlaybackStateProbe.ReadMatching(monitor,turns,"ped1","t1",17);
+        Assert(state.Status=="matched"&&state.StreamEnded&&state.PlaybackStarted&&
+            !state.CompletionEmitted&&!state.Cancelled&&state.EstimatedPlaybackEndAt==3010,
+            "read-only native snapshot reports stream-end but not completion of matching turn");
+        Assert(state.LogFields.Contains("stream_ended=1")&&state.LogFields.Contains("completion_emitted=0"),
+            "native trace distinguishes accepted stream termination from completion emission");
+        Assert(NpcPlaybackStateProbe.ReadMatching(monitor,turns,"ped1","t1",18).Status=="not_found",
+            "old generation cannot be attributed to newer native playback");
+        Assert(NpcPlaybackStateProbe.ReadMatching(monitor,turns,"ped2","t1",17).Status=="not_found",
+            "wrong actor cannot consume or reveal another native turn");
+        Assert(NpcPlaybackStateProbe.ReadMatching(null,turns,"ped1","t1",17).Status=="unavailable",
+            "missing synchronization never implies empty native state");
+        Assert(fake.StreamEnded&&!fake.CompletionEmitted,"snapshot leaves original native state unchanged");
+    }
+
     static void TestPendingPlaybackAudit() {
         Reset();
         var player=NewPed(82,8200);var npc=NewPed(83,8300);
@@ -416,6 +447,7 @@ static class Program {
         TestFailSafeAndLifecycle();
         TestProvidersAndLog();
         TestPendingPlaybackAudit();
+        TestOriginalNativeStateProbe();
         Console.WriteLine("NPC voice presence policy + native event observer: "+count+" checks passed.");
     }
 }
