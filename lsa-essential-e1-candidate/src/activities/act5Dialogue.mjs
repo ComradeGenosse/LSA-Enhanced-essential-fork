@@ -128,6 +128,32 @@ export function parseVehicleSeatPlayerRequest(input) {
     slots:Object.freeze({vehicle:Object.freeze({kind:'player_vehicle'}),seat})});
 }
 
+// Pure post-model guard. A direct native ACT3 seat order cannot be replaced by
+// an arbitrary DO token or claimed complete just because Luna said it was.
+// Tested independently of network, STT, Essential parser and the native runner.
+export function reconcileVehicleSeatDecision(decision, seatRequest, reply, {nativeHandoffStarted=false} = {}) {
+  if (!seatRequest || reply?.intent!=='board_vehicle')
+    return Object.freeze({decision,reason:null,accepted:false});
+  if(nativeHandoffStarted)
+    throw Object.assign(new TypeError('Seat decision cannot change after audio handoff.'),{code:'vehicle_seat_late_reconciliation'});
+  const seat=seatRequest.slots.seat,accepted=reply.kind==='approval_pending';
+  const dialogue=accepted
+    ? seat==='driver' ? "I'll try to get behind the wheel." :
+      seat==='passenger' ? "I'll try the front passenger seat." :
+      seat==='rear' ? "I'll try the back seat." : "I'll try to hop in."
+    : reply.reason==='seat_occupied' ? "That seat is taken." :
+      reply.reason==='vehicle_moving' ? "The car needs to stop before I can get in." :
+      reply.reason==='vehicle_unavailable' ? "I can't verify which car to get into." :
+      reply.reason==='actor_busy' ? "I'm busy with another activity right now." :
+      reply.reason==='actor_in_vehicle' ? "I'm already in a vehicle; I can't switch seats with this command." :
+      reply.reason==='capability_disabled' ? "I can't use the seat-entry controller right now." :
+      "I can't safely take that seat right now.";
+  return Object.freeze({decision:Object.freeze({...decision,dialogue,command:'',
+    ...(Object.hasOwn(decision,'activity')?{activity:null}:{})}),
+    reason:accepted?'native_admission_pending':reply.reason||'native_unavailable',
+    accepted});
+}
+
 export function navigationRequestKind(input, options = {}) {
   const match = navigationMatch(input);
   return match ? (drives(match[1], options) ? 'vehicle_trip' : 'go_to_place') : null;
