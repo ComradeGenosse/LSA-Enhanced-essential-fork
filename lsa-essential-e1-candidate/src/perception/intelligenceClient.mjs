@@ -734,7 +734,12 @@ export class IntelligenceClient {
     this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.memoryAuthoritySubscriptions=new Set();this.currentOwnerPlayerSubscriptions=new Set();this.m7DiagnosticSubscriptions=new Set();this.m7LastDiagnostic=null;this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,acceptedObservationTap,consumers,m9Events,ambientSpeech,
       // Bounded fixed-vocabulary diagnostics only (see ShadowRuntime.emitTrace).
       trace:(event,record)=>this.persist(event,record),
-      stall:info=>this.persist('intelligence_status',{stage:info.stage==='stalled'?'owner_stalled':'owner_resumed',durationMs:info.stallMs})});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
+      stall:info=>this.persist('intelligence_status',{
+        stage:info.stage==='stalled'?'owner_stalled':'owner_resumed',
+        durationMs:info.stallMs,reason:'unverified',
+        hostRunId:this.runtime?.hostContext?.hostRunId??null,
+        worldEpoch:this.runtime?.hostContext?.worldEpoch??null
+      })});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
     this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
@@ -811,16 +816,19 @@ export class IntelligenceClient {
     this.#revokeNative();
     const socket=this.connect({path:`\\\\.\\pipe\\${this.config.pipeName}`});this.socket=socket;
     let buffer=Buffer.alloc(0),frames=[],hello=false,sawLiveFrame=false;
-    const fail=()=>socket.destroy();
+    // Diagnostic-only reason: a closed pipe must still retire all authority.
+    // Never treat the reason as permission to retain an expired owner.
+    let closeReason='unverified';
+    const fail=(reason='unverified')=>{closeReason=reason;socket.destroy();};
     const processFrames=()=>{
       this.work=null;
       if(this.closed){frames=[];return;}
       for(let n=0;n<32 && frames.length;n++) {
         let v;try {v=JSON.parse(frames.shift());} catch {
-          this.persist('intelligence_frame_rejected',{frameType:'other',reason:'invalid_json',count:1});fail();return;
+          this.persist('intelligence_frame_rejected',{frameType:'other',reason:'invalid_json',count:1});fail('invalid_json');return;
         }
         if(!hello && v?.type!=='hello' || hello && v?.type==='hello') {
-          this.persist('intelligence_frame_rejected',{frameType:'hello',reason:'invalid_order',count:1});fail();return;
+          this.persist('intelligence_frame_rejected',{frameType:'hello',reason:'invalid_order',count:1});fail('invalid_order');return;
         }
         const before={malformed:this.runtime.counters.malformed,gaps:this.runtime.counters.gaps,faults:this.runtime.resetDiagnostics.faults};
         const beforeHost=this.runtime.hostContext;
@@ -842,7 +850,7 @@ export class IntelligenceClient {
               frameType,reason,count,frameBytes:Buffer.byteLength(JSON.stringify(v),'utf8')});
         }
         if(!accepted&&v?.type==='protagonist_model'){
-          this.#revokeNative();fail();return;
+          this.#revokeNative();fail('invalid_contract');return;
         }
         if(accepted&&v?.type!=='hello') {
           this.#lastAdmittedSequence=v.sequence;
@@ -911,8 +919,10 @@ export class IntelligenceClient {
         if(accepted && v?.type==='director_response')this.acceptDirectorResponse(v.payload);
         if(!this.runtime.epoch)this.#revokeNative();
         this.notifyKnowledgeInvalidation();
-        if(!hello && !accepted || !this.runtime.epoch) {fail();return;}
-        if(!hello) { hello=true;this.persist('intelligence_status',{stage:'initialized'}); }
+        if(!hello && !accepted || !this.runtime.epoch) {fail('invalid_contract');return;}
+        if(!hello) { hello=true;this.persist('intelligence_status',{stage:'initialized',
+          hostRunId:this.runtime.hostContext?.hostRunId??null,
+          worldEpoch:this.runtime.hostContext?.worldEpoch??null}); }
       }
       if(frames.length) this.work=setImmediate(processFrames);
     };
@@ -922,18 +932,25 @@ export class IntelligenceClient {
       // Slice before allocation: an arbitrary socket chunk cannot grow retained RAM.
       for(let offset=0;offset<chunk.length;) {
         const end=chunk.indexOf(10,offset),limit=end<0?chunk.length:end;
-        if(buffer.length+limit-offset>BOUNDS.frameBytes) {fail();return;}
+        if(buffer.length+limit-offset>BOUNDS.frameBytes) {fail('invalid_contract');return;}
         buffer=Buffer.concat([buffer,chunk.subarray(offset,limit)]);
         if(end<0) break;
-        if(frames.length>=BOUNDS.companionFrames) {fail();return;}
+        if(frames.length>=BOUNDS.companionFrames) {fail('invalid_contract');return;}
         frames.push(buffer.toString('utf8'));buffer=Buffer.alloc(0);offset=end+1;
       }
       if(!this.work) this.work=setImmediate(processFrames);
     });
-    socket.on('error',()=>{});
+    socket.on('error',error=>{
+      // Error codes are allowlisted; never log pipe names or error messages.
+      closeReason=['ECONNRESET','EPIPE','ETIMEDOUT'].includes(error?.code)
+        ?error.code.toLowerCase():'transport_error';
+    });
     socket.on('close',()=>{
       if(hello) this.emitReport(true);
-      this.persist('intelligence_status',{stage:'disconnected'});
+      this.persist('intelligence_status',{stage:'disconnected',
+        reason:this.closed?'session_closed':closeReason,
+        hostRunId:this.runtime.hostContext?.hostRunId??null,
+        worldEpoch:this.runtime.hostContext?.worldEpoch??null});
       if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.#revokeNative();this.retireAuthenticatedNativeMemoryAuthority();this.retireAuthenticatedNativeOwnerPlayer();this.retireAuthenticatedNativeM7Diagnostic();this.publishHostContext(null);this.notifyKnowledgeInvalidation();
       // While GTA is paused, hello may succeed but no owner-fiber data arrive.
       // The runtime tolerates a bounded owner stall (OWNER_STALL_BOUNDS) and
@@ -944,14 +961,21 @@ export class IntelligenceClient {
       if(!this.closed)this.retry=setTimeout(()=>this.start(),retryMs).unref();
     });
     this.watch=setInterval(()=>{
-      this.runtime.expire();if (!this.runtime.epoch) this.publishHostContext(null);this.runtime.refreshSalience();this.notifyKnowledgeInvalidation();if(!this.runtime.epoch && hello) fail();
+      const silence=this.runtime.epoch?this.runtime.now()-this.runtime.lastReceipt:0;
+      if(this.runtime.epoch && silence>this.runtime.sourceSilenceMs())
+        this.persist('intelligence_status',{stage:'owner_timeout',
+          reason:'source_silence',durationMs:silence,
+          hostRunId:this.runtime.hostContext?.hostRunId??null,
+          worldEpoch:this.runtime.hostContext?.worldEpoch??null});
+      this.runtime.expire();if (!this.runtime.epoch) this.publishHostContext(null);this.runtime.refreshSalience();this.notifyKnowledgeInvalidation();
+      if(!this.runtime.epoch && hello) fail('source_silence');
       if(this.runtime.epoch && this.runtime.now()-this.lastReport>=10000) {
         this.lastReport=this.runtime.now();
         this.emitReport(false);
       }
     },500).unref();
     socket.once('close',()=>clearInterval(this.watch));
-    this.helloDeadline=setTimeout(()=>{if(!hello) fail();},3000).unref();socket.once('close',()=>clearTimeout(this.helloDeadline));
+    this.helloDeadline=setTimeout(()=>{if(!hello) fail('hello_timeout');},3000).unref();socket.once('close',()=>clearTimeout(this.helloDeadline));
   }
   stop() {
     if(this.closed&&!this.socket)return;
