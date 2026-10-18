@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "files": [
+    "lsa-essential-e1-candidate/tests/gameplay-menu-character-binding.test.mjs",
+    "lsa-essential-e1-candidate/tests/gameplay-menu-parity-source.test.mjs",
+    "lsa-essential-e1-candidate/tests/gameplay-menu-readiness.test.mjs",
+    "lsa-essential-e1-candidate/tests/local-voice-fallback-turn.test.mjs",
+    "lsa-essential-e1-candidate/tests/local-voice-fallback.test.mjs",
+    "lsa-essential-e1-candidate/tests/obs2-system-health.test.mjs",
+    "lsa-essential-e1-candidate/tests/personal-m7-no-click.test.mjs",
+    "lsa-essential-e1-candidate/tests/personal-test-defaults.test.mjs",
+    "lsa-essential-e1-candidate/tests/playback-completion-recovery.test.mjs"
+  ]
+}
