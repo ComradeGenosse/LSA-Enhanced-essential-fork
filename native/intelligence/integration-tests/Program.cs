@@ -14,6 +14,28 @@ using LosSantosAlive.NPC.Perception;
 class Program
 {
     static int assertions;
+    static void C01SpeechPolicyCoverage()
+    {
+        // Exercise production-native sampling helpers, not a mock duplicate.
+        var flags=BindingFlags.NonPublic|BindingFlags.Static;
+        var pick=typeof(IntelligenceIntegration).GetMethod("SpeechProbeIndex",flags);
+        var start=typeof(IntelligenceIntegration).GetMethod("SpeechSampleStart",flags);
+        Check(pick!=null && start!=null,"C01 native hearing policy helpers are compiled");
+        int[] visited=new int[16];int cursor=0;
+        for(int sweep=0;sweep<16;sweep++) {
+            for(int slot=0;slot<3;slot++)
+                visited[(int)pick.Invoke(null,new object[]{cursor,slot,16})]++;
+            cursor=(cursor+3)%16;
+        }
+        Check(visited.All(count=>count==3),"C01 rotating three-probe budget visits every eligible observer equally");
+        Check((int)pick.Invoke(null,new object[]{0,0,0})==-1,"C01 no candidate gives no LOS probe");
+        Check((int)start.Invoke(null,new object[]{300,-1,false})==299 &&
+              (int)start.Invoke(null,new object[]{300,100,false})==299,
+              "C01 broken acoustic coverage does not bridge unobserved gaps");
+        Check((int)start.Invoke(null,new object[]{300,230,false})==230 &&
+              (int)start.Invoke(null,new object[]{80,-1,true})==0,
+              "C01 adjacent and first-sweep coverage remain explicitly bounded");
+    }
     static void Check(bool condition,string name) {if(!condition) throw new Exception(name);assertions++;}
     static object Get(object target,string name)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).GetValue(target);
     static void Set(object target,string name,object value)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).SetValue(target,value);
@@ -372,7 +394,7 @@ class Program
 
     static void Main(string[] args)
     {
-        try{SocialScenesCoverage();Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
+        try{C01SpeechPolicyCoverage();SocialScenesCoverage();Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
             if(args.Length==1&&args[0]=="--d2-source-only-wire")
                 foreach(var frame in SourceOnlyTests.WireFrames)Console.WriteLine("D2_WIRE "+new JavaScriptSerializer().Serialize(frame));
         }catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}

@@ -101,6 +101,7 @@ namespace LSA.Intelligence
             public int WorldEpoch;
             public uint StartTick;
             public long StartMs,LastSweep=-1;
+            public int ProbeCursor;
             public readonly Dictionary<string,SpeechListener> Listeners=new Dictionary<string,SpeechListener>();
         }
         SpeechWindow speechWindow;
@@ -128,6 +129,20 @@ namespace LSA.Intelligence
             try {return NativeFunction.CallByName<bool>("IS_PED_IN_ANY_VEHICLE",ped,false) ?
                 "enclosed":"on_foot";} catch {return "unknown";}
         }
+        // Rotate the first LOS probe rather than starving lower-priority observers.
+        // We still enforce the original 16-observer cap and three LOS reads per sweep.
+        static int SpeechProbeIndex(int start,int slot,int count) {
+            return count>0 && start>=0 && slot>=0?(int)(((long)start+slot)%count):-1;
+        }
+        static int SpeechSampleStart(int relative,long lastSample,bool firstInterval) {
+            int from=lastSample>=0 && relative>=lastSample && relative-lastSample<=150
+                ?(int)lastSample:relative;
+            // Original source edge can have one initial sweep of latency.
+            if(firstInterval && relative<=100)return 0;
+            // A single positive probe proves presence at its sample instant,
+            // never the entire unsampled gap. One millisecond stays partial.
+            return from==relative && relative>0?relative-1:from;
+        }
         void SweepSpeechWindow() {
             var w=speechWindow;
             if(w==null || w.WorldEpoch!=host.WorldEpoch) {speechWindow=null;return;}
@@ -142,14 +157,31 @@ namespace LSA.Intelligence
             }
             int relative=(int)Math.Max(0,now-w.StartMs);
             int speechLosBudget=Math.Min(3,lineOfSightBudget);
-            foreach(var a in anchors.Current.Where(a=>a.Observer && a.Kind=="ped")
+            var candidates=anchors.Current.Where(a=>a.Observer && a.Kind=="ped")
                 .OrderByDescending(a=>a.OwnerLifetime!=null)
                 .ThenBy(a=>a.Entity is Ped ped ? ped.Position.DistanceTo(player.Position):float.MaxValue)
-                .ThenBy(a=>a.CaptureRef,StringComparer.Ordinal).Take(16)) {
+                .ThenBy(a=>a.CaptureRef,StringComparer.Ordinal).Take(16).ToArray();
+            var eligibleRefs=new HashSet<string>(candidates.Select(a=>a.CaptureRef),StringComparer.Ordinal);
+            // A missing/demoted observer is not continuously hearing while absent.
+            foreach(var known in w.Listeners)
+                if(!eligibleRefs.Contains(known.Key))known.Value.LastSample=-1;
+            int cursor=candidates.Length>0?w.ProbeCursor%candidates.Length:0;
+            if(candidates.Length>0)
+                w.ProbeCursor=(cursor+Math.Min(3,candidates.Length))%candidates.Length;
+            for(int slot=0;slot<candidates.Length;slot++) {
+                var a=candidates[SpeechProbeIndex(cursor,slot,candidates.Length)];
                 if(anchors.Resolve(a.CaptureRef)==null || !(a.Entity is Ped observer) ||
-                    !observer.Exists() || a.CaptureRef==w.SourceRef)continue;
+                    !observer.Exists() || a.CaptureRef==w.SourceRef) {
+                    if(w.Listeners.TryGetValue(a.CaptureRef,out var stale))stale.LastSample=-1;
+                    continue;
+                }
                 var distance=observer.Position.DistanceTo(player.Position);
-                if(distance>18)continue;
+                if(float.IsNaN(distance) || float.IsInfinity(distance) || distance>18) {
+                    if(w.Listeners.TryGetValue(a.CaptureRef,out var outlier)) {
+                        outlier.LastSample=-1;outlier.Path="blocked";outlier.Reason="out_of_range";
+                    }
+                    continue;
+                }
                 if(!w.Listeners.TryGetValue(a.CaptureRef,out var l)) {
                     if(w.Listeners.Count>=16)break;
                     l=new SpeechListener{Ref=a.CaptureRef};w.Listeners.Add(a.CaptureRef,l);
@@ -187,11 +219,8 @@ namespace LSA.Intelligence
                     l.Path="clear";l.Reason="heard";speechProbes++;
                     l.PositiveTick=l.Tick;l.PositiveDistance=l.Distance;
                     l.PositiveSourceVehicle=vehicleSource;l.PositiveObserverVehicle=vehicleObserver;
-                    int from=l.LastSample>=0 && relative-l.LastSample<=150?
-                        (int)l.LastSample:relative;
-                    // A source-edge sample within one native sweep is treated
-                    // as the beginning of this bounded speech interval.
-                    if(l.Intervals.Count==0 && relative<=100)from=0;
+                    // Never bridge a rejected, absent or unprobed listener.
+                    int from=SpeechSampleStart(relative,l.LastSample,l.Intervals.Count==0);
                     if(relative>from) {
                         var tail=l.Intervals.Count>0?l.Intervals[l.Intervals.Count-1]:null;
                         if(tail!=null && from<=tail.End)tail.End=relative;
