@@ -55,6 +55,8 @@ static partial class Program
         r.Clock.Advance(1000); r.Fresh(FakeBridge.Absent());
         Check(d.Dispatch(CommandCatalog.CurrentFollow,"chord") == "no_current_npc" && r.Hud.Last == "No current NPC","no current NPC");
         r.Clock.Advance(1000); r.Fresh(FakeBridge.Owned());
+        Check(d.Dispatch(CommandCatalog.CurrentFollow,"menu",new CommandArgs {ExpectedEncounterId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",ExpectedOwnerAlias = FakeBridge.Alias}) == "target_changed" && r.Companion.Bodies.Count == 0,"F11 refuses stale selected encounter even though another owned NPC is current");
+        Check(d.Dispatch(CommandCatalog.CurrentFollow,"menu",new CommandArgs {ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnerAlias = null}) == "target_changed" && r.Companion.Bodies.Count == 0,"F11 refuses same encounter with changed owner alias");
         Check(d.Dispatch(CommandCatalog.CurrentFollow,"chord") == null && r.Companion.Last["action"] as string == "control_current" && r.Companion.Last["operation"] as string == "follow" && r.Companion.Last["expectedEncounterId"] as string == FakeBridge.Encounter && r.Companion.Last.Count == 3,"a promoted NPC follows through P2 control_current, naming the NPC the player saw");
         r.Companion.Reply(true); d.Update(); Check(r.Hud.Last == "Following" && d.Outstanding == 0,"P2 follow confirmed on the HUD");
         r.Clock.Advance(1000); d.Dispatch(CommandCatalog.CurrentFollow,"chord"); r.Companion.Reply(false,"character_not_promoted"); d.Update();
