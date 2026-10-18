@@ -52,7 +52,7 @@ jobs:
           if 'const ps2=' not in runtime:
               original='    this.consumerActivation=consumers;'
               if original in runtime:
-                  runtime=runtime.replace(original,original+"\\n    const ps2=mode==='shadow'&&(consumers===null||consumers.ps2?.enabled===true);\\n    const ps3=ps2&&(consumers===null||consumers.ps3?.enabled===true);")
+                  runtime=runtime.replace(original,original+"\n    const ps2=mode==='shadow'&&(consumers===null||consumers.ps2?.enabled===true);\n    const ps3=ps2&&(consumers===null||consumers.ps3?.enabled===true);")
               else:
                   raise RuntimeError('missing consumerActivation anchor in merged ShadowRuntime')
               q.write_text(runtime)
