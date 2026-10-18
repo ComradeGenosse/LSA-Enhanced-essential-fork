@@ -310,7 +310,7 @@ namespace LSA.Standalone.RageHost
             Ped ped = World.GetEntityByHandle<Ped>(
                 new PoolHandle(unchecked((uint)actor.Handle)));
             Ped player = Game.LocalPlayer.Character;
-            if (ped == null || !ped.Exists() || player == null || !player.Exists()) return null;
+            if (ped == null || !RphPedValidity.Exists(ped) || player == null || !RphPedValidity.Exists(player)) return null;
             Vector3 diff = ped.Position - player.Position;
             double distance = Math.Sqrt(diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z);
             if (double.IsNaN(distance) || double.IsInfinity(distance)) return null;
