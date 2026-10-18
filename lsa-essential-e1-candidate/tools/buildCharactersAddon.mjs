@@ -33,7 +33,9 @@ export async function buildCharactersAddon({rphReferencePath,frameworkReferenceR
   if (!rnuiReferencePath || await hash(rnuiReferencePath) !== RNUI_DLL_SHA256) throw new Error('Pinned compile-only RAGENativeUI 1.9.3 reference required.');
   const project = path.resolve(root,'../native/promoted-characters/Loader.csproj');
   const runtimeProject = path.resolve(root,'../native/promoted-characters/PromotedCharacters.csproj');
-  const args = [`-p:RphReferencePath=${path.resolve(rphReferencePath)}`,`-p:TargetFrameworkRootPath=${path.resolve(frameworkReferenceRoot)}`,`-p:DamageReferencePath=${path.resolve(damageReferencePath)}`,`-p:RnuiReferencePath=${path.resolve(rnuiReferencePath)}`];
+  // Personal test package includes the optional M9 sampler. The runtime still
+  // requires authenticated source evidence and actual native gameplay receipts.
+  const args = [`-p:RphReferencePath=${path.resolve(rphReferencePath)}`,`-p:TargetFrameworkRootPath=${path.resolve(frameworkReferenceRoot)}`,`-p:DamageReferencePath=${path.resolve(damageReferencePath)}`,`-p:RnuiReferencePath=${path.resolve(rnuiReferencePath)}`,'-p:LsaM9Native=true'];
   const run = promisify(execFile);
   await run(dotnetPath,['restore',runtimeProject,'--ignore-failed-sources',...args],{windowsHide:true});
   await run(dotnetPath,['build',runtimeProject,'--configuration','Release','--no-restore',...args],{windowsHide:true});

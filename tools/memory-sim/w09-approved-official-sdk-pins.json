@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "kind": "w09-approved-official-nuget-sdk-compile-only",
+  "sources": [
+    {
+      "name": "RPH",
+      "id": "ragepluginhook",
+      "version": "1.124.0",
+      "dll": "RagePluginHook.dll",
+      "referenceInPackage": "lib/net472/RagePluginHook.dll",
+      "packageSha256": "b48e24aa586a73b5f1f3b220ea7eb7576d388a52446a11d69fa29842f8508c36",
+      "dllSha256": "5d439745604a5fedbf8fa401520d4f296c1b6800d77e2923ba3bf9772182c7e0"
+    },
+    {
+      "name": "DAMAGE",
+      "id": "damagetrackerlib",
+      "version": "2.0.0",
+      "dll": "DamageTrackerLib.dll",
+      "referenceInPackage": "lib/DamageTrackerLib.dll",
+      "packageSha256": "6b1546b8b6ce7129fadd7fe31ec17e2c3c15aa2af0f5bce86ae1e0460951de8f",
+      "dllSha256": "64816a0d1131a6ec241f8951902b08afaee86fb0f73693399edefe2db8776750"
+    }
+  ],
+  "discoveryEvidence": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38898469443",
+  "policy": "Pinned hashes are required for each official NuGet archive and referenced DLL; SDK binaries are compile-only and never packaged with the mod"
+}

@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node tools/buildCandidate.mjs",
     "build:characters": "node tools/buildCharactersAddon.mjs",
+    "build:ps4": "node tools/buildPS4Candidate.mjs",
     "test": "node tools/runTests.mjs",
     "smoke:api": "node tools/apiSmoke.mjs"
   },

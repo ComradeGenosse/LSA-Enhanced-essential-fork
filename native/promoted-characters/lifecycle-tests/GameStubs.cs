@@ -37,16 +37,32 @@ namespace Rage
         public bool Existing = true;
         public bool Exists() { Game.PedReads++; return Existing; }
         public bool IsDead,IsPersistent;
+        public Vehicle CurrentVehicle, LastVehicle;
+        public int SeatIndex;
+        public bool IsInAnyVehicle(bool includeEntering) { Game.NativeCalls++; return CurrentVehicle != null; }
         public Vector3 Position, Bone;
         public float ScreenX, ScreenY;
         public IntPtr MemoryAddress = new IntPtr(123);
         public Vector3 GetBonePosition(PedBoneId bone) => Bone.X == 0f && Bone.Y == 0f && Bone.Z == 0f ? Position : Bone;
         public int Handle = 12;
+        // RPH entity equality identifies the native pool handle, not a CLR wrapper.
+        public bool Equals(Ped other) => !ReferenceEquals(other,null) && Handle==other.Handle;
         public Model Model;
         public float Heading;
         public Vector3 GetOffsetPosition(Vector3 offset) { Game.NativeCalls++; return offset; }
         public void Dismiss() { Game.NativeCalls++; }
         public void Delete() { Game.NativeCalls++; }
+    }
+    // Source-only lifecycle fixture: this is not a GTA simulator. P2 ACT5
+    // snapshot reads these fields; any accidental native access remains counted.
+    public sealed class Vehicle
+    {
+        public bool Existing = true,IsAlive = true;
+        public IntPtr MemoryAddress = new IntPtr(321);
+        public int Handle = 34;
+        public Vector3 Position;
+        public float Speed;
+        public bool Exists() { Game.NativeCalls++; return Existing; }
     }
     public struct Model
     {
@@ -81,6 +97,7 @@ namespace Rage.Native
     {
         // Null in lifecycle tests, where any native call is a failure.
         public static Func<string,object[],object> Handler;
+        public static object CallByName(string name,Type returnType,params object[] args) => CallByName<object>(name,args);
         public static T CallByName<T>(string name,params object[] args)
         {
             Rage.Game.NativeCalls++;
@@ -144,6 +161,8 @@ namespace LosSantosAlive.NPC
     public sealed class NpcState
     {
         public bool SitOnGroundMode,FollowPlayerOnFoot,FollowPaused,EnterPassengerSeatWhenPlayerEnters,ExitVehicleWhenPlayerExits,StayUnderLsaControl,InDirectedInteraction,AccompliceMode,HasActiveReflex;
+        public bool TakeCoverMode,EnterDriverSeatWhenPlayerVehicleNearby,EnterPassengerSeatWhenPlayerVehicleNearby,
+            EnterBackPassengerSeatWhenPlayerVehicleNearby,DriveToXWhenBothSeated,AssignedVehicleSeatEntryActive;
         public int LastReflexTime;
         public void DemoteToPassiveRuntime() { Rage.Game.NativeCalls++; }
     }
@@ -219,12 +238,18 @@ namespace LosSantosAlive.Core
 }
 namespace LSA.Intelligence
 {
-    public sealed class DirectorOwnerSample { public string Owner,Mode; public bool Suspended; public int Revision; }
+    public sealed class DirectorOwnerSample { public string Owner,Mode,SpeechActivityCapability; public bool Suspended; public int Revision; }
     public sealed class OwnedParticipant { public Rage.Ped Ped; public string Lifetime,EncounterId; public Func<bool> Current; public Func<object> PrimaryOwner; public Func<DirectorOwnerSample> DirectorOwner; }
     // Static logging for P2; the instance surface is what RuntimeEntry hosts.
     public sealed class IntelligenceIntegration
     {
         public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off") { }
+        // This overload matches RuntimeEntry's evolved constructor signature.
+        // Samples and producer policy are inert in offline lifecycle/bridge stubs;
+        // actual production source authority remains in native/intelligence/.
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host,
+            bool directorShadow,bool directorExperimental,string radioMode,int maxAttemptsPerMinute,
+            Func<object> sampleNativeAuthority,Func<object> sampleOwnerPlayer,object producerPolicy,bool protagonistEvidenceEnabled=false) { }
         public void OwnerRetired(string incarnationId) { }
         public void Initialize() { }
         internal void Shutdown(string reason) { }
@@ -234,21 +259,22 @@ namespace LSA.Intelligence
 }
 namespace LSA.SessionIdentity
 {
-    public sealed class RegistrationToken { internal string Epoch,Handle;internal Rage.Ped Ped; public string IncarnationId; }
-    public sealed class NativeIdentityClaim { public string incarnationId; }
+    public sealed class RegistrationToken { internal string Epoch,Handle,SourceKey,World;internal Rage.Ped Ped; public string IncarnationId; }
+    public sealed class NativeIdentityClaim { public string incarnationId,sourceKey,worldProfileId; }
     public sealed class ExplicitCharacterSource
     {
         readonly string epoch = Guid.NewGuid().ToString("D");
         readonly int ownerThread = System.Threading.Thread.CurrentThread.ManagedThreadId;
         readonly HashSet<RegistrationToken> tokens = new HashSet<RegistrationToken>();
         public bool ThrowOnRetire;
+        public Func<Rage.Ped,bool> ResolveFaultFor;
         public int Count => tokens.Count;
         public int LastRetirementThread {get;private set;}
         void AssertOwner() { if (ownerThread != System.Threading.Thread.CurrentThread.ManagedThreadId) throw new InvalidOperationException("Wrong owner thread in lifecycle test."); }
         public RegistrationToken Register(Rage.Ped ped,string sourceKey,string world)
         {
             AssertOwner();
-            var token = new RegistrationToken {Epoch = epoch,IncarnationId=Guid.NewGuid().ToString("D"),Ped=ped,Handle=ped.Handle.ToString()}; tokens.Add(token); return token;
+            var token = new RegistrationToken {Epoch = epoch,IncarnationId=Guid.NewGuid().ToString("D"),Ped=ped,Handle=ped.Handle.ToString(),SourceKey=sourceKey,World=world}; tokens.Add(token); return token;
         }
         public bool Retire(RegistrationToken token)
         {
@@ -256,7 +282,7 @@ namespace LSA.SessionIdentity
             if (ThrowOnRetire) throw new InvalidOperationException("Injected owner retirement failure.");
             return token.Epoch == epoch && tokens.Remove(token);
         }
-        public bool TryResolveCurrent(Rage.Ped ped,out NativeIdentityClaim claim) { AssertOwner();claim=null;if(ped==null || !ped.Exists() || ped.IsDead)return false;foreach(var token in tokens)if(ReferenceEquals(token.Ped,ped) && token.Handle==ped.Handle.ToString()){claim=new NativeIdentityClaim{incarnationId=token.IncarnationId};return true;}return false; }
+        public bool TryResolveCurrent(Rage.Ped ped,out NativeIdentityClaim claim) { AssertOwner();claim=null;if(ResolveFaultFor!=null && ResolveFaultFor(ped))throw new InvalidOperationException("Injected identity resolution failure.");if(ped==null || !ped.Exists() || ped.IsDead)return false;foreach(var token in tokens)if(ReferenceEquals(token.Ped,ped) && token.Handle==ped.Handle.ToString()){claim=new NativeIdentityClaim{incarnationId=token.IncarnationId,sourceKey=token.SourceKey,worldProfileId=token.World};return true;}return false; }
     }
     public sealed class SessionIdentityIntegration
     {

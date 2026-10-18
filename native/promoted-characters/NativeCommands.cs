@@ -64,7 +64,7 @@ namespace LSA.PromotedCharacters
         {
             switch (command.Command)
             {
-                case "current.inspect": return CurrentView();
+                case "current.inspect": return CurrentView(true);
                 case "gates.read": return Gates();
                 case "npc.ask": return Ask(command);
                 case "talk.select_first": return talkTargets.AsResult(talkTargets.SelectFirst(Monotonic,Limits(command)));
@@ -77,17 +77,44 @@ namespace LSA.PromotedCharacters
             }
         }
         Ped CurrentPed() => talkTargets.SelectedPedIfValid(Monotonic) ?? NpcTargeting.GetPlayerConversationPed() ?? NpcTargeting.GetCurrentSpeakerPed();
+        // Read-only recipient class for the UX4 HUD notice. It reuses the P2 roster
+        // and P1 owner proof that PerceptionRoster already trusts, creates no
+        // encounter, registration or character, retires no anchor, and does no
+        // I/O: it runs on Core's fiber right after a native mic commit. Promoted
+        // needs every proof to match; a registered owner with stale proof is
+        // Unknown, never Ambient.
+        internal TalkRecipientFeedback ResolveTalkRecipient(Ped ped,long retainedAddress)
+        {
+            try {
+                if (!IsReady) return TalkRecipientFeedback.Unknown("p2_unavailable");
+                if (ped == null || !ped.Exists() || ped.IsDead || ped == Game.LocalPlayer.Character) return TalkRecipientFeedback.Unknown("ped_invalid");
+                if (retainedAddress == 0 || ped.MemoryAddress.ToInt64() != retainedAddress) return TalkRecipientFeedback.Unknown("address_changed");
+                var owner = identity?.Owner;
+                if (owner == null) return TalkRecipientFeedback.Unknown("identity_unavailable");
+                bool claimed = owner.TryResolveCurrent(ped,out var claim);
+                encounters.TryGetValue(ped.Handle.ToString(),out var encounter);
+                var registration = encounter?.Registration;
+                if (registration == null) return claimed ? TalkRecipientFeedback.Unknown("owner_roster_mismatch") : TalkRecipientFeedback.Ambient("unowned");
+                if (!Alive(encounter) || encounter.Handle != Convert.ToUInt64(ped.Handle) || encounter.Address.ToInt64() != retainedAddress) return TalkRecipientFeedback.Unknown("encounter_stale");
+                if (encounter.Suspended) return TalkRecipientFeedback.Unknown("owner_suspended");
+                return claimed && claim != null && claim.incarnationId == registration.IncarnationId && claim.sourceKey == encounter.OwnerAlias && claim.worldProfileId == world ? TalkRecipientFeedback.Promoted("owner_verified",claim.sourceKey,claim.incarnationId,encounter.OwnershipToken) : TalkRecipientFeedback.Unknown("owner_proof_stale");
+            } catch { return TalkRecipientFeedback.Unknown("resolver_failed"); }
+        }
         static TalkTargetOptions Limits(LocalCommand command) => new TalkTargetOptions {RadiusMeters = command.RadiusMeters,RetentionRadiusMeters = command.RetentionRadiusMeters,MaxCandidates = command.MaxCandidates,CycleWindowMs = command.CycleWindowMs,SelectionTimeoutMs = command.SelectionTimeoutMs,Indicator = command.Indicator};
         // Read-only: no capture ticket, ownership, task or session. The encounter
         // id is the same P2 handle-bound id EnrichActor already gives every actor.
-        object CurrentView()
+        object CurrentView(bool verifyOwner = false)
         {
             var ped = CurrentPed();
             if (ped == null || !ped.Exists() || ped.IsDead || ped == Game.LocalPlayer.Character) return new {present = false};
             var encounter = EncounterFor(ped);
             bool owned = encounter.Registration != null;
+            // Only a direct current.inspect pays for a fresh P1 owner proof.
+            // The cached HUD snapshot retains its original cheap read.
+            var proof = owned && verifyOwner ? ResolveTalkRecipient(ped,ped.MemoryAddress.ToInt64()) : null;
+            bool ownerVerified = owned && !encounter.Suspended && proof?.Kind == TalkRecipientKind.Promoted && proof.Alias == encounter.OwnerAlias;
             var view = owned ? activityRunner?.View(encounter.Id) : null;
-            return new {present = true,pedId = ped.Handle.ToString(),encounterId = encounter.Id,ownerAlias = owned ? encounter.OwnerAlias : null,owned,
+            return new {present = true,pedId = ped.Handle.ToString(),encounterId = encounter.Id,ownerAlias = owned ? encounter.OwnerAlias : null,owned,ownerVerified,
                 suspended = owned && encounter.Suspended,mode = owned ? encounter.Mode : null,
                 human = LosSantosAlive.NPC.NpcTargeting.IsValidHumanPed(ped),safe = Safe(encounter,!owned),
                 activity = view != null && view.Present ? new {present = true,intent = view.Intent,capability = view.Capability,step = view.Step,status = view.Status,reason = view.Reason} : null};

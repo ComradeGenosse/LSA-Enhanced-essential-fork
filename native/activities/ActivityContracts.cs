@@ -122,13 +122,13 @@ namespace LSA.Activities
                 if (type == "step.preflight")
                     return Exact(value,"version","type","sequence","requestId","encounterId","leaseId","capability","args","preconditions") &&
                         UuidField(value,"requestId") && UuidField(value,"encounterId") && UuidField(value,"leaseId") &&
-                        Act2Capability(value["capability"] as string) && StepArgs(value["args"] as Dictionary<string,object>, value["capability"] as string) &&
+                        FrameCapability(value["capability"] as string) && StepArgs(value["args"] as Dictionary<string,object>, value["capability"] as string) &&
                         TokenArray(value["preconditions"] as object[],32);
                 if (type == "step.begin")
                     return Exact(value,"version","type","sequence","requestId","executionId","activityId","stepId","attempt","encounterId","leaseId","leaseEpoch","capability","args","timeouts","completion","violated","onLeaseLoss") &&
                         UuidField(value,"requestId") && UuidField(value,"executionId") && UuidField(value,"activityId") && UuidField(value,"stepId") &&
                         UuidField(value,"encounterId") && UuidField(value,"leaseId") && NonNegative(value["attempt"],8) && Convert.ToInt32(value["attempt"],CultureInfo.InvariantCulture) >= 1 &&
-                        NonNegative(value["leaseEpoch"]) && Act2Capability(value["capability"] as string) &&
+                        NonNegative(value["leaseEpoch"]) && FrameCapability(value["capability"] as string) &&
                         StepArgs(value["args"] as Dictionary<string,object>, value["capability"] as string) &&
                         Timeouts(value["timeouts"] as Dictionary<string,object>) && Completion(value["completion"] as Dictionary<string,object>) &&
                         TokenArray(value["violated"] as object[],32) && ((value["onLeaseLoss"] as string) == "detach" || (value["onLeaseLoss"] as string) == "cancel_if_current");
@@ -145,7 +145,13 @@ namespace LSA.Activities
             } catch { return false; }
         }
         static bool UuidField(IDictionary<string,object> value,string key) => value.TryGetValue(key,out var item) && item is string text && IsUuid(text);
-        static bool Act2Capability(string value) => value == "hold_position" || value == "follow_person" || value == "resume_ambient" || value == "sit_on_ground";
+        // Structure only. Whether a capability can actually run is the runner's decision (Advertises), and an
+        // unsupported capability gets a typed nack instead of a closed channel.
+        public static readonly string[] Act3Capabilities = { "stop_and_face","approach_person","enter_vehicle_seat","exit_vehicle","follow_vehicle","begin_driving","scenario_here","scenario_at","walk_away_from","take_cover","grab_item","give_item","take_item","clear_held_item" };
+        public static readonly string[] SeatNames = { "driver","passenger","rear","any_passenger" };
+        public static readonly string[] ScenarioKeys = { "smoke","drink_coffee","phone","lean","stand_idle","sit_bench","clipboard","binoculars" };
+        public static readonly string[] ItemKeys = { "canned_goods","donut","breakfast_snack","snack","soda","beer","coffee","liquor","energy_drink","water" };
+        static bool FrameCapability(string value) => value == "hold_position" || value == "follow_person" || value == "resume_ambient" || value == "sit_on_ground" || value == "walk_to" || value == "drive_to" || Array.IndexOf(Act3Capabilities, value) >= 0;
         static bool Token(string value) => value != null && Regex.IsMatch(value,"^[a-z][a-z0-9_]{0,47}$");
         static bool TokenArray(object[] value,int max)
         {
@@ -157,9 +163,15 @@ namespace LSA.Activities
         {
             if (!Exact(value,"role","slot") || !(value["role"] is string role) || !(value["slot"] is Dictionary<string,object> slot)) return false;
             if (role == "target") return Exact(slot,"kind") && slot["kind"] as string == "player";
+            if (role == "vehicle") return Exact(slot,"kind") && slot["kind"] as string == "player_vehicle";
             if (role == "place") {
                 if (!Exact(slot,"kind","place") || slot["kind"] as string != "place" || !(slot["place"] is Dictionary<string,object> place)) return false;
-                return Exact(place,"kind") && place["kind"] as string == "here";
+                if (Exact(place,"kind") && (place["kind"] as string == "here" || place["kind"] as string == "waypoint")) return true;
+                if (Exact(place,"kind","query") && place["kind"] as string == "named" && place["query"] is string query)
+                    return query.Length > 0 && query.Length <= 40 && Regex.IsMatch(query, @"^[a-z0-9][a-z0-9 '\-]{0,39}$");
+                if (Exact(place,"kind","person") && place["kind"] as string == "near_person" && place["person"] is Dictionary<string,object> person)
+                    return Exact(person,"kind") && person["kind"] as string == "player";
+                return false;
             }
             return false;
         }
@@ -171,10 +183,22 @@ namespace LSA.Activities
                 var kind = target["kind"] as string;
                 return (kind == "player" || kind == "capture") && target["captureRef"] is string targetRef && IsUuid(targetRef);
             }
-            if (capability == "hold_position") {
+            if (capability == "hold_position" || capability == "walk_to" || capability == "drive_to") {
                 if (!Exact(value,"place") || !(value["place"] is Dictionary<string,object> place) || !Exact(place,"kind","placeRef")) return false;
                 return place["kind"] as string == "place" && place["placeRef"] is string placeRef && IsUuid(placeRef);
             }
+            if (capability == "stop_and_face" || capability == "approach_person" || capability == "walk_away_from") {
+                if (!Exact(value,"target") || !(value["target"] is Dictionary<string,object> target) || !Exact(target,"kind","captureRef")) return false;
+                return target["kind"] as string == "player" && target["captureRef"] is string ref3 && IsUuid(ref3);
+            }
+            if (capability == "enter_vehicle_seat") {
+                if (!Exact(value,"vehicle","seat") || !(value["vehicle"] is Dictionary<string,object> vehicle) || !Exact(vehicle,"kind","captureRef")) return false;
+                return vehicle["kind"] as string == "capture" && vehicle["captureRef"] is string vehicleRef && IsUuid(vehicleRef) && value["seat"] is string seat && Array.IndexOf(SeatNames, seat) >= 0;
+            }
+            if (capability == "scenario_here") return Exact(value,"scenario") && value["scenario"] is string scenario && Array.IndexOf(ScenarioKeys, scenario) >= 0;
+            if (capability == "grab_item") return Exact(value,"item") && value["item"] is string item && Array.IndexOf(ItemKeys, item) >= 0;
+            if (capability == "exit_vehicle" || capability == "begin_driving" || capability == "take_cover" || capability == "clear_held_item") return value.Count == 0;
+            if (Array.IndexOf(Act3Capabilities, capability) >= 0) return value.Count <= 4;
             return value.Count == 0;
         }
         static bool Timeouts(Dictionary<string,object> value)
@@ -183,10 +207,11 @@ namespace LSA.Activities
             foreach (var key in new[]{"establishMs","completeMs","holdMaxMs"}) if (value[key] != null && !NonNegative(value[key],3600000)) return false;
             return true;
         }
+        public static readonly string[] CompletionAdapterIds = { "hold_mode","follow_mode","pose_mode","cover_mode","drive_mode","approach","seat_occupancy","vehicle_exit","held_item","item_transfer","walk_away","resume_ambient","scenario","scenario_at","place_arrival","drive_arrival" };
         static bool Completion(Dictionary<string,object> value)
         {
             if (!Exact(value,"adapter","until") || !(value["adapter"] is string adapter) ||
-                (adapter != "hold_mode" && adapter != "follow_mode" && adapter != "pose_mode" && adapter != "resume_ambient")) return false;
+                Array.IndexOf(CompletionAdapterIds, adapter) < 0) return false;
             if (value["until"] == null) return true;
             if (!(value["until"] is Dictionary<string,object> until) || !(until["kind"] is string kind)) return false;
             if (kind == "player_command") return Exact(until,"kind");

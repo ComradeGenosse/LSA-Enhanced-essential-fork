@@ -2,8 +2,8 @@ import {isUuid} from '../identity/identityContract.mjs';
 import { randomUUID } from 'node:crypto';
 import { validateActivity } from './contracts.mjs';
 import { loadCapabilityRegistry } from './capabilityRegistry.mjs';
-import { INTERRUPT_POLICY, buildPlan } from './intentTemplates.mjs';
-import { validateAdmission } from './activityValidator.mjs';
+import { INTERRUPT_POLICY, planFor } from './intentTemplates.mjs';
+import { outranks, validateAdmission } from './activityValidator.mjs';
 import { GOAL_ATTEMPT_LIMIT, GOAL_DEADLINE_MS, GoalStore, makeGoal } from './goalStore.mjs';
 import { ActivityFacts, projectStatus } from './activityFacts.mjs';
 import { readHostContext, sameHostContext } from '../context/hostContext.mjs';
@@ -50,27 +50,47 @@ export class ActivityEngine {
     this.staleReceipts = 0;
     this.byRequest = new Map();
     this.byExecution = new Map();
+    this.acceptedProposals = new Map();
+    this.retiredProposalIds = new Set();
     this.lastGameMs = null;
   }
 
   get executing() { return this.config.mode === 'on'; }
 
-  assign(proposal, binding) {
+  assign(proposal, binding, { playerApproved = false } = {}) {
     const now = this.now();
     if (!this.executing) return this.#reject(proposal, 'capability_disabled');
     if (now < this.breakerUntil) return this.#reject(proposal, 'capability_disabled');
     if (!binding || binding.characterId !== proposal?.subject?.characterId || !binding.ownerAlias || !binding.ownershipToken) return this.#reject(proposal, 'actor_not_owned');
     const hello = this.hello?.capabilities || null;
-    const admission = validateAdmission(proposal, { registry: this.registry, mode: this.config.mode, hello, passedProbes: this.config.passedProbes || [] });
+    const admission = validateAdmission(proposal, { registry: this.registry, mode: this.config.mode, hello, passedProbes: this.config.passedProbes || [], act3Capabilities: this.config.act3Capabilities || [], act6Capabilities: this.config.act6Capabilities || [], act5: this.config.act5 === true, playerApproved });
     if (!admission.ok) return this.#reject(proposal, admission.reason);
+    // A replay is idempotent only within the exact authenticated owner/run.
+    if (proposal.source === 'player_dialogue' && this.retiredProposalIds.has(proposal.proposalId))
+      return this.#reject(proposal, 'epoch_changed');
+    const replay = proposal.source === 'player_dialogue' ? this.acceptedProposals.get(proposal.proposalId) : null;
+    if (replay) {
+      if (replay.characterId !== binding.characterId || replay.ownerAlias !== binding.ownerAlias ||
+          replay.ownershipToken !== binding.ownershipToken || replay.encounterId !== binding.encounterId ||
+          replay.incarnationId !== binding.incarnationId || replay.nativeRun !== this.hello?.nativeRun ||
+          replay.adapterEpoch !== this.hello?.adapterEpoch ||
+          replay.intent !== proposal.intent || JSON.stringify(replay.slots) !== JSON.stringify(proposal.slots))
+        return this.#reject(proposal, 'actor_not_owned');
+      return replay.result;
+    }
     const characterId = proposal.subject.characterId;
     const live = this.#liveFor(characterId);
+    // Spoken acceptance cannot supersede a live player command or physical activity.
+    if (proposal.source === 'player_dialogue' && live.length) return this.#reject(proposal, 'activity_busy');
+    // A lower-priority proposal never displaces a higher-priority activity that is still running.
+    if (live.some(item => outranks(item.priority, admission.priority))) return this.#reject(proposal, 'activity_busy');
+    const planned = planFor(proposal.intent, proposal.slots, { id: this.id, registry: this.registry });
+    if (!planned.plan) return this.#reject(proposal, planned.reason || 'capability_unavailable');
+    const plan = planned.plan;
     if (live.length >= 1) this.#finish(live[0], 'superseded', 'superseded_player', now, 'cancel_if_current');
     if (this.#live().length >= 4) return this.#reject(proposal, 'activity_limit');
     const goal = makeGoal(admission.proposal, this.id, now);
     if (goal.activityIds.length >= GOAL_ATTEMPT_LIMIT) return this.#reject(proposal, 'budget_exhausted');
-    const plan = buildPlan(proposal.intent, proposal.slots, { id: this.id, registry: this.registry });
-    if (!plan) return this.#reject(proposal, 'capability_unavailable');
     const activity = this.#activity(goal, plan, binding, now);
     if (goal.activityIds.length > GOAL_ATTEMPT_LIMIT) return this.#reject(proposal, 'budget_exhausted');
     this.goals.add(goal);
@@ -81,7 +101,17 @@ export class ActivityEngine {
     this.#recordFact(activity,{ characterId, activityId: activity.activityId, goalId: goal.goalId, kind: 'accepted', intent: goal.intent, atMs: now });
     this.onEvent('activity_admitted', { activityId: activity.activityId, intent: goal.intent });
     this.#send('actor.acquire', { requestId: activity.acquireId, characterId, ownerAlias: binding.ownerAlias, ownershipToken: binding.ownershipToken, leaseId: activity.leaseId });
-    return { ok: true, activityId: activity.activityId, goalId: goal.goalId };
+    const result = { ok: true, activityId: activity.activityId, goalId: goal.goalId };
+    if (proposal.source === 'player_dialogue') {
+      this.acceptedProposals.set(proposal.proposalId, {
+        result, characterId, ownerAlias: binding.ownerAlias, ownershipToken: binding.ownershipToken,
+        encounterId: binding.encounterId, incarnationId: binding.incarnationId,
+        nativeRun: this.hello?.nativeRun, adapterEpoch: this.hello?.adapterEpoch,
+        intent: proposal.intent, slots: proposal.slots,
+      });
+      if (this.acceptedProposals.size > 128) this.acceptedProposals.delete(this.acceptedProposals.keys().next().value);
+    }
+    return result;
   }
 
   pause(characterId) {
@@ -114,18 +144,63 @@ export class ActivityEngine {
 
   historyFor(characterId) { return this.history.filter(item => item.characterId === characterId).slice(-8); }
 
+  // ACT4: a read-only, exact-body view for the already-owned P0 turn. This
+  // never acquires leases, resumes a task, or turns handler ACKs into arrival.
+  stateForCharacter(binding) {
+    if (!this.hello || !isUuid(binding?.characterId) || !isUuid(binding?.encounterId) ||
+        !isUuid(binding?.incarnationId) || !sameHostContext(this.hostContext, binding.hostContext)) return null;
+    const activity = this.#current(binding.characterId);
+    if (!activity || activity.actor.encounterId !== binding.encounterId ||
+        activity.actor.incarnationId !== binding.incarnationId ||
+        !sameHostContext(activity.factProvenance, binding.hostContext)) return null;
+    const now = this.now();
+    if (TERMINAL.has(activity.status) &&
+        (!activity.terminal || now < activity.terminal.atMs || now - activity.terminal.atMs > 60_000)) return null;
+    const facts = this.facts.factsForCharacter(binding).filter(fact => fact.activityId === activity.activityId);
+    if (!facts.length) return null; // Includes native retirement and reconnect invalidation.
+    const step = activity.steps[activity.cursor];
+    // Native receipts are scoped to the *current step*. ACT3 can have several
+    // steps in one activity, so a strong earlier-step fact is not plan completion.
+    const modeStep = activity.act4ModeStepId === step?.stepId;
+    const completedStep = activity.act4CompletedStepId === step?.stepId;
+    const token = activity.interrupt?.token;
+    const resumeEligible = activity.status === 'paused' && !!token &&
+      token.activityId === activity.activityId && token.planRevision === activity.planRevision &&
+      token.cursor === activity.cursor && token.nativeRun === this.hello.nativeRun &&
+      token.adapterEpoch === this.hello.adapterEpoch && now <= token.resumeDeadlineMs &&
+      activity.budgets.resumesLeft > 0 && activity.budgets.executionsLeft > 0;
+    return Object.freeze({
+      stateVersion: 1, characterId: binding.characterId, encounterId: binding.encounterId,
+      incarnationId: binding.incarnationId, hostContext: Object.freeze({...binding.hostContext}),
+      nativeRun: this.hello.nativeRun, adapterEpoch: this.hello.adapterEpoch,
+      activityId: activity.activityId, leaseId: activity.leaseId, leaseEpoch: activity.leaseEpoch,
+      intent: activity.template, capability: step?.capability || null, status: activity.status,
+      reason: activity.terminal?.reason || null,
+      modeObserved: activity.leaseEpoch > 0 && ['running', 'holding'].includes(activity.status) && modeStep,
+      physicallyCompleted: activity.status === 'completed' && completedStep,
+      resumeEligible,
+    });
+  }
+
   noteHello(frame) {
     if(frame.clientRestart) {
       for(const activity of this.#live()) this.#finish(activity,'abandoned','lease_lost',this.now(),'detach',false);
-      this.facts.clear();this.hello=null;return;
+      this.facts.clear();this.hello=null;
+      this.byRequest.clear();this.byExecution.clear();this.#retireAccepted();
+      return;
     }
     const context=readHostContext(frame);
     if((this.hostContext || context) && !sameHostContext(this.hostContext,context)) this.#resetWorld();
     this.hostContext=context;
     const changed = this.hello && frame.nativeRun !== this.hello.nativeRun;
+    const authorityChanged = this.hello &&
+      (frame.nativeRun !== this.hello.nativeRun || frame.adapterEpoch !== this.hello.adapterEpoch);
     if (this.hello && (frame.nativeRun !== this.hello.nativeRun || frame.adapterEpoch !== this.hello.adapterEpoch || frame.clientRestart)) {
       for (const activity of this.#live()) this.#finish(activity, 'abandoned', frame.nativeRun !== this.hello.nativeRun ? 'epoch_changed' : 'lease_lost', this.now(), 'detach');
       this.facts.clear();
+    }
+    if (authorityChanged) {
+      this.byRequest.clear();this.byExecution.clear();this.#retireAccepted();
     }
     this.hello = { nativeRun: frame.nativeRun, adapterEpoch: frame.adapterEpoch, capabilities: frame.capabilities || {} };
     if (changed) this.failures = [];
@@ -152,7 +227,7 @@ export class ActivityEngine {
   #resetWorld() {
     for(const activity of this.#live()) this.#finish(activity,'abandoned','epoch_changed',this.now(),'detach',false);
     this.goals=new GoalStore(this.now);this.activities=[];this.history=[];this.facts.clear();
-    this.byRequest.clear();this.byExecution.clear();this.failures=[];this.lastGameMs=null;
+    this.byRequest.clear();this.byExecution.clear();this.#retireAccepted();this.failures=[];this.lastGameMs=null;
   }
 
   tick(gameMs = null) {
@@ -174,6 +249,8 @@ export class ActivityEngine {
   clockReset() {
     for (const activity of this.#live()) this.#finish(activity, 'abandoned', 'clock_reset', this.now(), 'detach');
     this.facts.clear();
+    this.#retireAccepted();
+    this.byRequest.clear();this.byExecution.clear();
   }
 
   #recordFact(activity,partial) {return this.facts.record(partial,activity.factProvenance);}
@@ -181,6 +258,16 @@ export class ActivityEngine {
     if(!this.hello || !sameHostContext(this.hostContext,binding?.hostContext))return Object.freeze([]);
     return this.facts.factsForCharacter(binding);
   }
+  #retireAccepted() {
+    // Previous authority's proposal IDs must not be replayed as new goals.
+    for (const id of this.acceptedProposals.keys()) {
+      this.retiredProposalIds.add(id);
+      if (this.retiredProposalIds.size > 1024)
+        this.retiredProposalIds.delete(this.retiredProposalIds.values().next().value);
+    }
+    this.acceptedProposals.clear();
+  }
+
   #reject(proposal, reason) {
     this.onEvent('activity_rejected', { intent: proposal?.intent, reason });
     return { ok: false, reason };
@@ -190,12 +277,13 @@ export class ActivityEngine {
     const activity = {
       activityVersion: 1, activityId: this.id(), goalId: goal.goalId,
       actor: { characterId: binding.characterId, encounterId: binding.encounterId || this.id(), ownerAlias: binding.ownerAlias, ownershipToken: binding.ownershipToken, incarnationId: binding.incarnationId || this.id() },
-      template: plan.template, planRevision: 0, steps: plan.steps, cursor: 0, status: 'admitting', source: 'player_ux', priority: 'player_direct',
+      template: plan.template, planRevision: 0, steps: plan.steps, cursor: 0, status: 'admitting', source: goal.source, priority: goal.priority,
       leaseId: this.id(), leaseEpoch: 0,
       budgets: { retriesLeft: 1, alternativesLeft: 2, replansLeft: 1, resumesLeft: 3, executionsLeft: 8 },
       deadlines: { activityDeadlineGameMs: 0, wallCapAtMs: now + WALL_CAP_MS },
       interrupt: null, executionIds: [], onComplete: plan.onComplete, onLeaseLoss: plan.onLeaseLoss,
       createdAtMs: now, updatedAtMs: now, terminal: null,
+      act4ModeStepId: null, act4CompletedStepId: null,
       factProvenance:readHostContext(this.hostContext) && isUuid(binding.encounterId) && isUuid(binding.incarnationId) ? Object.freeze({...this.hostContext,encounterId:binding.encounterId,incarnationId:binding.incarnationId}) : null,
       acquireId: this.id(), anchors: {}, seen: {}, failureKeys: {}, reflexCount: 0, resumeCount: 0, deferred: false,
       deferUntil: 0, quietSince: 0, asked: null, gameStart: null, holdingSince: null, playerWasFar: false,
@@ -233,9 +321,16 @@ export class ActivityEngine {
     activity.knownIncarnation = frame.incarnationId;
     activity.factProvenance=readHostContext(this.hostContext) && isUuid(frame.encounterId) && isUuid(frame.incarnationId) ? Object.freeze({...this.hostContext,encounterId:frame.encounterId,incarnationId:frame.incarnationId}) : null;
     activity.leaseEpoch = frame.leaseEpoch;
+    this.#resolveStep(activity);
+  }
+
+  // Anchors are resolved per step, right before that step's preflight, so a later step never runs on a
+  // reference captured for an earlier one. A role is cleared first because the new capture is a new proof.
+  #resolveStep(activity) {
     const step = activity.steps[activity.cursor];
     const refs = step.needs || [];
     if (refs.length === 0) return this.#preflight(activity);
+    for (const ref of refs) delete activity.anchors[ref.role];
     const requestId = this.id();
     this.byRequest.set(requestId, { activity, kind: 'anchor', refs });
     this.#send('anchor.resolve', { requestId, encounterId: activity.actor.encounterId, leaseId: activity.leaseId, refs });
@@ -256,6 +351,7 @@ export class ActivityEngine {
       if (result.role === 'place') step.args = { ...step.args, place: { kind: 'place', placeRef: result.ref } };
       const requested = (pending.refs || []).find(item => item.role === result.role);
       if (result.role === 'target') step.args = { ...step.args, target: requested?.slot?.kind === 'player' ? { kind: 'player', captureRef: result.ref } : { kind: 'capture', captureRef: result.ref } };
+      if (result.role === 'vehicle') step.args = { ...step.args, vehicle: { kind: 'capture', captureRef: result.ref } };
       if (result.label) activity.placeLabel = result.label;
     }
     this.#preflight(activity);
@@ -287,9 +383,17 @@ export class ActivityEngine {
 
   #already(activity, now) {
     const step = activity.steps[activity.cursor];
+    activity.act4ModeStepId = step.stepId;
     this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind: 'mode_established', intent: activity.template, evidence: 'mode_flag', atMs: now });
     if (step.kind === 'finite' || step.kind === 'instant' || this.#untilMet(activity, now)) {
       step.status = 'done';
+      // A satisfied step in the middle of a plan advances the plan; it never completes the whole activity.
+      if (activity.cursor < activity.steps.length - 1) {
+        activity.cursor += 1;
+        activity.holdingSince = null;
+        activity.currentExecutionId = null;
+        return this.#resolveStep(activity);
+      }
       return this.#finish(activity, 'completed', 'already_satisfied', now, 'detach');
     }
     step.status = 'holding';
@@ -300,6 +404,7 @@ export class ActivityEngine {
 
   #begin(activity, now) {
     const step = activity.steps[activity.cursor];
+    activity.act4ModeStepId = null;
     if (activity.budgets.executionsLeft <= 0) return this.#finish(activity, 'failed', 'budget_exhausted', now, 'detach');
     const executionId = this.id();
     activity.budgets.executionsLeft -= 1;
@@ -326,9 +431,25 @@ export class ActivityEngine {
   #onReceipt(receipt) {
     if (!receipt) return;
     const activity = this.byExecution.get(receipt.executionId);
-    if (!activity || activity.currentExecutionId !== receipt.executionId) { this.staleReceipts += 1; this.onEvent('activity_receipt', { receiptState: 'stale_receipt' }); return; }
+    const step = activity?.steps[activity.cursor];
+    // ActivityClient validates the complete native wire receipt. Recheck its
+    // execution association here before any state transition or fact is written.
+    // Optional checks permit the existing concise offline-engine test fixtures.
+    const wrong = !activity || !step || TERMINAL.has(activity.status) ||
+      activity.currentExecutionId !== receipt.executionId ||
+      (receipt.activityId !== undefined && receipt.activityId !== activity.activityId) ||
+      (receipt.stepId !== undefined && receipt.stepId !== step.stepId) ||
+      (receipt.capability !== undefined && receipt.capability !== step.capability) ||
+      (receipt.actorEncounterId !== undefined && receipt.actorEncounterId !== activity.actor.encounterId) ||
+      (receipt.attempt !== undefined && receipt.attempt !== step.attempts);
+    if (wrong) { this.staleReceipts += 1; this.onEvent('activity_receipt', { receiptState: 'stale_receipt' }); return; }
     if (receipt.epochs && (receipt.epochs.leaseEpoch !== activity.leaseEpoch || (this.hello && (receipt.epochs.nativeRun !== this.hello.nativeRun || receipt.epochs.adapterEpoch !== this.hello.adapterEpoch)))) {
       this.staleReceipts += 1; return;
+    }
+    if (receipt.sequence !== undefined) {
+      const previous = activity.seen[receipt.executionId] || 0;
+      if (receipt.sequence <= previous) { this.staleReceipts += 1; return; }
+      activity.seen[receipt.executionId] = receipt.sequence;
     }
     const now = this.now();
     if (receipt.milestones?.requestedGameMs != null) {
@@ -337,10 +458,10 @@ export class ActivityEngine {
       else if (unsignedElapsed(receipt.milestones.requestedGameMs, activity.gameStart) > 0xf0000000) return this.clockReset();
     }
     activity.updatedAtMs = now;
-    const step = activity.steps[activity.cursor];
-    this.onEvent('activity_receipt', { activityId: activity.activityId, capability: receipt.capability, receiptState: receipt.state, reason: receipt.reason });
+    this.onEvent('activity_receipt', { activityId: activity.activityId, goalId: activity.goalId, executionId: receipt.executionId, requestId: receipt.requestId, capability: receipt.capability, receiptState: receipt.state, reason: receipt.reason });
     if (receipt.state === 'HANDLER_ACCEPTED' || receipt.state === 'VALIDATED' || receipt.state === 'DISPATCHED') { step.status = 'executing'; activity.status = 'running'; return; }
     if (receipt.state === 'MODE_ESTABLISHED') {
+      if (receipt.modeHealth !== 'lost') activity.act4ModeStepId = step.stepId;
       step.status = 'holding'; activity.status = 'running'; activity.holdingSince = activity.holdingSince || now;
       this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind: 'mode_established', intent: activity.template, evidence: receipt.predicate === 'satisfied' ? 'world_strong' : 'mode_flag', atMs: now });
       if (receipt.modeHealth === 'lost') return this.#recover(activity, 'no_progress', now);
@@ -470,11 +591,14 @@ export class ActivityEngine {
 
   #advance(activity, now, evidence) {
     const step = activity.steps[activity.cursor];
+    if (evidence === 'world_strong' && activity.cursor === activity.steps.length - 1) activity.act4CompletedStepId = step.stepId;
     step.status = 'done';
-    this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind: evidence === 'world_strong' ? 'completed' : 'step_completed', intent: activity.template, evidence: evidence === 'world_strong' ? 'world_strong' : 'mode_flag', placeLabel: activity.placeLabel || null, atMs: now });
+    this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind: evidence === 'world_strong' && activity.cursor === activity.steps.length - 1 ? 'completed' : 'step_completed', intent: activity.template, evidence: evidence === 'world_strong' ? 'world_strong' : 'mode_flag', placeLabel: activity.placeLabel || null, atMs: now });
     if (activity.cursor >= activity.steps.length - 1) return this.#finish(activity, 'completed', 'already_satisfied', now, 'detach');
     activity.cursor += 1;
-    this.#preflight(activity);
+    activity.holdingSince = null;
+    activity.currentExecutionId = null;
+    this.#resolveStep(activity);
   }
 
   #recover(activity, reason, now) {
@@ -560,7 +684,7 @@ export class ActivityEngine {
     this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind, intent: activity.template, evidence, reason, placeLabel: activity.placeLabel || null, atMs: now });
     this.history.push({ characterId: activity.actor.characterId, activityId: activity.activityId, intent: activity.template, status, reason, atMs: now });
     if (this.history.length > 64) this.history.shift();
-    this.onEvent('activity_terminal', { activityId: activity.activityId, intent: activity.template, capability: step?.capability, reason });
+    this.onEvent('activity_terminal', { activityId: activity.activityId, intent: activity.template, capability: step?.capability, status, proofLevel: evidence === 'world_strong' ? 'world_strong' : 'none', reason });
     if (goal && goal.deadlineAtMs < goal.createdAtMs) goal.deadlineAtMs = goal.createdAtMs;
   }
 
@@ -570,7 +694,7 @@ export class ActivityEngine {
 
   exportActivity(activity) {
     const copy = { ...activity };
-    for (const key of ['factProvenance','acquireId', 'anchors', 'seen', 'failureKeys', 'reflexCount', 'resumeCount', 'deferred', 'deferUntil', 'quietSince', 'asked', 'gameStart', 'holdingSince', 'playerWasFar', 'playerReturned', 'currentExecutionId', 'knownIncarnation', 'onLeaseLoss', 'placeLabel', 'resumePolicy']) delete copy[key];
+    for (const key of ['factProvenance','acquireId', 'anchors', 'seen', 'failureKeys', 'reflexCount', 'resumeCount', 'deferred', 'deferUntil', 'quietSince', 'asked', 'gameStart', 'holdingSince', 'playerWasFar', 'playerReturned', 'currentExecutionId', 'knownIncarnation', 'onLeaseLoss', 'placeLabel', 'resumePolicy', 'act4ModeStepId', 'act4CompletedStepId']) delete copy[key];
     copy.steps = activity.steps.map(step => { const next = { ...step }; delete next.needs; return next; });
     return validateActivity(copy) ? copy : null;
   }

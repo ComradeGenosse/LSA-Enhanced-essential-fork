@@ -17,11 +17,13 @@ namespace LSA.Enhanced.Ui
     public sealed class MenuLine
     {
         public string Key, Text, Right, Description, Command, Value;
+        // Frozen at render time for current-NPC actions: never silently retarget to a replacement actor.
+        public string ExpectedEncounterId, ExpectedOwnerAlias, BindingCharacterId, ExpectedOwnershipToken;
         public bool Enabled = true, Info, Confirm, Toggle;   // Toggle: an on/off checkbox; Value is "on" or "off"
         public string[] Options, OptionLabels;              // a left/right choice; Value is one of Options
         public static MenuLine Fact(string key,string text,string right,string description = null) => new MenuLine {Key = key,Text = text,Right = right,Description = description,Info = true,Enabled = true};
         public static MenuLine Action(string key,string text,string command,string description,bool enabled = true,bool confirm = false) => new MenuLine {Key = key,Text = text,Command = command,Description = description,Enabled = enabled,Confirm = confirm};
-        public string Signature => Key + "|" + Text + "|" + Right + "|" + Enabled + "|" + Command + "|" + Value + "|" + Toggle + "|" + (Options == null ? "" : string.Join(",",Options)) + "|" + Description;
+        public string Signature => Key + "|" + Text + "|" + Right + "|" + Enabled + "|" + Command + "|" + Value + "|" + Toggle + "|" + (Options == null ? "" : string.Join(",",Options)) + "|" + Description + "|" + ExpectedEncounterId + "|" + ExpectedOwnerAlias + "|" + BindingCharacterId + "|" + ExpectedOwnershipToken;
         public static MenuLine Choice(string key,string text,string command,string value,string[] options,string[] labels,string description,bool enabled = true) =>
             new MenuLine {Key = key,Text = text,Command = command,Value = value,Options = options,OptionLabels = labels ?? options,Description = description,Enabled = enabled};
         public static MenuLine Switch(string key,string text,string command,bool on,string description,bool enabled = true) =>
@@ -123,6 +125,10 @@ namespace LSA.Enhanced.Ui
                 }
             }
             if (snapshot.TalkTarget != null && snapshot.TalkTarget.Present) AddTalk(model,snapshot.TalkTarget);
+            foreach (var line in model.Lines) if (line.Command != null) {
+                line.ExpectedEncounterId = npc.EncounterId;
+                line.ExpectedOwnerAlias = npc.OwnerAlias;
+            }
             return model;
         }
         static void AddTalk(CurrentNpcModel model,TalkTargetInfo talk)
@@ -163,6 +169,177 @@ namespace LSA.Enhanced.Ui
             return model;
         }
     }
+    // Page content is pure; unavailable ACT6/Director features must never pretend to execute.
+
+    public sealed class CharacterActivityBinding
+    {
+        public string CharacterId,OwnerAlias,EncounterId,OwnershipToken;
+        public bool Safe;
+        static readonly Regex Uuid = new Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$");
+        public static CharacterActivityBinding Parse(string json)
+        {
+            try {
+                var row = new JavaScriptSerializer {MaxJsonLength = 8192,RecursionLimit = 5}.DeserializeObject(json ?? "") as Dictionary<string,object>;
+                if (row == null) return null;
+                string id = row.TryGetValue("characterId",out var character) ? character as string : null;
+                string encounter = row.TryGetValue("encounterId",out var e) ? e as string : null;
+                string token = row.TryGetValue("ownershipToken",out var t) ? t as string : null;
+                string alias = row.TryGetValue("ownerAlias",out var a) ? a as string : null;
+                if (id == null || encounter == null || token == null || !Uuid.IsMatch(id) || !Uuid.IsMatch(encounter) ||
+                    !Uuid.IsMatch(token) || alias != "promoted." + id) return null;
+                return new CharacterActivityBinding {CharacterId=id,OwnerAlias=alias,EncounterId=encounter,OwnershipToken=token,
+                    Safe=row.TryGetValue("safe",out var safe) && safe is bool yes && yes};
+            } catch { return null; }
+        }
+        public bool SameIncarnation(CharacterActivityBinding other) => other != null &&
+            CharacterId == other.CharacterId && EncounterId == other.EncounterId &&
+            OwnerAlias == other.OwnerAlias && OwnershipToken == other.OwnershipToken;
+    }
+    // Read-only preflight is advisory and fails closed; the native actor-fiber
+    // still performs the authoritative owner, seat, vehicle and place checks.
+    public sealed class GameplayMenuReadiness
+    {
+        readonly Dictionary<string,string> reasons = new Dictionary<string,string>(StringComparer.Ordinal);
+        readonly HashSet<string> eligible = new HashSet<string>(StringComparer.Ordinal);
+        static readonly string[] Act3 = {"approach_and_face","board_vehicle","ride_along","exit_vehicle_and_hold","leave_scene","take_cover_and_hold","scenario_here"};
+        public bool Allows(string key) => key != null && eligible.Contains(key);
+        public string Reason(string key) => key != null && reasons.TryGetValue(key,out var reason) ? reason : "readiness_unavailable";
+        public static GameplayMenuReadiness Parse(string body)
+        {
+            try {
+                var root = new JavaScriptSerializer {MaxJsonLength = 16384,RecursionLimit = 6}.DeserializeObject(body ?? "") as Dictionary<string,object>;
+                if (root == null || !(root.TryGetValue("act3",out var acts) && acts is Dictionary<string,object> act3)) return null;
+                var result = new GameplayMenuReadiness();
+                void Add(string name,object value) {
+                    if (!(value is Dictionary<string,object> item) || !(item.TryGetValue("eligibleForPreflight",out var allowed) && allowed is bool enabled)) return;
+                    if (enabled) result.eligible.Add(name);
+                    var reason = item.TryGetValue("reason",out var v) ? v as string : null;
+                    result.reasons[name] = enabled ? "eligible_for_preflight" : reason != null && Regex.IsMatch(reason,"^[a-z][a-z0-9_]{0,47}$") ? reason : "capability_unavailable";
+                }
+                foreach (var id in Act3) if (act3.TryGetValue(id,out var value)) Add(id,value);
+                if (root.TryGetValue("drive",out var drive)) Add("vehicle_trip",drive);
+                if (root.TryGetValue("walk",out var walk)) Add("go_to_place",walk);
+                return result;
+            } catch { return null; }
+        }
+    }
+
+    public static class GameplayNavigationView
+    {
+        static MenuLine Offer(CurrentNpcModel model,GameplayMenuReadiness readiness,string key,string title,string intent,string description,string gate = null)
+        {
+            bool enabled = model?.Owned == true && readiness?.Allows(gate ?? intent) == true;
+            var line = MenuLine.Action(key,title,CommandCatalog.ActivityAssign,
+                description + (enabled ? " Native preflight will recheck this actor." : " Unavailable: " + (readiness?.Reason(gate ?? intent) ?? "readiness_unavailable").Replace('_',' ') + "."),
+                enabled,true);
+            line.Value = intent;
+            line.Right = enabled ? "Preflight" : "Unavailable";
+            line.ExpectedEncounterId = model?.EncounterId;
+            line.ExpectedOwnerAlias = model?.OwnerAlias;
+            return line;
+        }
+        public static List<MenuLine> Build(CurrentNpcModel model,GameplayMenuReadiness readiness = null)
+        {
+            var lines = new List<MenuLine> { MenuLine.Fact("actor","Selected NPC",model?.Title ?? "None") };
+            if (model == null || !model.Owned) {
+                lines.Add(MenuLine.Fact("prerequisite","Activity control","Select a promoted NPC","Use Current NPC or summon a character first."));
+            } else foreach (var line in model.Lines.Where(item => new[] {"activity","assign","activityPause","activityResume","activityCancel","activityStatus","activityHistory"}.Contains(item.Key)))
+                lines.Add(line);
+            lines.Add(MenuLine.Fact("act3","ACT3 interactions","Native capability gated","Only explicit, owner-verified actions are sent."));
+            lines.Add(Offer(model,readiness,"approach","Approach and face player","approach_and_face","Walk toward you and turn to face you."));
+            lines.Add(Offer(model,readiness,"board","Enter passenger seat","board_vehicle","Use a passenger seat in the player's vehicle."));
+            lines.Add(Offer(model,readiness,"driverSeat","Enter driver's seat","board_vehicle:driver","Take the driver seat in a stationary player vehicle; requires native seat probes.","board_vehicle"));
+            lines.Add(Offer(model,readiness,"ride","Ride along","ride_along","Ride as a passenger; driver seating is not implied."));
+            lines.Add(Offer(model,readiness,"exit","Exit vehicle and wait","exit_vehicle_and_hold","Exit the vehicle then hold position."));
+            lines.Add(Offer(model,readiness,"leave","Leave the scene","leave_scene","Walk away and return to ambient behavior."));
+            lines.Add(Offer(model,readiness,"cover","Take cover","take_cover_and_hold","Attempt native supported cover behavior."));
+            lines.Add(Offer(model,readiness,"coffee","Drink coffee","scenario_here","Start the vetted coffee scenario."));
+            lines.Add(MenuLine.Fact("act6","ACT6 navigation","Physical travel unverified","Accepted requests may fail driver, place, task or arrival checks. Check Activity Status."));
+            lines.Add(Offer(model,readiness,"walkWaypoint","Walk to waypoint","go_to_place","Use the active GTA map waypoint; no guessed destination."));
+            lines.Add(Offer(model,readiness,"driveWaypoint","Drive to waypoint","vehicle_trip","Requires the NPC to be the verified driver and a valid road node."));
+            lines.Add(Offer(model,readiness,"driveAirport","Drive to airport","vehicle_trip:airport","Use ACT6's allowlisted airport destination.","vehicle_trip"));
+            lines.Add(MenuLine.Fact("freeDrive","Start driving without destination","Not available via ACT","No verified ACT activity intent maps to unrestricted free driving; voice/legacy actions remain separate."));
+            return lines;
+        }
+    }
+
+    // When F11 selects a named character, activities no longer require UX4 to
+    // set Essential's mutable current-NPC pointer. They carry a frozen token.
+    public static class CharacterNavigationView
+    {
+        public static List<MenuLine> Build(CharacterRow row,CharacterActivityBinding binding,GameplayMenuReadiness readiness,bool companionAvailable)
+        {
+            var model = new CurrentNpcModel {Title=row?.Name ?? "Character unavailable"};
+            bool valid = row != null && binding != null && binding.Safe && binding.CharacterId == row.CharacterId;
+            model.Present = valid; model.Owned = valid;
+            model.EncounterId = valid ? binding.EncounterId : null;
+            model.OwnerAlias = valid ? binding.OwnerAlias : null;
+            if (valid) {
+                model.Lines.Add(MenuLine.Fact("activity","Activity","Inspect status","Activity Status queries this exact character."));
+                model.Lines.Add(MenuLine.Action("assign","Assign Activity...","local.openActivities","ACT2 presets for this owned character.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityPause","Pause Activity",CommandCatalog.ActivityPause,"Pause this character's activity if present.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityResume","Resume Activity",CommandCatalog.ActivityResume,"Resume after a native safety check.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityCancel","Cancel Activity",CommandCatalog.ActivityCancel,"Stop the current activity.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityStatus","Activity Status",CommandCatalog.ActivityStatus,"Show step, result and native progress.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityHistory","Activity History",CommandCatalog.ActivityHistory,"Show recent activity results.",companionAvailable));
+            }
+            var lines=GameplayNavigationView.Build(model,readiness);
+            if (!valid) lines.Insert(1,MenuLine.Fact("binding","Native incarnation","Absent / unsafe / changed","No action can execute until this character's original native binding is verified and safe."));
+            foreach (var line in lines.Where(item => item.Command != null && (item.Command.StartsWith("activity.",StringComparison.Ordinal) || item.Command == "local.openActivities"))) {
+                line.BindingCharacterId = valid ? binding.CharacterId : null;
+                line.ExpectedOwnershipToken = valid ? binding.OwnershipToken : null;
+                line.ExpectedEncounterId = valid ? binding.EncounterId : null;
+                line.ExpectedOwnerAlias = valid ? binding.OwnerAlias : null;
+            }
+            return lines;
+        }
+    }
+    public sealed class DirectorSocialStatus
+    {
+        public long ReceivedAt = -1;
+        public bool ExecutionAvailable;
+        public string Status,Reason;
+        public static DirectorSocialStatus Parse(string json)
+        {
+            try {
+                var root = new JavaScriptSerializer {MaxJsonLength = 8192,RecursionLimit = 5}.DeserializeObject(json ?? "") as Dictionary<string,object>;
+                if (root == null) return null;
+                var result = new DirectorSocialStatus {ExecutionAvailable = root.TryGetValue("executionAvailable",out var available) && available is bool yes && yes};
+                if (root.TryGetValue("nativeResult",out var raw) && raw is Dictionary<string,object> entry) {
+                    if (entry.TryGetValue("receivedAt",out var at) && (at is int || at is long)) result.ReceivedAt = Convert.ToInt64(at,CultureInfo.InvariantCulture);
+                    string status = entry.TryGetValue("status",out var state) ? state as string : null;
+                    if (status == "accepted" || status == "rejected" || status == "failed") result.Status = status;
+                    string reason = entry.TryGetValue("reason",out var code) ? code as string : null;
+                    if (reason != null && Regex.IsMatch(reason,"^[a-z][a-z0-9_]{0,47}$")) result.Reason = reason;
+                }
+                return result;
+            } catch { return null; }
+        }
+    }
+    public static class DirectorSocialView
+    {
+        public static List<MenuLine> Build(DirectorSocialStatus status = null,bool companionAvailable = false,bool checking = false,long after = -1)
+        {
+            bool enabled = companionAvailable && status?.ExecutionAvailable == true;
+            var lines = new List<MenuLine> {
+                MenuLine.Action("startSocial","Start conversation",CommandCatalog.DirectorSocialManual,
+                    "Request a social scene through the existing native Director. Queued or admitted does not mean speech was delivered.",enabled),
+                MenuLine.Fact("directorReady","Director admission",!companionAvailable ? "Companion unavailable" :
+                    status == null ? "Checking..." : enabled ? "Available" : "Unavailable",
+                    "Native execution, cooldown, actor busy and ownership gates still apply."),
+            };
+            if (checking && (status == null || status.ReceivedAt <= after)) {
+                lines.Add(MenuLine.Fact("admission","Latest request","Queued; awaiting native admission","The scene may be blocked by Director or Essential. This is not speech delivery."));
+            } else if (status?.Status != null) {
+                lines.Add(MenuLine.Fact("admission","Native admission",CurrentNpcView.Capitalize(status.Status),
+                    status.Reason == null ? "Native Director admission only, not confirmed audible dialogue." :
+                    "Reason: " + status.Reason.Replace('_',' ') + ". Not proof of speech delivery."));
+            } else lines.Add(MenuLine.Fact("admission","Native admission","No result yet","Select Start conversation while native Director is available."));
+            lines.Add(MenuLine.Fact("delivery","Spoken response","Not verified","Director and Essential speech delivery must be verified separately from admission."));
+            lines.Add(MenuLine.Action("refresh","Refresh status",null,"Re-check native Director admission and availability."));
+            return lines;
+        }
+    }
     public sealed class MemoryRow
     {
         public string MemoryId, Preview, Category;
@@ -171,13 +348,13 @@ namespace LSA.Enhanced.Ui
     }
     public sealed class CharacterRow
     {
-        public string CharacterId, Name, RuntimeStatus, Status, RelationshipState, RelationshipDescription, Voice;
+        public string CharacterId, Name, OwnerAlias, RuntimeStatus, Status, RelationshipState, RelationshipDescription, Voice;
         public long Revision;
         public readonly List<MemoryRow> Memories = new List<MemoryRow>();
         public bool Spawned => RuntimeStatus == "spawned";
         public bool Suspended => RuntimeStatus == "suspended";
         public string IdSuffix => CharacterId.Substring(CharacterId.Length - 4);
-        public string StatusLabel => RuntimeStatus == "spawned" ? "In world" : RuntimeStatus == "suspended" ? "Suspended" : Status == "dead" ? "Dead" : Status == "retired" ? "Retired" : "Absent";
+        public string StatusLabel => RuntimeStatus == "spawned" ? "In world" : RuntimeStatus == "suspended" ? "Suspended" : RuntimeStatus == "unverified" ? "Checking native roster" : Status == "dead" ? "Dead" : Status == "retired" ? "Retired" : "Absent";
     }
     public static class CharacterList
     {
@@ -202,6 +379,10 @@ namespace LSA.Enhanced.Ui
         {
             if (value == null || !(value.TryGetValue("characterId",out var id) && id is string characterId && Uuid.IsMatch(characterId))) return null;
             var row = new CharacterRow {CharacterId = characterId,Name = Text(value,"name",80) ?? "Unnamed",Status = Text(value,"status",16) ?? "available",RuntimeStatus = Text(value,"runtimeStatus",16) ?? Text(value,"status",16) ?? "available"};
+            if (value.TryGetValue("promotion",out var promotion) && promotion is Dictionary<string,object> original) {
+                var alias = Text(original,"ownerAlias",46);
+                if (alias == "promoted." + row.CharacterId) row.OwnerAlias = alias;
+            }
             row.Revision = value.TryGetValue("revision",out var revision) ? Convert.ToInt64(revision,CultureInfo.InvariantCulture) : 0;
             if (value.TryGetValue("relationship",out var relationship) && relationship is Dictionary<string,object> details) { row.RelationshipState = Text(details,"state",16) ?? "associate"; row.RelationshipDescription = details.TryGetValue("description",out var text) && text is string description && description.Length <= 600 ? description : ""; }
             if (value.TryGetValue("voiceReference",out var voice) && voice is Dictionary<string,object> reference) row.Voice = Text(reference,"voice",40);
@@ -221,18 +402,28 @@ namespace LSA.Enhanced.Ui
             return flat.Length <= MemoryPreviewChars ? flat : flat.Substring(0,MemoryPreviewChars - 1) + "…";
         }
         static string Text(Dictionary<string,object> value,string key,int max) => value.TryGetValue(key,out var item) && item is string text && text.Length <= max && !text.Any(char.IsControl) ? text : null;
+        // A native ownership alias is authenticated by the current snapshot; the profile
+        // supplies its label only after exact alias-to-CharacterId agreement.
+        public static Describe ForOwnedAlias(IEnumerable<CharacterRow> rows,string alias)
+        {
+            var row = rows?.FirstOrDefault(item => item.OwnerAlias != null && item.OwnerAlias == alias);
+            return row == null ? null : new Describe {Kind = "promoted",Name = row.Name,CharacterId = row.CharacterId};
+        }
         public static readonly string[] Relationships = {"associate","friend","trusted","strained","neutral"};
         public static readonly string[] Availability = {"available","dead","retired"};
-        public static List<MenuLine> Actions(CharacterRow row,bool companionAvailable,bool hostAvailable)
+        public static List<MenuLine> Actions(CharacterRow row,bool companionAvailable,bool hostAvailable,bool nativeBindingVerified = false)
         {
             bool live = companionAvailable && hostAvailable;
+            bool present = row.Spawned || row.Suspended || nativeBindingVerified;
+            // Unknown roster status is not evidence that summoning again is safe.
+            bool knownAbsent = !present && row.RuntimeStatus != "unverified";
             var lines = new List<MenuLine> {
-                MenuLine.Fact("status","Status",row.StatusLabel),
-                MenuLine.Action("summon","Summon",CommandCatalog.CharacterSummon,"Recreate this character near you in a safe outdoor spot.",live && !row.Spawned && row.Status != "retired"),
-                MenuLine.Action("follow","Follow",CommandCatalog.CharacterFollow,"Follow you.",live && (row.Spawned || row.Suspended)),
-                MenuLine.Action("wait","Wait here",CommandCatalog.CharacterWait,"Wait at their spot.",live && (row.Spawned || row.Suspended)),
-                MenuLine.Action("dismiss","Dismiss",CommandCatalog.CharacterDismiss,"Release this incarnation. The saved character is kept.",live && (row.Spawned || row.Suspended),true),
-                MenuLine.Action("despawn","Despawn",CommandCatalog.CharacterDespawn,"Delete the ped this addon summoned (" + row.Name + ", …" + row.IdSuffix + "). Adopted peds are refused.",live && (row.Spawned || row.Suspended),true),
+                MenuLine.Fact("status","Status",nativeBindingVerified && !row.Spawned && !row.Suspended ? "In world (native verified)" : row.StatusLabel),
+                MenuLine.Action("summon","Summon",CommandCatalog.CharacterSummon,"Recreate this character near you in a safe outdoor spot.",live && knownAbsent && row.Status != "retired"),
+                MenuLine.Action("follow","Follow",CommandCatalog.CharacterFollow,"Follow you.",live && present),
+                MenuLine.Action("wait","Wait here",CommandCatalog.CharacterWait,"Wait at their spot.",live && present),
+                MenuLine.Action("dismiss","Dismiss / Release",CommandCatalog.CharacterDismiss,"Release this incarnation from addon control. Saved profile remains; adopted ambient peds are not deleted.",live && present,true),
+                MenuLine.Action("despawn","Banish addon-created NPC",CommandCatalog.CharacterDespawn,"Remove the addon-created ped from the scene, keeping the character profile (" + row.Name + ", …" + row.IdSuffix + "). Adopted peds are refused.",live && present,true),
                 MenuLine.Action("rename","Rename",CommandCatalog.CharacterRename,"Change the name with the on-screen keyboard.",companionAvailable),
                 MenuLine.Choice("relationship","Relationship",CommandCatalog.CharacterRelationship,Choose(row.RelationshipState,Relationships),Relationships,Relationships.Select(CurrentNpcView.Capitalize).ToArray(),"Choose with left/right, then select to save. Associate, friend, trusted, strained or neutral.",companionAvailable),
                 MenuLine.Choice("availability","Availability",CommandCatalog.CharacterAvailability,Choose(row.Status,Availability),Availability,Availability.Select(CurrentNpcView.Capitalize).ToArray(),"Choose with left/right, then select to save. Retired characters cannot be summoned.",companionAvailable),
@@ -316,6 +507,7 @@ namespace LSA.Enhanced.Ui
         public int Outstanding;
         public string TalkState, TalkConflict, IndicatorState;
         public IReadOnlyList<string> RecentReasons = new string[0];
+        public IReadOnlyList<string> RecentOutcomes = new string[0];
     }
     public static class DiagnosticsView
     {
@@ -333,6 +525,8 @@ namespace LSA.Enhanced.Ui
                 MenuLine.Fact("talk","Talk target",input.TalkState ?? "Off",input.TalkConflict),
                 MenuLine.Fact("indicator","Talk indicator",input.IndicatorState ?? "Off"),
             };
+            if (input.RecentOutcomes.Count == 0) lines.Add(MenuLine.Fact("outcomes","Action results","None"));
+            else foreach (var result in input.RecentOutcomes.Reverse().Take(5)) lines.Add(MenuLine.Fact("outcome:" + lines.Count,"Action",result));
             if (input.RecentReasons.Count == 0) lines.Add(MenuLine.Fact("reasons","Recent failures","None"));
             else foreach (var reason in input.RecentReasons.Reverse().Take(10)) lines.Add(MenuLine.Fact("reason:" + lines.Count,"Recent",reason));
             lines.Add(MenuLine.Action("refresh","Re-check",null,"Refresh this page."));

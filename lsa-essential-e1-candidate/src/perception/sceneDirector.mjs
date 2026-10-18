@@ -34,6 +34,16 @@ export function directorSpeechLimitsForPreset(preset='normal') {
 
 const positive = n => Number.isSafeInteger(n) && n >= 0;
 const ref = n => typeof n === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(n);
+// PS6 Phase 13a threat reactions and opt-in, low-stakes direct-witness
+// scene remarks share the SAME PS3 ledger and native speech admission.
+export const PS6_13A_EVENTS = Object.freeze([
+  'firing_burst','vehicle_impact','injury','death_seen','body_found','threat',
+]);
+export const PS6_AMBIENT_EVENTS = Object.freeze(['character_present','location_changed','activity_changed','vehicle_transition']);
+const PS6_13A_EVENT_SET = new Set(PS6_13A_EVENTS);
+const PS6_AMBIENT_EVENT_SET = new Set(PS6_AMBIENT_EVENTS);
+export const isAmbientDirectorEvent = event => PS6_AMBIENT_EVENT_SET.has(event);
+const supportsDirectorEvent = event => PS6_13A_EVENT_SET.has(event)||PS6_AMBIENT_EVENT_SET.has(event);
 const responseRank = value => value === 'urgent' ? 2 : value === 'eligible' ? 1 : 0;
 
 /**
@@ -58,6 +68,14 @@ export function selectDirectorIntent(candidates, facts = {}) {
         s.lifetimeCurrent !== true || s.channelHealthy !== true ||
         s.perceptionSupported !== true ||
         s.playerCaptureRef !== facts.playerCaptureRef ||
+        !supportsDirectorEvent(o.eventType) ||
+        // Defense in depth: an ambient grant alone cannot convert reports,
+        // speech/radio transcripts or uncertain witnesses into new speech.
+        (isAmbientDirectorEvent(o.eventType) &&
+          (o.severity!=='routine'||!Array.isArray(o.claims)||
+           !o.claims.some(c=>c?.certainty==='supported' &&
+             ['self','visual'].includes(c.evidence?.channel) &&
+             ['presence','location'].includes(c.kind)))) ||
         !ref(o.observationId) || !positive(o.revision) || o.revision === 0 ||
         d.observationId !== o.observationId || d.revision !== o.revision ||
         typeof d.decisionKey !== 'string' || d.decisionKey.length > 160 ||
@@ -80,6 +98,7 @@ export function selectDirectorIntent(candidates, facts = {}) {
 
   // Deterministic, independent of Map insertion or candidate arrival order.
   eligible.sort((a,b) => responseRank(b.d.response) - responseRank(a.d.response)
+    || Number(isAmbientDirectorEvent(a.o.eventType)) - Number(isAmbientDirectorEvent(b.o.eventType))
     || b.at - a.at
     || a.o.observationId.localeCompare(b.o.observationId)
     || a.o.revision - b.o.revision);

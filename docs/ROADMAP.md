@@ -1,524 +1,90 @@
-# Project roadmap
+# LSA project roadmap — canonical mainline view
 
-**Current repository state — October 11, 2026.** This is the current `main` code/merge inventory. The [playable LSA v1.0 implementation milestone](lsa-v1-implementation-milestone.md) remains the **bounded scope** (Phase 6 C-05/C-06, baseline PS4, Phase 13a speech-only Director, conditional gaze); its October 9 checkpoint and the [October 8 unified master plan](research/UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md) are historical implementation specifications, not today's `main` status. Other master-plan phases remain deferred. **Merge, build, installation, activation and physical GTA acceptance are not interchangeable.**
+**Audited:** October 17, 2026, against canonical main at 3410c1772cd2012bde8a16fe37035e231faf695f. **Status is source/PR evidence, not a certification of the installed GTA build.** Recheck the current main SHA and newer PRs before executing this backlog.
 
-The [research corpus](research/README.md) preserves architecture/provenance and the [implementation ledger](unified-intelligence-implementation-status.md) preserves earlier checkpoint evidence. The [81-requirement PS4 acceptance audit](ps4-v1-acceptance-audit.md) remains an open evidence register rather than automatically passing on merge. Relevant integration history: [#18 ACT merge](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/18), [#23 experimental baseline](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/23), [#27–#30 PS4/Director repairs](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/30), [#31 PS6 lifecycle](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/31), [#33 completion/grounding](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/33) and [#34 testing preset](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/34).
+This is the **one current roadmap and priority queue**. The [implementation/evidence matrix](IMPLEMENTATION-STATUS-20261017.md) records what exists, is integrated, has offline evidence, has GTA evidence, and still needs acceptance. The [next-phase work packages](NEXT-PHASES-20261017.md) give agent-ready boundaries, dependencies and gates. The enormous [unified intelligence checkpoint ledger](unified-intelligence-implementation-status.md) is historical; the [October 8 master design](research/UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md) and [research/contract index](research/README.md) remain technical specifications, **not** live project status.
 
-The governing authority remains:
+## Operating rules
 
-```text
-OpenAI / other providers
-        ↓
-E1.1 + later E-stages
-        ↓
-Los Santos Alive Essential
-        ↓
-GTA V
-```
+- **Implemented** means production-path source exists. **Integrated** means it is contained in canonical main. **Offline** means tests/builds have evidence, scoped to the commit/head named in that evidence. **GTA** means physically observed, on the particular installed revision. These are independent facts.
+- An experimental/default-off code path is not an enabled feature; a registry declaration, closed schema, test stub or branch-only code is not an executable capability.
+- Los Santos Alive **Essential remains the native authority** for Ped lifetime, owner, action dispatch, interruption, playback, player priority and turn identity. PS4 remains the single assembled evidence-to-Luna writer. ACT and PS6 cannot become a parallel task/turn executor.
+- Keep privacy, original accepted-input bytes, authenticated native source, player/character/timeline scope, source-age limits and replay/idempotence fencing. Do not make memory reliable by committing dialogue after genuine owner revocation.
+- Preserve the existing designs, contracts and research. A proposed design is not a call to redesign it. No percentages or blanket acceptance based on a merged PR.
 
-Essential owns native NPC state, sessions/generations, action execution, interruption and playback; PS4 is the single evidence-to-model assembler; PS6 proposes bounded speech through Essential's native gates, not a replacement player/physical-action lifecycle. C-01–C-15 and original PR #21 remain normative.
+## High-level source inventory (main, October 17)
 
-## Status overview
-
-| Phase | Main/source status on October 11 | Deployment/acceptance reality or next gate |
+| System | Mainline source/integration | GTA acceptance and key limits |
 | --- | --- | --- |
-| E1 / E1.1, E2–E6 | ✅ Implemented on `main` | Provider/voice/retry/streaming and segmented TTS present; E7/full multi-segment soak still open |
-| P0–P2 | ✅ Merged on `main` | Promotion, profiles/manual memory, summon and controls exercised in GTA; no PS5 automatic experiential-memory writer |
-| UX0–UX4 | ✅ Merged on `main` | Shared Essential Talk path exercised; direct-hold/tap-selector refinement requires focused live regression |
-| PS0–PS3 | ✅ Merged on `main` | October 5 shadow PS2→PS3 evaluation and JSONL observed; structured behavioral scenarios and damage callback physical probe open; player-speech hearing remains disabled |
-| ACT0–ACT2 | ✅ Merged via [#18](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/18) | Hash-installed/GTA smoke-tested October 6; focused physical capability, callback and default-off gates remain |
-| Phase 6 C-05/C-06 / ACT SELF | 🟡 Experimental implementation merged via [#23](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/23) | Native ownership/receipt/physical-completion and scenario-specific GTA acceptance still open; handler success is not proof of completed effect |
-| PS4 — requested-turn knowledge | 🟡 Experimental code merged via #23 and follow-up #27–#30 | **One genuine PS4→Luna witnessed-gunfire GTA exchange** with model response/playback confirmed; full PS4 audit and sustained identity/ack/reconnect regression not closed |
-| PS6 / Phase 13a — SCENE_DIRECTOR speech | 🟡 Experimental guarded implementation merged via #23/#30/#31/#33 | Native playback start/completion observed in troubleshooting; post-fix contextual spoken warnings, grant-consumption receipts, safety/turn arbitration and full GTA acceptance remain to be verified with exact installed payload |
-| PS6 testing chatter preset | ✅ [#34](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/34) merged; opt-in only | Normal **4 attempts/minute**, testing **12 attempts/minute** independently enforced by companion and native; rebuild native DLL/install both layers and set both experimental configs before testing. See [preset guide](ps6-testing-chatter-preset.md) |
-| Radio R0–R5/v2 | 🟡 **Open draft [#32](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/32)**; not on main | Integrated into its draft branch against earlier PS4/PS6 main; fresh CI/reconciliation, native text-ID/catalog and GTA evidence required before merge/deploy |
-| Contextual ballistics R0 | 🟡 **Open draft [#35](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/35)**; not on main | Observer-scoped shooter/injury evidence is source implementation only; live DamageTracker, native builds, surface/air classification and GTA gates are open. Do not treat as shipped |
-| CGE / Phase 10a | 🔵 Conditional, not implemented | Probe stock Essential gaze; add playback-only supplement only if necessary and safe. Player-listening 10b separately requires C-01 |
-| C-01/proximity hearing, PS5, memory-aware 13b, PS7, ACT3–ACT7, PS8 | 🔵 Deferred/planned | Preserve shared evidence/ownership and timeline-safety gates; no automatic memory, unrestricted NPC autonomy or physical proposals implied by PS6 speech |
-| E7 | 🔵 Not closed | Long-session, interruption, failure, performance and cross-feature GTA release acceptance pending |
-
-## Active next work — October 11, 2026
-
-1. **Reconcile exact installed versus merged PS4/PS6 builds:** verify companion **and newly built native DLL**, runtime switches, revision/manifest hashes and original PS4 perception inputs. #33's deterministic Director event text may be model-visible while optional `PERCEIVED` remains omitted by `unsupported_contract`; this is not proof that the entire PS4 lane works on the installed payload.
-2. **Finish controlled PS4/Phase 6/PS6 acceptance:** repeat source-qualified gunfire→Luna requested-turn delivery; observer continuity and PS3 acknowledgments; Director candidate→original ticket→Essential native playback→grant consumption; interruption/player-priority, failure paths, cooldowns, world reset and telemetry. Update [PS4 audit](ps4-v1-acceptance-audit.md) only with matching evidence, not with assumed passes.
-3. **Use the opt-in testing preset only when desired:** #34 offers normal 4/min versus experimental 12/min attempts with both native/companion limits and shorter cooldowns; it does not bypass owner/player/salience/ticket checks. Revert to normal for production-like evaluation.
-4. **Keep parallel branches separate:** [radio v2 #32](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/32) and [contextual ballistics #35](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/35) need fresh current-main reconciliation, complete targeted CI/build evidence and explicit GTA proof. Neither is shipped or a prerequisite to closing the current experimental baseline.
-5. **After the bounded milestone:** decide conditional playback gaze from a source/physical probe, then resume the deferred master-plan sequence (C-01, PS5 timelines/memory, richer ACT, social Director/PS7, navigation and E7). Preserve the original master-plan contracts rather than treating these later stages as secretly complete.
-
-Historical feature/research refs, checkpoint logs and older source-pinned audits are preserved as **historical evidence**; a previous `main` SHA or prior plan date is not a current merge/deployment claim.
-
-## GTA deployment / physical validation state — perception and initiative
-
-| Feature | Main state | Last supported GTA evidence | What is **not** yet accepted |
-| --- | --- | --- | --- |
-| PS0–PS3 | Merged | October 5 shadow perception + PS3 JSONL evaluation | Full structured producer/scene and damage callback checks |
-| ACT0–ACT2 | Merged | October 6 hash-installed GTA smoke | Each default-off physical capability and completion receipt |
-| Phase 6 / PS4 | Experimental merged | October 10 one real observed gunfire PS4→Luna answer/playback on PR #23 lineage | Full 81-requirement audit, matching current install/build, repeated supported knowledge, all native receipt gates |
-| PS6 Director / Phase 13a | Experimental merged with #31/#33 fixes | Director original native start/completion seen in October 10 troubleshooting; earlier acknowledgment rejected | **Fresh after-fix** proven contextual spontaneous response + original grant consumption and ownership/safety GTA matrix |
-| PS6 12/min testing preset | Merged opt-in code | No matching newly installed DLL evidence asserted here | End-to-end both-layer activation; normal remains 4/min |
-| Radio #32; contextual ballistics #35 | Unmerged drafts | No branch-to-current-main GTA acceptance claimed | Separate branch integration/CI/build/physical gates |
-
-### Recommended next GTA perception milestone
-
-Prioritize **one controlled matching-payload requested PS4 exchange and one valid PS6 spontaneous response** with captured native source evidence, exact Luna request/response, authenticated start/end and accepted grant completion. Then isolate observer/identity continuity, salience suppression, native damage callbacks, rate limits and restart/paused-game behavior. A successful prior trace must never silently mark a later binary or changed runtime accepted. Player-speech hearing still requires an independent source-time mic/utterance receipt; post-STT text is not hearing.
-
-## Completed foundation
-
-### E1 / E1.1 — Hardened Essential + OpenAI/Luna integration
-
-E1/E1.1 established the safe provider/native boundary.
-
-Core guarantees include:
-
-- Essential-owned `pedId + turnId + generationId + sessionNonce` identity.
-- OpenAI STT, Luna reasoning, and OpenAI TTS integrated without replacing Essential's native lifecycle.
-- Stock action validation/dispatch remains authoritative.
-- Native playback authorization and exact interruption remain authoritative.
-- Genuine player input commits once accepted.
-- Assistant history remains staged until a matching successful `PlaybackEnded`.
-- `SPECIAL_EVENT` and internal/system sources do not become fake player dialogue.
-- Source-pinned build/native contract validation fails closed when expected hooks drift.
-
-The old/custom LSA 2.1 branch remains a reference and migration source, not the runtime foundation of this companion.
-
-### E4 — Observability, completed early
-
-Observability was originally planned after E2/E3 but was deliberately pulled forward so later work could be measured rather than debugged blindly.
-
-Implemented coverage includes turn/source binding, microphone capture, STT/reasoning/TTS timing, provider attempts/retries, first TTS byte, action-validation boundaries, native authorization, PCM forwarding, playback start/end, interruption/supersession, history mutation, terminal summaries, and incomplete/dropped trace detection.
-
-The later Windows logging/retention fix is also part of the current foundation. Runtime telemetry remains privacy-filtered and passive.
-
-## Provider quality phases
-
-### E2 — Provider abstraction, voices, and acting
-
-Implemented in the current source tree. E2 converts the hard-wired provider path into explicit reasoning, transcription, and speech provider seams while preserving E1.1 lifecycle ownership.
-
-It adds deterministic per-native-session voice profiles, configurable voice pools, bounded speed, and optional trusted acting/style instructions. It intentionally does not claim durable cross-session character identity; that belongs to SESSION_IDENTITY.
-
-### E3 — Stage-aware reliability and retries
-
-Implemented in the current source tree. E3 retries provider operations only while they are still safe to repeat.
-
-Key rules remain:
-
-- at most one automatic retry after the original provider request;
-- retries consume the original provider deadline;
-- no whole-turn retries;
-- no automatic provider fallback;
-- no retry after cancellation, supersession, terminal state, or stale generation;
-- action dispatch, native authorization, playback completion, and history commit are never replayed by retry logic;
-- action-bearing TTS closes retry eligibility before stock action publication;
-- dialogue-only TTS may retry only before the first native PCM/effect boundary.
-
-See [E2/E3 implementation status](E2-E3-implementation-status.md).
-
-## Low-latency pipeline
-
-### E5 — Structured model/output streaming — implemented
-
-E5 is no longer a future architecture phase. The repository now contains the bounded Responses SSE adapter and complete-segment decoder.
-
-The current protocol uses one strict JSON decision envelope:
-
-```json
-{"mode":"dialogue_only","segments":[{"text":"..."}],"command":""}
-```
-
-The decoder does **not** parse arbitrary half-finished JSON as a decision. It only exposes a speech segment after that segment object is closed, parsed, bounded, and locally validated. The complete terminal response is then reconciled and passed through the existing Essential decision/action validators.
-
-Important properties now implemented:
-
-- exact native identity remains external to/model-independent from the stream;
-- complete segments become immutable once released;
-- `dialogue_only` is irrevocable; a later command is a protocol failure;
-- action-bearing `buffered_action` turns remain behind the final validation barrier;
-- final transcript/action publication still occurs once;
-- refusal, incomplete output, malformed framing, duplicate/conflicting data, and terminal mismatch fail closed;
-- stock Gemini stays on its existing path.
-
-#### E5 live capability gate
-
-The explicit one-request streaming smoke passed against the configured `gpt-6-luna` endpoint.
-
-Recorded timing from that capability check:
-
-- first locally validated dialogue-only segment: about **1.05 s**;
-- `response.completed`: about **1.19 s**.
-
-That demonstrates that the configured Luna path can expose a usable complete segment before full response completion. It validates the key provider capability needed by E6; it is not itself a GTA playback test.
-
-See [E5/E6 streaming notes](../lsa-essential-e1-candidate/docs/e5-e6-streaming.md).
-
-### E6 — Early segmented TTS — implemented
-
-E6 is implemented behind `structuredStreamingEnabled` and `earlyTtsEnabled`. Both remain default-off in the checked-in example config; the controlled live GTA test config has been staged with both enabled.
-
-For eligible `dialogue_only` turns, the implemented path is:
-
-```text
-Luna emits first complete safe segment
-        ↓
-segment TTS starts
-        ↓
-Essential authorizes the exact generation once
-        ↓
-PCM can begin before model completion
-        ↓
-later segments are synthesized serially/in order
-        ↓
-full model response validates
-        ↓
-one final transcript + one stream-end
-        ↓
-matching PlaybackEnded
-        ↓
-assistant history commits once
-```
-
-Action-bearing turns deliberately **do not** get early speech. They remain buffered until the final decision passes validation, preserving E3 side-effect rules.
-
-Implemented safeguards include:
-
-- one serial TTS consumer;
-- no speculative concurrent PCM queue;
-- aggregate PCM cap before native authorization;
-- exact-generation cancellation/supersession fences;
-- one logical authorization/stream-end lifecycle;
-- no assistant history commit before matching `PlaybackEnded`;
-- abort of early speech when the model fails;
-- rejection of malformed/incomplete PCM16 output;
-- no stale action/segment/history resurrection.
-
-#### Current E6 evidence
-
-A stock-controller integration test now drives two delayed TTS segments through the actual patched stock controller and Essential lifecycle bridge. It verifies:
-
-- first PCM occurs before the model terminal event;
-- segment order is preserved;
-- all audio retains the same native identity;
-- there is one final stream-end handoff;
-- assistant history remains staged until matching `PlaybackEnded`.
-
-At the E5/E6 checkpoint, the offline suite passed **149 tests with 0 failures** ([checkpoint test output](../lsa-essential-e1-candidate/docs/e5-e6-test-results.txt)). At that P0 checkpoint, the suite passed **187 tests with 0 failures**; this historical total is not a fresh current-main certificate. This includes `84df8e30` model-failure/PCM16 hardening and the production telemetry repair reproduced from the first failed E5/E6 GTA runs. The stock E6 integration test now exercises the real logger; physical GTA acceptance of the repaired build remains open.
-
-The first repaired-build GTA run covered 13 microphone turns: all 13 reached native playback, 10 completed normally, and 3 were interrupted. TTS started slightly before model completion on eight eligible turns, but first PCM followed model completion; all replies contained one segment. See the [run review](E6-GTA-verification-2026-10-01.md). Multi-segment playback and audible early speech still need live verification.
-
-The E5/E6 payload was also staged/installed for controlled GTA testing with backups and hash verification. However, the repository does **not** yet contain a post-deployment GTA log proving physical playback for the current E6 path.
-
-#### E6 follow-up validation
-
-The implementation phase is complete. Additional GTA stress validation should still cover:
-
-- the first segment is audibly played before model completion on an eligible turn;
-- later segments continue on the same logical native stream across real queue gaps;
-- no premature successful `PlaybackEnded` occurs before final stream end;
-- interruption/late model failure kills the exact generation without stale PCM or history;
-- action-bearing turns remain buffered;
-- final assistant history commits once and only after matching native playback completion.
-
-Prior Phase 10B evidence (13 turns, 11 with audio/acknowledgements, observed PCM gap up to about 2.98 seconds) remains strong prior evidence for open-stream behavior, but it is not counted as validation of this exact E1.1/E6 runtime path.
-
-E6 is considered complete for roadmap purposes. The remaining early-audio, multi-segment, interruption, and history checks are non-blocking regression evidence and belong with ongoing validation/E7 rather than holding E6 open.
-
-See the [E5/E6 implementation status](E5-E6-implementation-status.md) for the current checkpoint, deployment distinction, and remaining GTA gate.
-
-### P0 — Turn-scoped context snapshots and target-reference safety
-
-P0 is merged to `main` and offline-verified. Each turn captures immutable actor, listener, actor-associated world, and P/V reference-map context before asynchronous provider work. Omitted listeners retain same-session state; explicit `null` clears it. Target aliases are checked against the reasoning-time snapshot and the latest actor reference map immediately before the unchanged stock dispatcher. GTA runtime acceptance remains pending; see the [P0 status and checklist](P0-turn-context-status.md). Those live checks validate the merged implementation but do not block beginning P1. E6's separate early-audio and multi-segment physical gate also remains open.
-
-## NPC intelligence roadmap
-
-After the provider/latency foundation is stable, development shifts from transport architecture toward persistent characters and autonomous behavior.
-
-### P1 — SESSION_IDENTITY — Durable character identity
-
-V1 is implemented and verified offline. Only a fresh explicit authored-owner ledger assertion resolves the structured `(worldProfileId, sourceNamespace, sourceKey)` alias to a durable UUID CharacterId. Ambient/PR/Nexus identity inference is not enabled. See [P1 implementation, pins, and controlled GTA checklist](P1-session-identity-status.md).
-
-The companion persists aliases, revisions, and the actual character voice assignment. Runtime bindings, incarnation/adapter epochs, ped/session/turn/generation IDs, connections, and bounded dialogue history stay in RAM. A recreated character can retain its UUID/voice but always starts a fresh native session/history. All effects remain addressed by Essential's exact native tuple; stale work never redirects to a character's newest ped.
-
-The feature defaults off and supports shadow metadata verification before character voice adoption at a clean session boundary. Invalid/unsupported storage or unavailable optional evidence leaves ordinary ephemeral dialogue usable. Known identity/incarnation contradictions retire the affected exact session. No fuzzy matching, auto-merge, binding theft, persistent memory, relationships, personality, or goals are included.
-
-P1 is considered implemented and complete for roadmap purposes. Additional recreation, revocation, persistence, and stale-work stress cases remain valuable regression coverage and should roll into E7. Later character state must build on owner-authenticated aliases, never raw handles.
-
-### P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE
-
-P2 is implemented and merged to `main`. GTA testing has confirmed the corrected RAGE host path, console registration, `LSACharacters`, `LSAPromote`, persistent character creation, the local editor, profile/memory editing, and working native vehicle/driver behavior. Follow-up fixes in PRs #7–#9 corrected the active RAGE AppDomain host and loader-owned console-command registration. It provides bounded application-assigned encounter names/voice profiles, explicit idempotent promotion through P1 authored ownership, independent versioned profiles keyed by CharacterId, biography/personality/relationship/notes editing, durable manual memory CRUD/selection, safe summon/recreation and a local character editor.
-
-The optional RAGE owner plugin uses existing Essential selection, follow/wait, focus and vehicle-state seams. It guards missions/cutscenes/script ownership and suspends optional behavior conservatively, without a second TASK scheduler or automatic mission rejoin. Only addon-created peds can be explicitly deleted; dismissal never erases a character. The canonical P1 identity/voice schema and exact native dialogue/audio/action tuple remain unchanged. Appearance recreation is limited to supported standard model/components/props; exact freemode/third-party customization remains unclaimed.
-
-The architecture now splits into two parallel tracks after P2:
-
-```text
-P0 TURN_CONTEXT
-  → P1 SESSION_IDENTITY
-  → P2 PROMOTED_CHARACTERS / CHARACTER_PROFILE
-        │
-        ├─→ PS0/PS1 PERCEPTION FOUNDATION
-        │      → PS2 WITNESS / EPISODE CORRELATION
-        │      → SALIENCE
-        │      → PROXIMITY_CHAT / SOCIAL_ROUTING
-        │      → later knowledge / memory / SCENE_DIRECTOR phases
-        │
-        └─→ ACT0 CONTRACTS / CAPABILITIES
-               → ACT1 SHADOW OBSERVATION
-               → ACT2 BASIC PLAYER ACTIVITIES
-               → ACT3 RICH SHORT-RANGE ACTIVITIES
-               → ACT4 DIALOGUE AWARENESS
-               → ACT5 MODEL PROPOSALS
-               → ACT6 NAVIGATION EXTENSIONS
-                       │
-                       └───────────────┐
-                                       ↓
-                 later PS5 / PS6 / PS7 → ACT7
-                                       ↓
-                                      E7
-```
-
-The PS track answers **what NPCs perceive, know and care about**. The ACT track answers **what NPCs can reliably and verifiably do**. Early speech-only Director already consumes gated PS evidence experimentally; later Director physical/social proposals remain dependent on ACT and their own acceptance gates.
-
-P2 supplies the durable foundation, not automatic memory extraction, event perception, salience ranking or autonomous coordination. See [implementation, file formats and follow-up GTA checklist](P2-promoted-characters-status.md), [focused pinned native evidence](P2-native-evidence.md), and [offline verification](../lsa-essential-e1-candidate/docs/p2-verification.md). One observed follow-up regression target is order-dependent vehicle entry: driver-seat/drive behavior works, but companion entry can depend on whether the NPC receives the vehicle command before the player claims/enters the vehicle.
-
-### PERCEPTION — Richer world and event awareness
-
-Current status: PS0/PS1 are merged to `main` in default-off shadow form. PS2 witness rules and episode correlation are merged to `main`, together with the deployed injury, report and harm correlation fixes. The PS2 branch deliberately keeps player-speech hearing unavailable until a source-time native mic/capture receipt can be proven in GTA; post-STT proximity is not accepted as evidence that an NPC heard an earlier utterance.
-
-Use Essential's existing extension seams and native state rather than creating a duplicate world scanner.
-
-Candidate native surfaces identified during Hotfix #3 analysis include:
-
-- `IIntegration.EnrichActor()`;
-- `PerceptionSystem`;
-- `NpcStateStore`;
-- `ReflexSystem`;
-- location/activity registries;
-- directed interaction/native turn systems.
-
-Examples of useful observations:
-
-- nearby threats or gunfire;
-- vehicle crashes;
-- injuries;
-- police arrival;
-- theft or aggression witnessed by an NPC;
-- changes in activity/location;
-- nearby characters with relevant relationships;
-- meaningful vehicle/object state;
-- player speech as an audible event, including who could physically hear it based on distance, line of sight/occlusion, local context and conversation membership.
-
-Perception should expose facts, not decide behavior. For speech, the perception layer should answer **who could hear this utterance?**, not who should respond.
-
-### PS3 — SALIENCE — Decide what matters
-
-**Current status:** Corrected PS3 and bounded JSONL telemetry are merged into main, fully offline-verified at the pre-follow-up baseline (387 Node tests; 12 native suites, 979 assertions), and hash-deployed in shadow on October 5. A later GTA session verified live PS2→PS3 evaluation and persistent 10-second JSONL sampling. Follow-up hardening now separates retained diagnostic history from semantic admission, splits harmless history expiry from expired input, persists damage/lifecycle/reason diagnostics, and emits a final disconnect snapshot. Structured PS3 behavioral acceptance and the controlled native-damage callback probe remain pending. PS3 creates no turns, actions, memory writes, playback changes or native authority. Relationship/memory/trait branches remain inactive until the shared authenticated captureRef-to-CharacterId/profile seam exists.
-
-A richer perception system can produce far more information than a model should receive every turn.
-
-Salience should rank/filter observations based on factors such as:
-
-- immediacy;
-- threat;
-- relationship;
-- recency;
-- current goals/activity;
-- prior memory;
-- direct relevance to the player or current conversation;
-- direct address cues such as a character's name, gaze/facing, active conversation membership, group-address language and whether the NPC merely overheard the utterance.
-
-The goal is to prevent NPCs from reacting to every minor event while still noticing genuinely important changes.
-
-Conceptually:
-
-```text
-PERCEPTION
-    ↓
-candidate observations
-    ↓
-SALIENCE
-    ↓
-small relevant context set
-    ↓
-reasoning / initiative
-```
-
-The settled PS architecture sequence below remains useful, but PS4 and early speech-only PS6 are **now implemented experimentally on main**; these bullets are capability descriptions, not a remaining-implementation queue:
-
-- **PS4 — immutable dialogue knowledge:** freeze observer-safe observations/profile/memory inputs at turn start and rebuild Luna-facing narrative context from an allowlist rather than leaking raw backend facts.
-- **PS5 — automatic experiential memory:** add the explicit P2 profile-schema migration and bounded provenance-aware event-memory writer; no direct model writes to storage.
-- **PS6 — ticketed passive initiative:** allow bounded NPC warnings/reactions through Essential's existing special-turn lifecycle, with no physical action authority.
-- **PS7 — multi-character / directed exchange:** add bounded NPC↔NPC and shared-conversation coordination on top of the same evidence, salience and ticketing contracts. Scene Director proposes interactions; ACT7 owns physical directed-interaction execution under the ACT lease.
-- **PS8 — broader verified events/actions:** expand producers only where native/GTA evidence has been physically validated.
-
-### PROXIMITY_CHAT / SOCIAL_ROUTING — Shared spoken-space conversation
-
-Proximity chat should be implemented as a consumer of **PERCEPTION + SALIENCE**, not as a separate dialogue stack. The player speaks once; LSA transcribes once; nearby NPCs are classified as addressed listeners, possible responders, or overhearers using the same world-awareness infrastructure that later feeds SCENE_DIRECTOR.
-
-Target flow:
-
-```text
-player mic / PTT / later optional VAD
-        ↓
-STT once
-        ↓
-PERCEPTION: who could physically hear it?
-        ↓
-SALIENCE / attention: who notices or cares?
-        ↓
-SOCIAL_ROUTING: who was addressed, who overheard, who may respond?
-        ↓
-existing P2 character-authority + reasoning/action pipeline
-        ↓
-overhearing / conversation events return to perception and later memory/director systems
-```
-
-Core rules:
-
-- do not require the player to mark an NPC before ordinary nearby conversation;
-- do not run independent STT for each NPC;
-- do not blindly fan one utterance out into simultaneous model/TTS turns for every nearby ped;
-- use native spatial facts such as distance, line of sight/occlusion, facing/attention and current conversation membership to build the hearing set;
-- use explicit names, gaze/facing, active conversation state, group-address language and semantic relevance to distinguish **addressed** NPCs from **overhearers**;
-- arbitrate responders so one clear speaker normally answers first, while allowing later multi-character exchanges where appropriate;
-- overhearers should receive a factual perception event even when they do not speak, allowing later salience, memory, relationship or Director behavior to use what they heard;
-- promoted-character canon remains authoritative for personality/willingness and Essential/native validation remains authoritative for actual action capability;
-- keep the existing turn/generation/playback lifecycle; proximity routing selects participants, it does not create a parallel conversation engine.
-
-This phase is intentionally before SCENE_DIRECTOR because it establishes reusable social-scene state: who is present, who heard what, who was addressed, who is engaged, who responded, and who merely observed. SCENE_DIRECTOR should consume that state rather than rebuilding its own hearing/attention model.
-
-### SCENE_DIRECTOR — NPC initiative and coordination
-
-**Current status:** Speech-only early Director/PS6 Phase 13a is implemented experimentally on `main` with exact native ticket/playback and owner/player arbitration guards (PRs #23/#30/#31/#33). Latest contextual speech and successful original-grant acknowledgment require a fresh matching-payload GTA acceptance pass. Later memory-informed initiative, actions and NPC↔NPC coordination remain unimplemented.
-
-The later full phase moves beyond primarily player-triggered interaction.
-
-Target behavior:
-
-```text
-NPC perceives event / social exchange
-      ↓
-salience says it matters
-      ↓
-proximity/social state identifies participants and attention
-      ↓
-NPC/native system initiates a turn
-      ↓
-NPC speaks and/or acts
-```
-
-Examples:
-
-- an NPC warning the player about someone following them;
-- a companion deciding to leave danger;
-- a police NPC requesting backup;
-- characters initiating conversation with one another;
-- coordinated multi-character reactions.
-
-Prefer Essential-native mechanisms such as directed interactions, reflex/state systems, and native/special-turn scheduling. Do not bypass the authoritative turn/playback lifecycle.
-
-### CUSTOM ACTIONS / ACTIVITIES — ACT0 through ACT7
-
-The October 4 activity/goal-execution research changes this from one late roadmap phase into a **parallel execution track** that can start now. ACT0–ACT6 do not depend on Scene Director. Player-assigned activities can ship through the existing F11/native-menu UX first; later Luna and Scene Director reuse the exact same validated machinery instead of inventing separate action paths.
-
-Authoritative flow:
-
-```text
-F11 / player command / later Luna / later Scene Director
-        ↓
-closed ActivityIntent + typed slots
-        ↓
-deterministic activity template
-        ↓
-closed capability registry
-        ↓
-native StepRunner
-        ↓
-Essential queue / wrapper / registered extension
-        ↓
-physical evidence + ActionReceipt
-        ↓
-continue / retry / recover / pause / cancel / finish
-```
-
-Essential remains the executor. ACT owns planning/lifecycle and native evidence around one step at a time; it does not become a competing GTA TASK scheduler.
-
-#### ACT0 — Contracts, registry and metadata
-
-**Status: implemented, deployed, GTA-runtime verified, and merged to `main` through the ACT2 stack on October 6, 2026 (PR #18).** The closed activity vocabulary, capability registry, native/companion contracts and metadata verification are present on `feature/act0-act1-contracts-shadow-observer`. The branch was reconciled with current `main`, built and exercised in GTA through the integrated ACT2 deployment. Focused ACT0/ACT1 probe questions remain open where their exact evidence was not captured.
-
-#### ACT1 — Native shadow observer
-
-**Status: implemented, deployed and GTA-runtime verified as part of the integrated ACT2 stack.** The activity channel, StepMachine/receipt correlation and supersession observation exist in shadow mode and do not dispatch new gameplay actions. Post-review hardening moved state mutation back onto the owner/update fiber, tightened reconnect/sequence handling and bounded diagnostics. The stack-level runtime gate is closed for merge, while unanswered focused probes for callback names/counts/threading remain explicitly open.
-
-#### ACT2 — Player-assigned basic activities
-
-**Status: implemented, reconciled onto current `main`, deployed, GTA-runtime tested, and merged on October 6, 2026 (PR #18).** The branch adds the real F11 activity lifecycle for `hold_position`, `follow_person`, `resume_ambient` and `sit_on_ground`, plus status, history, pause, resume and cancel. It includes post-review hardening for lease sequencing, runtime ticking, owner-before-dispatch, strict frame validation, hold anchors and paused-state visibility. The companion/native addon builds and hash-verified GTA deployment succeeded. Historical suite counts remain historical because the full regression matrix was not rerun during the initial deployment. Individual physical capabilities remain default-off/probe-gated until their specific open GTA questions are answered.
-
-#### ACT3 — Rich short-range world activities
-
-**Status: next new ACT implementation; ACT0–ACT2 already merged through PR #18, with focused prerequisite GTA capability gates still open.** Add tested capabilities such as approach/face, enter/exit vehicle, short-range scenarios, walk-away/leave-scene, bounded cover and optional item interactions. Menu pickers mint validated temporary references rather than passing raw GTA handles.
-
-#### ACT4 — Dialogue awareness and interruption hardening
-
-**Status: planned from settled architecture.** Expose bounded current-activity context to dialogue and make conversation interruption/resume deterministic. An NPC can know what it is doing and why it stopped without claiming unverified physical completion.
-
-#### ACT5 — Model-proposed activities
-
-**Status: planned from settled architecture.** Luna may propose only closed activity intents for the current promoted actor. Existing P0 target-reference validation and action publication fences remain authoritative; the model never supplies coordinates, natives, handles, registry names or arbitrary step lists.
-
-#### ACT6 — Navigation extensions and places
-
-**Status: research-gated.** Static analysis proved Essential Hotfix #3's apparent `walktodestination`, `drivetodestination` and activity-queue state are vestigial. Real destination travel therefore needs separately registered `lsawalkto` / `lsadriveto` extensions, enabled only after the navigation/vehicle GTA probes demonstrate they coexist safely with Essential and installed vehicle mods.
-
-#### ACT7 — Commitments, home anchor and Director integration
-
-**Status: blocked on later PS phases.** Add durable commitments/home anchor, Scene Director activity proposals and directed NPC↔NPC interaction only after the required PS5/PS6/PS7 contracts exist. Commitments remain descriptive across restart; they never silently auto-execute on reload/summon.
-
-#### Initial capability progression
-
-ACT2 starts with wait/hold, follow, ambient resume and sit. ACT3 adds approach/face, vehicle entry/exit, scenarios such as smoke/coffee/phone/lean/bench, walk-away, cover and optional item transfers. ACT6 adds true arbitrary walk/drive-to waypoint/place behavior. Offensive combat, weapons, policing/hostage verbs and other unsafe/high-conflict families remain excluded until separately designed and gated.
-
-The ACT research also corrected an important prior assumption: **handler acceptance is not physical completion**. ACT therefore records native `ActionReceipt` progression and uses capability-specific world evidence before reporting arrival/completion. This same evidence layer will later support perception, memory, Luna planning and Scene Director without falsely remembering that an accepted action actually happened.
-
-## E7 — Full regression and GTA acceptance
-
-E7 is the integrated product-level acceptance phase.
-
-It should cover more than isolated happy-path conversations:
-
-- long play sessions / soak tests;
-- multiple NPCs and rapid speaker switching;
-- proximity hearing/address resolution, overhearing, group-address routing and responder arbitration;
-- PTT and typed input;
-- long responses;
-- interruption/supersession;
-- vehicles;
-- weapons;
-- police/civilian role actions;
-- provider/network failures;
-- rate limits and retries;
-- reconnects and reloads;
-- durable identity continuity;
-- autonomous turns;
-- custom actions;
-- stock Gemini regression;
-- OpenAI regression;
-- performance and latency;
-- observability/log consistency.
-
-The final acceptance criterion is not merely that an NPC can answer. The complete system must remain generation-safe, action-safe, identity-safe, and understandable under real GTA runtime stress.
-
-## Ongoing architectural rules
-
-Across every future phase:
-
-1. **Essential remains authoritative.** Do not recreate native turn, action, playback, or NPC-state ownership unless a demonstrated native gap requires a deliberately reviewed extension.
-2. **Extend before replacing.** Prefer existing Hotfix #3 extension seams and native behaviors over forks or parallel state machines.
-3. **Never trust raw ped handles as permanent identity.**
-4. **No stale work may publish.** Supersession/cancellation must continue to invalidate late model, TTS, action, and telemetry work.
-5. **Actions are side effects.** Streaming/retry work must never duplicate them.
-6. **Playback completion is native evidence.** Generated PCM length or provider completion is not proof that speech was delivered.
-7. **Observability remains passive.** Logging/reporting must never alter lifecycle success or failure.
-8. **Privacy remains bounded.** Do not persist credentials, prompts, transcripts, dialogue, raw provider responses, URLs, or audio in telemetry.
-9. **Offline verification and runtime validation are separate gates.** Unit/build success must never be reported as proof of live API or GTA behavior.
-10. **Keep the old custom LSA branch as a feature reference, not a source of code to merge blindly.** For each old capability, first determine whether Essential now provides it natively or exposes a better extension seam.
+| **E1–E6, E7** | E1–E6 provider, Luna/STT/TTS, safe retries, structured streaming and segmented speech integrated. ElevenLabs v4 emotional-acting path (EA0–EA9) integrated through #224; split-PCM failure fix #229. E7 is an integration/soak gate, not an implemented feature toggle. | Historical E6 and voice gameplay exist. #229 and current combined pipeline need exact-build GTA playback/interruption/long-run checks. |
+| **P0–P2** | Frozen context, P1 identity, promoted NPC profiles/editor/summon and P2 memory ownership integrated. | Prior GTA promotion/summon/follow examples exist; test current Memory K + P2 lifetime/reconnect, not just old branch demonstrations. |
+| **UX0–UX4, unified settings** | Shared Talk, targeting, mic/recipient feedback and experimental controls are in main. #221 offline master settings importer + #228 preservation of existing bindings are in main. | Talk/control path has earlier GTA evidence. The unified master is **opt-in/offline**, not automatically created or applied; current runtime files remain authoritative. Regression of held/tap, active targets and player-specific Steam Input remains open. |
+| **PS0–PS3** | Native sensing, verified observer episodes, PS3 salience and source-qualified gating integrated. #214 expands native collision/injury/body events. | Earlier PS2/PS3 shadow GTA evidence; current #214 callbacks, witness/freshness and failure paths need GTA tests. |
+| **PS4 / C-04 and C-05/C-06** | Single grounded requested-turn knowledge writer, self/action receipts, original native owner priority/Director admission. #225 repairs PS4 knowledge contract after main integration. | One prior real gunfire→PS4→Luna playback verified; **81-case audit, cross-feature regression and current exact-head acceptance are still open**. |
+| **PS5 / Memory K M0–M10** | M0 contracts; P2 SQLite, native D01/D02/D03 captured dialogue, H1/H2/M4 recall, M3 witnessed records, M5 correction/forget, M6 retention, M7 Luna curation, M8 interpretation, M9 optional events/callbacks composed in main. #217/#219/#220/#227/#230/#231 carry critical recovery, recall, idle-proof and correction changes. | Storage and recall have earlier partial GTA traces; **new #231 recovery and natural corrections, #230 M7 paid idle path, #213 M9 callbacks and M8 personality semantics are not GTA-accepted**. M7 and M9 remain gated/off by default. M10 standalone parity/soak not closed. |
+| **PS6 Phase 13a / 13b** | Existing bounded Scene Director spontaneous **speech-only** path, native original-turn binding, tickets and receipt rules; #214 adds events; M9 has opt-in callback-to-Director integration (#213). | User observed actual spontaneous gunfire/crash lines in earlier runs, not proof of every producer or this main SHA. Need reliable admission→Luna→audio→ack and player-interrupt GTA matrix. **13b fully memory-aware, natural spontaneous initiative remains an acceptance/expansion phase**, not simply done because M9 glue exists. |
+| **Radio R0–R5/v2** | Integrated mainline radio witness/song knowledge (#32) and #223 reconnect/in-vehicle revalidation. | **October 17 GTA evidence reports radio working after repairs**, but pin installed hashes, station/track resets, passenger, error and PS4 replay. Do not still call #32 open/unmerged. |
+| **ACT0–ACT2** | Promoted-actor registry, exact native execution leases/receipts, pause/resume, player-directed follow/wait/sit/resume integrated (#18). Some Essential-native follow/vehicle commands already work independently of ACT3. | October 6 GTA ACT smoke, plus later player experience, but individual task completion, cancel, residual owner and vehicle cases need bounded live evidence. |
+| **ACT3–ACT7** | **Merged PR #237 in main:** ACT3 native physical capabilities and multi-step plans, ACT4 source-fenced activity-aware dialogue, and ACT5 default-off consent-based proposals. PR #238 extends ACT5 to all executable ACT3 plans with native contextual availability and strict seat/scenario schemas (pending PR). ACT6 native walk/drive candidate is implemented in PR #239 (not GTA-accepted); ACT7 commitments remain future work. | ACT3 capabilities and ACT5 remain default-off. ACT3–ACT5 need exact-build GTA acceptance; PR #238 adds a dedicated CI and live native offer-state validation, but neither source code nor a handler ACK is proof of physical completion. |
+| **C-01 / PS7 / PS8** | C-01 source-time microphone/proximity branch [#37](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/37) **open, not main**. PS7 multiple-NPC responder routing and social conversations and PS8 expanded qualified world sensing are designed, not accepted implementations. | #37 requires reconciliation, native + exact-mic proof and GTA acoustic hearing; PS7 requires one responder and multi-character turn admission; PS8 needs one source-verified sensor at a time. |
+| **CGE, gestures, face/mouth** | CGE playback/listening gaze remains a design. #204/#226 integrate default-off, bounded gesture selection and optional nod/shrug. #215 supplies opt-in playback-level mouth overlay in main via #224 lineage. | GTA Enhanced animation/coexistence is **not** established. Facial expression G1 explicitly blocked by missing safe mouth/face ownership evidence; #222 is an **open docs-only PR targeting an obsolete integration base**. |
+| **Standalone replacement** | Experimental isolated [#50](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/50) branch includes native/typed/audio smoke work and modular descendants; **not merged to main, no Essential replacement cutover**. Parakeet local STT [#47](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/47) remains open on an old Qwen TTS branch. | Exact-head CI, isolated GTA/RPH with Essential disabled, rollback, identity/PCM/mic/perception/action parity and authorized cutover all outstanding. |
+
+For phase-by-phase evidence and source paths read [IMPLEMENTATION-STATUS-20261017.md](IMPLEMENTATION-STATUS-20261017.md).
+
+## Prioritized remaining development
+
+### P0 — immediate: make the merged build trustworthy
+
+1. **Baseline/release trace:** capture main SHA, build hashes, installed native DLL and companion versions, on/off/shadow feature modes, voice/controls, and original source/character/timeline per case. Run the E7 short smoke without enabling all experimental systems at once. Record separate source/offline/installed/GTA verdicts.
+2. **Memory correctness:** test #231 D03 owner-stall versus genuinely revoked owner; “Nara, not Nora” correction and all dog-name follow-up retrieval across fresh sessions; #220/#227 H2 candidate ranking; #219 M3 coverage recovery. Inspect exact SQLite committed bytes and the **PS4 prompt actually supplied to Luna**. A never-accepted D01 utterance remains unrecoverable by design.
+3. **Speech/perception stability:** reproduce #229 split/odd PCM and cut-off reply in real ElevenLabs speech; validate PS4 #225, radio #223, and #214 crash/injury/death/body native observations. Preserve player interruption and genuine source-negative cases.
+4. **Branch triage:** #37 C-01; #35 contextual ballistics; #47 Parakeet; #50 standalone; #222 stale-base gesture docs. Reconcile individually, with ownership/overlap review. They are **open PRs**, not automatically blockers of main's baseline.
+5. **M7/M8/M9 rollout review:** M7 (#230) opt-in consent/price/native verified quiet proof and real Luna cancellation; M8 source-linked personality output; M9 (#213) default-off native switch and event callbacks. Never assert a paid/background or uncompiled native producer is running.
+
+### P1 — next: capability and naturalness wins
+
+1. **ACT3 acceptance** — review the dedicated implementation PR and validate each gated capability on GTA Enhanced. Confirm Essential remains the sole executor, physical completion adapters distinguish success from accepted commands, and cancellation/preemption preserves higher-priority owners. Keep unsupported follow-vehicle, give/take-item, named-place scenarios and bench sitting blocked until their evidence seams exist.
+2. **ACT4** — expose current truthful ACT/C-05/C-06 state to an NPC's *requested dialogue*: active mode, pause, failure, source-qualified completion and safe resume. No implicit task clearing or stale lease replay. Depends on stabilized ACT2/selected ACT3 and PS4.
+3. **ACT5** — already implemented on main for four ACT2 and three ACT3 plans; PR #238 finishes seven ACT3 plan choices (scenarios, passenger boarding/riding, exit/wait) with read-only native actor/vehicle eligibility, per-choice strict Luna schema, bounded natural consent and same ACT GoalStore. ACT5 remains opt-in; real GTA/native validation remains a separate gate. No free-form planner or autonomous Director actions.
+4. **CGE0/G0** — check if stock Essential look/mouth behavior already suffices; gather GTA Enhanced compatibility evidence before optional playback-only head/eye overlay or expressive clips. Lip sync and #215 mouth overlay have face ownership priority; never run speculative facial expressions.
+
+### P2 — intermediate: social intelligence with safe arbitration
+
+1. **C-01** — reconcile #37 against current main, exact mic utterance ID, native source-time witness interval, privacy, owner/session/world fences and partial-hearing-only evidence; one STT may serve eligible observers. Do not synthesize hearing from transcript text after the fact.
+2. **PS7 / C-12 Social Director** — select and reserve **one** authorized responder, yield others, build each NPC's own PS4 frame and preserve player priority. Prove two-character turn arbitration, cancellation and no duplicate Luna/STT session on one utterance.
+3. **ACT7** — one bounded directed-interaction pair and durable, timeline/character-scoped commitments only after PS7 source and ACT actor/receipt gates. No replay of saved execution plans after restart.
+4. **PS6 13b** — measured memory-aware spontaneous callbacks/running jokes through the existing Director's one ticket, frozen verified M4/M6/M8/M9 evidence, privacy and cooldowns. Implement the missing natural selection and acceptance boundaries incrementally; do not create a second speech scheduler.
+
+### P3 — long term: navigation, expanded world and independent hosting
+
+1. **ACT6** — ACT-owned navmesh walking and long-range driving, retained waypoint/landmark resolution, driver/vehicle identity, task-status and distance arrival evidence, safe cancellation and truthful failure receipts are implemented in PR #239. Runtime remains gated off; exact-build GTA validation is still required before declaring navigation accepted.
+2. **PS8** — one new native-qualified world sensor at a time (explosion, siren, theft, etc. only where a real source/observer proof exists), then PS2/PS3/PS4/Director and GTA negative cases.
+3. **Standalone #50** — continue distinct R0–R5 host/IPC/audio/memory parity/rollback, behind a reversible isolated installer. No concurrent Essential authority or forced mainline cutover.
+4. **E7** — fully integrated soak and release gate, performance under GPU/gameplay load, reconnect, timeline, interruption, three-character concurrency, no cross-NPC leakage, bounded provider cost and rollback.
+
+## Dependencies and parallel work
+
+| Lane | Can begin independently | Hard integration gate |
+| --- | --- | --- |
+| Memory/reliability | #231/#229/#230 GTA matrices, H2 and M3 evidence, safe tests | Exact-current-main install; no real owner-revocation bypass |
+| ACT | ACT3 first capability and separate CGE0 source probe | ACT4 consumes proven ACT2/ACT3 self facts; ACT5 follows ACT4 and approved capabilities |
+| Hearing/social | Rebase/test #37; design C-12 reservation against source contracts | PS7 needs C-01 qualified hearing and silent-yield/source ownership; ACT7 follows PS7 + ACT owner/DI proof |
+| Spontaneous | 13a producer/reliability and M9 source/provenance testing | 13b memory behavior needs accepted durable recall + PS6 admission; not a replacement Director |
+| Voice/presentation | #229 GTA checks, #215 mouth/gesture feasibility, optional #47 STT branch | Facial expression requires verified ownership; CGE listening needs C-01; no voice/mic duplication |
+| Standalone | #50 exact-head CI and isolated smoke | Parity/cutover authority and rollback approval; not a dependency of Essential-first feature progress |
+
+**Recommended order:** establish P0 reliability on current main; finish ACT3/ACT4/ACT5 exact-build GTA evidence and PR #238 review, while reconciling C-01 separately. Integrate social routing after qualified source-time hearing; then broaden directed interactions, navigation and world autonomy. Every work package, file seam and acceptance oracle is indexed in [NEXT-PHASES-20261017.md](NEXT-PHASES-20261017.md).
+
+## Technical specifications — retained, not reinvented
+
+- [Original cross-system master implementation specification, §7–15](research/UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md) — ACT3–ACT7, C-01/C-12, PS6 13b, PS7, PS8, tests, preconditions and dependency graph.
+- [System contracts](research/system-contract-register.md), [ownership matrix](research/system-ownership-matrix.md), [dependency graph](research/system-convergence-dependency-graph.md) — native and producer authority.
+- [ACT0/1](ACT0-ACT1-status.md), [ACT2](ACT2-status.md), [runtime registry](../contracts/activity-capabilities.v1.json), [activity domain](research/domains/activities/README.md) — current dispatch and older design.
+- [Memory K design/decisions](plans/promoted-npc-memory/README.md), [original M0–M10 specification](plans/promoted-npc-memory/implementation-roadmap.md), [production closeout/acceptance](plans/promoted-npc-memory/MEMORY-INTEGRATION-ACCEPTANCE.md) — do not discard original invariant/gate IDs.
+- [PS6 13a native producer reliability audit](PS6-PHASE-13A-RELIABILITY-AUDIT-20261017.md), [PS4 audit](ps4-v1-acceptance-audit.md), [radio technical history](radio-track-perception-v2-status.md).
+- [CGE design](plans/conversation-gaze-engagement/README.md), [gesture/native compatibility](plans/npc-gestures-findings.md), [facial G1 blocked verdict](plans/npc-facial-acting-g1-verdict.md), [mouth overlay](npc-voice-presence.md).
+- [EA/ElevenLabs specifications](plans/ELEVENLABS-V4-EMOTIONAL-ACTING-IMPLEMENTATION.md) and [GTA release gate](ea9/GTA-ACCEPTANCE.md); [original standalone architecture (PR #50 branch)](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/50).
+- [Historical checkpoint ledger](unified-intelligence-implementation-status.md), [old v1 scope milestone](lsa-v1-implementation-milestone.md), [historical research](research/README.md). Their dated claims are not current-release claims.
+
+**Agent entrypoint:** read this roadmap, then the exact row in the [evidence matrix](IMPLEMENTATION-STATUS-20261017.md) and corresponding [next-phase work package](NEXT-PHASES-20261017.md); verify main SHA and PR state first; implement only the missing slice; record exact build/offline/GTA evidence without overwriting completed work.

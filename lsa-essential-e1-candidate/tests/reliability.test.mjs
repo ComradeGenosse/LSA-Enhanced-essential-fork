@@ -113,6 +113,29 @@ test('executor performs at most one eligible retry inside the original deadline'
   assert.ok(events.some(event => event.name === 'provider_retry_recovered'));
 });
 
+test('model format errors retry once before effects, never after audio or action handoff',async()=>{
+  const fault=Object.assign(new Error('malformed stock command'),{code:'decision_format_error'});
+  assert.deepEqual(classifyProviderFailure(fault),{retryable:true,reason:'decision_format_error'});
+  assert.equal(classifyProviderFailure({code:'invalid_response'}).retryable,false,
+    'general invalid response must not become a blanket retry');
+  const config={enabled:true,maxAttempts:2,baseDelayMs:0,maxDelayMs:0,minAttemptBudgetMs:1};
+  const base={
+    operation:'model',provider:'openai.reasoning',
+    identity:{pedId:'p',turnId:'t',generationId:1,sessionNonce:1},
+    signal:new AbortController().signal,deadlineAt:10000,now:()=>0,retryConfig:config,
+    delay:async()=>{},
+  };
+  let calls=0;
+  const result=await executeProviderOperation({...base,canRetry:()=>true,
+    run:async()=>{calls++;if(calls===1)throw fault;return 'corrected';}});
+  assert.equal(result,'corrected');
+  assert.equal(calls,2);
+  let blocked=0;
+  await assert.rejects(executeProviderOperation({...base,canRetry:()=>false,
+    run:async()=>{blocked++;throw fault;}}),error=>error.code==='decision_format_error');
+  assert.equal(blocked,1,'no second model request once audio/ACT admission has started');
+});
+
 test('dialogue trace closes every model attempt and retains distinct retry identities', async () => {
   const attempts = [];
   const result = await executeProviderOperation({

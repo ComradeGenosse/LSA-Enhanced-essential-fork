@@ -6,6 +6,7 @@ using System.Linq;
 using System.Web.Script.Serialization;
 using LSA.Enhanced.Commands;
 using LSA.Enhanced.Input;
+using LSA.Enhanced.Settings;
 using RAGENativeUI;
 using RAGENativeUI.Elements;
 
@@ -31,17 +32,21 @@ namespace LSA.Enhanced.Ui
         readonly UiContext context;
         readonly MenuPool pool = new MenuPool();
         readonly List<UIMenu> menus = new List<UIMenu>();
-        readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities;
+        readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage;
         readonly Dictionary<UIMenu,Page> pages = new Dictionary<UIMenu,Page>();
         readonly MenuData data;
         readonly OnscreenKeyboard keyboard = new OnscreenKeyboard();
         readonly HashSet<string> busy = new HashSet<string>(StringComparer.Ordinal);
         readonly UIMenuItem editorItem;
         UIMenu hiddenForKeyboard;
-        string selectedCharacterId, currentTitle;
+        string selectedCharacterId, currentTitle, activityTargetEncounterId, activityTargetOwnerAlias;
+        CharacterActivityBinding navigationBinding, activityTargetBinding;
         Page armedPage; UIMenuItem armedItem; MenuLine armedLine; string armedTarget; long armedUntil;
         List<MenuLine> aiLines;
-        long nextRender, nextInterest, nextRoster, aiReadAt = -1;
+        long nextRender, nextInterest, nextRoster, nextReadiness, nextDirectorPoll, nextBinding, aiReadAt = -1;
+        long directorBefore = -1;
+        bool directorPending;
+        string lastCharacterPresence;
         int dataVersion = -1;
         bool rendering, yielded;
         string aiConfig; bool aiCredential;
@@ -55,20 +60,26 @@ namespace LSA.Enhanced.Ui
             current = Menu("Current NPC");
             roster = Menu("Characters");
             character = Menu("Character");
-            controls = Menu("Controls");
+            controls = Menu("Gameplay Controls");
             ai = Menu("AI and voice");
             diagnostics = Menu("Diagnostics");
             activities = Menu("Assign Activity");
+            navigation = Menu("Activities & Navigation");
+            director = Menu("Director & Social");
+            settingsPage = Menu("Settings / Browser Editor");
             Bind(current,"Current NPC","Status and actions for the NPC Essential has selected.");
-            Bind(roster,"Characters","Promoted characters: summon, follow, wait and edit.");
-            Bind(controls,"Controls","Gestures, router keys and Essential's own keys.");
-            Bind(ai,"AI and voice","The AI companion's settings (read-only here).");
+            Bind(roster,"My Characters","Select a promoted character, summon, dismiss or manage gameplay.");
+            Bind(navigation,"Activities & Navigation","ACT activity status, control and navigation readiness.");
+            Bind(director,"Director & Social","Manual social scenes, availability and admission feedback.");
+            Bind(controls,"Gameplay Controls","Gestures, router keys and Essential's own keys.");
             Bind(diagnostics,"Diagnostics","Native host, command bridge, AI companion and recent failures.");
-            editorItem = new UIMenuItem("Character editor","Open this address in a browser for long text and full editing.");
-            main.AddItem(editorItem);
+            Bind(settingsPage,"Settings / Browser Editor","Full character and memory editing, AI providers and configuration.");
+            Bind(ai,"AI and voice","Read-only companion configuration.",settingsPage);
+            editorItem = new UIMenuItem("Browser editor","Open this address in a browser for character editing and configuration.");
+            settingsPage.AddItem(editorItem);
             character.ParentMenu = roster;
             activities.ParentMenu = current;
-            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities)})
+            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director)})
                 pages[pair.Item2] = new Page {Name = pair.Item1,Menu = pair.Item2};
         }
         UIMenu Menu(string subtitle)
@@ -84,10 +95,11 @@ namespace LSA.Enhanced.Ui
             pool.Add(menu); menus.Add(menu);
             return menu;
         }
-        void Bind(UIMenu child,string text,string description)
+        void Bind(UIMenu child,string text,string description,UIMenu parent = null)
         {
+            var host = parent ?? main;
             var item = new UIMenuItem(text,description);
-            main.AddItem(item); main.BindMenuToItem(child,item);
+            host.AddItem(item); host.BindMenuToItem(child,item);
         }
 
         // ---- IMenuSurface
@@ -138,7 +150,15 @@ namespace LSA.Enhanced.Ui
             if (menu != null && pages.TryGetValue(menu,out var page)) {
                 if (data.Version != dataVersion) { dataVersion = data.Version; nextRender = 0; }
                 if (now >= nextRender) { Render(page); nextRender = now + RenderIntervalMs; }
-                if ((menu == roster || menu == character) && now >= nextRoster) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
+                if ((menu == roster || menu == character) && now >= nextRoster) {
+                    data.RequestCharacters(); nextRoster = now + RosterRefreshMs;
+                }
+                if ((menu == character || menu == navigation && navigationBinding != null) && now >= nextBinding) {
+                    data.RequestCharacterBinding(menu == character ? selectedCharacterId : navigationBinding.CharacterId);
+                    nextBinding = now + AiReadIntervalMs;
+                }
+                if (menu == navigation && now >= nextReadiness) { data.RequestActivityReadiness(); nextReadiness = now + AiReadIntervalMs; }
+                if (menu == director && now >= nextDirectorPoll) { data.RequestDirectorStatus(); nextDirectorPoll = now + 1500; }
             }
             pool.ProcessMenus();
         }
@@ -171,10 +191,15 @@ namespace LSA.Enhanced.Ui
             long now = context.Clock.Monotonic;
             context.Bridge.RequestSnapshots(InterestMs); nextInterest = now + InterestIntervalMs;
             if (!data.CompanionReachable) data.Probe();
-            if (menu == main) { editorItem.RightLabel = Plain(EditorAddress()); current.ParentMenu = main; return; }
+            if (menu == main) { current.ParentMenu = main; navigationBinding = null; navigation.ParentMenu = main; return; }
+            if (menu == settingsPage) { editorItem.RightLabel = Plain(EditorAddress()); return; }
             if (!pages.TryGetValue(menu,out var page)) return;
             Invalidate(page);
-            if (menu == roster || menu == character) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
+            if (menu == roster || menu == character || ((menu == current || menu == navigation) && data.Characters == null)) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
+            if (menu == character && selectedCharacterId != null) { data.RequestCharacterBinding(selectedCharacterId); nextBinding = now + AiReadIntervalMs; }
+            if (menu == navigation && navigationBinding != null) { data.RequestCharacterBinding(navigationBinding.CharacterId); nextBinding = now + AiReadIntervalMs; }
+            if (menu == navigation) { data.RequestActivityReadiness(); nextReadiness = now + AiReadIntervalMs; }
+            if (menu == director) { data.RequestDirectorStatus(); nextDirectorPoll = now + 1500; }
             if (menu == ai) aiReadAt = -1;
         }
         void Selected(UIMenu sender,UIMenuItem item,int index)
@@ -183,6 +208,10 @@ namespace LSA.Enhanced.Ui
             if (line.Options != null) { SaveChoice(page,item,line); return; }
             if (line.Command == null || line.Command.StartsWith("local.",StringComparison.Ordinal)) { Local(page,line); return; }
             if (line.Command == CommandCatalog.CharacterRename || line.Command == CommandCatalog.CharacterMemoryAdd) { TypeText(page,line); return; }
+            if (line.Command == CommandCatalog.DirectorSocialManual) {
+                directorBefore = data.DirectorStatus?.ReceivedAt ?? -1;
+                directorPending = true;
+            }
             if (line.Confirm && !(armedItem == item && context.Clock.Monotonic <= armedUntil)) { Arm(page,item,line); return; }
             // The second select must still mean the same NPC or character.
             if (line.Confirm && armedTarget != Target(page)) { Disarm(); context.Hud.Show(context.Catalog.Describe("target_changed")); return; }
@@ -227,11 +256,35 @@ namespace LSA.Enhanced.Ui
         {
             switch (line.Command ?? line.Key) {
                 case LocalOpenCharacter: OpenCharacter(line.Value,page.Menu); break;
+                case "local.openDirector":
+                    director.ParentMenu = page.Menu; Invalidate(pages[director]);
+                    page.Menu.Visible = false; director.Visible = true; break;
+                case "local.openNavigation":
+                    if (page.Menu == character) {
+                        var original = data.CharacterBinding;
+                        if (original == null || !original.Safe || original.CharacterId != selectedCharacterId ||
+                            original.EncounterId != line.ExpectedEncounterId || original.OwnershipToken != line.ExpectedOwnershipToken) {
+                            context.Hud.Show(context.Catalog.Describe("target_changed")); break;
+                        }
+                        navigationBinding = original;
+                    } else navigationBinding = null;
+                    navigation.ParentMenu = page.Menu; Invalidate(pages[navigation]);
+                    page.Menu.Visible = false; navigation.Visible = true; break;
                 case "local.openActivities":
+                    activityTargetEncounterId = line.ExpectedEncounterId;
+                    activityTargetOwnerAlias = line.ExpectedOwnerAlias;
+                    activityTargetBinding = line.BindingCharacterId != null ? navigationBinding : null;
+                    if (activityTargetEncounterId == null || activityTargetBinding != null &&
+                        (activityTargetBinding.CharacterId != line.BindingCharacterId || activityTargetBinding.OwnershipToken != line.ExpectedOwnershipToken)) {
+                        context.Hud.Show(context.Catalog.Describe("target_changed")); break;
+                    }
                     activities.ParentMenu = page.Menu; Invalidate(pages[activities]);
                     page.Menu.Visible = false; activities.Visible = true; break;
                 case LocalRefresh: case "refresh":
                     if (page.Menu == roster || page.Menu == character) data.RequestCharacters();
+                    if (page.Menu == character || page.Menu == navigation && navigationBinding != null) data.RequestCharacterBinding(page.Menu == character ? selectedCharacterId : navigationBinding.CharacterId);
+                    if (page.Menu == director) data.RequestDirectorStatus();
+                    if (page.Menu == navigation) data.RequestActivityReadiness();
                     data.Probe(); aiReadAt = -1; Invalidate(page); break;
                 case "log": context.Log("[UX] diagnostics " + string.Join("; ",DiagnosticsLines().Where(item => item.Info).Select(item => item.Text + "=" + item.Right))); context.Hud.Show("Diagnostics written to RagePluginHook.log"); break;
                 case CurrentNpcView.ClearTalkCommand: context.ClearTalkTarget(); Invalidate(page); break;
@@ -241,6 +294,7 @@ namespace LSA.Enhanced.Ui
         {
             if (characterId == null) return;
             selectedCharacterId = characterId;
+            data.RequestCharacterBinding(characterId);
             var page = pages[character]; page.ResetSelection = true; Invalidate(page);
             Disarm();
             from.Visible = false;
@@ -266,6 +320,10 @@ namespace LSA.Enhanced.Ui
         }
         void Run(Page page,MenuLine line,CommandArgs args)
         {
+            args.ExpectedEncounterId = line.ExpectedEncounterId;
+            args.ExpectedOwnerAlias = line.ExpectedOwnerAlias;
+            args.ExpectedOwnershipToken = line.ExpectedOwnershipToken;
+            if (line.BindingCharacterId != null) args.CharacterId = line.BindingCharacterId;
             if (page.Menu == character) {
                 var row = Row();
                 if (row == null) return;
@@ -279,6 +337,10 @@ namespace LSA.Enhanced.Ui
         void Completed(MenuLine line,string reason,string body)
         {
             switch (line.Command) {
+                case CommandCatalog.DirectorSocialManual:
+                    if (reason != null) directorPending = false;
+                    else data.RequestDirectorStatus();
+                    break;
                 case CommandCatalog.CharacterRename: case CommandCatalog.CharacterRelationship: case CommandCatalog.CharacterAvailability:
                 case CommandCatalog.CharacterMemorySelect: case CommandCatalog.CharacterMemoryAdd:
                     // The reply carries the new revision; anything else reloads the roster.
@@ -286,7 +348,12 @@ namespace LSA.Enhanced.Ui
                     break;
                 case CommandCatalog.CharacterSummon: case CommandCatalog.CharacterFollow: case CommandCatalog.CharacterWait:
                 case CommandCatalog.CharacterDismiss: case CommandCatalog.CharacterDespawn: case CommandCatalog.CurrentPromote:
-                    data.RequestCharacters();
+                    // Force fresh native evidence after spawn/follow/retirement.
+                    // A stale pre-spawn roster response cannot consume this refresh.
+                    data.InvalidateCharacterBinding();
+                    data.RequestCharacters(refreshAfterInFlight:true);
+                    if (selectedCharacterId != null) data.RequestCharacterBinding(selectedCharacterId);
+                    nextRoster = 0; nextBinding = 0;
                     break;
                 case CommandCatalog.ActivityAssign: case CommandCatalog.ActivityPause: case CommandCatalog.ActivityResume: case CommandCatalog.ActivityCancel:
                     RefreshActivityDescribe();
@@ -349,6 +416,10 @@ namespace LSA.Enhanced.Ui
         string Target(Page page)
         {
             if (page.Menu == character) return "character:" + selectedCharacterId;
+            if (page.Menu == activities) return activityTargetBinding != null
+                ? "character:" + activityTargetBinding.CharacterId + "|" + activityTargetBinding.EncounterId + "|" + activityTargetBinding.OwnershipToken
+                : "npc:" + activityTargetEncounterId + "|" + activityTargetOwnerAlias;
+            if (page.Menu == navigation && navigationBinding != null) return "character:" + navigationBinding.CharacterId + "|" + navigationBinding.EncounterId + "|" + navigationBinding.OwnershipToken;
             long utc = context.Clock.Utc;
             var snapshot = Snapshot(utc);
             var npc = snapshot != null && snapshot.Fresh(utc,InputGates.SnapshotMaxAgeMs) ? snapshot.Current : null;
@@ -406,26 +477,58 @@ namespace LSA.Enhanced.Ui
             if (!string.IsNullOrEmpty(line.Right)) item.RightLabel = Plain(line.Right);
             return item;
         }
+        CurrentNpcModel LiveNpcModel(long utc,EnhancedSettings settings)
+        {
+            var snapshot = Snapshot(utc);
+            var npc = snapshot != null && snapshot.Fresh(utc,InputGates.SnapshotMaxAgeMs) ? snapshot.Current : null;
+            string alias = npc != null && npc.Owned ? npc.OwnerAlias : null;
+            if (npc != null && npc.Present) data.RequestDescribe(npc.EncounterId,alias);
+            var describe = npc != null && npc.Present ? data.DescribeFor(npc.EncounterId,alias) : null;
+            if (describe == null && npc != null && npc.Owned) describe = CharacterList.ForOwnedAlias(data.Characters,alias);
+            return CurrentNpcView.Build(snapshot,utc,describe,context.Bridge.Available,data.CompanionReachable,settings);
+        }
         List<MenuLine> Build(Page page,out string subtitle)
         {
             var settings = context.Settings();
             long utc = context.Clock.Utc;
-            if (page.Menu == activities) { subtitle = "Assign Activity"; return CurrentNpcView.Assign(data.CompanionReachable).Lines; }
+            if (page.Menu == activities) {
+                subtitle = "Assign Activity";
+                bool sameActor = activityTargetBinding == null ||
+                    activityTargetBinding.SameIncarnation(data.CharacterBinding) && data.CharacterBinding.Safe;
+                var lines = CurrentNpcView.Assign(data.CompanionReachable && activityTargetEncounterId != null && sameActor).Lines;
+                foreach (var line in lines) {
+                    line.ExpectedEncounterId = activityTargetEncounterId; line.ExpectedOwnerAlias = activityTargetOwnerAlias;
+                    if (activityTargetBinding != null) { line.BindingCharacterId = activityTargetBinding.CharacterId; line.ExpectedOwnershipToken = activityTargetBinding.OwnershipToken; }
+                }
+                return lines;
+            }
             if (page.Menu == current) {
-                var snapshot = Snapshot(utc);
-                var npc = snapshot != null && snapshot.Fresh(utc,InputGates.SnapshotMaxAgeMs) ? snapshot.Current : null;
-                string alias = npc != null && npc.Owned ? npc.OwnerAlias : null;
-                if (npc != null && npc.Present) data.RequestDescribe(npc.EncounterId,alias);
-                var describe = npc != null && npc.Present ? data.DescribeFor(npc.EncounterId,alias) : null;
-                var model = CurrentNpcView.Build(snapshot,utc,describe,context.Bridge.Available,data.CompanionReachable,settings);
+                var model = LiveNpcModel(utc,settings);
+                var describe = model.Owned ? data.DescribeFor(model.EncounterId,model.OwnerAlias) ?? CharacterList.ForOwnedAlias(data.Characters,model.OwnerAlias) : null;
                 currentTitle = model.Present ? model.Title : null;
                 if (model.Owned && describe != null && describe.Kind == "promoted" && describe.CharacterId != null)
                     model.Lines.Add(new MenuLine {Key = "details",Text = "Character details",Command = LocalOpenCharacter,Value = describe.CharacterId,Description = "Rename, relationship, availability and memories."});
                 subtitle = model.Title;
                 return model.Lines;
             }
+            if (page.Menu == navigation) {
+                subtitle = "Activities & Navigation";
+                if (navigationBinding != null) {
+                    var row = data.Characters?.FirstOrDefault(item => item.CharacterId == navigationBinding.CharacterId);
+                    var checkedBinding = navigationBinding.SameIncarnation(data.CharacterBinding) ? data.CharacterBinding : null;
+                    subtitle = row?.Name ?? "Character changed";
+                    return CharacterNavigationView.Build(row,checkedBinding,data.ActivityReadiness,data.CompanionReachable);
+                }
+                return GameplayNavigationView.Build(LiveNpcModel(utc,settings),data.ActivityReadiness);
+            }
+            if (page.Menu == director) {
+                subtitle = "Director & Social";
+                if (directorPending && data.DirectorStatus != null && data.DirectorStatus.ReceivedAt > directorBefore)
+                    directorPending = false;
+                return DirectorSocialView.Build(data.DirectorStatus,data.CompanionReachable,directorPending,directorBefore);
+            }
             if (page.Menu == roster) {
-                subtitle = "Characters";
+                subtitle = "My Characters";
                 var lines = new List<MenuLine>();
                 if (data.CharactersError != null) lines.Add(MenuLine.Fact("error",data.Characters == null ? "Characters unavailable" : "Last refresh failed",context.Catalog.Describe(data.CharactersError),"The AI companion must be running with promoted characters enabled."));
                 if (data.Characters == null) { if (data.CharactersError == null) lines.Add(MenuLine.Fact("loading","Loading characters…","")); }
@@ -443,7 +546,42 @@ namespace LSA.Enhanced.Ui
                     return new List<MenuLine> {data.Characters == null ? MenuLine.Fact("loading","Loading character…","") : MenuLine.Fact("missing","Character not found","","It may have been removed in the character editor.")};
                 }
                 subtitle = row.Name;
-                return CharacterList.Actions(row,data.CompanionReachable,context.Bridge.Available);
+                var binding = data.CharacterBinding?.CharacterId == row.CharacterId &&
+                    data.CharacterBinding.OwnerAlias == row.OwnerAlias &&
+                    data.BindingVerifiedAt >= 0 &&
+                    context.Clock.Monotonic - data.BindingVerifiedAt <= AiReadIntervalMs * 2
+                    ? data.CharacterBinding : null;
+                // Native inspect is an independent authenticated presence proof.
+                // It repairs a delayed/unknown roster, but actual commands still
+                // revalidate ownership/lease in the original native executor.
+                var lines = CharacterList.Actions(row,data.CompanionReachable,context.Bridge.Available,binding != null);
+                // One durable RPH transition per visible state change. No private
+                // character/profile IDs, ownership tokens, or polling spam.
+                bool followAvailable = data.CompanionReachable && context.Bridge.Available &&
+                    (row.Spawned || row.Suspended || binding != null);
+                string rosterState = row.Spawned ? "spawned" : row.Suspended ? "suspended" :
+                    row.RuntimeStatus == "unverified" ? "unverified" : "absent";
+                string presence = row.CharacterId + "|" + rosterState + "|" + (binding != null) +
+                    "|" + followAvailable;
+                if (presence != lastCharacterPresence) {
+                    lastCharacterPresence = presence;
+                    context.Log("[GM] character_view roster=" + rosterState +
+                        " binding=" + (binding != null ? "verified" : "unavailable") +
+                        " follow=" + (followAvailable ? "enabled" : "disabled"));
+                }
+                if (binding != null) {
+                    var action = MenuLine.Action("characterActivity","Activities for " + row.Name + "...","local.openNavigation",
+                        "Select ACT and navigation commands directly for this native-owned incarnation; no UX4 selection needed.",
+                        data.CompanionReachable && binding.Safe);
+                    action.ExpectedEncounterId = binding.EncounterId;
+                    action.ExpectedOwnerAlias = binding.OwnerAlias;
+                    action.ExpectedOwnershipToken = binding.OwnershipToken;
+                    action.BindingCharacterId = row.CharacterId;
+                    lines.Insert(1,action);
+                } else lines.Insert(1,MenuLine.Fact("activitySelection","Activity actions",
+                    row.Spawned || row.Suspended ? "Checking native binding" : "Summon first",
+                    "An absent character cannot perform world actions. Otherwise wait for verified native ownership."));
+                return lines;
             }
             if (page.Menu == controls) {
                 subtitle = "Controls";
@@ -467,7 +605,7 @@ namespace LSA.Enhanced.Ui
             return DiagnosticsView.Build(new DiagnosticsInput {
                 HostStatus = context.HostStatus(),RouterState = router?.State,Conflict = router?.Conflict,SettingsRevision = context.Settings()?.Revision,
                 EndpointState = context.EndpointState(),CatalogSha = context.Catalog.Sha256,BridgeAvailable = context.Bridge.Available,CompanionReachable = data.CompanionReachable,
-                SnapshotAgeMs = snapshot == null ? -1 : Math.Max(0,utc - snapshot.BuiltAtUtc),Outstanding = context.Dispatcher.Outstanding,RecentReasons = context.Dispatcher.RecentReasons,
+                SnapshotAgeMs = snapshot == null ? -1 : Math.Max(0,utc - snapshot.BuiltAtUtc),Outstanding = context.Dispatcher.Outstanding,RecentReasons = context.Dispatcher.RecentReasons,RecentOutcomes = context.Dispatcher.RecentOutcomes,
                 TalkState = context.TalkStatus(),TalkConflict = context.TalkConflict(),IndicatorState = snapshot?.TalkTarget?.Indicator});
         }
         // Public companion settings only; the credential file is checked for

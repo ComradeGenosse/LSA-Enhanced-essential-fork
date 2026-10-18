@@ -23,7 +23,7 @@ export function validateDirectorRequest(value) {
       !positive(value.worldEpoch) || !positive(value.proofRevision) ||
       !integer(value.playerTurnVersion) || value.policyVersion !== 1 ||
       !positive(value.observationRevision) || !integer(value.ageMs) ||
-      value.ageMs > 2000 ||
+      value.ageMs > (value.decisionKey?.startsWith('social:')?14000:2000) ||
       typeof value.decisionKey !== 'string' || !value.decisionKey.length ||
       value.decisionKey.length > 160 || /[\u0000-\u001f\u007f]/.test(value.decisionKey)) return false;
   return Buffer.byteLength(JSON.stringify(value)) <= 8192;

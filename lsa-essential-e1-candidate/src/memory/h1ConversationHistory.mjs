@@ -1,0 +1,357 @@
+import {isDirectorSocialContext} from '../perception/directorSocialContext.mjs';
+// H1-A: source-authorized, read-only P2 CONVERSE preparation.
+// The module creates no SQLite connection, writer, model frame or native proof.
+// The caller must supply the existing D03/M2 accepted-line and owner authority.
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const avatar=new Set(['franklin','michael','trevor','unknown']);
+const playerSource=new Set(['player_text','player_mic']);
+const bytes=v=>Buffer.byteLength(JSON.stringify(v),'utf8');
+const MAX_AGE=5*60*1000;
+const validLine=e=>e?.kind==='dialogue_line'&&uuid.test(e.recordId)&&
+  typeof e.content==='string'&&e.content.length>0&&e.content.length<=12000&&
+  Number.isFinite(Date.parse(e.committedAtUtc))&&(
+    e.speaker==='player'&&e.delivery==='accepted'&&['typed','stt'].includes(e.source)||
+    e.speaker==='npc'&&e.delivery==='completed'&&uuid.test(e.deliveryReceiptId));
+const matchesScope=(e,s)=>e.characterId===s.characterId&&
+  e.worldProfileId===s.worldProfileId&&e.timelineId===s.timelineId;
+const sameHost=(a,b)=>!!a&&!!b&&a.hostRunId===b.hostRunId&&a.worldEpoch===b.worldEpoch;
+
+
+const unavailable=reason=>Object.freeze({status:'unavailable',reason,conversationJournal:null});
+const invalidated=reason=>Object.freeze({status:'invalidated',reason});
+const readyVerification=Object.freeze({status:'ready'});
+/** A journal history only. The accepted line is NOT reinserted as history.
+ * Previous NPC speech that was interrupted/failed is never treated as heard.
+ * Archived speech is explicitly labelled, never passed off as a live turn.
+ */
+export function assembleJournalConversation({rows,accepted,scope,suppressed=[],nowUtc}={}){
+  if(!Array.isArray(rows)||!accepted||!scope||!Array.isArray(suppressed))return null;
+  const hidden=new Set(suppressed);
+  if(hidden.has(accepted.recordId)||!validLine(accepted)||accepted.speaker!=='player'||
+     !matchesScope(accepted,scope)||!uuid.test(accepted.attribution?.sessionId))return null;
+  const end=Date.parse(accepted.committedAtUtc);
+  if(!Number.isFinite(end)||end>Date.parse(nowUtc)+60000)return null;
+  const unique=new Map();
+  for(const row of rows){
+    if(!validLine(row)||!matchesScope(row,scope)||hidden.has(row.recordId)||
+       row.recordId===accepted.recordId||!uuid.test(row.attribution?.sessionId)||
+       Date.parse(row.committedAtUtc)>end)continue;
+    if(!unique.has(row.recordId))unique.set(row.recordId,row);
+  }
+  const ordered=[...unique.values()].sort((a,b)=>
+    Date.parse(b.committedAtUtc)-Date.parse(a.committedAtUtc)||
+    b.recordId.localeCompare(a.recordId));
+  const recent=[];
+  let last=end;
+  for(const row of ordered){
+    const at=Date.parse(row.committedAtUtc);
+    if(last-at>MAX_AGE)break;
+    const item={role:row.speaker==='player'?'user':'assistant',content:row.content};
+    if(recent.length>=20||bytes([item,...recent])>12*1024)break;
+    recent.unshift(item);last=at;
+  }
+  // A limited labelled earlier block, never an invented summary. PS4 allocates
+  // these only inside the same character/timeline, at lower priority than canon.
+  const earlier=[];
+  for(const row of ordered.slice(recent.length)){
+    if(earlier.length>=4)break;
+    const item={role:row.speaker==='player'?'user':'assistant',content:row.content,
+      atUtc:row.committedAtUtc,status:'archived'};
+    if(bytes([...earlier,item])>2048)break;
+    earlier.push(item);
+  }
+  // PS4 may retain this snapshot across awaited source checks. A caller must
+  // not mutate model-visible bytes while the original journal seal still passes.
+  return Object.freeze({recent:Object.freeze(recent.map(item=>Object.freeze(item))),
+    earlier:Object.freeze(earlier.map(item=>Object.freeze(item)))});
+}
+
+
+/** Open the same authenticated accepted-player source as WS6, without invoking
+ * M4, M5 or M8. Open once before optional commands, then prepare() afterwards.
+ * No caller may fabricate M2 authority; openMemoryCurrent/verifyMemoryCurrent
+ * and the durable P2 accepted-line readback are mandatory.
+ */
+export async function openH1ConversationSource({store,turn,acceptedReceipt,input,source,isCurrent,
+  nowUtc=new Date().toISOString()}={}){
+  if(!playerSource.has(source)||typeof input!=='string'||typeof isCurrent!=='function'||
+     !store||typeof store.readDialogueLines!=='function'||
+     typeof store.listSuppressedMemoryIds!=='function'||
+     !['stored','duplicate'].includes(acceptedReceipt?.status)||
+     acceptedReceipt?.durable!==true||!uuid.test(acceptedReceipt.recordId)||
+     !avatar.has(acceptedReceipt.protagonistKey))return unavailable('source_authority_missing');
+  try{
+    const characterId=turn?.characterProjection?.profile?.characterId;
+    const profile=turn?.characterProjection?.profile;
+    const scope=Object.freeze({characterId,worldProfileId:store.worldProfileId,
+      timelineId:store.activeTimelineId,protagonistKey:acceptedReceipt.protagonistKey});
+    const host=store.verifiedHostContext;
+    const alias=profile?.promotion?.ownerAlias;
+    const current=()=>isCurrent()===true&&
+      turn.characterProjection?.persistent===true&&
+      turn.characterProjection?.profile?.characterId===characterId&&
+      turn.characterProjection?.profile?.promotion?.ownerAlias===alias&&
+      turn.characterInputs?.profile?.characterId===characterId&&
+      uuid.test(characterId)&&uuid.test(scope.worldProfileId)&&
+      uuid.test(scope.timelineId)&&store.activeTimelineId===scope.timelineId&&
+      store.timelineWritable===true&&sameHost(store.verifiedHostContext,host)&&
+      store.get(characterId)?.promotion?.ownerAlias===alias&&
+      turn.m2Capture?.verifyMemoryCurrent?.()===true;
+    if(!alias||typeof turn.m2Capture?.openMemoryCurrent!=='function'||
+       await turn.m2Capture.openMemoryCurrent()!==true||!current())
+      return unavailable('source_authority_missing');
+    // The current line MUST exist in durable P2; never reconstruct from input.
+    const rows=await store.readDialogueLines({characterId,timelineId:scope.timelineId,limit:200});
+    if(!current())return unavailable('source_authority_missing');
+    const line=rows.find(row=>row.recordId===acceptedReceipt.recordId);
+    const expectedSource=source==='player_mic'?'stt':'typed';
+    if(!line||!validLine(line)||line.speaker!=='player'||line.source!==expectedSource||
+       line.content!==input||!matchesScope(line,scope)||
+       line.attribution?.protagonist!==scope.protagonistKey||
+       !sameHost(line.attribution,host)||!uuid.test(line.attribution.sessionId)||
+       !/^[0-9a-f]{64}$/.test(line.turnIdentityHash))
+      return unavailable('source_authority_missing');
+    const acceptedSeal=JSON.stringify(line);
+    const stamp=Object.freeze({...scope,hostRunId:host.hostRunId,
+      worldEpoch:host.worldEpoch,recordId:line.recordId});
+    const hidden=async()=>{
+      // The canonical P2 privacy reader expands inspector fact revisions to
+      // their original dialogue sources and dependent records. M4 may be off.
+      const ids=await store.listSuppressedMemoryIds(scope,{includeCorrections:true});
+      if(!current())throw Error('memory_source_revoked');
+      const corrections=await store.readCorrectionOverlays?.(scope)??[];
+      if(!current())throw Error('memory_source_revoked');
+      // The active accepted correction still belongs to THIS model turn.
+      // Suppress its negating source on later turns, but not before the
+      // current command acknowledgement when the exact M5 receipt exists.
+      const selfCorrection=corrections.some(x=>x.correctionMode==='player_fact'&&
+        x.supersedesTarget===true&&x.requestLineId===line.recordId);
+      const privacyHidden=selfCorrection
+        ?await store.listSuppressedMemoryIds(scope,{includeCorrections:false}):[];
+      if(!current())throw Error('memory_source_revoked');
+      return [...new Set([...ids,...corrections.filter(x=>x.supersedesTarget!==false)
+        .map(x=>x.targetId)])]
+        .filter(id=>id!==line.recordId||!selfCorrection||privacyHidden.includes(id))
+        .sort();
+    };
+    // This read-only method is intentionally callable after any existing M5
+    // durable command transaction, so correction/forget cannot leak stale text.
+    async function prepare(){
+      if(!current())return unavailable('source_authority_missing');
+      try{
+        // Bind suppression, correction overlays and journal readback to one
+        // stable P2 generation. A change during either awaited read is denied.
+        const fence=store.memoryReadFence;
+        if(fence===null||fence===undefined)return unavailable('history_unavailable');
+        const suppressed=await hidden();
+        const freshRows=await store.readDialogueLines({
+          characterId,timelineId:scope.timelineId,limit:200});
+        if(!current())return unavailable('source_authority_missing');
+        if(store.memoryReadFence!==fence||
+           JSON.stringify(freshRows.find(row=>row.recordId===line.recordId))!==acceptedSeal)
+          return unavailable('history_unavailable');
+        const conversationJournal=assembleJournalConversation({
+          rows:freshRows,accepted:line,scope,suppressed,nowUtc});
+        if(!conversationJournal)return unavailable('history_unavailable');
+        const journalSeal=JSON.stringify(conversationJournal);
+        let verifiedFence=null,verifiedRequestFence=null;
+        // Mandatory on every model attempt and before the final send boundary.
+        // Snapshot comparisons are read-only and never grant native/source proof.
+        async function verifyPrepared(){
+          verifiedFence=null;
+          const fence=store.memoryReadFence;
+          if(!current()||fence===null||fence===undefined)
+            return invalidated('source_authority_revoked');
+          try{
+            const freshHidden=await hidden();
+            const checkRows=await store.readDialogueLines({
+              characterId,timelineId:scope.timelineId,limit:200});
+            if(!current()||store.memoryReadFence!==fence)
+              return invalidated('source_authority_revoked');
+            if(JSON.stringify(checkRows.find(row=>row.recordId===line.recordId))!==acceptedSeal)
+              return invalidated('accepted_line_changed');
+            const checkJournal=assembleJournalConversation({
+              rows:checkRows,accepted:line,scope,suppressed:freshHidden,nowUtc});
+            if(JSON.stringify(checkJournal)!==journalSeal)
+              return invalidated('history_changed');
+            verifiedFence=fence;
+            verifiedRequestFence=store.memoryRequestFence??fence;
+            return readyVerification;
+          }catch{return invalidated('history_read_failed');}
+        }
+        const sendCurrent=()=>verifiedFence!==null&&current()&&
+          store.memoryReadFence===verifiedFence;
+        const sendCurrentInFlight=()=>verifiedFence!==null&&current()&&
+          (store.memoryRequestFence??store.memoryReadFence)===verifiedRequestFence;
+        const invalidationReason=()=>!current()?'authority_revoked':
+          verifiedFence===null?'not_verified':
+          store.memoryRequestFenceFailure?.(verifiedRequestFence)??
+          (sendCurrentInFlight()?null:'source_changed');
+        return Object.freeze({status:'ready',conversationJournal,stamp,
+          verifyPrepared,sendCurrent,sendCurrentInFlight,invalidationReason});
+      }catch{return unavailable('history_unavailable');}
+    }
+    return Object.freeze({status:'ready',scope,line,characterId,stamp,current,prepare});
+  }catch{return unavailable('source_authority_missing');}
+}
+
+/** Independent one-call H1 API for H1-B/H1-C. Neither M4 recall nor M5
+ * commands nor M8 personality is instantiated or required here.
+ */
+export async function prepareH1ConversationHistory(args={}){
+  const source=await openH1ConversationSource(args);
+  return source.status==='ready'?source.prepare():source;
+}
+
+// Read-only H1 for the already-admitted native Director social lane. Unlike a
+// player turn, there is no accepted player line to anchor the read. The
+// authenticated social ticket and still-current native owner replace that
+// anchor; P2 remains the ONLY transcript and privacy source.
+export function assembleDirectorSocialConversation({rows,scope,suppressed=[],nowUtc,
+  verifiedSocialSpeech=[]}={}){
+  if(!Array.isArray(rows)||!scope||!Array.isArray(suppressed))return null;
+  const now=Date.parse(nowUtc);
+  if(!Number.isFinite(now))return null;
+  const hidden=new Set(suppressed),unique=new Map();
+  for(const row of rows){
+    if(!validLine(row)||!matchesScope(row,scope)||hidden.has(row.recordId)||
+       !uuid.test(row.attribution?.sessionId))continue;
+    const at=Date.parse(row.committedAtUtc);
+    // Only a current five-minute window. Do not replay ancient greetings,
+    // undelivered speech, or a future-dated line as something just said.
+    if(at>now+60_000||now-at<0||now-at>MAX_AGE)continue;
+    if(!unique.has(row.recordId))unique.set(row.recordId,row);
+  }
+  // The original Essential RAM history knows whether native playback actually
+  // completed. Standalone social speech cannot enter D03's reply-to-player
+  // journal yet, so merge ONLY the runtime's already proof-filtered, completed
+  // same-session social lines. No other RAM dialogue is admitted.
+  if(!Array.isArray(verifiedSocialSpeech))return null;
+  const ordered=[...unique.values()].map(row=>({
+    role:row.speaker==='player'?'user':'assistant',content:row.content,
+    at:Date.parse(row.committedAtUtc),id:row.recordId
+  }));
+  for(const [i,item] of verifiedSocialSpeech.entries()){
+    const at=Date.parse(item?.atUtc);
+    if(item?.role!=='assistant'||typeof item.content!=='string'||
+       !item.content.trim()||item.content.length>1200||
+       !Number.isFinite(at)||at>now||now-at>MAX_AGE)continue;
+    // If a future D03 native reply source also stored it, don't say it twice.
+    if(ordered.some(e=>e.role==='assistant'&&e.content===item.content&&
+       Math.abs(e.at-at)<5000))continue;
+    ordered.push({role:'assistant',content:item.content,at,id:'live-'+i});
+  }
+  ordered.sort((a,b)=>b.at-a.at||b.id.localeCompare(a.id));
+  const recent=[];
+  for(const row of ordered){
+    const item={role:row.role,content:row.content};
+    if(recent.length>=20||bytes([item,...recent])>12*1024)break;
+    recent.unshift(Object.freeze(item));
+  }
+  return Object.freeze({recent:Object.freeze(recent),earlier:Object.freeze([])});
+}
+
+export async function prepareDirectorSocialConversationHistory({
+  store,turn,source,isCurrent,isDirectorCurrent,readVerifiedSocialSpeech=()=>[],
+  nowUtc=new Date().toISOString()
+}={}){
+  const ticket=turn?.directorTicket,profile=turn?.characterProjection?.profile;
+  if(source!=='special_event'||!ticket?.decisionKey?.startsWith('social:')||
+     !isDirectorSocialContext(turn?.context?.internalEvent)||
+     typeof isCurrent!=='function'||typeof isDirectorCurrent!=='function'||
+     !store||typeof store.readDialogueLines!=='function'||
+     typeof store.listSuppressedMemoryIds!=='function'||
+     turn.characterProjection?.persistent!==true||
+     profile?.characterId!==turn.characterInputs?.profile?.characterId||
+     !uuid.test(profile?.characterId)||
+     !profile?.promotion?.ownerAlias)return unavailable('source_authority_missing');
+  try{
+    const characterId=profile.characterId,alias=profile.promotion.ownerAlias;
+    const scope=Object.freeze({characterId,worldProfileId:store.worldProfileId,
+      timelineId:store.activeTimelineId});
+    const host=store.verifiedHostContext;
+    const stamp=Object.freeze({...scope,hostRunId:host?.hostRunId,
+      worldEpoch:host?.worldEpoch,ownerIncarnationId:ticket.ownerIncarnationId,
+      speakerCaptureRef:ticket.speakerCaptureRef});
+    const current=()=>isCurrent()===true&&isDirectorCurrent(ticket)===true&&
+      turn.characterProjection?.persistent===true&&
+      turn.characterProjection.profile?.characterId===characterId&&
+      turn.characterProjection.profile?.promotion?.ownerAlias===alias&&
+      turn.characterInputs?.profile?.characterId===characterId&&
+      uuid.test(scope.worldProfileId)&&uuid.test(scope.timelineId)&&
+      store.timelineWritable===true&&store.activeTimelineId===scope.timelineId&&
+      store.worldProfileId===scope.worldProfileId&&
+      sameHost(store.verifiedHostContext,host)&&
+      store.get(characterId)?.promotion?.ownerAlias===alias;
+    if(!host||!sameHost(host,ticket)||!current())
+      return unavailable('source_authority_missing');
+    const privacy=async()=>{
+      const hidden=await store.listSuppressedMemoryIds(scope,{includeCorrections:true});
+      if(!current()||!Array.isArray(hidden))throw Error('privacy_source_revoked');
+      const overlays=await store.readCorrectionOverlays?.(scope)??[];
+      if(!current()||!Array.isArray(overlays))throw Error('privacy_source_revoked');
+      return [...new Set([...hidden,...overlays.filter(x=>x.supersedesTarget!==false)
+        .map(x=>x.targetId)])].sort();
+    };
+    const snapshot=async()=>{
+      const fence=store.memoryReadFence;
+      if(fence===null||fence===undefined||!current())return null;
+      const hidden=await privacy();
+      const rows=await store.readDialogueLines({characterId,timelineId:scope.timelineId,limit:200});
+      if(!current()||store.memoryReadFence!==fence)return null;
+      // This port is implemented only by the runtime's playback-accepted
+      // DialogueHistory reader. It checks the exact current P2 privacy seal.
+      const verifiedSocialSpeech=readVerifiedSocialSpeech();
+      if(!current()||store.memoryReadFence!==fence)return null;
+      const journal=assembleDirectorSocialConversation({
+        rows,scope,suppressed:hidden,nowUtc,verifiedSocialSpeech
+      });
+      return journal?{journal,fence}:null;
+    };
+    const initial=await snapshot();
+    if(!initial)return unavailable('history_unavailable');
+    if(!initial.journal.recent.length)return unavailable('no_recent_dialogue');
+    const seal=JSON.stringify(initial.journal);
+    let verifiedFence=null,verifiedRequestFence=null;
+    const verifyPrepared=async()=>{
+      verifiedFence=null;
+      try{
+        const fresh=await snapshot();
+        if(!fresh||fresh.fence!==initial.fence||
+           JSON.stringify(fresh.journal)!==seal)
+          return invalidated('history_changed');
+        verifiedFence=fresh.fence;
+        verifiedRequestFence=store.memoryRequestFence??fresh.fence;
+        return readyVerification;
+      }catch{return invalidated('history_read_failed');}
+    };
+    const sendCurrent=()=>verifiedFence!==null&&current()&&
+      store.memoryReadFence===verifiedFence;
+    const sendCurrentInFlight=()=>verifiedFence!==null&&current()&&
+      (store.memoryRequestFence??store.memoryReadFence)===verifiedRequestFence;
+    const invalidationReason=()=>!current()?'authority_revoked':
+      verifiedFence===null?'not_verified':
+      store.memoryRequestFenceFailure?.(verifiedRequestFence)??
+      (sendCurrentInFlight()?null:'source_changed');
+    return Object.freeze({status:'ready',conversationJournal:initial.journal,stamp,
+      verifyPrepared,sendCurrent,sendCurrentInFlight,invalidationReason});
+  }catch{return unavailable('history_unavailable');}
+}
+
+// Keep M9's independent event recall if a scene has both verified sources.
+// Neither lane is allowed to bootstrap or relax the other's source proof.
+export function combineDirectorSocialMemory(callback,history){
+  if(history?.status!=='ready')return callback??null;
+  if(callback?.status!=='ready')return history;
+  return Object.freeze({...callback,
+    conversationJournal:history.conversationJournal,stamp:history.stamp,
+    async verifyPrepared(){
+      const a=await callback.verifyPrepared?.();
+      const b=await history.verifyPrepared();
+      return (a===true||a?.status==='ready')&&b?.status==='ready';
+    },
+    sendCurrent:()=>callback.sendCurrent()&&history.sendCurrent(),
+    sendCurrentInFlight:()=>callback.sendCurrentInFlight()&&history.sendCurrentInFlight(),
+    invalidationReason:()=>callback.invalidationReason?.()??history.invalidationReason(),
+  });
+}

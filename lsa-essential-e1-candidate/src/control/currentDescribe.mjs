@@ -30,7 +30,11 @@ function bounded({ kind,name,characterId,relationship,status,voice,facts,activit
 export function describeCurrent(service,{ encounterId = null,ownerAlias = null } = {}) {
   if ((encounterId !== null && !isUuid(encounterId)) || (ownerAlias !== null && (typeof ownerAlias !== 'string' || !OWNER_ALIAS.test(ownerAlias)))) throw new Error('invalid_editor_request');
   if (ownerAlias !== null && service.ready && service.store?.available) {
-    const profile = service.store.list().find(item => item.promotion.ownerAlias === ownerAlias);
+    // Exactly one profile may claim the alias: with two claimants neither is
+    // authoritative, so no promoted name is returned (the UX4 talk notice and
+    // the F11 page then fall back to their generic labels).
+    const matches = service.store.list().filter(item => item.promotion?.ownerAlias === ownerAlias);
+    const profile = matches.length === 1 ? matches[0] : null;
     if (profile) {
       let activity;
       try { activity = service.activities?.status?.(profile.characterId); } catch {}

@@ -1,0 +1,36 @@
+name: Memory K Workstream B policy regression
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'lsa-essential-e1-candidate/src/memory/capabilityPolicy.mjs'
+      - 'lsa-essential-e1-candidate/src/config/e1Config.mjs'
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs'
+      - '.github/workflows/memory-k-workstream-b-policy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy-and-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax of policy and read-only bootstrap
+        run: |
+          node --check lsa-essential-e1-candidate/src/memory/capabilityPolicy.mjs
+          node --check lsa-essential-e1-candidate/src/bootstrap.mjs
+          node --check lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs
+      - name: Focused policy, configuration, D01/D03 and M3 compatibility
+        working-directory: lsa-essential-e1-candidate
+        run: |
+          node --test tests/memory-capability-policy.test.mjs tests/capability-health.test.mjs tests/knowledge-modes.test.mjs tests/identity-contract.test.mjs
+          node --test tests/m2-journal.test.mjs tests/m3-completion.test.mjs

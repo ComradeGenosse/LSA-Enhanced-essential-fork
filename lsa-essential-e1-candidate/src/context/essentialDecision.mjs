@@ -1,4 +1,6 @@
 import {renderKnowledge} from './knowledgeRenderer.mjs';
+import {normalizeBareStockDriveCommand} from '../activities/vehicleDrivingIntent.mjs';
+import {ACT5_CHOICES,validateAct5Choice} from '../activities/act5Dialogue.mjs';
 import {captureReferenceMap} from './turnSnapshot.mjs';
 import {composeKnowledgeInstruction,separateKnowledgeInstruction,KNOWLEDGE_GROUNDING} from './knowledgeInstructions.mjs';
 import {KNOWLEDGE_LIMITS,jsonBytes} from './knowledgeSelector.mjs';
@@ -37,16 +39,22 @@ export function extractResponseText(response) {
   return text;
 }
 
-export function parseDecisionJson(raw) {
+export function parseDecisionJson(raw, { act5Intents = null } = {}) {
   let value;
   try { value = JSON.parse(raw); }
   catch { throw new TypeError('Luna returned invalid decision JSON.'); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Luna decision must be a JSON object.');
   const keys = Object.keys(value).sort();
-  if (keys.length !== 2 || keys[0] !== 'command' || keys[1] !== 'dialogue') throw new TypeError('Luna decision must contain only dialogue and command.');
+  const act5 = Array.isArray(act5Intents);
+  if (act5 ? keys.join(',') !== 'activity,command,dialogue' :
+      keys.join(',') !== 'command,dialogue') throw new TypeError(act5
+        ? 'Luna ACT5 decision must contain only activity, dialogue and command.'
+        : 'Luna decision must contain only dialogue and command.');
+  if (act5 && !validateAct5Choice(value.activity, act5Intents))
+    throw new TypeError('Luna ACT5 activity is malformed or unavailable.');
   if (typeof value.dialogue !== 'string' || typeof value.command !== 'string') throw new TypeError('Luna decision fields must be strings.');
   const dialogue = value.dialogue.trim();
-  const command = value.command.trim();
+  const command = normalizeBareStockDriveCommand(value.command.trim());
   if (!dialogue || dialogue.length > 1200) throw new TypeError('Luna dialogue must contain 1 to 1200 characters.');
   if (command.length > 300 || (command && (!/^DO\s+[A-Za-z]/i.test(command) || /[|\r\n]/.test(command)))) {
     throw new TypeError('Luna command must be empty or one complete DO command.');
@@ -54,29 +62,81 @@ export function parseDecisionJson(raw) {
   if (/(^|\n)\s*DO\s*:?\s+[A-Za-z]/i.test(dialogue) || dialogue.includes('|')) {
     throw new TypeError('Luna dialogue contains a control command.');
   }
-  return Object.freeze({ dialogue, command });
+  if (act5 && command && value.activity !== null)
+    throw new TypeError('Luna ACT5 activity and stock DO command are mutually exclusive.');
+  return Object.freeze({ dialogue, command, ...(act5 ? { activity: value.activity } : {}) });
 }
 
-export function validateDecisionShape(decision) {
-  return parseDecisionJson(JSON.stringify(decision));
+// Retry a model *format* mistake, not semantic actor/vehicle/action denial.
+// This is only invoked by provider parsing, before any action publication.
+export function isRetryableDecisionFormatError(error) {
+  return error instanceof TypeError &&
+    error.message === 'Luna command must be empty or one complete DO command.';
 }
 
-export function buildRequest({ model, effort, systemInstruction, actor, listener, world, contextText, internalEvent, source, input, history = [], maxOutputTokens = 300, structuredSegments = false, lunaDeliveryVersion = 0, knowledgeProjection }) {
+// PS4 delivery validates the same closed ACT5 decision that Luna produced.
+// The legacy shape remains the default and rejects unsolicited activity fields.
+export function validateDecisionShape(decision, { act5Intents = null, act5Choices = ACT5_CHOICES } = {}) {
+  const parsed = parseDecisionJson(JSON.stringify(decision), { act5Intents });
+  // Runtime offers can be narrower than the global ACT5 schema. Do not let a
+  // successfully parsed, but unavailable, proposal acknowledge PS4 knowledge.
+  if (Array.isArray(act5Intents) && !validateAct5Choice(parsed.activity, act5Intents, act5Choices))
+    throw new TypeError('Luna ACT5 activity is malformed or unavailable.');
+  return parsed;
+}
+
+export function act5ActivitySchema(intents, allowedChoices = ACT5_CHOICES) {
+  // Generate the strict model schema from exactly the same closed-slot map
+  // used by acceptance validation. Never expose native steps or arbitrary refs.
+  const exact = value => value && typeof value === 'object'
+    ? { type:'object', additionalProperties:false, required:Object.keys(value),
+        properties:Object.fromEntries(Object.entries(value).map(([key,part])=>[key,exact(part)])) }
+    : { type:typeof value, enum:[value] };
+  const choices = intents.flatMap(intent => {
+    if (!Object.hasOwn(allowedChoices,intent)) throw new TypeError('ACT5 unsupported intent');
+    return allowedChoices[intent].map(slots => ({
+      type:'object', additionalProperties:false, required:['intent','slots'],
+      properties:{intent:{type:'string',enum:[intent]},slots:exact(slots)}
+    }));
+  });
+  return { anyOf:[{type:'null'},...choices] };
+}
+
+export function withAct5Schema(schema, intents, allowedChoices = ACT5_CHOICES) {
+  return Object.freeze({...schema,required:[...schema.required,'activity'],
+    properties:{...schema.properties,activity:act5ActivitySchema(intents,allowedChoices)}});
+}
+
+export function buildRequest({ model, effort, systemInstruction, actor, listener, world, contextText, internalEvent, source, input, history = [], maxOutputTokens = 300, structuredSegments = false, lunaDeliveryVersion = 0, knowledgeProjection, activityContext = null }) {
   if (lunaDeliveryVersion !== 0 && lunaDeliveryVersion !== 1)
     throw new RangeError('Unsupported Luna segment delivery protocol version.');
   if (lunaDeliveryVersion === 1 && !structuredSegments)
     throw new TypeError('Luna delivery hints require structured segments.');
+  const act5 = activityContext && Array.isArray(activityContext.intents);
   const projection=knowledgeProjection ?? renderKnowledge({actor,listener,world,referenceMap:captureReferenceMap(actor),history,input,source:source||'player_text'});
   const allocation=projection.modelAllocation;
   if(!allocation || projection.frameVersion!==1)throw new TypeError('knowledge_projection_shape');
   const scene=allocation.scene;
   const boundedHistory=allocation.messages.slice(0,-1);
-  const outputRules = structuredSegments
+  let outputRules = structuredSegments
     ? (lunaDeliveryVersion === 1
       ? 'Return one strict JSON object with exactly three fields in this order: mode, segments, command. mode is dialogue_only only when no action is needed; otherwise buffered_action. Every segments item must contain exactly two fields in this order: delivery, text. delivery is a single acting-intent enum: neutral, whisper, excited, fearful, angry, amused, sad, sarcastic, concerned. Use neutral when unsure; never imply you witnessed events without verified evidence. Do not output bracketed audio tags or stage directions. text must be a complete short spoken phrase/sentence of at most 200 characters. Use multiple segments for longer speech (maximum six); keep combined speech under 1200 characters. command is empty or exactly one available Essential DO action. Never put DO commands in speech; never claim an action already happened. dialogue_only requires an empty command; mode cannot change.'
       : 'Return one strict JSON object with exactly three fields in this order: mode, segments, command. mode is dialogue_only only when no action is needed; otherwise buffered_action. Each segments item contains exactly text and must be a complete short spoken phrase/sentence of at most 200 characters. For longer speech, use multiple segments (maximum six total); do not put the whole long reply in one item. Keep combined speech under 1200 characters. command is empty or exactly one currently available Essential DO action. Never put DO commands in speech. Do not claim an action already happened. The mode is fixed and may not change; dialogue_only requires an empty final command.')
     : 'Return one JSON object with exactly two fields: dialogue and command. dialogue contains only brief spoken words for the player, never a DO command. command is empty or exactly one currently available Essential DO action. Do not chain actions. Do not invent targets, vehicles, weapons, or destinations.';
-  const trustedInstruction=`${separateKnowledgeInstruction(systemInstruction)}\n\n[C-04 CONTEXT RULES]\n${KNOWLEDGE_GROUNDING}\n\n[E1 OUTPUT RULES]\n${outputRules}`;
+  if (act5) {
+    outputRules = outputRules.replace('exactly three fields in this order: mode, segments, command.',
+      'exactly four fields in this order: mode, segments, command, activity.')
+      .replace('exactly two fields: dialogue and command.',
+        'exactly three fields: dialogue, command, activity.');
+    outputRules += ' ACT5: activity is null or ONE offered, closed intent/slot combination. An activity requires buffered_action (never early audio), an empty stock command, and a short natural invitation asking for player consent. The player has NOT approved yet. Never say it was executed. Do not propose while busy; do not invent targets, coordinates or capabilities.';
+  }
+  const act5Context = act5 ? '\n[ACT5 VERIFIED ACTIVITY OFFER]\n' +
+    JSON.stringify({availableIntents:activityContext.intents,
+      availableChoices:activityContext.availableChoices || Object.fromEntries(
+        activityContext.intents.map(intent=>[intent,ACT5_CHOICES[intent]])),
+      pendingIntent:activityContext.pendingIntent,
+      ownActivityState:activityContext.activityStatus}) : '';
+  const trustedInstruction=`${separateKnowledgeInstruction(systemInstruction)}\n\n[C-04 CONTEXT RULES]\n${KNOWLEDGE_GROUNDING}\n\n[E1 OUTPUT RULES]\n${outputRules}${act5Context}`;
   if(jsonBytes(trustedInstruction)>KNOWLEDGE_LIMITS.instructionBytes)throw new RangeError('knowledge_instruction_bytes');
   const body = {
     model,
@@ -84,10 +144,12 @@ export function buildRequest({ model, effort, systemInstruction, actor, listener
     reasoning: { effort },
     stream: false,
     max_output_tokens: maxOutputTokens,
-    text: { format: { type: 'json_schema', name: structuredSegments ? (lunaDeliveryVersion === 1 ? 'e1_segmented_delivery_v1' : 'e1_segmented_decision') : 'e1_decision', strict: true,
-      schema: structuredSegments ? (lunaDeliveryVersion === 1 ? segmentedDeliveryV1Schema : segmentedDecisionSchema) : decisionSchema } },
+    text: { format: { type: 'json_schema', name: act5 ? (structuredSegments ? (lunaDeliveryVersion === 1 ? 'e1_act5_segmented_delivery_v1' : 'e1_act5_segmented_decision') : 'e1_act5_decision') :
+        (structuredSegments ? (lunaDeliveryVersion === 1 ? 'e1_segmented_delivery_v1' : 'e1_segmented_decision') : 'e1_decision'), strict: true,
+      schema: act5 ? withAct5Schema(structuredSegments ? (lunaDeliveryVersion === 1 ? segmentedDeliveryV1Schema : segmentedDecisionSchema) : decisionSchema, activityContext.intents, activityContext.availableChoices || ACT5_CHOICES) :
+        (structuredSegments ? (lunaDeliveryVersion === 1 ? segmentedDeliveryV1Schema : segmentedDecisionSchema) : decisionSchema) } },
     input: [
-      { role: 'system', content: composeKnowledgeInstruction(systemInstruction,scene,outputRules) },
+      { role: 'system', content: composeKnowledgeInstruction(systemInstruction,scene,outputRules+act5Context) },
       ...boundedHistory,
       { role:'user',content:allocation.messages.at(-1).content },
     ],

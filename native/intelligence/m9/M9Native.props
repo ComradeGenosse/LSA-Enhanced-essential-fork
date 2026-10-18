@@ -1,0 +1,18 @@
+<Project>
+  <!--
+    Explicit opt-in for the default-off M9 GTA event state sampler. NOT imported by the
+    default production build. Build with -p:LsaM9Native=true to compile the sampler,
+    the original-collision producer and the IntelligenceIntegration.M9.cs glue.
+    Nothing here proves behavior inside GTA; see docs/plans/memory-k-m9-activation-20261016.md.
+  -->
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);LSA_M9_NATIVE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)M9NativeDamageAdapter.cs" Link="M9NativeDamageAdapter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)M9NativeFrameAdapter.cs" Link="M9NativeFrameAdapter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)M9OriginalVehicleCollisionProducer.cs" Link="M9OriginalVehicleCollisionProducer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)M9StateSampler.cs" Link="M9StateSampler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../IntelligenceIntegration.M9.cs" Link="IntelligenceIntegration.M9.cs" />
+  </ItemGroup>
+</Project>

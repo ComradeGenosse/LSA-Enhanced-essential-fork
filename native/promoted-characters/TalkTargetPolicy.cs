@@ -35,6 +35,31 @@ namespace LSA.PromotedCharacters
         public int CycleIndex, CycleCount;
         public long ExpiresInMs;
     }
+    // Display-only class of the exact committed ped. It is never an identity,
+    // never an authorization, and never derived from voice, model or a name.
+    internal enum TalkRecipientKind { Unknown, Promoted, Ambient }
+    internal sealed class TalkRecipientFeedback
+    {
+        // Bounded diagnostic codes only: no alias, UUID, address or profile text.
+        public readonly TalkRecipientKind Kind;
+        public readonly string Evidence;
+        // The P1-verified owner alias, set only on Promoted. It is a lookup key for
+        // the loader's companion name request, never shown or logged: it is the same
+        // alias the Current NPC snapshot already carries, and the companion alone
+        // decides whether it maps to exactly one profile.
+        public readonly string Alias;
+        // Internal proof of the exact promoted incarnation; never serialized to the HUD.
+        public readonly string IncarnationId;
+        // P2 authority generation is distinct from the P1 incarnation proof.
+        // Never include it in command replies, aliases or logs.
+        public readonly string OwnershipToken;
+        static readonly System.Text.RegularExpressions.Regex AliasShape = new System.Text.RegularExpressions.Regex("^promoted\\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
+        TalkRecipientFeedback(TalkRecipientKind kind,string evidence,string alias = null,string incarnationId = null,string ownershipToken = null) { Kind = kind; Evidence = evidence; Alias = kind == TalkRecipientKind.Promoted && alias != null && AliasShape.IsMatch(alias) ? alias : null; IncarnationId = Alias == null ? null : incarnationId; OwnershipToken = Alias == null ? null : ownershipToken; }
+        public string Token => Kind == TalkRecipientKind.Promoted ? "promoted" : Kind == TalkRecipientKind.Ambient ? "ambient" : "unknown";
+        public static TalkRecipientFeedback Promoted(string evidence,string alias = null,string incarnationId = null,string ownershipToken = null) => new TalkRecipientFeedback(TalkRecipientKind.Promoted,evidence,alias,incarnationId,ownershipToken);
+        public static TalkRecipientFeedback Ambient(string evidence) => new TalkRecipientFeedback(TalkRecipientKind.Ambient,evidence);
+        public static TalkRecipientFeedback Unknown(string evidence) => new TalkRecipientFeedback(TalkRecipientKind.Unknown,evidence);
+    }
     internal sealed class TalkTargetPolicy
     {
         struct Token { public string PedId; public long Address; }
@@ -146,5 +171,44 @@ namespace LSA.PromotedCharacters
             Present = true,SelectionId = selectionId,PedId = PedId,Address = Address,PttCommitted = committed,
             CycleIndex = index + 1,CycleCount = frozen.Count,ExpiresInMs = committed ? Math.Max(0,expiresAt - selectedAt) : Math.Max(0,expiresAt - now),Reason = reason};
         static TalkTargetView Absent(string reason) => new TalkTargetView {Reason = reason};
+    }
+
+    // Only a successfully committed, P1-verified promoted recipient may be reused.
+    // This is a bounded identity lease inside UX4, not a conversation manager or
+    // a Ped-handle lookup. Every microphone start must recheck the native proof.
+    internal sealed class TalkRecipientContinuity
+    {
+        public string PedId { get; private set; }
+        public long Address { get; private set; }
+        public string Alias { get; private set; }
+        public string IncarnationId { get; private set; }
+        public string OwnershipToken { get; private set; }
+        public long LastCommitAt { get; private set; }
+        public bool HasRecipient => PedId != null;
+        public void Remember(string pedId,long address,TalkRecipientFeedback proof,long now)
+        {
+            if (pedId == null || address == 0 || proof == null || proof.Kind != TalkRecipientKind.Promoted ||
+                proof.Evidence != "owner_verified" || proof.Alias == null || string.IsNullOrEmpty(proof.IncarnationId) ||
+                string.IsNullOrEmpty(proof.OwnershipToken))
+            { Clear(); return; }
+            PedId = pedId; Address = address; Alias = proof.Alias; IncarnationId = proof.IncarnationId; OwnershipToken = proof.OwnershipToken; LastCommitAt = now;
+        }
+        public string Problem(string pedId,long address,TalkRecipientFeedback proof,bool alive,bool sameVehicle,float distance,float radius,long now)
+        {
+            if (!HasRecipient) return "no_recipient";
+            if (!alive || pedId != PedId || address == 0 || address != Address) return "ped_lifetime_changed";
+            if (proof == null || proof.Kind != TalkRecipientKind.Promoted || proof.Evidence != "owner_verified" ||
+                proof.Alias != Alias || proof.IncarnationId != IncarnationId || proof.OwnershipToken != OwnershipToken) return "owner_unverified";
+            if (now < LastCommitAt) return "clock_reset";
+            // Driving can keep companions in conversation longer; neither bound
+            // is permanent and mere proximity cannot renew it without a turn.
+            if (now - LastCommitAt > (sameVehicle ? 900000L : 180000L)) return "conversation_idle";
+            if (!sameVehicle && (float.IsNaN(distance) || distance > radius)) return "out_of_range";
+            return null;
+        }
+        public void Clear()
+        {
+            PedId = Alias = IncarnationId = OwnershipToken = null; Address = LastCommitAt = 0;
+        }
     }
 }

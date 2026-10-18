@@ -24,9 +24,12 @@ static class Program
             if(elapsed>=21100) {PromotedCharactersIntegration.Instance.LoseAvailability();return;}
             Thread.Sleep(milliseconds);
         };
-        var config="{\"enabled\":true,\"worldProfileId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"intelligence\":{\"mode\":\"shadow\"}}";
+        var config="{\"enabled\":true,\"worldProfileId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"intelligence\":{\"mode\":\"shadow\"}"+
+            (scenario=="source-only"?",\"memoryK\":{\"capabilities\":{\"ps1.producers\":\"off\"}}":"")+"}";
+        Check(!RuntimeEntry.Start("{\"enabled\":true,\"intelligence\":{\"producers\":{\"state\":true}}}"),"invalid producer mode cannot acquire native host start claim");
         Check(RuntimeEntry.Start(config),"real RuntimeEntry starts");
         var intelligence=LSA.Intelligence.IntelligenceIntegration.Instance;
+        if(scenario=="source-only")Check(!intelligence.ProducerPolicy.Any,"real RuntimeEntry passes master-off policy to the existing integration");
         Check(LosSantosAlive.Integrations.IntegrationManager.Registered.Count==2,"P2 and PS register with Core manager");
         Check(ReferenceEquals(intelligence.Host,PromotedCharactersIntegration.Instance.Host) && intelligence.Host!=null,"RuntimeEntry supplies one host to both integrations");
         Check(!RuntimeEntry.Alive&&!RuntimeEntry.Ready,"host completes and releases availability");
@@ -52,6 +55,16 @@ static class Program
 
 namespace Rage
 {
+    public sealed class Ped
+    {
+        public uint Handle;
+        // Match the real RAGE Ped members used by RuntimeEntry's fail-closed
+        // gesture ownership check. Keep production checks intact.
+        public bool Alive = true, IsDead;
+        public bool Exists()=>Alive;
+        public override bool Equals(object value) => value is Ped other && other.Handle==Handle;
+        public override int GetHashCode()=> (int)Handle;
+    }
     public static class Game {public static readonly List<string> Logs=new List<string>();public static void LogTrivial(string text)=>Logs.Add(text);}
     public static class GameFiber {public static Action<int> OnSleep;public static void StartNew(Action work,string name)=>work();public static void Yield(){}public static void Sleep(int ms)=>OnSleep(ms);}
 }
@@ -68,21 +81,28 @@ namespace LosSantosAlive.Integrations
 }
 namespace LSA.PromotedCharacters
 {
+    internal sealed class PrimaryBehaviorOwner
+    {
+        public string owner,mode;
+    }
     public sealed class PromotedCharactersIntegration:LosSantosAlive.Integrations.IIntegration
     {
         public static PromotedCharactersIntegration Instance;public bool IsAvailable{get;private set;}public int ShutdownCalls;internal string UnavailabilityReason{get;private set;}="none";
         public event Action<string> OwnerRetired {add{}remove{}}
         public readonly HostContext Host;
         public PromotedCharactersIntegration(string world,string pipe,string identity,HostContext host=null) {Instance=this;Host=host;}
+        internal void ConfigureVoicePresence(string mode,bool mouthEnabled=false,float openLevel=0.015f,bool levelLog=false) { }
         public void Prepare()=>IsAvailable=true;
         public bool IsReady=>IsAvailable;
         internal string IdentityRuntimeStatus=>"identity_status=test";
         public void RequestShutdown(){ShutdownCalls++;IsAvailable=false;}
         public void Initialize()=>IsAvailable=true;
         public void Update(){}
-        internal void EnableActivityShadow(string pipeName) {}
-        internal void EnableActivityExecution(string pipeName) {}
+        internal void EnableActivityShadow(string pipeName,bool collectDialogueReceipts=false) {}
+        internal void EnableActivityExecution(string pipeName,bool collectDialogueReceipts=false) {}
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster()=>new LSA.Intelligence.OwnedParticipant[0];
+        public object SampleMemoryNativeAuthority()=>null;
+        public object SampleMemoryCurrentOwnerPlayer()=>null;
         public void LoseAvailability(){IsAvailable=false;UnavailabilityReason="clock_regression";}
         internal string SubmitLocal(string envelope)=>"accepted";internal string TakeLocalResult(string id)=>null;internal string LocalSnapshot()=>null;internal void RequestLocalSnapshots(int forMs){}
         internal void Shutdown(string reason){ShutdownCalls++;IsAvailable=false;}
@@ -90,17 +110,46 @@ namespace LSA.PromotedCharacters
 }
 namespace LSA.Intelligence
 {
-    public sealed class OwnedParticipant { }
+    public static class DirectorAdmission {public const int NormalMaxAttempts=4,TestingMaxAttempts=12;}
+    public sealed class OwnedParticipant { public Rage.Ped Ped; public Func<object> PrimaryOwner; public Func<bool> Current; }
     public sealed class IntelligenceIntegration:LosSantosAlive.Integrations.IIntegration
     {
         public static IntelligenceIntegration Instance;public bool IsAvailable{get;private set;}public long UpdateCalls;public int ShutdownCalls;public string ShutdownReason="none";
         public readonly LSA.PromotedCharacters.HostContext Host;
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off"){Instance=this;Host=host;}
+        public readonly NativeProducerPolicy ProducerPolicy;
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null,bool protagonistEvidenceEnabled=false){Instance=this;Host=host;ProducerPolicy=producerPolicy;}
         public void Initialize()=>IsAvailable=true;
         public void Update(){UpdateCalls++;}
         public void OwnerRetired(string lifetime){}
         internal void Shutdown(string reason){ShutdownCalls++;ShutdownReason=reason;IsAvailable=false;}
         internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls;
         internal static void LogStatus(string text)=>Rage.Game.LogTrivial(text);
+    }
+}
+
+namespace LSA.Reactions
+{
+    // Compile-only optional host facade. Native reactions are exercised by
+    // native/reactions/tests; PS host's existing scenarios leave them off.
+    public sealed class ReactionOptions
+    {
+        public string Mode;
+        public bool AllowDuringOwnedBehavior, Diagnostics;
+        public readonly HashSet<string> Disabled=new HashSet<string>();
+        public readonly HashSet<string> Enabled=new HashSet<string>();
+    }
+    public static class ReactionCatalog
+    {
+        public static bool IsKnown(string name)=>name=="facepalm" || name=="middle_finger" || name=="nod" || name=="shrug";
+    }
+    public sealed class ReactionIntegration:LosSantosAlive.Integrations.IIntegration
+    {
+        public ReactionIntegration(ReactionOptions options,string pipeName,string hostRunId,
+            Func<int> epoch,Func<long> now,Func<Rage.Ped,bool> owns) { }
+        public bool IsAvailable=>false;
+        public void Initialize() { }
+        public void Update() { }
+        public void WorldChanged(string reason) { }
+        public void RequestShutdown() { }
     }
 }

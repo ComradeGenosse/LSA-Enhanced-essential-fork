@@ -65,6 +65,12 @@
 /deployment/install-plan.json
 /deployment/deployment-receipt.json
 /deployment/deployment-verification.json
+
+# .NET harness build outputs (native/**)
+/native/**/bin/
+/native/**/obj/
+
+# Preserved ignore patterns from main's EA integration
 **/intelligence/director-tests/bin/
 **/intelligence/director-tests/obj/
 /tools/native-sdk/bin/

@@ -4,16 +4,17 @@ import {dialogueKnowledgeContractSupported} from './config/dialogueKnowledge.mjs
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { loadConfig } from './config/e1Config.mjs';
-import { createRuntime } from './integration/essentialGlue.mjs';
+import * as essentialRuntimeGlue from './integration/essentialGlue.mjs';
+const {createRuntime}=essentialRuntimeGlue;
 import { loadPrivateEnvironment } from './config/privateEnvironment.mjs';
 import { createFileSink } from './observability/fileSink.mjs';
 import { Telemetry, createNoopTelemetry } from './observability/telemetry.mjs';
+import {buildSystemInventory,createSystemHealthMonitor,persistSystemInventory} from './observability/systemHealth.mjs';
 import { identityContractSupported } from './identity/nativeSupport.mjs';
 import { startCharacterEditor } from './characters/editorServer.mjs';
 import { defaultControlEndpointPath } from './control/endpointFile.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
 import { IntelligenceClient } from './perception/intelligenceClient.mjs';
-import { bindTrustedTimelineSource } from './characters/timelineSourceBridge.mjs';
 import { loadRadioTrackTextCatalog } from './perception/radioTrackTextCatalog.mjs';
 import {DirectorObservationPump} from './perception/directorProduction.mjs';
 import {directorSpeechLimitsForPreset} from './perception/sceneDirector.mjs';
@@ -21,11 +22,28 @@ import {DirectorSpeechReservations} from './perception/sceneDirectorAdmission.mj
 import {SceneDirectorSpeech} from './perception/sceneDirectorOrchestrator.mjs';
 import { ActivityClient } from './activities/activityClient.mjs';
 import { ActivityRuntime } from './activities/activityRuntime.mjs';
+import { Act5Dialogue } from './activities/act5Dialogue.mjs';
+import { ReactionClient } from './reactions/reactionClient.mjs';
+import { createReactionService } from './reactions/reactionService.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
 import { createDialogueTrace, createNoopDialogueTrace } from './observability/dialogueTrace.mjs';
-
-const shutdownClosers = new Set();
-let shutdownFlushRegistered = false;
+import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
+import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
+import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
+import {createMemoryKRuntimeComposition,memoryKDialogueActivation,memoryKM6Activation,memoryKM7Activation,runtimeCleanupError} from './memory/runtimeComposition.mjs';
+import {createM6RuntimeRetention} from './memory/m6RuntimeRetention.mjs';
+import {createM7RuntimeCuration} from './memory/m7RuntimeCuration.mjs';
+import {createM7IdleProofSource} from './memory/m7IdleProofSource.mjs';
+import {createNativeMemoryAuthority} from './memory/nativeMemoryAuthority.mjs';
+import {resolveLivePromotedProfile} from './memory/livePromotedProfile.mjs';
+import {memoryKSourceActivation} from './memory/sourceActivation.mjs';
+import {bindTrustedTimelineSource} from './characters/timelineSourceBridge.mjs';
+import {memoryKM3Activation,unavailableM3States} from './memory/m3Activation.mjs';
+import {createInspectorControls} from './memory/inspectorControls.mjs';
+import {withLearnedMemoryPause} from './memory/learnedMemoryPause.mjs';
+import {memoryKM9Activation,m9OperationalStates} from './memory/m9Activation.mjs';
+import {createM9RuntimeEvents} from './memory/m9RuntimeEvents.mjs';
+import {createM9Callbacks} from './memory/m9Callbacks.mjs';
 
 export async function createRuntimeForBundle(options = {}) {
   // Explicit test/embedding environments remain isolated from local secrets.
@@ -33,6 +51,15 @@ export async function createRuntimeForBundle(options = {}) {
     ? options.env
     : await loadPrivateEnvironment(options);
   let config = await loadConfig({ ...options, env });
+  if(config.memoryK.profile==='storage-only') {
+    if(config.provider!=='openai'||!config.promotedCharacters.enabled||
+       config.promotedCharacters.storageMode!=='sqlite'||!config.persistentIdentity.enabled)
+      throw new Error('storage_only_requires_openai_p1_p2_sqlite');
+    // C is a separately reviewed prerequisite. Fail before constructing any
+    // storage/channel/consumer on a checkout where its enforcement is absent.
+    if(essentialRuntimeGlue.MEMORY_K_COMPOSITION_VERSION!==1)
+      throw new Error('storage_only_composition_unavailable');
+  }
   if (config.persistentIdentity.enabled) {
     let contract = options.identityContract;
     if (contract === undefined) {
@@ -48,7 +75,14 @@ export async function createRuntimeForBundle(options = {}) {
     if (contract === undefined) try { contract = JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).characterContract; } catch {}
     config = Object.freeze({ ...config,promotedCharacters:Object.freeze({ ...config.promotedCharacters,nativeSupported:characterContractSupported(contract) }) });
   }
+  const composition=createMemoryKRuntimeComposition(config);
+  const m3Activation=memoryKM3Activation(config);
+  const m9Activation=memoryKM9Activation(config);
+  let m9Events=null;
+  const owner=composition.scope;
+  try {
   let telemetry = options.telemetry;
+  let health = null, persistentTelemetry = false;
   if (!telemetry) {
     const entry = path.basename(process.argv[1] || '');
     const enabled = options.enableTelemetry === true || (!Object.hasOwn(options, 'enableTelemetry') && entry === 'server.bundle.mjs');
@@ -70,12 +104,44 @@ export async function createRuntimeForBundle(options = {}) {
           credentialAvailable: Boolean(config.reasoningKey || config.transcriptionKey || config.ttsKey),
           bundleHash: manifest.builtBundleSha256, dllHash: manifest.nativeContract?.dllSha256,
         } });
-        shutdownClosers.add(telemetry);
+        owner.own('telemetry',telemetry,value=>value.close());
+        persistentTelemetry = true;
       } catch (error) {
         try { console.warn(`[E1 telemetry] persistent logging unavailable (${/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'initialization_failed'}).`); } catch {}
         telemetry = createNoopTelemetry();
       }
     } else telemetry = createNoopTelemetry();
+  }
+  // OBS2 startup evidence is a single bounded, secret-free registry-derived
+  // JSONL manifest. Off/experimental capabilities remain in it even if no
+  // session operation ever touches them. Only actual persistent E1 runs write.
+  if (persistentTelemetry && telemetry?.runId) {
+    let obs2Stage = 'inventory_build_failed';
+    try {
+      const inventory=buildSystemInventory(config);
+      // A missing source-only ACT registry is permitted: the compiled
+      // capability IDs still give a complete enumeration, and ACT proof
+      // remains unknown until a real registry/operation establishes it.
+      obs2Stage = 'inventory_write_failed';
+      const persisted=await persistSystemInventory({directory:options.telemetryDirectory||path.resolve(process.cwd(),'logs'),
+        runId:telemetry.runId,inventory});
+      obs2Stage = 'health_monitor_attach_failed';
+      health=createSystemHealthMonitor({config,telemetry,inventory});
+      const detachEvents=telemetry.subscribe(record=>health.onEvent(record));
+      const detachResources=owner.subscribe(record=>health.onResource(record));
+      owner.own('obs2.health',{close:()=>{health.close();detachEvents();detachResources();}},
+        value=>value.close());
+      telemetry.emit('system_health_manifest',null,'internal',{count:persisted.count,
+        manifestHash:persisted.sha256},'internal',{component:'observability'});
+      health.note('companion.telemetry','initialized',{proof:'resource_lifecycle'});
+      health.note('resource.telemetry','initialized',{proof:'resource_lifecycle'});
+    } catch {
+      // Never log exception messages, paths or configuration. The exact safe
+      // stage survives in JSONL and stdout to diagnose future OBS2 gaps.
+      try{telemetry.emit('system_health_gap',null,'internal',{code:obs2Stage},'internal',
+        {component:'observability',severity:'warn'});}catch{}
+      try{console.warn('[OBS2] ' + obs2Stage);}catch{}
+    }
   }
   let dialogueTrace = options.dialogueTrace || createNoopDialogueTrace();
   if (!options.dialogueTrace && config.provider === 'openai' && config.dialogueLogging.enabled) {
@@ -89,49 +155,252 @@ export async function createRuntimeForBundle(options = {}) {
       });
       dialogueTrace = createDialogueTrace({ sink, telemetryRunId: telemetry?.runId || null, config: config.dialogueLogging,
         secrets: [config.reasoningKey, config.transcriptionKey, config.ttsKey] });
-      shutdownClosers.add(dialogueTrace);
+      owner.own('dialogueTrace',dialogueTrace,value=>value.close());
     } catch (error) {
       try { console.warn(`[E1 dialogue] persistent logging unavailable (${/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'initialization_failed'}).`); } catch {}
       dialogueTrace = createNoopDialogueTrace();
     }
   }
-  if (!shutdownFlushRegistered) {
-    shutdownFlushRegistered = true;
-    process.once('beforeExit', async () => { for (const closer of shutdownClosers) await closer.close().catch(() => {}); });
-  }
-  // Live bootstrap does not admit caller-supplied protagonist proof.
-  // Direct createRuntime test fixtures remain separate from production.
+  // The existing host starts before the authenticated native pipe. Keep a
+  // single source-fenced read-through authority; absence must stay unknown.
+  let connectedMemoryAuthority=null;
+  const memoryAuthorityPort=Object.freeze({
+    verifyCurrentTurn:x=>connectedMemoryAuthority?.verifyCurrentTurn(x)??null,
+    resolveNativeOwner:x=>connectedMemoryAuthority?.resolveNativeOwner(x)??null,
+    resolveParticipants:x=>connectedMemoryAuthority?.resolveParticipants(x)??null,
+    resolvePrepromotion:x=>connectedMemoryAuthority?.resolvePrepromotion(x)??null,
+    verifyNativeCoverage:x=>connectedMemoryAuthority?.verifyNativeCoverage(x)??null
+  });
+  // Production cannot accept a caller-supplied emotional protagonist authority:
+  // only native C-13 may issue it. Keep test injection confined to createRuntime().
   const {verifiedProtagonistAuthority:ignoredTestAuthority,...safeRuntimeOptions}=options;
-  const runtime = createRuntime(config, { ...safeRuntimeOptions, telemetry, dialogueTrace });
+  const runtime = createRuntime(config, { ...safeRuntimeOptions,
+    deferCharacterInitialization:true,
+    memoryNativeAuthority:options.memoryNativeAuthority??memoryAuthorityPort,
+    telemetry, dialogueTrace });
+  runtime.services.systemHealth=()=>health?.snapshot()??null;
+  owner.own('essential.connections',runtime,value=>value.closeConnections());
+  if(runtime.identityService) owner.own('p1.identity',runtime.identityService,value=>value.close({closeEvidence:!options.identityEvidence}));
+  // Initialize the single P2 writer before registering consumers. Bootstrap
+  // owns the lifetime; direct createRuntime callers retain their old behavior.
+  if(runtime.characterService) {
+    owner.starting('p2.storage');
+    owner.own('p2.storage',runtime.characterService,value=>value.closeStorage());
+    const ready=await runtime.characterService.initialize();
+    if(!ready) {
+      owner.failed('p2.storage');
+      // SQLite activation cannot silently become an unavailable JSON runtime.
+      if(config.promotedCharacters.storageMode==='sqlite') throw new Error('p2_sqlite_startup_failed');
+    }
+  }
+  // J-B: opt-in M6 deterministic retention over the SAME P2 store. Default off;
+  // M7/Luna cloud curation is never constructed here. Idle ticks, scene close and
+  // startup recovery are driven by the retention module, off the foreground path.
+  if(memoryKM6Activation(config).mode==='on'&&!runtime.memoryPause.paused&&
+     config.promotedCharacters?.storageMode==='sqlite'&&runtime.characterService?.ready===true){
+    try{
+      const retentionStore=runtime.memoryPause.optionalStore(runtime.characterService.store);
+      const retention=createM6RuntimeRetention({store:retentionStore,
+        isPaused:()=>runtime.memoryPause.paused||runtime.closed===true,
+        // M6 may append durable jobs for M7 only when M7 is independently on.
+        cloudQueue:memoryKM7Activation(config).mode==='on',
+        ...options.m6RetentionOptions});
+      owner.own('memory.retention',retention,value=>value.dispose());
+      runtime.retention=retention;
+      retention.start();
+    }catch{owner.failed('memory.retention');runtime.retention=null;try{console.warn('[M6] retention_runtime_unavailable');}catch{}}
+  }
+  // M7 Luna cloud curation over the SAME P2 store. Default off. It is independent
+  // of M2/M3/M4/H1/M8 and of whether M6 runs: it processes whatever authorized
+  // jobs the durable queue holds. It performs no network request until persisted
+  // consent, supported Luna pricing and a native idle proof all hold.
+  if(memoryKM7Activation(config).mode==='on'&&!runtime.memoryPause.paused&&
+     config.promotedCharacters?.storageMode==='sqlite'&&runtime.characterService?.ready===true){
+    try{
+      const cloudStore=runtime.memoryPause.optionalStore(runtime.characterService.store);
+      const cloudCuration=createM7RuntimeCuration({config,store:cloudStore,
+        isPaused:()=>runtime.memoryPause.paused||runtime.closed===true,
+        subscribePause:listener=>runtime.memoryPause.subscribe(listener),
+        // W07: the joined native + original-backend proof source (m7IdleProofSource),
+        // registered once the authenticated native channel exists. Absent => blocked.
+        nativeIdleSource:()=>options.m7NativeIdleSource??runtime.m7IdleSource??null,
+        fetchImpl:options.fetchImpl??globalThis.fetch,
+        ...options.m7CloudCurationOptions,
+        onStatusChange:({state,reason})=>{
+          // Real M7 transitions, independent of F11/browser status refresh.
+          try{options.m7CloudCurationOptions?.onStatusChange?.({state,reason});}catch{}
+          const status=state==='blocked'||state==='awaiting_consent'||state==='paused'?'blocked':
+            state==='starting'?'initializing':state==='stopped'?'stopped':
+            state==='idle'&&reason==='cloud_unavailable_retry_scheduled'?'degraded':
+            state==='idle'||state==='processing'?'ready':'unknown';
+          if(status!=='unknown')health?.note('mk.memory.cloudCuration',status,{
+            code:reason??undefined,proof:'resource_lifecycle'});
+        },
+        onVerifiedOperation:({kind,processed})=>{
+          try{options.m7CloudCurationOptions?.onVerifiedOperation?.({kind,processed});}catch{}
+          if(kind==='curation_checkpoint'&&processed>0)
+            health?.note('mk.memory.cloudCuration','verified',{proof:'durable_write'});
+        }});
+      owner.own('memory.cloudCuration',cloudCuration,value=>value.dispose());
+      runtime.cloudCuration=cloudCuration;
+      cloudCuration.start();
+    }catch{owner.failed('memory.cloudCuration');runtime.cloudCuration=null;try{console.warn('[M7] cloud_curation_runtime_unavailable');}catch{}}
+  }
+  runtime.services.memoryKRuntimeDiagnostics=()=>withLearnedMemoryPause(composition.snapshot(Object.fromEntries(
+    Object.entries(runtime.services.memoryKCapabilities()).map(([id,row])=>[id,row.registrationStatus])),{
+      ...runtime.intelligence?.operationalStates(),
+      ...(runtime.memoryM3?.operationalStates()??unavailableM3States(m3Activation)),
+      ...runtime.services.memoryDialogueDiagnostics(),
+      ...m9OperationalStates({activation:m9Activation,m9Events:runtime.m9Events??null,callbacks:runtime.m9Callbacks??null,closed:runtime.closed===true}),
+      'memory.journalContext':runtime.services.memoryJournalDiagnostics(),
+      'memory.recall':runtime.services.memoryRecallDiagnostics(),
+      'memory.commands':runtime.services.memoryCommandDiagnostics(),
+      'memory.interpretation':runtime.services.memoryInterpretationDiagnostics(),
+      'memory.deterministic':runtime.services.memoryRetentionDiagnostics(),
+      'memory.cloudCuration':runtime.services.memoryCloudCurationDiagnostics(),
+      ...(runtime.memoryD02?{'authority.d02':Object.freeze({requestedMode:'on',
+        state:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
+        effectiveMode:runtime.closed?'off':runtime.memoryD02.status().settled?'on':null,
+        operationalState:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
+        reason:runtime.memoryD02.status().settled?null:'d02_owner_authority_unavailable'})}:{})}),runtime.memoryPause);
+  runtime.dispose=()=>owner.dispose();
+  runtime.shutdown=runtime.dispose;
+  let restarting=null;
+  runtime.restart=()=>restarting??=(async()=>{
+    const result=await runtime.dispose();
+    if(result.failures.length) throw runtimeCleanupError(owner,result.failures,'runtime_disposal_failed');
+    return createRuntimeForBundle(options);
+  })().catch(error=>{restarting=null;throw error;});
   let capabilityManifest=null,capabilityPayloadHash=null,capabilityValidation=Object.freeze([]);
   try {const bytes=await readFile(new URL('../build-manifest.json',import.meta.url));capabilityManifest=JSON.parse(bytes);capabilityPayloadHash=createHash('sha256').update(bytes).digest('hex');}catch{}
   capabilityValidation=await loadCapabilityValidation(options.capabilityValidationPath??path.resolve(process.cwd(),'diagnostics/validation.v1.json'));
   runtime.services.capabilityHealth=()=>projectCapabilityHealth({config,manifest:capabilityManifest,payloadHash:capabilityPayloadHash,validation:capabilityValidation,perception:runtime.intelligence?.runtime,activities:runtime.activities});
+  // Workstream B read model. Construction/registration does not establish that
+  // a source is fresh, P2 has a healthy writer, D02 has a current owner, or
+  // that optional capture was turned on/off. No probe calls mutate authority.
+  runtime.services.memoryKDiagnostics=()=>{
+    const store=runtime.characterService?.store;
+    const source=runtime.intelligence?.runtime;
+    const registered={
+      'source.core':!!runtime.intelligence && !!source,
+      'p2.sqlite':config.promotedCharacters.storageMode==='sqlite' &&
+        runtime.characterService?.ready===true &&
+        typeof store?.withP2SqliteTransaction==='function',
+      'authority.d02':!!runtime.memoryD02,
+      // M3 owns its distinct authenticated witness-authority port. A supplied
+      // test authority is only a registered seam, never production proof.
+      'authority.witness':!!runtime.memoryM3 &&
+        (!!connectedMemoryAuthority || typeof options.memoryNativeAuthority?.resolveNativeOwner==='function'),
+      'ps4.assembler':typeof runtime.services.finalizeKnowledgeFrame==='function',
+      // Code presence != verified suppression / privacy enforcement.
+      'privacy.core':config.promotedCharacters.storageMode==='sqlite' &&
+        typeof store?.withP2SqliteRead==='function',
+      'ps1.producers':!!runtime.intelligence,
+      'ps2.observations':!!source?.correlator,
+      'ps3.salience':!!source?.salience,
+      'ps4.perceived':runtime.dialogueKnowledgeBuildSupported===true,
+      'ps6.speech':!!runtime.director,
+      'memory.dialogue.player':typeof runtime.services.bindM2Turn==='function' &&
+        !!runtime.memoryD02,
+      'memory.dialogue.npc':typeof runtime.services.recordM2Npc==='function' &&
+        !!runtime.memoryD02,
+      'memory.events':!!runtime.memoryM3&&m3Activation.events.mode!=='off',
+      'memory.coverage':!!runtime.memoryM3&&m3Activation.coverage.mode!=='off'&&!!connectedMemoryAuthority,
+      'memory.journalContext':typeof runtime.services.memoryJournalDiagnostics==='function',
+      'memory.recall':typeof runtime.services.memoryRecallDiagnostics==='function',
+      'memory.commands':typeof runtime.services.memoryCommandDiagnostics==='function',
+      'memory.deterministic':!!runtime.retention,
+      'memory.cloudCuration':!!runtime.cloudCuration,
+      'memory.interpretation':typeof runtime.services.memoryInterpretationDiagnostics==='function',
+    };
+    const environment=Object.freeze({
+      source:Object.freeze({
+        registered:registered['source.core'], hostContextObserved:!!source?.hostContext,
+        freshness:'unverified',
+      }),
+      storage:Object.freeze({
+        registered:registered['p2.sqlite'],initialized:runtime.characterService?.ready===true,
+        // Snapshot only: not a transaction or integrity/owner receipt.
+        timelineWritableSnapshot:store?.timelineWritable===true,
+        timelineConfirmation:'unverified',writerHealth:'unverified',
+      }),
+      native:Object.freeze({
+        d02Registered:registered['authority.d02'],currentOwnerProof:'unverified',
+        m3WitnessAuthorityRegistered:registered['authority.witness'],m3WitnessProof:'unverified',
+      }),
+      ps4:Object.freeze({assemblerRegistered:registered['ps4.assembler'],soleWriterAdmission:'unverified'}),
+      privacy:Object.freeze({
+        portRegistered:registered['privacy.core'],enforcement:'unverified',
+      }),
+      capture:Object.freeze({
+        m3AdapterRegistered:registered['memory.events'],
+        acceptedObservationObserved:'unverified',
+        dialoguePersisted:'unverified',
+      }),
+      // Registration only. Persisted consent, budget and idle evidence are read by
+      // the M7 worker itself at each tick; see memoryCloudCurationDiagnostics().
+      cloud:Object.freeze({
+        workerRegistered:!!runtime.cloudCuration,consent:'unverified',budget:'unverified',idle:'unverified',
+      }),
+    });
+    return Object.freeze({capabilities:resolveMemoryKCapabilities({config,available:registered}),environment});
+  };
+  runtime.services.memoryKCapabilities=()=>runtime.services.memoryKDiagnostics().capabilities;
   let knowledgeContract=options.dialogueKnowledgeContract,knowledgePerceptionContract=options.perceptionContract;
   if(knowledgeContract===undefined)knowledgeContract=capabilityManifest?.dialogueKnowledgeContract;
   if(knowledgePerceptionContract===undefined)knowledgePerceptionContract=capabilityManifest?.perceptionContract;
   runtime.dialogueKnowledgeBuildSupported=dialogueKnowledgeContractSupported(knowledgeContract,knowledgePerceptionContract);
-  const sqliteRequested=config.provider==='openai' &&
-    config.promotedCharacters?.enabled===true &&
-    config.promotedCharacters?.storageMode==='sqlite';
-  // Initialize the real selected P2 storage before admitting the first
-  // post-validation native C-13 host receipt.
-  if(sqliteRequested && runtime.characterService) {
-    try {await runtime.characterService.initialize();}
-    catch {runtime.emotionalMood?.clear();}
+  // Keep PS4 fail-closed but disclose which *build* prerequisite is absent.
+  // A live native hello or a radio catalog is not a substitute for the
+  // source/hash-verified build payload.
+  runtime.dialogueKnowledgeBuildFailure=runtime.dialogueKnowledgeBuildSupported?null:
+    !knowledgeContract?'missing_dialogue_knowledge_contract':
+    knowledgeContract.available!==true?'native_payload_unavailable':
+    !perceptionContractSupported(knowledgePerceptionContract)?'perception_contract_mismatch':
+    'dialogue_contract_mismatch';
+  if(config.dialogueKnowledge.mode==='active'&&!runtime.dialogueKnowledgeBuildSupported) {
+    try { console.warn('[PS4] Perceived knowledge unavailable ('+
+      runtime.dialogueKnowledgeBuildFailure+
+      '): rebuild matching native and companion payloads with npm run build:ps4.'); } catch {}
   }
   if(config.intelligence.mode==='shadow') {
     let contract=options.perceptionContract;
     if(contract===undefined) try {contract=JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).perceptionContract;}catch{}
     if(perceptionContractSupported(contract)) {
+      const checkpoint=owner.checkpoint();
       try {
+        owner.starting('source.intelligence');
         const suppliedIntelligenceTelemetry=options.intelligenceOptions?.telemetry;
         // Radio remains optional and never supplies a second model prompt writer.
+        const sourceActivation=memoryKSourceActivation(config);
         let radioCatalog=options.intelligenceOptions?.radioCatalog;
-        if(radioCatalog===undefined && config.intelligence.radio==='shadow') {
+        if(sourceActivation.ps2.enabled && radioCatalog===undefined && config.intelligence.radio==='shadow') {
           try {radioCatalog=loadRadioTrackTextCatalog(await readFile(new URL('../data/radioTrackTextIds.v2.json',import.meta.url),'utf8'));} catch {}
         }
-        const intelligenceOptions={radioCatalog,situationFor:ref=>runtime.situationFor(ref),
+        let memoryIntake=null;
+        let currentOwnerPlayerAuthority=null;
+        const memoryStore=runtime.memoryPause.optionalStore(runtime.characterService?.store);
+        const memoryNative=options.memoryNativeAuthority??memoryAuthorityPort;
+        const canBindMemory=config.promotedCharacters.storageMode==='sqlite' &&
+          typeof memoryStore?.withTimelineWrite==='function' &&
+          typeof memoryNative?.resolveNativeOwner==='function';
+        // Strict synchronous verified PS2 tap; never execute SQLite here.
+        const memoryObservationTap=receipt=>!runtime.memoryPause.paused&&memoryIntake?.acceptedObservationTap(receipt) ||
+          {accepted:false,reason:'m3_owner_ledger_unavailable'};
+        // M9 classifier is independent of M3 journal storage. Shadow and
+        // event-only modes still observe authenticated samples; only the
+        // optional M3 tap can persist events. Learned-memory pause vetoes it.
+        if(m9Activation.anyEvent&&!runtime.memoryPause.paused){
+          try{
+            m9Events=createM9RuntimeEvents({activation:m9Activation,
+              now:()=>runtime.intelligence?.runtime.now()??Math.floor(performance.now())});
+            runtime.m9Events=m9Events;
+          }catch{m9Events=null;runtime.m9Events=null;try{console.warn('[M9] event_runtime_unavailable');}catch{}}
+        }
+        const intelligenceOptions={radioCatalog,situationFor:ref=>runtime.situationFor(ref),m9Events,
+          // Ambient PS3 grants are opt-in through the existing spontaneous
+          // speech mode; disabling Director restores the prior PS3 behavior.
+          ambientSpeech:config.spontaneousSpeech.mode!=='off',
           directorProductionRequired:config.spontaneousSpeech.mode==='experimental',
           // Original stock A turn/mic/output stores; every missing bridge or
           // source read fails closed before native Director reserve/submit.
@@ -140,32 +409,117 @@ export async function createRuntimeForBundle(options = {}) {
           originalTurnCurrent:ticket=>{try{return runtime.host.directorCheckOriginalTurn(ticket);}catch{return null;}},
           originalTurnRelease:ticket=>{try{return runtime.host.directorReleaseOriginalTurn(ticket);}catch{return false;}},
           originalTurnPhase:ticket=>{try{return runtime.host.directorOriginalPhase(ticket);}catch{return null;}},
-          ...options.intelligenceOptions,telemetry:(event,data)=>{
+          ...options.intelligenceOptions,
+           consumers:sourceActivation,
+           acceptedObservationTap:canBindMemory&&m3Activation.events.mode!=='off'?memoryObservationTap:null,
+           telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
         }};
         runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);
-        // Bind to A's authenticated channel BEFORE start; failed optional
-        // storage keeps emotion neutral, without widening PS2 or legacy IO.
-        if(sqliteRequested && runtime.characterService?.ready) {
+        owner.own('source.intelligence',runtime.intelligence,value=>value.stop());
+        // EA mood does not survive world epochs, host authority changes or a
+        // retired native intelligence stream. This listener cannot grant mood.
+        owner.own('emotion.world',runtime.intelligence.subscribeWorldBoundary(
+          ()=>runtime.emotionalMood?.clear()),unsubscribe=>unsubscribe());
+        owner.own('emotion.host',runtime.intelligence.subscribeVerifiedHostContext(
+          ()=>runtime.emotionalMood?.clear()),unsubscribe=>unsubscribe());
+        // Independently authenticated D02 owner/controlled-player source.
+        // Exposes only the synchronous read-through lease/verification port;
+        // neither this port nor the native frame attests accepted dialogue.
+        const dialogueEnabled=memoryKDialogueActivation(config).player;
+        if(canBindMemory && !options.memoryNativeAuthority) {
           try {
-            runtime.timelineSourceBinding=bindTrustedTimelineSource({
-              store:runtime.characterService.store,intelligenceClient:runtime.intelligence
-            });
-          } catch {
-            runtime.emotionalMood?.clear();
-            try {console.warn('[EA] timeline_source_unavailable; mood disabled');}catch{}
-          }
+            currentOwnerPlayerAuthority=createMemoryD02Port({
+              intelligence:runtime.intelligence,memoryStore:runtime.characterService.store});
+            runtime.memoryD02=currentOwnerPlayerAuthority.port;
+            owner.own('authority.d02',currentOwnerPlayerAuthority,value=>value.close());
+          }catch{owner.failed('authority.d02');currentOwnerPlayerAuthority=null;}
         }
-        if(typeof runtime.intelligence.subscribeWorldBoundary==='function')
-          runtime.intelligence.subscribeWorldBoundary(()=>runtime.emotionalMood?.clear());
-        if(typeof runtime.intelligence.subscribeVerifiedHostContext==='function')
-          runtime.intelligence.subscribeVerifiedHostContext(()=>runtime.emotionalMood?.clear());
+        // D01 OpenAI acceptance receipts never outlive a verified host run or
+        // world epoch: any change retires the current acceptance source run.
+        if(canBindMemory&&dialogueEnabled){
+          let acceptanceEpoch=null;
+          owner.own('acceptance.host',runtime.intelligence.subscribeVerifiedHostContext(host=>{
+            const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
+            if(stamp!==acceptanceEpoch){
+              if(acceptanceEpoch!==null)runtime.retireOriginalAcceptanceSourceRun?.();
+              acceptanceEpoch=stamp;
+            }
+          }),unsubscribe=>unsubscribe());
+          owner.own('acceptance.boundary',runtime.intelligence.subscribeWorldBoundary(()=>{runtime.retireOriginalAcceptanceSourceRun?.();}),unsubscribe=>unsubscribe());
+        }
+        // One genuine authenticated ledger for M2/M3 plus the M3 PS2 intake, built
+        // by the shared factory the integration tests also use. Normal production
+        // never trusts a caller-supplied nativeVerified flag or model-generated
+        // owner claim; an explicit test-only injected authority stays isolated.
+        if(canBindMemory&&!runtime.memoryPause.paused&&(m3Activation.events.mode!=='off'||m3Activation.coverage.mode!=='off')){
+          try{
+            const m3=createM3ProductionMemory({intelligence:runtime.intelligence,memoryStore,
+              nativeAuthority:options.memoryNativeAuthority??null,telemetry,
+              eventMode:m3Activation.events.mode,coverageMode:m3Activation.coverage.mode,
+              onDurableEvent:characterId=>runtime.retention?.noteEvidenceCommitted(characterId)});
+            memoryIntake=m3.adapter;
+            connectedMemoryAuthority=m3.authority;
+            runtime.memoryM3=Object.freeze({snapshot:()=>m3.snapshot(),
+              operationalStates:()=>{
+                const states=m3.operationalStates(),unavailable=unavailableM3States(m3Activation);
+                return Object.freeze(Object.fromEntries(['events','coverage'].map(kind=>{
+                  const gate=m3Activation[kind],id='memory.'+kind;
+                  return [id,gate.reason?unavailable[id]:states[id]];
+                })));
+              },
+              close:()=>m3.adapter.close(),shutdown:()=>m3.close()});
+            owner.own('memory.m3',m3,value=>value.close());
+          }catch{owner.failed('memory.m3');memoryIntake=null;connectedMemoryAuthority=null;try{console.warn('[M3] verified_owner_binder_unavailable');}catch{}}
+        }
+        if(config.promotedCharacters.storageMode==='sqlite' && runtime.characterService?.store?.onBoundary) {
+          const source=bindTrustedTimelineSource({store:runtime.characterService.store,
+            intelligenceClient:runtime.intelligence,
+            autoResume:config.memoryK.autoResumeSingleTimeline===true,
+            onSafeFailure:()=>runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'})});
+          owner.own('storage.source',source,binding=>binding.close());
+        }
+        // M7: a changed host run/world epoch or any world boundary aborts in-flight
+        // cloud work. Only a CHANGE counts; repeated samples of the same host do not.
+        if(runtime.cloudCuration){
+          let m7Host=null;
+          owner.own('m7.host',runtime.intelligence.subscribeVerifiedHostContext(host=>{
+            const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
+            if(stamp!==m7Host){m7Host=stamp;try{runtime.cloudCuration?.invalidate();}catch{}}
+          }),unsubscribe=>unsubscribe());
+          owner.own('m7.boundary',runtime.intelligence.subscribeWorldBoundary(()=>{
+            try{runtime.cloudCuration?.invalidate();}catch{}
+          }),unsubscribe=>unsubscribe());
+          // W07 idle proof: authenticated native diagnostic joined to the ORIGINAL
+          // backend turn timeline. Needs only P2 + the native owner ledger; it uses
+          // no M3/M4/H1/M8 state and no PS3 ticket, receipt or Director grant.
+          try{
+            const idleStore=runtime.memoryPause.optionalStore(runtime.characterService.store);
+            const idleAuthority=createNativeMemoryAuthority({
+              subscribeAuthenticatedNativeFrames:(onFrame,onRetire)=>
+                runtime.intelligence.subscribeAuthenticatedNativeMemoryAuthority(onFrame,onRetire),
+              profileForAlias:alias=>resolveLivePromotedProfile(idleStore,alias)});
+            owner.own('m7.idleAuthority',idleAuthority,value=>value.close());
+            const idleSource=createM7IdleProofSource({intelligence:runtime.intelligence,store:idleStore,
+              resolveOwner:input=>idleAuthority.resolveNativeOwner(input),
+              backend:Object.freeze({
+                sample:()=>runtime.host.directorTurnPrioritySnapshot(),
+                observe:observer=>runtime.observeOriginalTurnTransitions(observer),
+                leaseActive:()=>runtime.originalTurnLeaseActive()}),
+              // A configured Director whose state cannot be read counts as busy.
+              directorBusy:()=>config.spontaneousSpeech.mode==='off'?false:
+                (runtime.spontaneousSpeechBusy?.()??true),
+              ...options.m7IdleSourceOptions});
+            owner.own('m7.idleSource',idleSource,value=>value.dispose());
+            runtime.m7IdleSource=idleSource;
+          }catch{runtime.m7IdleSource=null;try{console.warn('[M7] idle_proof_source_unavailable');}catch{}}
+        }
         runtime.intelligence.start();
       }catch{
-        try {runtime.intelligence?.stop?.();}catch{}
-        try {runtime.timelineSourceBinding?.close?.();}catch{}
-        runtime.timelineSourceBinding=null;runtime.intelligence=null;
+        const cleanup=await owner.rollback(checkpoint);
+        if(cleanup.failures.length) throw runtimeCleanupError(owner,cleanup.failures);
+        owner.failed('source.intelligence');runtime.intelligence=null;runtime.memoryD02=null;runtime.memoryM3=null;connectedMemoryAuthority=null;m9Events=null;runtime.m9Events=null;
         runtime.emotionalMood?.clear();
         try{console.warn('[PS] optional_channel_unavailable');}catch{}
       }
@@ -174,11 +528,11 @@ export async function createRuntimeForBundle(options = {}) {
 
   // Production coordinator: original Core kb is still the only scheduler.
   // The native add-on must independently opt in and source-pin each C-06 gate.
-  if(config.spontaneousSpeech.mode!=='off' && runtime.intelligence) {
+  if(config.spontaneousSpeech.mode!=='off' && runtime.intelligence?.runtime.salience) {
     const client=runtime.intelligence;
     const now=()=>client.runtime.now();
     const experimental=config.spontaneousSpeech.mode==='experimental';
-    const sourceCheck=({proposal,stamp,stage})=>{
+    const sourceCheck=({proposal,stamp,stage,ticketId})=>{
       const live=client.runtime,owner=live.directorOwnerProofFor(proposal.speakerCaptureRef);
       const priority=live.directorPriority,at=now();
       if(!owner || !priority || !priority.experimentalEnabled ||
@@ -195,29 +549,65 @@ export async function createRuntimeForBundle(options = {}) {
       // PS3 grants expire during ordinary TTS; native verifies the original
       // bound Core tuple and current player-priority epoch at playback end.
       if(stage==='complete')return true;
-      return client.directorOriginalEntitlement(proposal,stamp)?.source===
-        'original_companion_ps2_ps3';
+      return ['original_companion_ps2_ps3','native_director_social'].includes(
+        client.directorOriginalEntitlement(proposal,stamp,ticketId)?.source);
     };
     const admission=new DirectorSpeechReservations({
       now,enabled:experimental,checkCurrent:sourceCheck,
       limits:directorSpeechLimitsForPreset(config.spontaneousSpeech.preset),
       acknowledge:(decisionKey,consumer,outcome,proposal)=>
+        consumer==='ps6_ticket' && outcome==='delivered' && proposal?.decisionKey===decisionKey &&
+          proposal?.source==='native_director_social' ? true :
         consumer==='ps6_ticket' && outcome==='delivered' && proposal?.decisionKey===decisionKey
           ? client.runtime.salience.acknowledgeDirectorCompletion(proposal,client.runtime.epoch)
           : false,
     });
     const coordinator=new SceneDirectorSpeech({
       admission,now,mode:experimental?'active':'shadow',
-      originalEntitlement:(proposal,stamp)=>client.directorOriginalEntitlement(proposal,stamp),
+      originalEntitlement:(proposal,stamp,ticketId)=>client.directorOriginalEntitlement(proposal,stamp,ticketId),
       nativeRequest:r=>client.requestDirector(r),
       dispatch:r=>client.dispatchDirector(r),
     });
+    // M9 spontaneous memory callbacks (default off). They only wrap the existing
+    // coordinator's attempt(): PS3 selection, C-06/C-11 admission, cooldowns,
+    // player priority and delivery remain entirely the coordinator's.
+    let directorCoordinator=coordinator;
+    if(m9Activation.callbacks.mode!=='off'&&m9Events&&!runtime.memoryPause.paused&&
+       config.promotedCharacters?.storageMode==='sqlite'&&runtime.characterService?.ready===true){
+      try{
+        const callbacks=createM9Callbacks({activation:m9Activation,
+          store:runtime.memoryPause.optionalStore(runtime.characterService.store),
+          runtime:client.runtime,native:options.memoryNativeAuthority??memoryAuthorityPort,
+          quiet:()=>client.originalBackendEvidence()!==null,
+          directorLive:()=>{
+            const live=client.runtime,p=live.directorPriority,at=now();
+            return experimental&&p?.experimentalEnabled===true&&Number.isSafeInteger(p.receivedAt)&&
+              at>=p.receivedAt&&at-p.receivedAt<=1500&&live.directorRequestVersion===1;
+          },
+          m9Events,pause:runtime.memoryPause,now,telemetry,...options.m9CallbackOptions});
+        if(callbacks){
+          runtime.m9Callbacks=callbacks;
+          directorCoordinator=callbacks.wrapDirector(coordinator);
+          owner.own('memory.m9Callbacks',callbacks,value=>value.dispose());
+          let callbackStamp=null;
+          owner.own('m9.callbacks.host',client.subscribeVerifiedHostContext(host=>{
+            const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
+            if(stamp!==callbackStamp){if(callbackStamp!==null)callbacks.revoke('host_changed');callbackStamp=stamp;}
+          }),unsubscribe=>unsubscribe());
+          owner.own('m9.callbacks.boundary',client.subscribeWorldBoundary(()=>callbacks.revoke('world_boundary')),unsubscribe=>unsubscribe());
+        }
+      }catch{
+        runtime.m9Callbacks=null;directorCoordinator=coordinator;
+        try{console.warn('[M9] callbacks_runtime_unavailable');}catch{}
+      }
+    }
     let pump;
-    pump=new DirectorObservationPump({client,coordinator,now,
+    pump=new DirectorObservationPump({client,coordinator:directorCoordinator,now,
       stampFor:proposal=>pump.currentStamp(proposal),
       onDiagnostic:result=>{
         try {telemetry?.emit?.('director_gate',null,'internal',{
-          reason:result.reason,configuredMode:config.spontaneousSpeech.mode,
+          reason:result.reason,eventType:result.eventType,
+          configuredMode:config.spontaneousSpeech.mode,
           nativeExperimental:client.runtime.directorPriority?.experimentalEnabled===true,
         },'internal');}catch{}
       },
@@ -228,6 +618,8 @@ export async function createRuntimeForBundle(options = {}) {
           // One-way code of the original native event signal: joins this
           // attempt to perception_trace and the native [PS] log lines.
           traceCode:outcome?.traceCode??null,urgency:outcome?.urgency??null,
+          eventType:outcome?.eventType,
+          source:outcome?.source??'reactive',sceneType:outcome?.sceneType??null,
           configuredMode:config.spontaneousSpeech.mode,
           executionAvailable:experimental &&
             client.runtime.directorPriority?.experimentalEnabled===true,
@@ -235,6 +627,26 @@ export async function createRuntimeForBundle(options = {}) {
       },
     });
     runtime.director=pump;
+    runtime.spontaneousSpeechBusy=()=>admission.active!==null&&admission.active!==undefined;
+    owner.own('director.pump',pump,value=>value.stop());
+    runtime.services.directorManualStatus=()=>Object.freeze({
+      nativeResult:client.runtime.socialManualResult??null,
+      executionAvailable:experimental &&
+        client.runtime.directorPriority?.experimentalEnabled===true &&
+        client.runtime.directorRequestVersion===1,
+    });
+    runtime.services.initiateDirectorConversation=()=>Object.freeze({
+      queued:experimental && client.requestDirectorSocialManual()===true,
+      // Native admission/result is reported separately. Never claim
+      // actual Luna speech merely because a request entered the pipe.
+      nativeResult:client.runtime.socialManualResult?.reason??null,
+    });
+    // Dedicated extended diagnostics preserve the legacy status shape.
+    runtime.services.spontaneousSocialStatus=()=>Object.freeze({
+      source:client.runtime.socialDiagnostics?{...client.runtime.socialDiagnostics}:null,
+      activeScenes:client.runtime.socialScenes?.size??0,
+      lastManualResult:client.runtime.socialManualResult??null,
+    });
     runtime.services.spontaneousSpeechStatus=()=>Object.freeze({
       requested:config.spontaneousSpeech.mode,
       preset:config.spontaneousSpeech.preset,
@@ -247,8 +659,9 @@ export async function createRuntimeForBundle(options = {}) {
         client.runtime.directorRequestVersion===1,
       reason:experimental?'native_opt_in_and_live_C06_required':'shadow_only',
     });
-    client.subscribeKnowledgeInvalidation(()=>{void pump.tick();});
+    owner.own('director.subscription',client.subscribeKnowledgeInvalidation(()=>{void pump.tick();}),unsubscribe=>unsubscribe());
   }
+  // Orderly shutdown revokes any still-pending OpenAI acceptance receipts.
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
   runtime.services.projectTurnContext = input => runtime.intelligence?.projectTurnContext(input) ?? null;
   runtime.services.acknowledgeTurnContext = (projection,outcome='delivered') => runtime.intelligence?.acknowledgeTurnContext(projection,outcome) ?? false;
@@ -256,40 +669,103 @@ export async function createRuntimeForBundle(options = {}) {
     runtime.intelligence?.acceptCapturedPlayerUtterance(input) ??
       {accepted:false,reason:'c01_unavailable'};
   if(config.activities.mode==='shadow' || config.activities.mode==='on') {
+    const checkpoint=owner.checkpoint();
     try {
+      owner.starting('activities');
       const notifyKnowledge=()=>{try{runtime.intelligence?.notifyKnowledgeInvalidation();}catch{}};
-      const onEvent = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data); } catch {} notifyKnowledge(); };
-      const onFrame=frame=>{try{options.activityOptions?.onFrame?.(frame);}catch{}notifyKnowledge();};
+      const onEvent = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data, 'internal', { component: 'activities', severity: event === 'activity_channel_failure' ? 'warn' : 'info' }); } catch {} notifyKnowledge(); };
+      const onFrame=frame=>{
+        try{options.activityOptions?.onFrame?.(frame);}catch{}
+        // Native hello and restart are real edge-triggered transport evidence,
+        // not an assumed navigation or action success.
+        if(frame?.type==='hello') try {
+          telemetry?.emit?.(frame.clientRestart?'activity_channel_closed':'activity_channel_ready',
+            null,'internal',{nativeRun:frame.nativeRun,adapterEpoch:frame.adapterEpoch,
+              hostRunId:frame.hostRunId,worldEpoch:frame.worldEpoch},
+            'internal',{component:'activities'});
+        }catch{}
+        notifyKnowledge();
+      };
       runtime.activities = config.activities.mode === 'on'
         ? new ActivityRuntime(config.activities, { ...options.activityOptions, onEvent,onFrame })
         : new ActivityClient(config.activities, { ...options.activityOptions, onEvent,onFrame });
+      owner.own('activities',runtime.activities,value=>value.stop());
       runtime.activities.start();
       runtime.characterService?.bindActivities?.(runtime.activities);
-    } catch { try { console.warn('[ACT] optional_channel_unavailable'); } catch {} }
+      // Direct player ACT6 orders must work even when optional ACT5 suggestions are off.
+      if (config.provider === 'openai' &&
+          (config.activities.act5 === true || (config.activities.act6Capabilities?.length || 0) > 0) &&
+          runtime.activities?.engine && runtime.characterService) {
+        runtime.services.act5 = new Act5Dialogue({
+          activities: runtime.activities, characterService: runtime.characterService,
+          report: (event, data) => onEvent(event, data),
+        });
+        owner.own('act5', runtime.services.act5, value => value.clear());
+      }
+    } catch {
+      const cleanup=await owner.rollback(checkpoint);
+      if(cleanup.failures.length) throw runtimeCleanupError(owner,cleanup.failures);
+      owner.failed('activities');runtime.activities=null;
+      try { console.warn('[ACT] optional_channel_unavailable'); } catch {}
+    }
+  }
+  // Cosmetic gestures are default off and cannot veto a normal conversation.
+  if (config.reactions?.mode === 'shadow' || config.reactions?.mode === 'on') {
+    const checkpoint = owner.checkpoint();
+    try {
+      owner.starting('reactions');
+      const report = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data, 'internal', { component: 'reactions' }); } catch {} };
+      const client = new ReactionClient(config.reactions, { ...options.reactionOptions, onEvent: report });
+      runtime.services.reactions = createReactionService({ config: config.reactions, client, report });
+      owner.own('reactions', client, value => value.stop());
+      client.start();
+    } catch {
+      const cleanup = await owner.rollback(checkpoint);
+      if (cleanup.failures.length) throw runtimeCleanupError(owner, cleanup.failures);
+      owner.failed('reactions'); runtime.services.reactions = null;
+      try { console.warn('[RX] optional_channel_unavailable'); } catch {}
+    }
   }
   if (runtime.characterService) {
-    await runtime.characterService.initialize();
+    // Opt-in SQLite writer must release its explicit cross-host lock at orderly shutdown.
+    // No JSON default store or native effect ownership is changed.
     if (runtime.characterService.ready && options.startCharacterEditor !== false) try {
       // Per-user endpoint file for the native console bridge; null disables it.
       // The resolved environment keeps explicit test/embedding envs isolated.
       const endpointPath = options.controlEndpointPath !== undefined ? options.controlEndpointPath : defaultControlEndpointPath({ env });
-      runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath });
+      runtime.memoryInspectorControls=createInspectorControls({runtime,configPath:options.configPath,env});
+      runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath,
+        inspectorControls:runtime.memoryInspectorControls,
+        socialConversation:()=>runtime.services.initiateDirectorConversation?.()??{queued:false},
+        socialStatus:()=>runtime.services.directorManualStatus?.()??{nativeResult:null,executionAvailable:false},
+        voiceStatus:()=>runtime.voiceActivity?.snapshot()??{v:1,phase:'unavailable'},
+        diagnostics:()=>({
+          source:runtime.intelligence?.operationalStates?.()??null,
+          owner:runtime.memoryD02?.status?.()??null,
+          dialogue:runtime.services.memoryDialogueDiagnostics(),
+          history:runtime.services.memoryJournalDiagnostics(),
+          timeline:{writable:runtime.characterService.store.timelineWritable,
+            selectionConfirmed:runtime.characterService.store.timelineSelectionConfirmed===true,
+            pendingReason:runtime.characterService.store.timelinePendingReason}
+        }) });
+      owner.own('p2.editor',runtime.characterEditor,value=>value.close());
       try { console.info('[P2] Character editor: ' + runtime.characterEditor.url); } catch {}
       if (endpointPath && !runtime.characterEditor.endpointPublished) try { console.warn('[UX] Control endpoint file unavailable; native clients use the page handshake.'); } catch {}
     } catch { runtime.characterService.emit('character_safe_failure',{reason:'owner_unavailable'}); }
   }
-  // Idempotent orderly shutdown: revoke live intake before closing the
-  // timeline bridge and its single SQLite writer. Unknown state fails neutral.
-  let shutdownPromise=null;
-  runtime.close=()=>shutdownPromise ||= (async()=>{
-    try {runtime.intelligence?.stop?.();}catch{}
-    try {runtime.timelineSourceBinding?.close?.();}catch{}
-    runtime.timelineSourceBinding=null;runtime.emotionalMood?.clear();
-    try {runtime.director?.stop?.();}catch{}
-    try {runtime.activities?.stop?.();}catch{}
-    try {await runtime.characterEditor?.close?.();}catch{}
-    try {await runtime.characterService?.closeStorage?.();}catch{}
-  })();
-  shutdownClosers.add(runtime);
+  // Revoke pending issuance/connections before draining consumers/storage.
+  owner.own('essential.revocation',runtime,value=>{value.retireOriginalAcceptanceSourceRun?.();value.closeConnections();});
+  const beforeExit=()=>{void runtime.dispose().then(result=>{
+    if(result.failures.length) console.warn('[runtime] disposal_failed',result.failures);
+  });};
+  process.once('beforeExit',beforeExit);
+  owner.own('process.beforeExit',beforeExit,value=>process.removeListener('beforeExit',value));
+  health?.note('companion.service','initialized',{proof:'resource_lifecycle'});
   return runtime;
+  } catch(error) {
+    const cleanup=await owner.dispose();
+    if(cleanup.failures.length) throw runtimeCleanupError(owner,
+      [...new Set([...(error.failures??[]),...cleanup.failures])],'runtime_startup_cleanup_failed');
+    throw error;
+  }
 }

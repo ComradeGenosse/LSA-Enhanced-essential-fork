@@ -17,7 +17,7 @@ class Program
     static void Check(bool condition,string name) {if(!condition) throw new Exception(name);assertions++;}
     static object Get(object target,string name)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).GetValue(target);
     static void Set(object target,string name,object value)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).SetValue(target,value);
-    static void Call(object target,string name,params object[] args)=>target.GetType().GetMethod(name,BindingFlags.NonPublic|BindingFlags.Instance).Invoke(target,args);
+    static object Call(object target,string name,params object[] args)=>target.GetType().GetMethod(name,BindingFlags.NonPublic|BindingFlags.Instance).Invoke(target,args);
     static string ReadRaw(StreamReader reader)
     {
         var pending=Task.Run(()=>reader.ReadLine());
@@ -177,9 +177,205 @@ class Program
     static Dictionary<string,object> Anchor(string captureRef,Dictionary<string,object> frame)=>FrameAnchors(frame).Single(a=>(string)a["captureRef"]==captureRef);
     static void Tick(IntelligenceIntegration integration)
     {Game.GameTime+=210;Set(integration,"nextDiscovery",0L);Set(integration,"nextState",0L);Set(integration,"nextShot",0L);integration.Update();}
-    static void Main()
+    // Uses the real production callback-to-owner Publish and corpse-sample seams,
+    // with only GTA native calls stubbed. This is NOT a game-session proof.
+    static void Ps6NativeSourceCoverage()
     {
-        try{Run();RadioCoverage();}catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
+        var host=new LSA.PromotedCharacters.HostContext();
+        var owner=new Ped {Handle=32001,MemoryAddress=new IntPtr(32001)};
+        var victim=new Ped {Handle=32002,MemoryAddress=new IntPtr(32002),IsDead=false};
+        var car=new Vehicle {Handle=32003,MemoryAddress=new IntPtr(32003)};
+        var integration=new IntelligenceIntegration(()=>new OwnedParticipant[0],
+            "LSA.PS6.Source."+Guid.NewGuid().ToString("N"),host:host);
+        Set(integration,"started",true);
+        var table=(EntityAnchors)Get(integration,"anchors");
+        var nathan=table.Retain(owner,owner.Handle,owner.MemoryAddress,"ped",null,()=>true,1000,true);
+        var body=table.Retain(victim,victim.Handle,victim.MemoryAddress,"ped",null,()=>true,1000);
+        var vehicle=table.Retain(car,car.Handle,car.MemoryAddress,"vehicle",null,()=>true,1000);
+        var sensors=(SensorAdapters)Get(integration,"sensors");
+        sensors.Enabled=true;
+        Rage.Native.NativeFunction.FrontLos=true;
+        Set(integration,"callbackTick",(uint)101);
+        Set(integration,"lineOfSightBudget",8);
+        RawSignal Damage(string type,string kind,string target,string classification,long received,uint tick)
+        {
+            var facts=new Dictionary<string,object>{{"damage",20},{"armour",0},
+                {"classification",classification}};
+            if(kind=="vehicle_damage")facts["collision"]=new {x=0.0,y=0.0,z=0.0};
+            return new RawSignal{producer=type,kind=kind,target=target,source=null,
+                gameTick=tick,receivedMs=received,facts=facts};
+        }
+        try {
+            var ped=Damage("ped_damage","damage",body.CaptureRef,"bullet",1000,100);
+            Call(integration,"Publish",ped,1050L);
+            Check(ped.witnessReceipts.Count==1&&ped.witnessReceipts[0].Observer==nathan.CaptureRef&&
+                  ped.witnessReceipts[0].Channel=="visual"&&
+                  ped.witnessReceipts[0].SampledGameTick==101,
+                  "fresh callback injury attaches an owner-fiber visual victim witness");
+            var selfDamage=Damage("ped_damage","damage",nathan.CaptureRef,"bullet",1000,100);
+            Call(integration,"Publish",selfDamage,1050L);
+            Check(selfDamage.witnessReceipts.Count==1&&
+                  selfDamage.witnessReceipts[0].Observer==nathan.CaptureRef&&
+                  selfDamage.witnessReceipts[0].Channel=="self"&&
+                  selfDamage.witnessReceipts[0].Basis=="native_callback"&&
+                  selfDamage.witnessReceipts[0].KnowsTarget&&
+                  !selfDamage.witnessReceipts[0].KnowsSource,
+                  "injured observer gets exact self callback evidence without invented attacker");
+            var selfState=new RawSignal {producer="state",kind="injury_state",
+                target=nathan.CaptureRef,gameTick=101,receivedMs=1050};
+            var selfSample=(List<WitnessReceipt>)Call(integration,"CaptureWitnesses",selfState);
+            Check(selfSample.Count==1&&selfSample[0].Observer==nathan.CaptureRef&&
+                  selfSample[0].Channel=="self"&&selfSample[0].Basis=="sampled_state",
+                  "state-sampled NPC injury needs no LOS-to-self");
+            var stale=Damage("ped_damage","damage",body.CaptureRef,"bullet",1000,100);
+            Call(integration,"Publish",stale,1120L);
+            Check(stale.witnessReceipts.Count==0,"stale native callback cannot fabricate later sight");
+            Rage.Native.NativeFunction.FrontLos=false;
+            var hidden=Damage("ped_damage","damage",body.CaptureRef,"bullet",1000,100);
+            Set(integration,"lineOfSightBudget",8);Call(integration,"Publish",hidden,1050L);
+            Check(hidden.witnessReceipts.Count==0,"occluded callback injury lacks witness");
+            Rage.Native.NativeFunction.FrontLos=true;
+            Set(integration,"lineOfSightBudget",8);
+            var impact=Damage("vehicle_damage","vehicle_damage",vehicle.CaptureRef,"collision",1000,100);
+            Call(integration,"Publish",impact,1050L);
+            Check(impact.witnessReceipts.Count==1&&impact.witnessReceipts[0].Channel=="visual"&&
+                  impact.witnessReceipts[0].KnowsTarget,
+                  "verified vehicle callback and LOS authorize impact eyewitness");
+            Set(integration,"lineOfSightBudget",8);owner.CurrentVehicle=car;
+            Rage.Native.NativeFunction.FrontLos=false;
+            var seated=Damage("vehicle_damage","vehicle_damage",vehicle.CaptureRef,"collision",1000,100);
+            Call(integration,"Publish",seated,1050L);
+            Check(seated.witnessReceipts.Count==1&&seated.witnessReceipts[0].Channel=="self"&&
+                  seated.witnessReceipts[0].Basis=="native_callback",
+                  "exact seat-involved collision is a verified native self witness");
+            owner.CurrentVehicle=null;
+            var bullet=Damage("vehicle_damage","vehicle_damage",vehicle.CaptureRef,"bullet",1000,100);
+            Call(integration,"Publish",bullet,1050L);
+            Check(bullet.witnessReceipts.Count==0,"vehicle bullets never create false collision witnesses");
+            // No scanning of new entities: use only the retained corpse anchor.
+            victim.IsDead=true;Rage.Native.NativeFunction.FrontLos=true;
+            Set(integration,"lineOfSightBudget",8);
+            Call(integration,"SampleBodyDiscovery",(uint)110,1000L);
+            Check(sensors.Take()==null,"immediate death never emits discovered-body");
+            Set(integration,"lineOfSightBudget",8);
+            Call(integration,"SampleBodyDiscovery",(uint)130,2600L);
+            var discovered=sensors.Take();
+            Check(discovered!=null&&discovered.kind=="body_discovered"&&
+                  discovered.target==body.CaptureRef&&discovered.witnessReceipts.Count==1&&
+                  discovered.witnessReceipts[0].Observer==nathan.CaptureRef,
+                  "current actual corpse and current native LOS produce one body discovery");
+            Set(integration,"lineOfSightBudget",8);
+            Call(integration,"SampleBodyDiscovery",(uint)140,2800L);
+            Check(sensors.Take()==null,"body discovery never replays a witnessed pair");
+            var ledger=(BodyDiscoveryLedger)Get(integration,"bodyDiscovery");
+            ledger.Reset();
+            Rage.Native.NativeFunction.FrontLos=false;
+            Set(integration,"lineOfSightBudget",8);
+            Call(integration,"SampleBodyDiscovery",(uint)150,1000L);
+            Set(integration,"lineOfSightBudget",8);
+            Call(integration,"SampleBodyDiscovery",(uint)160,2600L);
+            Check(sensors.Take()==null,"occluded corpse never emits body discovery");
+        }finally{
+            Rage.Native.NativeFunction.FrontLos=true;
+            integration.Shutdown();host.Shutdown();
+        }
+    }
+    static void SocialScenesCoverage()
+    {
+        long clock=0;
+        var scenes=new DirectorSocialScenes(()=>clock);
+        var anchors=new EntityAnchors();
+        var player=new Ped{Handle=911,MemoryAddress=new IntPtr(911)};
+        var actor=new Ped{Handle=912,MemoryAddress=new IntPtr(912)};
+        var car=new Vehicle{Handle=913,MemoryAddress=new IntPtr(913),Driver=player};
+        player.CurrentVehicle=car;actor.CurrentVehicle=car;
+        var playerAnchor=anchors.Retain(player,player.Handle,player.MemoryAddress,
+            "player",null,()=>player.Existing,clock);
+        var ownerId=Guid.NewGuid().ToString("D");
+        var owner=new OwnedParticipant{Ped=actor,Lifetime=ownerId,
+            Current=()=>actor.Existing,
+            DirectorOwner=()=>new DirectorOwnerSample{Owner="p2",Mode="follow",Revision=5}};
+        var actorAnchor=anchors.Retain(actor,actor.Handle,actor.MemoryAddress,
+            "ped",ownerId,()=>actor.Existing,clock);
+        anchors.SetObserverPriority(new[]{actorAnchor.CaptureRef});
+        var roster=new[]{owner};var host=Guid.NewGuid().ToString("D");
+        Func<object[]> sample=()=>scenes.Sample(anchors.Current,roster,host,1,(uint)clock);
+        Check(sample().Length==0,"social first car presence waits for settling");
+        clock=800;var first=sample();
+        Check(first.Length==1,"social shared car produces one source-backed scene");
+        var frame=first[0].GetType().GetProperty("sceneId");
+        var sceneId=(string)frame.GetValue(first[0]);
+        Check((string)first[0].GetType().GetProperty("sceneType").GetValue(first[0])==
+            "shared_vehicle_entry","social first opportunity is vehicle entry");
+        Check((string)first[0].GetType().GetProperty("role").GetValue(first[0])==
+            "passenger","social passenger role source is native GTA seat");
+        Check(sample().Length==0,"social 250ms polling does not spam duplicate frames");
+        clock=1900;var retry=sample();
+        Check(retry.Length==1 &&
+            (string)frame.GetValue(retry[0])==sceneId,
+            "social authenticated re-publication retains scene identity");
+        var request=new DirectorAdmission.Request{
+            Version=1,Operation="reserve",HostRunId=host,WorldEpoch=1,
+            SpeakerCaptureRef=actorAnchor.CaptureRef,
+            PlayerCaptureRef=playerAnchor.CaptureRef,
+            OwnerIncarnationId=ownerId,ProofRevision=5,
+            TicketId=Guid.NewGuid().ToString("D"),DedupeKey="placeholder",
+            ObservationId=sceneId,ObservationRevision=1,
+            DecisionKey="social:"+sceneId,PolicyVersion=1,PlayerTurnVersion=0,AgeMs=300
+        };
+        Check(scenes.Current(request),"social source validates exact owner and scene IDs");
+        Check(scenes.Claim(request) && !scenes.Claim(request),
+            "native social source reserves once and rejects duplicate tickets");
+        Check(!scenes.Current(new DirectorAdmission.Request{
+            DecisionKey=request.DecisionKey,ObservationId=request.ObservationId,
+            ObservationRevision=1,HostRunId=host,WorldEpoch=1,
+            SpeakerCaptureRef=request.SpeakerCaptureRef,PlayerCaptureRef=request.PlayerCaptureRef,
+            OwnerIncarnationId=Guid.NewGuid().ToString("D"),ProofRevision=5,
+            TicketId=request.TicketId}),"social source cannot borrow another owner");
+        // A fresh player conversation must suppress both the immediate
+        // boarding opening and stale delayed boarding after the first 10s.
+        long conversationClock=0;
+        var chatter=new DirectorSocialScenes(()=>conversationClock);
+        chatter.Sample(anchors.Current,roster,host,1,0,0);
+        conversationClock=100;
+        chatter.Sample(anchors.Current,roster,host,1,100,1);
+        conversationClock=1200;
+        Check(chatter.Sample(anchors.Current,roster,host,1,1200,1).Length==0,
+            "social greeting suppressed after a player turn");
+        conversationClock=11000;
+        Check(chatter.Sample(anchors.Current,roster,host,1,11000,1).Length==0,
+            "a missed boarding opening does not fire after travel began");
+        actor.CurrentVehicle=null;
+        clock=2200;sample();
+        Check(!scenes.Current(request),"social vehicle departure invalidates old native grant");
+        var manual=scenes.Manual(anchors.Current,roster,actor,host,1,(uint)clock);
+        Check(manual!=null,
+            "manual invitation creates a native-verified scene for current promoted actor");
+        var manualScene=(string)frame.GetValue(manual);
+        var manualRequest=new DirectorAdmission.Request{
+            Operation="reserve",TicketId=Guid.NewGuid().ToString("D"),
+            DecisionKey="social:"+manualScene,ObservationId=manualScene,
+            ObservationRevision=1,SpeakerCaptureRef=actorAnchor.CaptureRef,
+            PlayerCaptureRef=playerAnchor.CaptureRef,OwnerIncarnationId=ownerId,
+            ProofRevision=5,HostRunId=host,WorldEpoch=1
+        };
+        Check(scenes.Claim(manualRequest),"manual source can be claimed exactly once");
+        manualRequest.Operation="cancel";
+        Check(scenes.Release(manualRequest) && !scenes.Current(manualRequest),
+            "native social cancellation retires claimed scene permanently");
+        actor.Existing=false;
+        Check(scenes.Manual(anchors.Current,roster,actor,host,1,(uint)clock)==null,
+            "manual invitation cannot select a retired actor");
+        scenes.Reset();
+        Check(!scenes.Current(request),"world reset invalidates prior scene identities");
+    }
+
+    static void Main(string[] args)
+    {
+        try{SocialScenesCoverage();Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
+            if(args.Length==1&&args[0]=="--d2-source-only-wire")
+                foreach(var frame in SourceOnlyTests.WireFrames)Console.WriteLine("D2_WIRE "+new JavaScriptSerializer().Serialize(frame));
+        }catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
     static void Run()
     {
         Check(LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read()==-1,
@@ -677,9 +873,19 @@ class Program
                 }
 
                 var beforeConversation=conversationAnchor.CaptureRef;NpcTargeting.Conversation=wireNextConversation;Tick(integration);
-                Dictionary<string,object> NextAnchor() {for(int n=0;n<16;n++) {var frame=ReadFrame(reader);if((string)frame["type"]=="anchors") return frame;}throw new Exception("missing anchor transition");}
-                var demotion=NextAnchor();var promotion=NextAnchor();Check((string)demotion["type"]=="anchors"&&(string)promotion["type"]=="anchors","observer state changes use anchor frames");
-                var demotedWire=Anchor(beforeConversation,demotion);var promotedWire=Anchor(anchors.Current.Single(a=>ReferenceEquals(a.Entity,wireNextConversation)).CaptureRef,promotion);
+                Dictionary<string,object> NextAnchor(string expectedCaptureRef) {
+                    for(int n=0;n<32;n++) {
+                        var frame=ReadFrame(reader);
+                        if((string)frame["type"]=="anchors" &&
+                            FrameAnchors(frame).Any(a=>(string)a["captureRef"]==expectedCaptureRef))
+                            return frame;
+                    }
+                    throw new Exception("missing expected anchor transition");
+                }
+                var nextConversationRef=anchors.Current.Single(a=>ReferenceEquals(a.Entity,wireNextConversation)).CaptureRef;
+                var demotion=NextAnchor(beforeConversation);var promotion=NextAnchor(nextConversationRef);
+                Check((string)demotion["type"]=="anchors"&&(string)promotion["type"]=="anchors","observer state changes use anchor frames");
+                var demotedWire=Anchor(beforeConversation,demotion);var promotedWire=Anchor(nextConversationRef,promotion);
                 Check((bool)demotedWire["observer"]==false&&(bool)demotedWire["conversation"]==false,"transport sends observer/conversation demotion first");
                 Check((bool)promotedWire["observer"]&&(bool)promotedWire["conversation"],"transport sends conversation promotion after demotion");
                 Check((bool)demotedWire["owned"]==false&&anchors.ObserverCount==16,"transport transition preserves ownership and hard observer cap");
@@ -758,6 +964,15 @@ class Program
         var ownerAnchor=host.Anchors.Retain(ownerPed,(ulong)ownerPed.Handle,ownerPed.MemoryAddress,"ped",c06Lifetime,()=>true,host.MonotonicMs,false,AnchorConsumer.P2Encounter);
         var ownerToken=new {owner="p2",mode="wait",since=100u};
         var participant=new OwnedParticipant {Ped=ownerPed,Lifetime=c06Lifetime,EncounterId=Guid.NewGuid().ToString("D"),Current=()=>ownerCurrent,PrimaryOwner=()=>ownerToken};sharedRoster.Add(participant);
+        var ownerWrapper=new Ped {Handle=ownerPed.Handle,MemoryAddress=ownerPed.MemoryAddress};
+        var wrapperContext=new LosSantosAlive.Context.ActorContext {PedId=ownerPed.Handle.ToString()};
+        shared.EnrichActor(ownerWrapper,wrapperContext);
+        Check(!ReferenceEquals(ownerWrapper,ownerPed) && ownerPed.Equals(ownerWrapper),"SDK wrapper equality is native entity equality");
+        Check(host.Anchors.Resolve(ownerAnchor.CaptureRef)==ownerAnchor && ReferenceEquals(ownerAnchor.Entity,ownerPed),
+              "owned P0 wrapper preserves the canonical shared anchor and registration lifetime");
+        var wrapperBlock=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(wrapperContext.IntegrationBlocks.Single().Text);
+        Check((string)wrapperBlock["captureRef"]==ownerAnchor.CaptureRef && (string)wrapperBlock["incarnationId"]==c06Lifetime,
+              "new wrapper receives the original source-qualified owner capture");
         object SampleOwner()=>shared.GetType().GetMethod("SamplePrimaryOwner",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(shared,new object[]{ownerAnchor});
         Check(ReferenceEquals(SampleOwner(),ownerToken),"C06 samples exact current owned participant token without a parallel store");
         int? SampleRevision()=> (int?)shared.GetType().GetMethod("SampleDirectorOwnerRevision",

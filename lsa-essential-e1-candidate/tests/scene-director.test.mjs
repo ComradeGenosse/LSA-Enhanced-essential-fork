@@ -12,7 +12,7 @@ function candidate(changes = {}) {
     entitlementCurrent: true,
     observedAtMonotonicMs: NOW - 300,
     observation: {
-      observationId, revision: 1, observer: {captureRef: speaker,kind:'ped'},
+      observationId, revision: 1, eventType:'firing_burst', observer: {captureRef: speaker,kind:'ped'},
       expiresAtMonotonicMs: NOW + 15_000,
       claims: [{certainty:'supported',evidence:{channel:'visual'}}],
     },
@@ -72,6 +72,27 @@ test('urgent is prioritized, expires within two seconds and never uses a fallbac
   assert.equal(selectDirectorIntent([urgent],facts)?.expiresAtMonotonicMs,NOW+1500);
   assert.equal(selectDirectorIntent([urgent],{...facts,playerCaptureRef:null}),null);
   assert.equal(selectDirectorIntent([candidate({...urgent,observedAtMonotonicMs:NOW-2000})],facts),null);
+});
+
+test('opt-in routine event stays source-qualified and never outranks danger',()=>{
+  const base=candidate();
+  const ambientId='ab405d8b-2dd7-4128-b412-2ece232124bf';
+  const ambient=candidate({
+    observation:{...base.observation,observationId:ambientId,
+      eventType:'character_present',severity:'routine',
+      claims:[{certainty:'supported',kind:'presence',evidence:{channel:'visual'}}]},
+    decision:{...base.decision,observationId:ambientId,decisionKey:'ambient-original-grant'},
+    observedAtMonotonicMs:NOW-100,
+  });
+  assert.equal(selectDirectorIntent([ambient],facts)?.observationId,ambientId);
+  assert.equal(selectDirectorIntent([ambient,base],facts)?.observationId,observationId,
+    'fresh everyday event cannot displace an older urgent-scene observation');
+  for(const claim of [
+    {certainty:'supported',kind:'presence',evidence:{channel:'report'}},
+    {certainty:'supported',kind:'sound',evidence:{channel:'auditory'}},
+    {certainty:'uncertain',kind:'presence',evidence:{channel:'visual'}},
+  ]) assert.equal(selectDirectorIntent([{...ambient,observation:{...ambient.observation,claims:[claim]}}],facts),null);
+  assert.equal(selectDirectorIntent([{...ambient,observation:{...ambient.observation,eventType:'radio_heard'}}],facts),null);
 });
 
 test('selection stays deterministic and safely bounded', () => {

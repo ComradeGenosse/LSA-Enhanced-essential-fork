@@ -1,0 +1,88 @@
+name: Memory K W09 official SDK pinned native compile
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'tools/memory-sim/discover-official-native-sdk.ps1'
+      - 'tools/memory-sim/prepare-approved-native-sdk.ps1'
+      - 'tools/memory-sim/w09-approved-official-sdk-pins.json'
+      - '.github/workflows/memory-k-w09-sdk-discovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fingerprint:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Discover official NuGet SHA256 values (no SDK redistribution)
+        shell: pwsh
+        run: ./tools/memory-sim/discover-official-native-sdk.ps1
+      - name: Save hashes only (never SDK packages or binaries)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w09-sdk-hashes-windows
+          path: artifacts/memory-k/w09-sdk-discovery.json
+          if-no-files-found: warn
+
+  production-net481:
+    name: Production net481 project against pinned official SDKs (no GTA)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Verify official NuGet package and DLL SHA256 pins; isolate DLLs
+        shell: pwsh
+        env:
+          W09_RPH_PACKAGE_SHA256: ${{ secrets.W09_RPH_PACKAGE_SHA256 }}
+          W09_RPH_DLL_SHA256: ${{ secrets.W09_RPH_DLL_SHA256 }}
+          W09_DAMAGE_PACKAGE_SHA256: ${{ secrets.W09_DAMAGE_PACKAGE_SHA256 }}
+          W09_DAMAGE_DLL_SHA256: ${{ secrets.W09_DAMAGE_DLL_SHA256 }}
+        run: ./tools/memory-sim/prepare-approved-native-sdk.ps1
+      - name: Compile original net481 production project with pinned references
+        shell: pwsh
+        run: |
+          if (!$env:W09_RPH_DLL_PATH -or !$env:W09_DAMAGE_DLL_PATH) { throw 'Approved SDK paths were not produced' }
+          dotnet build native/promoted-characters/PromotedCharacters.csproj --configuration Release -p:Deterministic=true "-p:RphReferencePath=$env:W09_RPH_DLL_PATH" "-p:DamageReferencePath=$env:W09_DAMAGE_DLL_PATH" -v:minimal
+          if ($LASTEXITCODE -ne 0) { throw 'Production net481 compilation failed' }
+      - name: Hash the locally authored native production outputs
+        shell: pwsh
+        run: |
+          $outputs = @(
+            'native/session-identity/bin/Release/net481/LSA.SessionIdentity.dll',
+            'native/promoted-characters/bin/Release/net481/LSA.PromotedCharacters.Runtime.dll'
+          )
+          foreach ($output in $outputs) {
+            if (!(Test-Path -LiteralPath $output)) { throw "Missing first-party build output: $output" }
+            $hash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
+            Write-Output "W09_NATIVE_OUTPUT_SHA256 $output $hash"
+          }
+      - name: Preserve only first-party compiled DLLs for local deployment testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-k-native-net481-first-party
+          path: |
+            native/session-identity/bin/Release/net481/LSA.SessionIdentity.dll
+            native/promoted-characters/bin/Release/net481/LSA.PromotedCharacters.Runtime.dll
+          if-no-files-found: error
+      - name: Save reference verification receipt only (no DLLs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w09-native-compile-sdk-receipt
+          path: artifacts/memory-k/w09-sdk-preparation.json
+          if-no-files-found: warn

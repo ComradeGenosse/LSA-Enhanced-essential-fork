@@ -1,7 +1,8 @@
+import {bindHostContext} from './timelineAutoResume.mjs';
 // EA6 adapter. Only the authenticated C-13 IntelligenceClient subscriptions
 // are acceptable sources. This module never manufactures a host epoch or save ID.
 // Final integrator wires this at bootstrap before the native stream is started.
-export function bindTrustedTimelineSource({store,intelligenceClient}={}) {
+export function bindTrustedTimelineSource({store,intelligenceClient,autoResume=false,onSafeFailure=()=>{}}={}) {
   if (!store || typeof store.setVerifiedHostContext !== 'function' ||
       typeof store.onBoundary !== 'function' ||
       typeof intelligenceClient?.subscribeVerifiedHostContext !== 'function' ||
@@ -13,7 +14,14 @@ export function bindTrustedTimelineSource({store,intelligenceClient}={}) {
   const revoke=(reason='unknown_source')=>{
     lastTrustedHost=null;
     try {store.setVerifiedHostContext(null);} finally {
-      store.onBoundary({reason});
+      // A transient native pipe disconnect revokes current reads/writes through
+      // setVerifiedHostContext(null), including already-queued operations. It
+      // is not itself evidence of a save fork or timeline change. Marking it
+      // as an ambiguous timeline boundary permanently prevents opt-in single-
+      // timeline auto-resume after the next authenticated C-13 HELLO.
+      // True source replacement, unknown provenance and qualified world/save
+      // boundaries still retire the selected timeline until re-confirmed.
+      if(reason!=='native_disconnect') store.onBoundary({reason});
     }
   };
   // Listen to post-validation C-13 events only, never raw socket messages or
@@ -25,7 +33,10 @@ export function bindTrustedTimelineSource({store,intelligenceClient}={}) {
       if(!context || context.hostContextVersion!==1) {
         revoke('unknown_source');return;
       }
-      store.setVerifiedHostContext(context);
+      // Host callbacks represent accepted HELLO/epoch publications, not sensor
+      // refresh samples. A replacement can reuse the same run/epoch scalars.
+      if(lastTrustedHost)revoke('source_change');
+      void bindHostContext(store,context,{autoResume,onSafeFailure});
       lastTrustedHost=Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
     } catch {revoke('unknown_source');}
   };

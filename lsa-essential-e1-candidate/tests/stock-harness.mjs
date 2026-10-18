@@ -1,4 +1,6 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import { buildCandidate } from '../tools/buildCandidate.mjs';
@@ -12,8 +14,22 @@ let built;
 // SDK, sockets or native game. Only external I/O and unrelated scene presentation
 // are replaced. The turn store, routing, parser and lifecycle hooks are real code.
 export async function stockHarness(provider = 'openai', { config = {}, env = {}, telemetry = null, identityEvidence, identityStore, profileStore,nativeOwner,fetchImpl = () => { throw new Error('network forbidden'); } } = {}) {
-  built ||= buildCandidate(); await built;
-  const source = await readFile(new URL('../dist/plugins/LosSantosAliveServer/server.bundle.mjs', import.meta.url), 'utf8');
+  // Each test process owns its build output. Parallel suites must never delete
+  // another process's dist tree while it is staging production memory modules.
+  built ||= (async()=>{
+    const root=fileURLToPath(new URL('../',import.meta.url));
+    const scratch=await mkdtemp(path.join(root,'.build-check-stock-'));
+    const outputPath=path.join(scratch,'plugin');
+    try {
+      await buildCandidate({outputPath});
+      return await readFile(path.join(outputPath,'server.bundle.mjs'),'utf8');
+    } finally {
+      if(path.dirname(scratch)!==path.resolve(root)||!path.basename(scratch).startsWith('.build-check-stock-'))
+        throw new Error('unsafe_stock_harness_cleanup');
+      await rm(scratch,{recursive:true,force:true});
+    }
+  })();
+  const source = await built;
   let ast;
   try { ast=acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'module' }); }
   catch(error) {

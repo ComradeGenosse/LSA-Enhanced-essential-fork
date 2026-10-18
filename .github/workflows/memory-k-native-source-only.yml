@@ -1,0 +1,47 @@
+name: Memory K D2 native source-only and producer gates
+on:
+  pull_request:
+    paths:
+      - 'native/intelligence/**'
+      - 'native/promoted-characters/RuntimeEntry.cs'
+      - 'native/promoted-characters/PromotedCharacters.csproj'
+      - 'native/promoted-characters/runtime-tests/**'
+      - 'native/promoted-characters/ps-host-tests/**'
+      - 'lsa-essential-e1-candidate/tests/memory-k-native-source-only.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory-m7-native-diagnostic.test.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/contracts.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/shadowRuntime.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs'
+      - '.github/workflows/memory-k-native-source-only.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  producer-policy:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet run --project native/intelligence/producer-policy-tests/ProducerPolicyTests.csproj --configuration Release
+  native-source-wire:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: dotnet run --project native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
+      - run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory-k-native-source-only.test.mjs lsa-essential-e1-candidate/tests/memory-k-source-consumers.test.mjs lsa-essential-e1-candidate/tests/memory-m7-native-diagnostic.test.mjs
+      - run: dotnet run --project native/promoted-characters/runtime-tests/RuntimeTests.csproj --configuration Debug
+      - run: dotnet run --project native/promoted-characters/ps-host-tests/PSHostTests.csproj --configuration Debug -- source-only
+      - run: dotnet run --project native/promoted-characters/ps-host-tests/PSHostTests.csproj --configuration Debug -- stop
+      - run: dotnet run --project native/promoted-characters/ps-host-tests/PSHostTests.csproj --configuration Debug -- failed

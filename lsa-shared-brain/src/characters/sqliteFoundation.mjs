@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
+import {snapshotSqlite} from './sqliteDurability.mjs';
 // SQLite is an explicit opt-in. Older Node versions used by a legacy
 // Essential install must be able to START IN JSON MODE without this module.
 let DatabaseSync = null;
@@ -11,13 +12,14 @@ try { ({ DatabaseSync } = await import('node:sqlite')); } catch {}
 
 import { isUuid } from '../util/identity.mjs';
 import { PROFILE_LIMITS, validateProfiles } from './profileSchema.mjs';
-import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents, readVerifiedEventEvidence } from '../memory/journalSqlite.mjs';
+import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, readFreeRecallWindow, findExactQuote, searchDialogue, readEvents, readVerifiedEventEvidence } from '../memory/journalSqlite.mjs';
 import { ensureIntegratedMemorySchema, listMemoryCandidates, listSuppressedMemoryIds, verifyPersistedMemoryCommand, commitPersistedMemoryCommand, persistDeterministicMemory, readPermanentMemoryRows, readCorrectionOverlays } from '../memory/integratedSqlite.mjs';
-import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget} from '../memory/curationSqlite.mjs';
-import {ensureM3CoverageSchema,appendM3Coverage,readM3Coverage} from '../events/m3CoverageSqlite.mjs';
+import {ensureCurationSchema,enqueueCuration,claimCuration,verifyCurationLease,completeCuration,retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget,reconcileCurationBudgets,readM7Consent,grantM7Consent,withdrawM7Consent,readCurationStatus} from '../memory/curationSqlite.mjs';
+import {ensureM3CoverageSchema,appendM3Coverage,readM3Coverage,upsertObserverCoverage,sealStaleObserverCoverage,readObserverCoverage} from '../events/m3CoverageSqlite.mjs';
 import {readIntegratedRecall} from '../memory/sqliteIntegratedRecallProjection.mjs';
 import {ensureP2ReplaySchema,readP2ReplayPage,readP2ReplayCursor,acknowledgeP2ReplayCursor} from '../memory/p2ReplayCursor.mjs';
-import {ensureM5PrivacySchema} from '../memory/m5SqlitePrivacy.mjs';
+import {ensureM5PrivacySchema,reconcileM5Suppression} from '../memory/m5SqlitePrivacy.mjs';
+import {ensureM6P2ReplaySchema,readM6CheckpointSql,readM6JournalPageSql,ackM6CheckpointSql} from '../memory/m6P2ReplayAdapter.mjs';
 
 export const SQLITE_PROFILE_SCHEMA = 2;
 const fail = code => { throw new Error(code); };
@@ -159,15 +161,66 @@ export async function inspectP2Sqlite({filePath,worldProfileId}) {
   } finally {db.close();}
 }
 
+/**
+ * Explicit, operator-facing recovery view. An integrity-failed database is
+ * never auto-restored or written. Only checked immutable snapshots are read.
+ */
+export async function inspectP2ReadOnlyRecovery({filePath,worldProfileId,scope=null}){
+  if(typeof filePath!=='string'||!filePath.trim()||!isUuid(worldProfileId))
+    fail('invalid_sqlite_profile_config');
+  const folder=path.resolve(filePath)+'.snapshots';
+  let files;
+  try{files=(await fs.readdir(folder)).filter(n=>/^(daily-\d{4}-\d\d-\d\d-[0-9TZ-]+-[0-9a-f-]{36}|weekly-\d{4}-W\d\d|pre-migration-[0-9TZ-]+-[0-9a-f-]{36})\.sqlite$/.test(n));}
+  catch(e){if(e.code==='ENOENT')fail('sqlite_recovery_snapshot_unavailable');throw e;}
+  // Use file creation/modification time, not alphabetical prefix order:
+  // weekly files must not hide a newer daily or migration recovery point.
+  files=(await Promise.all(files.map(async name=>({
+    name,mtime:(await fs.stat(path.join(folder,name))).mtimeMs
+  })))).sort((a,b)=>b.mtime-a.mtime||b.name.localeCompare(a.name)).map(x=>x.name);
+  for(const name of files){
+    let db;
+    try{
+      db=new DatabaseSync(path.join(folder,name),{readOnly:true});
+      const snapshot=verifyExisting(db,worldProfileId);
+      const version=db.prepare('PRAGMA user_version').get().user_version;
+      if(version===JOURNAL_SCHEMA_VERSION)assertJournalSchema(db);
+      if(scope&&version!==JOURNAL_SCHEMA_VERSION)continue;
+      // A historical backup may predate a later permanent forget/correction
+      // receipt. Never expose old verbatim dialogue from a snapshot without a
+      // current authoritative privacy ledger; inspection is metadata-only.
+      const lines=null;
+      return Object.freeze({
+        status:'read_only_snapshot',path:path.join(folder,name),
+        schemaVersion:version,revision:snapshot.revision,
+        profiles:Object.freeze(snapshot.profiles.map(p=>Object.freeze({characterId:p.characterId,name:p.name}))),
+        dialogue:lines
+      });
+    }catch{
+      // A corrupt snapshot cannot authorize recovery; try an older checked one.
+    }finally{try{db?.close();}catch{}}
+  }
+  fail('sqlite_recovery_snapshot_unavailable');
+}
+
 export class P2SqliteFoundation {
-  #db=null; #init=null; #snapshot=null;
-  constructor({filePath,worldProfileId,legacyJsonPath=null}) {
+  #db=null; #init=null; #snapshot=null; #recoveryStatus=null; #journalLimits;
+  constructor({filePath,worldProfileId,legacyJsonPath=null,journalLimits={}}) {
     if(!filePath || !isUuid(worldProfileId))throw new TypeError('invalid_sqlite_profile_config');
     this.filePath=path.resolve(filePath);
     this.worldProfileId=worldProfileId;
     this.legacyJsonPath=legacyJsonPath?path.resolve(legacyJsonPath):null;
+    this.#journalLimits=Object.freeze({...journalLimits});
   }
   get initialized() {return !!this.#db;}
+  get readFence() {
+    if(!this.#db)return null;
+    return this.#db.prepare('SELECT total_changes() AS changes').get().changes+':'+
+      this.#db.prepare('PRAGMA data_version').get().data_version;
+  }
+  // External connections are forbidden by the P2 single-writer contract.
+  // Unlike total_changes(), this remains stable across our own writes.
+  get externalReadFence(){return this.#db?.prepare('PRAGMA data_version').get().data_version??null;}
+  get recoveryStatus(){return this.#recoveryStatus;}
   get snapshot(){if(!this.#snapshot)fail('sqlite_profile_uninitialized');return this.#snapshot;}
   async initialize() {return this.#init ||= this.#initialize();}
   async #initialize() {
@@ -198,39 +251,53 @@ export class P2SqliteFoundation {
         await fs.rm(stage,{force:true}).catch(()=>{});
       }
     }
-    // Verify existing bytes using a READ-ONLY handle first. A corrupt, wrong-
-    // world or future-schema DB must fail without a WAL mode change, migration,
-    // journal rewrite or automatic recovery from unrelated legacy JSON.
-    if(exists) {
-      let inspect;
-      try {
-        inspect=new DatabaseSync(this.filePath,{readOnly:true});
-        verifyExisting(inspect,this.worldProfileId);
-        if(inspect.prepare('PRAGMA user_version').get().user_version===JOURNAL_SCHEMA_VERSION)
-          assertJournalSchema(inspect);
-      } finally {inspect?.close();}
-    }
     let db;
     try {
       db=new DatabaseSync(this.filePath);
       this.#snapshot=verifyExisting(db,this.worldProfileId);
-      db.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL');
-      // Entire approved 2->4 / 3->4 migration AND M3/M5/replay extension
-      // DDL/backfill commit in ONE transaction. Failure rolls back user_version,
-      // journal, indexes, privacy, cursors and profile without partial upgrades.
+      db.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL');
+      // Crash recovery must preserve the pre-migration store even if DDL fails.
+      // Detect both an old core schema and a v4 database lacking extensions.
+      // A fixed table-name checklist misses indexes, triggers, columns and
+      // repairs to existing extension tables. Make a checked preflight copy
+      // BEFORE executing ANY extension DDL. Schema-version records even an
+      // additive ALTER/CREATE INDEX, not only a newly created table.
+      const oldSchema=db.prepare('PRAGMA schema_version').get().schema_version;
+      const migrationBackup=await snapshotSqlite(db,this.filePath,{reason:'pre_migration'});
+      // Keep a failed upgrade's verified recovery point. A no-op open must
+      // not accumulate immortal backups; delete it only after commit and a
+      // positive finding that no schema changed.
       transaction(db,()=>{
-        migrateJournalSchema(db,{externalTransaction:true});
+        migrateJournalSchema(db);
         ensureIntegratedMemorySchema(db);
         ensureCurationSchema(db);
         ensureM3CoverageSchema(db);
         ensureM5PrivacySchema(db);
+        reconcileM5Suppression(db);
         ensureP2ReplaySchema(db);
+        ensureM6P2ReplaySchema(db);
+        // Per-character admission scans must never require a full multi-NPC
+        // table scan. The exact-head CI soak benchmarks the remaining O(N)
+        // per-character byte accounting, pending a future ledger optimization.
+        db.exec('CREATE INDEX IF NOT EXISTS dialogue_journal_character_quota ON dialogue_journal(character_id)');
+        db.exec('CREATE INDEX IF NOT EXISTS event_journal_character_quota ON event_journal(character_id)');
       });
-      assertJournalSchema(db);
-      db.exec('PRAGMA journal_mode=WAL');
+      const newSchema=db.prepare('PRAGMA schema_version').get().schema_version;
+      if(oldSchema===newSchema)
+        await fs.rm(migrationBackup.path);
       this.#db=db;
       return this.#snapshot;
-    } catch(e){try {db?.close();}catch{}throw e;}
+    } catch(e){
+      this.#recoveryStatus={status:'read_only_recovery_required',reason:e.message,
+        database:this.filePath,snapshots:this.filePath+'.snapshots'};
+      try {db?.close();}catch{}
+      // Do not write to, reset, or auto-restore an integrity-failed database.
+      throw e;
+    }
+  }
+  async createDurabilitySnapshot(reason='session_end'){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    return snapshotSqlite(this.#db,this.filePath,{reason});
   }
   list(){return this.snapshot.profiles;}
   get(characterId){return this.list().find(p=>p.characterId===characterId)||null;}
@@ -253,8 +320,9 @@ export class P2SqliteFoundation {
         if(!nextIds.has(previous.characterId)){
           removeDialogue.run(previous.characterId);
           removeEvents.run(previous.characterId);
-          for(const table of ['memory_records','memory_commands','memory_tombstones','memory_corrections','memory_curation_jobs','memory_luna_appraisals',
-            'm5_clarifications','m5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','m3_coverage']){
+          for(const table of ['memory_records','memory_commands','memory_suppressions','memory_tombstones','memory_corrections','memory_curation_jobs','memory_luna_appraisals',
+            'm5_clarifications','m5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','p2_memory_replay_player_cursors','m3_coverage','m3_observer_coverage','event_native_receipts',
+            'm6_p2_checkpoints','m6_p2_source_receipts','m6_p2_rejections','m6_p2_ack_diagnostics','m6_p2_ack_receipts']){
             this.#db.prepare('DELETE FROM '+table+' WHERE character_id=?').run(previous.characterId);
           }
         }
@@ -299,11 +367,11 @@ export class P2SqliteFoundation {
   // foundation private and invokes writes through its withTimelineWrite fence.
   appendDialogueLine(line,attribution){
     if(!this.#db)fail('sqlite_profile_uninitialized');
-    return transaction(this.#db,()=>appendDialogue(this.#db,line,attribution,this.worldProfileId));
+    return transaction(this.#db,()=>appendDialogue(this.#db,line,attribution,this.worldProfileId,{limits:this.#journalLimits}));
   }
   appendJournalEvent(event,options={}){
     if(!this.#db)fail('sqlite_profile_uninitialized');
-    return transaction(this.#db,()=>appendEvent(this.#db,event,this.worldProfileId,options));
+    return transaction(this.#db,()=>appendEvent(this.#db,event,this.worldProfileId,{...options,limits:this.#journalLimits}));
   }
   readVerifiedEventEvidence(scope){
     if(!this.#db)fail('sqlite_profile_uninitialized');
@@ -319,13 +387,17 @@ export class P2SqliteFoundation {
     if(!this.#db||typeof operation!=='function')fail('p2_sqlite_operation_unavailable');
     return transaction(this.#db,()=>operation(this.#db));
   }
+  readM6Checkpoint(request){return readM6CheckpointSql(this.#db,request,this.worldProfileId);}
+  readM6JournalPage(request){return readM6JournalPageSql(this.#db,request,this.worldProfileId);}
+  // P2 sole writer and timeline-CAS own acknowledgments.
+  ackM6Checkpoint(request){return ackM6CheckpointSql(this.#db,request,this.worldProfileId);}
   readReplayPage(request){return readP2ReplayPage(this.#db,request,this.worldProfileId);}
   readReplayCursor(request){return readP2ReplayCursor(this.#db,request,this.worldProfileId);}
   acknowledgeReplayCursor(request){
     return transaction(this.#db,()=>acknowledgeP2ReplayCursor(this.#db,request,this.worldProfileId));
   }
   listMemoryCandidates(scope,options){return listMemoryCandidates(this.#db,scope,this.worldProfileId,options);}
-  listSuppressedMemoryIds(scope){return listSuppressedMemoryIds(this.#db,scope,this.worldProfileId);}
+  listSuppressedMemoryIds(scope,options){return listSuppressedMemoryIds(this.#db,scope,this.worldProfileId,options);}
   verifyMemoryCommand(args){return verifyPersistedMemoryCommand(this.#db,args,this.worldProfileId);}
   commitMemoryCommand(args){return commitPersistedMemoryCommand(this.#db,args,this.worldProfileId);}
   persistDeterministicMemory(proposal){return persistDeterministicMemory(this.#db,proposal,this.worldProfileId);}
@@ -341,6 +413,29 @@ export class P2SqliteFoundation {
     if(record?.worldProfileId!==this.worldProfileId)fail('m3_coverage_wrong_world');
     return transaction(this.#db,()=>appendM3Coverage(this.#db,record));
   }
+  // Authenticated observer-coverage ledger (K-13 write side). One synchronous
+  // transaction under the caller's timeline write fence; `seal` moves `open`
+  // windows left by an earlier process to `closed` without extending them.
+  appendObserverCoverage(ops){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    if(!Array.isArray(ops)||ops.length<1||ops.length>256)fail('m3_observer_coverage_invalid_batch');
+    for(const op of ops)if(op?.record?.worldProfileId!==this.worldProfileId&&op?.seal?.worldProfileId!==this.worldProfileId)
+      fail('m3_coverage_wrong_world');
+    return transaction(this.#db,()=>{
+      let inserted=0,updated=0,duplicate=0,sealed=0;
+      for(const op of ops){
+        if(op.seal){sealed+=sealStaleObserverCoverage(this.#db,op.seal).sealed;continue;}
+        const r=upsertObserverCoverage(this.#db,op.record);
+        inserted+=Number(r.inserted);updated+=Number(r.updated);duplicate+=Number(r.duplicate);
+      }
+      return Object.freeze({inserted,updated,duplicate,sealed});
+    });
+  }
+  readObserverCoverage(scope){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    if(scope?.worldProfileId!==this.worldProfileId)fail('m3_coverage_wrong_world');
+    return readObserverCoverage(this.#db,scope);
+  }
   readM3Coverage(scope){
     if(!this.#db)fail('sqlite_profile_uninitialized');
     if(scope?.worldProfileId!==this.worldProfileId)fail('m3_coverage_wrong_world');
@@ -348,11 +443,22 @@ export class P2SqliteFoundation {
   }
   enqueueCuration(args,timelineId){return enqueueCuration(this.#db,args,this.worldProfileId,timelineId);}
   claimCuration(args,timelineId){return claimCuration(this.#db,args,this.worldProfileId,timelineId);}
+  verifyCurationLease(args,timelineId){return verifyCurationLease(this.#db,args,this.worldProfileId,timelineId);}
   completeCuration(args,timelineId){return completeCuration(this.#db,args,this.worldProfileId,timelineId);}
   retryCuration(args,timelineId){return retryCuration(this.#db,args,this.worldProfileId,timelineId);}
   releaseCuration(args,timelineId){return releaseCuration(this.#db,args,this.worldProfileId,timelineId);}
   reserveCurationBudget(args,budget){return reserveCurationBudget(this.#db,args,this.worldProfileId,budget);}
   finishCurationBudget(args,state){return finishCurationBudget(this.#db,args,this.worldProfileId,state);}
+  reconcileCurationBudget(args){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    if(args?.worldProfileId!==this.worldProfileId)fail('curation_reconcile_wrong_world');
+    return reconcileCurationBudgets(this.#db,args);
+  }
+  readM7Consent(args){if(!this.#db)fail('sqlite_profile_uninitialized');return readM7Consent(this.#db,args,this.worldProfileId);}
+  grantM7Consent(args){if(!this.#db)fail('sqlite_profile_uninitialized');return grantM7Consent(this.#db,args,this.worldProfileId);}
+  withdrawM7Consent(args){if(!this.#db)fail('sqlite_profile_uninitialized');return withdrawM7Consent(this.#db,args,this.worldProfileId);}
+  readCurationStatus(args){if(!this.#db)fail('sqlite_profile_uninitialized');return readCurationStatus(this.#db,args,this.worldProfileId);}
+  readFreeRecallWindow(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return readFreeRecallWindow(this.#db,scope,this.worldProfileId);}
   readDialogueLines(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return readDialogue(this.#db,scope,this.worldProfileId);}
   findExactQuote(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return findExactQuote(this.#db,scope,this.worldProfileId);}
   searchDialogue(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return searchDialogue(this.#db,scope,this.worldProfileId);}

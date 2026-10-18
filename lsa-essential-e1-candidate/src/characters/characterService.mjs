@@ -38,18 +38,17 @@ export function normalizeCharacterConfig(value = {}) {
   return Object.freeze({ enabled:value.enabled === true,storePath,storageMode,sqliteStorePath,pipeName,editorPort,summonWaitMs });
 }
 export class CharacterService {
-  #queue = Promise.resolve(); #initializing; #syncing; #lastSync = 0;
+  #queue = Promise.resolve(); #initializing; #syncing; #lastSync = 0; #lastRosterState;
   constructor(config,{ identityService,voiceResolver,store,nativeOwner,telemetry } = {}) {
     this.config = config; this.identity = identityService; this.voice = voiceResolver; this.telemetry = telemetry;
-    // M1's single shared core owns timeline selection and profile CRUD.
-    // Only the explicit SQLite option enables it; the default JSON store is unchanged.
+    // Explicit opt-in only. JSON is the unchanged production default.
     const storageConfig = config.promotedCharacters;
     this.store = store || (storageConfig.storageMode === 'sqlite'
       ? createEssentialMemoryStorage({
           filePath:storageConfig.sqliteStorePath,
+          sourceRequired:true, // live M2 timelines must have verified native provenance
           legacyJsonPath:storageConfig.storePath,
-          worldProfileId:config.persistentIdentity.worldProfileId,
-          sourceRequired:true
+          worldProfileId:config.persistentIdentity.worldProfileId
         })
       : new ProfileStore({
           filePath:storageConfig.storePath,
@@ -60,6 +59,8 @@ export class CharacterService {
     this.ready = false;
   }
   bindActivities(runtime) { this.activities = runtime; }
+  // Release only the store owned by this service. No native task or P1 owner is closed here.
+  async closeStorage() { this.ready=false;await this.#queue;await this.store?.close?.(); }
   emit(event,data = {},identity = null,source = null) { try { this.telemetry?.emit(event,identity,source,data); } catch {} }
   initialize() { return this.#initializing ||= (async () => {
     try {
@@ -170,8 +171,26 @@ export class CharacterService {
   }); }
   async list() {
     await this.#requireReady();
-    let roster = []; try { roster = (await this.native.request('roster'))?.owned || []; } catch {}
-    return this.store.list().map(profile => ({ ...profile,runtimeStatus:roster.find(item => item.ownerAlias === profile.promotion.ownerAlias)?.status || profile.status }));
+    // A failed/invalid native roster is UNKNOWN, never proof the actor is absent.
+    // The F11 menu may independently establish a short-lived exact owner binding.
+    let roster = null;
+    try {
+      const result = await this.native.request('roster');
+      if (!Array.isArray(result?.owned) || !result.owned.every(item =>
+        typeof item?.ownerAlias === 'string' && ['spawned','suspended'].includes(item.status)))
+        throw new Error('invalid_native_roster');
+      roster = result.owned;
+    } catch {}
+    const rosterState = roster === null ? 'unavailable' : roster.length ? 'active' : 'empty';
+    if (rosterState !== this.#lastRosterState) {
+      this.#lastRosterState = rosterState;
+      this.emit('character_roster_status',{rosterState,count:roster?.length ?? 0});
+    }
+    return this.store.list().map(profile => ({
+      ...profile,
+      runtimeStatus:roster === null ? 'unverified'
+        : roster.find(item => item.ownerAlias === profile.promotion.ownerAlias)?.status ?? 'absent'
+    }));
   }
   async edit(characterId,patch,revision) { return this.#serial(async () => { await this.#requireReady(); const profile = await this.store.edit(characterId,patch,revision); this.sessions.reservePersistent(this.store.list()); this.emit('character_profile_edited',{profileRevision:profile.revision}); return profile; }); }
   async memory(characterId,operation,args) { return this.#serial(async () => { await this.#requireReady(); const result = await this.store.memory(characterId,operation,args); this.emit(`character_memory_${operation === 'create' ? 'created' : operation === 'edit' ? 'edited' : 'deleted'}`,{profileRevision:result.profile.revision}); return result; }); }
@@ -212,16 +231,42 @@ export class CharacterService {
     if (operation === 'dismiss' || operation === 'despawn') this.emit('character_dismissed');
     return result;
   }); }
+  // A read-only, short-lived lease for an explicitly selected F11 character:
+  // it is not a ped handle and cannot itself execute any world action.
+  async activityBinding(characterId) {
+    await this.#requireReady();
+    if (!isUuid(characterId)) throw new Error('character_missing');
+    const profile=this.store.get(characterId);
+    if (!profile) throw new Error('character_missing');
+    const binding=await this.native.request('inspect',{ownerAlias:profile.promotion.ownerAlias});
+    if (!binding || binding.ownerAlias!==profile.promotion.ownerAlias ||
+        !isUuid(binding.encounterId) || !isUuid(binding.ownershipToken)) throw new Error('character_not_spawned');
+    return {characterId,ownerAlias:binding.ownerAlias,encounterId:binding.encounterId,
+      ownershipToken:binding.ownershipToken,safe:binding.activityOffer?.safe===true};
+  }
   async activity(operation, args = {}) { return this.#serial(async () => {
     await this.#requireReady();
     if (!this.activities?.engine || this.activities.engine.config.mode !== 'on') throw new Error('capability_disabled');
     const expected = args.expectedEncounterId ?? null;
-    const capture = await this.native.request('capture');
-    if (expected !== null && capture?.encounterId !== expected) throw new Error('target_changed');
-    const profile = this.store.list().find(item => item.promotion.ownerAlias === capture?.ownerAlias);
-    if (!profile) throw new Error('character_not_promoted');
-    const binding = await this.native.request('inspect', { ownerAlias: profile.promotion.ownerAlias });
-    if (!binding || binding.encounterId !== capture.encounterId) throw new Error('native_stale');
+    let profile,binding;
+    if (args.characterId !== undefined && args.characterId !== null) {
+      // Never re-resolve to Essential's current NPC. Both the original
+      // encounter AND its native ownership incarnation must still match.
+      if (!isUuid(args.characterId) || !isUuid(expected) || !isUuid(args.expectedOwnershipToken)) throw new Error('native_stale');
+      profile=this.store.get(args.characterId);
+      if (!profile) throw new Error('character_missing');
+      binding=await this.native.request('inspect',{ownerAlias:profile.promotion.ownerAlias});
+      if (!binding || binding.ownerAlias!==profile.promotion.ownerAlias ||
+          binding.encounterId!==expected || binding.ownershipToken!==args.expectedOwnershipToken)
+        throw new Error('target_changed');
+    } else {
+      const capture = await this.native.request('capture');
+      if (expected !== null && capture?.encounterId !== expected) throw new Error('target_changed');
+      profile = this.store.list().find(item => item.promotion.ownerAlias === capture?.ownerAlias);
+      if (!profile) throw new Error('character_not_promoted');
+      binding = await this.native.request('inspect', { ownerAlias: profile.promotion.ownerAlias });
+      if (!binding || binding.encounterId !== capture.encounterId) throw new Error('native_stale');
+    }
     const characterId = profile.characterId;
     const owned = { characterId, ownerAlias: binding.ownerAlias, ownershipToken: binding.ownershipToken, encounterId: binding.encounterId, incarnationId: binding.claim?.incarnationId };
     if (operation === 'status') return this.activities.status(characterId);
@@ -244,8 +289,4 @@ export class CharacterService {
     if (binding) await this.native.request('release',{ownerAlias:profile.promotion.ownerAlias,ownershipToken:binding.ownershipToken});
     await this.store.remove(characterId,confirmation,revision); this.sessions.reservePersistent(this.store.list()); this.emit('character_unpromoted'); return true;
   }); }
-  // Called from orderly bootstrap shutdown by final integrator. Never delete
-  // a stale SQLite writer lock or close the default JSON store.
-  async closeStorage() { await this.store?.close?.(); }
-
 }

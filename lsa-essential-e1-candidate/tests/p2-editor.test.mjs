@@ -12,17 +12,53 @@ const acorn = createRequire(import.meta.url)('../tools/vendor/acorn');
 async function request(url,{method = 'GET',headers = {},body = ''} = {}) {
   return new Promise((resolve,reject) => { const req = http.request(url,{method,headers},response => { const chunks = []; response.on('data',chunk=>chunks.push(chunk));response.on('end',()=>resolve({status:response.statusCode,headers:response.headers,body:Buffer.concat(chunks).toString('utf8')})); });req.on('error',reject);req.end(body); });
 }
-async function editor(t) {
-  const f = await fixture(t),editor = await startCharacterEditor(f.service,{port:0});t.after(()=>editor.close());
+async function editor(t,options={}) {
+  const f = await fixture(t),editor = await startCharacterEditor(f.service,{port:0,...options});t.after(()=>editor.close());
   const response = await request(editor.url),token = response.body.match(/const auth="([a-f0-9]{64})"/)[1];
   const call = async data => { const result = await request(editor.url + '/api',{method:'POST',headers:{origin:editor.url,'content-type':'application/json','x-lsa-editor':token},body:JSON.stringify(data)});return {...result,json:JSON.parse(result.body)}; };
   return {...f,editor,response,token,call};
 }
+
+test('authenticated editor exposes read-only memory gate diagnostics',async t=>{
+  const snapshot={history:{state:'unavailable',reason:'accepted_line_authority_missing'},
+    timeline:{writable:false,pendingReason:'native_source_confirmation_required'}};
+  const f=await editor(t,{diagnostics:()=>snapshot});
+  const before=f.service.store.list();
+  const response=await f.call({action:'memory_status'});
+  assert.equal(response.status,200);
+  assert.deepEqual(response.json,snapshot);
+  assert.deepEqual(f.service.store.list(),before);
+});
 test('local editor loads usable profile/memory controls and syntactically valid browser code',async t => {
   const f = await editor(t);assert.equal(f.response.status,200);assert.equal(f.response.headers['cache-control'],'no-store');assert.equal(f.response.headers['x-frame-options'],'DENY');
   const script = f.response.body.match(/<script>([\s\S]*?)<\/script>/)[1];assert.doesNotThrow(()=>acorn.parse(script,{ecmaVersion:'latest'}));
   for (const control of ['Promote current NPC','Save profile','Add memory','Unpromote and delete profile','summon','follow','wait','dismiss','despawn']) assert.ok(f.response.body.includes(control));
 });
+test('ACT6 editor read-only status reports the real mode without claiming movement',async t=>{
+  const f=await editor(t);
+  assert.match(f.response.body,/ACT6 navigation readiness/);
+  const disabled=await f.call({action:'act6_readiness'});
+  assert.equal(disabled.status,200);
+  assert.equal(disabled.json.drive.eligibleForPreflight,false);
+  assert.equal(disabled.json.drive.reason,'capability_disabled');
+  assert.equal(disabled.json.nativeConnected,false);
+  const original=f.service.activities;
+  const row={phase:'ACT6',execution:{path:'extension'},allowedSources:['player_dialogue'],
+    allowedPriority:['player_direct'],probes:['NV2','FR1']};
+  const engine={config:{mode:'on',act5:false,act6Capabilities:['drive_to'],
+      passedProbes:['NV2','FR1']},hello:{nativeRun:'hello-run',adapterEpoch:'epoch',
+      capabilities:{drive_to:true}},registry:{get:()=>row}};
+  f.service.activities={engine,client:{runtime:{ready:true,nativeRun:'hello-run',adapterEpoch:'epoch'}}};
+  try{
+    const eligible=await f.call({action:'act6_readiness'});
+    assert.equal(eligible.status,200);
+    assert.equal(eligible.json.drive.eligibleForPreflight,true);
+    assert.equal(eligible.json.drive.reason,null);
+    assert.equal(eligible.json.act5SuggestionsEnabled,false);
+    assert.equal(eligible.json.walk.reason,'capability_disabled');
+  } finally {f.service.activities=original;}
+});
+
 test('editor supports explicit promote, list, edit, memory CRUD and character controls end to end',async t => {
   const f = await editor(t),promoted = await f.call({action:'promote'}),p = promoted.json;assert.equal(promoted.status,200);
   const listed = await f.call({action:'list'});assert.equal(listed.json[0].runtimeStatus,'spawned');

@@ -9,7 +9,7 @@ using Rage;
 
 public sealed class Scenario:MarshalByRefObject
 {
-    const string Config="{\"enabled\":true,\"worldProfileId\":\"d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5\"}";
+    const string Config="{\"enabled\":true,\"personalTestMode\":false,\"worldProfileId\":\"d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5\"}";
     const string ResultId="00000000-0000-4000-8000-000000000000";
     int assertions;
     public override object InitializeLifetimeService()=>null;
@@ -38,12 +38,15 @@ public sealed class Scenario:MarshalByRefObject
         Check(PromotedCharactersIntegration.Submissions==0 && PromotedCharactersIntegration.SnapshotRequests==0,"The bridge reached an integration before the owner existed.");
         Check(GameFiber.Scheduled==1 && PromotedCharactersIntegration.ShutdownRequests==0 && PromotedCharactersIntegration.Shutdowns==0,"A rejected pending duplicate changed the owner.");
         bool pendingWaited=false,wasReady=false,wasAlive=false,rejected=false,ownerPreserved=false,bridged=false;
+        string ownerSnapshot="not sampled";
         GameFiber.OnSleep=()=>{
             pendingWaited=!RuntimeEntry.Ready && PromotedCharactersIntegration.Prepared==1 && PromotedCharactersIntegration.Initialized==0;
             IntegrationManager.InitializeFromCore();
             wasReady=RuntimeEntry.Ready;wasAlive=RuntimeEntry.Alive;
             rejected=!RuntimeEntry.Start(Config);
             ownerPreserved=RuntimeEntry.Ready && PromotedCharactersIntegration.ShutdownRequests==0 && PromotedCharactersIntegration.Shutdowns==0 && IntegrationManager.Registered==1 && GameFiber.Scheduled==1;
+            ownerSnapshot="ready="+RuntimeEntry.Ready+" shutdown_requests="+PromotedCharactersIntegration.ShutdownRequests+
+                " shutdowns="+PromotedCharactersIntegration.Shutdowns+" registered="+IntegrationManager.Registered+" scheduled="+GameFiber.Scheduled;
             RuntimeEntry.RequestSnapshots(1000);
             bridged=RuntimeEntry.Submit("{}")=="accepted" && RuntimeEntry.TryTakeResult(ResultId)=="{\"v\":1}" && RuntimeEntry.Snapshot()=="{\"v\":1,\"seq\":1}" && PromotedCharactersIntegration.SnapshotRequests==1;
             RuntimeEntry.Stop();
@@ -52,7 +55,7 @@ public sealed class Scenario:MarshalByRefObject
         Check(pendingWaited,"The lifetime fiber did not wait for Core initialization while remaining unavailable to live commands.");
         Check(wasReady && wasAlive,"The accepted fiber did not initialize a ready owner.");
         Check(rejected,"A duplicate start while the owner was active was accepted.");
-        Check(ownerPreserved,"A rejected active duplicate stopped or replaced the owner.");
+        Check(ownerPreserved,"A rejected active duplicate stopped or replaced the owner. "+ownerSnapshot);
         Check(bridged,"The ready owner did not receive bridge submissions, results and snapshots.");
         Check(RuntimeEntry.Submit("{}")=="native_unavailable" && RuntimeEntry.Snapshot()==null && PromotedCharactersIntegration.Submissions==1,"A stopping owner accepted bridge work.");
         RuntimeEntry.RequestSnapshots(1000);
@@ -88,7 +91,7 @@ public sealed class Scenario:MarshalByRefObject
     {
         var fields=new System.Collections.Generic.Dictionary<string,object>{{"mode",mode}};
         if(receipts!=null)fields["dialogueReceipts"]=receipts;
-        string config=new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new {enabled=true,worldProfileId="d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5",activities=fields});
+        string config=new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new {enabled=true,personalTestMode=false,worldProfileId="d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5",activities=fields});
         Check(RuntimeEntry.Start(config),"Collection configuration did not schedule the owner.");
         Check(PromotedCharactersIntegration.ActivityShadowStarts==0 && PromotedCharactersIntegration.ActivityExecutionStarts==0,"Collection was started outside the owner fiber.");
         GameFiber.OnSleep=()=>RuntimeEntry.Stop();GameFiber.ExecuteNext();
@@ -96,6 +99,44 @@ public sealed class Scenario:MarshalByRefObject
         Check(PromotedCharactersIntegration.ActivityExecutionStarts==(mode=="on"?1:0),"Passive collection changed ACT execution admission.");
         Check(PromotedCharactersIntegration.DialogueReceiptsEnabled==((mode=="shadow" || mode=="on") && receipts is bool && (bool)receipts),"Collection opt-in was not exact/default-off.");
         Check(!Game.Logs.Contains("[P2] host_initialization_failed"),"Collection startup faulted the owner.");
+        return assertions;
+    }
+    public int ReactionOwnerFailsClosed()
+    {
+        var config="{\"enabled\":true,\"personalTestMode\":false,\"worldProfileId\":\"d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5\",\"reactions\":{\"mode\":\"on\"}}";
+        Check(RuntimeEntry.Start(config),"Reaction host was not scheduled.");
+        GameFiber.OnSleep=()=>{
+            var gate=typeof(RuntimeEntry).GetMethod("OwnedByLsaBehavior",BindingFlags.NonPublic|BindingFlags.Static);
+            var ped=new Ped {Handle=42};
+            Func<bool> check=()=> (bool)gate.Invoke(null,new object[]{ped});
+            Check(!check(),"Unpromoted Essential speaker should reach separate native safety preflight.");
+            ped.IsDead=true;
+            Check(check(),"Dead unpromoted NPC must be vetoed before gesture admission.");
+            ped.IsDead=false;ped.Alive=false;
+            Check(check(),"Despawning unpromoted NPC must be vetoed.");
+            ped.Alive=true;
+            var participant=new LSA.Intelligence.OwnedParticipant {Ped=ped, Current=()=>false,
+                PrimaryOwner=()=>new PrimaryBehaviorOwner("p2","idle")};
+            PromotedCharactersIntegration.RosterOverride=new[]{participant};
+            Check(check(),"Retired ownership wrongly treated as idle.");
+            participant.Current=()=>true;participant.PrimaryOwner=()=>null;
+            Check(check(),"Null owner wrongly treated as idle.");
+            participant.PrimaryOwner=()=>new PrimaryBehaviorOwner("essential_residual","unknown");
+            Check(check(),"Essential residual unknown wrongly treated as idle.");
+            participant.PrimaryOwner=()=>new PrimaryBehaviorOwner("act","follow");
+            Check(check(),"ACT follow wrongly treated as idle.");
+            participant.PrimaryOwner=()=>new PrimaryBehaviorOwner("p2","idle");
+            Check(!check(),"Explicit P2 idle owner was unexpectedly vetoed.");
+            participant.PrimaryOwner=()=>new PrimaryBehaviorOwner("act","idle");
+            Check(!check(),"Explicit ACT idle owner was unexpectedly vetoed.");
+            participant.PrimaryOwner=()=>new PrimaryBehaviorOwner("none","idle");
+            Check(check(),"Unknown none owner must not be mistaken for P2/ACT idle.");
+            RuntimeEntry.Stop();
+        };
+        GameFiber.ExecuteNext();
+        Check(LSA.Reactions.ReactionIntegration.Requests==1 &&
+            LSA.Reactions.ReactionIntegration.UnsafeShutdowns==0,
+            "RuntimeEntry must request deferred reaction cleanup, not call native shutdown from the lifetime fiber.");
         return assertions;
     }
 }
@@ -113,7 +154,7 @@ static class Program
     }
     static void Main()
     {
-        int count=Run("runtime_parallel_start",scenario=>scenario.ConcurrentStart())+Run("runtime_stop_before_execution",scenario=>scenario.StopBeforeExecution());
+        int count=Run("runtime_parallel_start",scenario=>scenario.ConcurrentStart())+Run("runtime_stop_before_execution",scenario=>scenario.StopBeforeExecution())+Run("runtime_reaction_safety",scenario=>scenario.ReactionOwnerFailsClosed());
         foreach(var mode in new[]{"off","shadow","on","invalid"})foreach(object enabled in new object[]{null,false,true,"true",1})count+=Run("collection_"+mode+"_"+enabled,scenario=>scenario.ActivityCollection(mode,enabled));
         Console.WriteLine(count+" production runtime admission/lifetime assertions passed; no game assemblies executed.");
     }

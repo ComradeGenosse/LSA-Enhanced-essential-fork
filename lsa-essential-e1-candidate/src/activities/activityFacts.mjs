@@ -6,6 +6,8 @@ import { REASON_CODES } from './contracts.mjs';
 export const FACT_LIMIT = 128;
 const PHRASES = Object.freeze({
   hold_position: 'Wait here', accompany: 'Follow me', resume_previous: 'Resume previous activity', sit_here: 'Sit here',
+  scenario_here: 'Do an activity here', approach_and_face: 'Come over and face me', board_vehicle: 'Get in the vehicle', ride_along: 'Ride along',
+  exit_vehicle_and_hold: 'Get out and wait', leave_scene: 'Walk away', take_cover_and_hold: 'Take cover',
   running: 'Running', paused: 'Paused', resuming: 'Resuming', completed: 'Completed', failed: 'Failed', cancelled: 'Cancelled',
   abandoned: 'Stopped', expired: 'Timed out', superseded: 'Replaced', admitting: 'Starting',
 });

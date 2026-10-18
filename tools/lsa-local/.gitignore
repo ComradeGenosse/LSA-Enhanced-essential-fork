@@ -1,0 +1,5 @@
+lsa-tools.json
+packages/
+backups/
+logs/
+*.log

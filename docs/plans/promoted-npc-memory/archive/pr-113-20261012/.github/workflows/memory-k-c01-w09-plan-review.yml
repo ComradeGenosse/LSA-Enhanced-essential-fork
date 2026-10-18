@@ -1,0 +1,23 @@
+name: Memory K C01 + W09 addendum plan-only integrity
+on:
+  pull_request:
+    paths:
+      - 'docs/plans/promoted-npc-memory/MEMORY-K-C01-DUAL-SOURCE-W09-CLOSEOUT-20261012.md'
+      - 'tools/memory-sim/closure-c01-w09-addendum.v1.json'
+      - 'tools/memory-sim/validate-c01-w09-addendum.mjs'
+      - '.github/workflows/memory-k-c01-w09-plan-review.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  planning-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Plan-only dependency, proof-contract and honesty validation
+        run: |
+          node --check tools/memory-sim/validate-c01-w09-addendum.mjs
+          node tools/memory-sim/validate-c01-w09-addendum.mjs

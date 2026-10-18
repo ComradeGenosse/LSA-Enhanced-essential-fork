@@ -13,7 +13,7 @@ const player='24846870-fdcc-444f-9aca-7487d4c01048';
 const observationId='c9f50874-c003-4437-a944-9200cf6e30e5';
 const candidate={
  entitlementCurrent:true,observedAtMonotonicMs:9900,
- observation:{observationId,revision:1,observer:{captureRef:speaker,kind:'ped'},
+ observation:{observationId,revision:1,eventType:'firing_burst',observer:{captureRef:speaker,kind:'ped'},
    expiresAtMonotonicMs:15000,claims:[{certainty:'supported',evidence:{channel:'visual'}}]},
  decision:{observationId,revision:1,decisionKey:'original-ps3-decision',
    policyVersion:1,response:'eligible',expiresAtMonotonicMs:15000},
@@ -41,7 +41,7 @@ test('live PS3 candidate pump attempts only original owned candidates, once per 
  };
  const pump=new DirectorObservationPump({client:{runtime},coordinator:{
    attempt:async input=>{attempts.push(input);return {status:'shadow'};}
- },onResult:outcome=>results.push(outcome.status)});
+ },stampFor:()=>({}),onResult:outcome=>results.push(outcome.status)});
  assert.equal((await pump.tick()).status,'shadow');
  assert.equal(attempts.length,1);
  assert.equal(attempts[0].facts.speakerCaptureRef,speaker);
@@ -73,6 +73,48 @@ test('pump never infers PS3/native eligibility from target-only or disconnected 
  runtime.directorCandidatesFor=()=>[];
  assert.equal(await pump.tick(),null);
  assert.equal(calls,0);
+});
+
+test('everyday speech cadence defers low-stakes events without suppressing danger',async()=>{
+  let now=10000;
+  const attempts=[],diagnostics=[];
+  const everyday=(id)=>({
+    ...candidate,observedAtMonotonicMs:now-100,
+    observation:{...candidate.observation,observationId:id,
+      eventType:'character_present',severity:'routine',
+      expiresAtMonotonicMs:now+10000,
+      claims:[{kind:'presence',certainty:'supported',evidence:{channel:'visual'}}]},
+    decision:{...candidate.decision,observationId:id,decisionKey:'routine-'+id,
+      expiresAtMonotonicMs:now+10000},
+  });
+  const ids=['bd2f4c91-bd5e-4b42-94ab-9d9007453671',
+    'd99058bc-9bc0-4321-b3e1-2a5de51c8c71',
+    'f5546a30-bf57-4300-b756-8072af19fc73'];
+  let current=everyday(ids[0]);
+  const runtime={epoch:'run-a',hostContext:{worldEpoch:1},directorRequestVersion:1,
+    now:()=>now,anchors:new Map([[player,{captureRef:player,kind:'player'}]]),
+    observerIndex:new Map([[speaker,{kind:'ped',owned:true}]]),current:()=>true,
+    directorOwnerProofFor:()=>({ownerIncarnationId:'native-owner'}),
+    directorCandidatesFor:()=>[current],
+  };
+  const pump=new DirectorObservationPump({client:{runtime},coordinator:{
+    attempt:async input=>{attempts.push(input.candidates[0].decision.decisionKey);return {status:'shadow'};}
+  },stampFor:()=>({}),onDiagnostic:d=>diagnostics.push(d.reason)});
+  assert.equal((await pump.tick()).status,'shadow');
+  current=everyday(ids[1]);now+=2000;
+  assert.equal(await pump.tick(),null);
+  assert.equal(attempts.length,1);
+  assert(diagnostics.includes('deferred_ambient_cadence'));
+  current={...candidate,observedAtMonotonicMs:now-100,
+    observation:{...candidate.observation,expiresAtMonotonicMs:now+10000},
+    decision:{...candidate.decision,expiresAtMonotonicMs:now+10000}};
+  assert.equal((await pump.tick()).status,'shadow','danger goes through during ambient suppression');
+  now+=90000;current=everyday(ids[2]);
+  assert.equal((await pump.tick()).status,'shadow','fresh ambient passes after the bound');
+  assert.equal(attempts.length,3);
+  runtime.epoch='run-b';now+=3000;current=everyday(ids[1]);
+  assert.equal((await pump.tick()).status,'shadow','epoch reset clears only pacing history');
+  pump.stop();
 });
 
 test('experimental config never starts production native or provider without proven dispatch handoff',async()=>{

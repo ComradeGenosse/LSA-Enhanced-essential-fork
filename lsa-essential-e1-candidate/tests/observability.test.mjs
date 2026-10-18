@@ -29,6 +29,34 @@ function memorySink() {
   return { runId: randomUUID(), records: [], droppedCount: 0, emit(record) { this.records.push({ ...record, sequence: this.records.length + 1, runId: this.runId }); return true; }, async flush() {}, async close() {} };
 }
 
+test('OBS1 dropped reaction/M9 events persist closed safe metadata', () => {
+  for (const name of ['reaction_channel_ready','reaction_channel_closed','reaction_channel_mode_mismatch','reaction_ack','m9_callback_shadow']) {
+    const record = createTelemetryRecord({sequence:1,runId:'test',originMs:0,event:name,
+      provider:'internal',source:'internal',component:name.startsWith('m9_')?'memory':'reactions',
+      data:{reaction:'nod',companionMode:'shadow',nativeMode:'on',status:'accepted',
+        reason:'native_rejected',secret:'sk-secret',family:'private memory title',
+        prompt:'PRIVATE DIALOGUE'},now:1});
+    assert.equal(record.event,name);
+    assert.equal(record.data.reaction,'nod');
+    assert.equal(JSON.stringify(record).includes('private'),false);
+    assert.equal(JSON.stringify(record).includes('PRIVATE'),false);
+    assert.equal(JSON.stringify(record).includes('sk-secret'),false);
+  }
+  assert.deepEqual(sanitizeTelemetryData({reaction:'secret',companionMode:'anything',nativeMode:'on',
+    executionId:'bad',goalId:'not-uuid',requestId:'arbitrary-user-text',worldEpoch:4}), {nativeMode:'on',worldEpoch:4});
+});
+
+test('OBS1 ACT receipt preserves valid IDs and closed native reasons', () => {
+  const activityId = '11111111-1111-4111-8111-111111111111';
+  const executionId = '22222222-2222-4222-8222-222222222222';
+  const record=createTelemetryRecord({sequence:1,runId:'test',originMs:0,event:'activity_receipt',
+    component:'activities',severity:'info',data:{activityId,executionId,requestId:executionId,
+      receiptState:'FAILED',reason:'navigation_failed',payload:'PRIVATE'},now:2});
+  assert.deepEqual(record.data,{activityId,executionId,requestId:executionId,receiptState:'FAILED',reason:'navigation_failed'});
+  assert.equal(record.component,'activities');
+  assert.equal(record.severity,'info');
+});
+
 test('telemetry schema drops credentials, text, raw bodies, and arbitrary nested fields', () => {
   const secret = 'sk-proj-NEVER_LOG_THIS';
   const data = sanitizeTelemetryData({ code: secret, model: secret, detail: secret, prompt: 'private dialogue', text: 'private transcript', rawBody: { Authorization: secret }, inputChars: 42, httpStatus: 429 });
@@ -36,6 +64,49 @@ test('telemetry schema drops credentials, text, raw bodies, and arbitrary nested
   const row = createTelemetryRecord({ sequence: 1, runId: 'test', originMs: 1, event: 'turn_terminal_summary', identity: id, source: 'player_text', data: { reason: 'completed', text: 'private dialogue' }, now: 5 });
   assert.deepEqual(row.data, { reason: 'completed' });
   assert.equal(JSON.stringify(row).includes(secret), false);
+});
+
+test('vehicle command events persist permitted diagnostics and discard unsafe payloads', async () => {
+  const sink=memorySink();
+  const telemetry=new Telemetry({sink,clock:()=>10,utc:()=>new Date(0).toISOString()});
+  const metrics=telemetry.beginTurn(id,'player_text');
+  assert.equal(metrics.event('vehicle_request_classified',{vehicleKind:'continue',text:'sensitive transcript'}),true);
+  assert.equal(metrics.event('vehicle_command_reconciled',{vehicleKind:'continue',vehicleReason:'continuation_must_not_reset_task',command:'DO BeginDriving V001'}),true);
+  assert.equal(metrics.event('vehicle_stock_command_published',{actionName:'driveevasively',verification:'unverified',playerName:'private'}),true);
+  metrics.finish({reason:'completed',stage:'done'});
+  const vehicle=sink.records.filter(record=>record.event.startsWith('vehicle_'));
+  assert.deepEqual(vehicle.map(record=>record.data),[
+    {vehicleKind:'continue'},
+    {vehicleKind:'continue',vehicleReason:'continuation_must_not_reset_task'},
+    {actionName:'driveevasively',verification:'unverified'},
+  ]);
+  assert.deepEqual(sanitizeTelemetryData({
+    vehicleKind:'drive to my home',vehicleReason:'secret',verification:'observed',
+    actionName:'DO DriveFaster then record my name',transcript:'private',credential:'sk-secret',
+  }),{});
+  assert.equal(JSON.stringify(vehicle).includes('sensitive transcript'),false);
+  assert.equal(JSON.stringify(vehicle).includes('private'),false);
+  await telemetry.close();
+});
+
+test('ACT6 navigation admission telemetry preserves typed reasons but never speech text',async()=>{
+  const sink=memorySink();
+  const telemetry=new Telemetry({sink,clock:()=>10,utc:()=>new Date(0).toISOString()});
+  const metrics=telemetry.beginTurn(id,'player_mic');
+  assert.equal(metrics.event('act6_player_direct_readiness',{intent:'vehicle_trip',capability:'drive_to',
+    code:'native_probes_missing',nativeAdvertised:true,missingProbeCount:2,act5Suggestions:false,
+    transcript:'PRIVATE NAVIGATION REQUEST',ownerAlias:'SECRET'}),true);
+  assert.equal(metrics.event('act6_player_direct_unavailable',{intent:'vehicle_trip',code:'owner_unavailable',
+    dialogue:'PRIVATE'}),true);
+  metrics.finish({reason:'completed',stage:'done'});
+  const events=sink.records.filter(x=>x.event.startsWith('act6_'));
+  assert.deepEqual(events.map(x=>x.data),[
+    {intent:'vehicle_trip',capability:'drive_to',code:'native_probes_missing',
+      nativeAdvertised:true,missingProbeCount:2,act5Suggestions:false},
+    {intent:'vehicle_trip',code:'owner_unavailable'},
+  ]);
+  assert.equal(JSON.stringify(events).includes('PRIVATE'),false);
+  await telemetry.close();
 });
 
 test('telemetry retains bounded provider retry and voice assignment dimensions', () => {
@@ -79,6 +150,11 @@ test('intelligence telemetry keeps only bounded lifecycle and PS2/PS3 scalar dia
     ps2OwnedWitnessed: 0, ps2DedupeEvicted: 0, ps2DropInvalidInput: 0, ps2DropRadioIdentityMismatch: 0, ps2DropUnsupportedEvent: 0,
     ps2DropEpisodeClaimCapacity: 0, ps2DropEpisodeRejected: 0, ps2DropObservationClaimCapacity: 0, ps2DropObservationRejected: 0,
     ps3OwnedDecisions: 0, ps3OwnedEligible: 0, ps3OwnedUrgent: 0,
+    ps3OwnedAmbientWitness:0,ps3OwnedLowRelevance:0,ps3OwnedRepetitionSuppressed:0,
+    ps3OwnedCharacterPresent:0,ps3OwnedCharacterPresentEligible:0,
+    ps3OwnedLocationChanged:0,ps3OwnedLocationChangedEligible:0,
+    ps3OwnedActivityChanged:0,ps3OwnedActivityChangedEligible:0,
+    ps3OwnedVehicleTransition:0,ps3OwnedVehicleTransitionEligible:0,
     radioChanged: 0, radioStopped: 0, radioKnown: 0, radioUnknown: 0, radioMismatch: 0, radioOff: 0, radioObservations: 0, radioOwnedObservations: 0,
     nativeRadioSamples: 0, nativeRadioEdges: 0, nativeRadioFailures: 0, nativeRadioWitnessed: 0, nativeRadioWitnessUnknown: 0,
     nativeWitnessDeferred: 0, nativeWitnessUnknown: 0, nativeWitnessRejected: 0,
@@ -193,6 +269,76 @@ test('full fake-native typed turn captures exact lifecycle, history, and one ter
   connection.close();
 });
 
+test('Memory K microphone/fallback diagnostic events are allowlisted and never leak dialogue', () => {
+  const sink = memorySink();
+  const telemetry = new Telemetry({ sink });
+  const turn = telemetry.beginTurn(id, 'player_mic');
+  const events = [
+    ['mic_input_captured', { hasPcm: true, bytes: 3200 }],
+    ['stt_completed', { hasTranscript: true }],
+    ['memory_bypass', { stage: 'pre_stt', reason: 'native_memory_source_timeout', requestGatePassed: false }],
+    ['memory_bypass', { stage: 'memory_prepare', reason: 'memory_prepare_failed', requestGatePassed: false }],
+    ['memory_fallback', { stage: 'initial_preflight', reason: 'pre_request_stale', requestGatePassed: false }],
+    ['audio_handoff_started', { stage: 'native_authorization' }],
+  ];
+  for (const [event, data] of events) {
+    assert.equal(turn.event(event, { ...data, transcript: 'PRIVATE INPUT', prompt: 'PRIVATE PROMPT' }), true);
+  }
+  for (const event of new Set(events.map(([name]) => name))) {
+    assert.ok(sink.records.some(row => row.event === event), event);
+  }
+  assert.equal(sink.records.find(row => row.event === 'mic_input_captured').data.hasPcm, true);
+  assert.equal(sink.records.find(row => row.event === 'stt_completed').data.hasTranscript, true);
+  assert.equal(sink.records.find(row => row.event === 'memory_bypass').data.reason, 'native_memory_source_timeout');
+  assert.ok(!JSON.stringify(sink.records).includes('PRIVATE'));
+  // A future instrumentation mistake remains a schema rejection, not a conversation failure.
+  assert.equal(turn.event('unregistered_future_optional_event', { text: 'PRIVATE' }), false);
+  assert.equal(sink.records.some(row => row.event === 'unregistered_future_optional_event'), false);
+  const broken = new Telemetry({ sink: { emit() { throw new Error('disk offline'); } } });
+  assert.equal(broken.beginTurn(id, 'player_mic').event('mic_input_captured', { hasPcm: true }), false);
+});
+
+test('real-telemetry microphone turn reaches STT, Luna and audio playback', async () => {
+  const sink = memorySink();
+  const telemetry = new Telemetry({ sink });
+  const runtime = createRuntime(normalizeConfig({}, {}), { telemetry, fetchImpl: async () => { throw new Error('network disabled'); } });
+  const listeners = new Set();
+  const bridge = {
+    assertCapabilities() {}, isCurrent: candidate => sameIdentity(candidate, id),
+    validateDecision: async decision => ({ identityValid: true, internalTranscript: decision.dialogue, actionCount: 0 }),
+    onNativeEvent(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    authorize(identity) { for (const fn of listeners) fn({ ...identity, type: 'audio_turn_accepted' }); return true; },
+    async routePinnedEvent(event) {
+      if (event.type === 'turn_complete') {
+        for (const fn of listeners) fn({ ...id, type: 'playback_started' });
+        for (const fn of listeners) fn({ ...id, type: 'playback_ended', reason: 'completed', wasInterrupted: false, hadAudio: true, playbackStarted: true });
+      }
+      return true;
+    },
+    failMatchingTurn() { return true; }, log() {},
+  };
+  runtime.attachBridge(bridge);
+  runtime.services.transcribe = async () => 'PRIVATE MICROPHONE TRANSCRIPT';
+  runtime.services.decide = async () => ({ dialogue: 'PRIVATE NATHAN ANSWER', command: '' });
+  runtime.services.speak = async ({ onPcm }) => {
+    await onPcm(new Uint8Array([1,2,3,4]));
+    return { bytes: 4, chunks: 1 };
+  };
+  const connection = await runtime.createTransport(() => { throw new Error('Gemini must remain unused'); }).connect({ systemInstruction: 'safe', diagnosticContext: id });
+  await connection.beginTurn({ identity: id, source: 'player_mic', context: { inputText: '', systemInstruction: 'safe' } });
+  await connection.startRealtimeInput();
+  await connection.sendRealtimeAudio(new Uint8Array([1,0,2,0]), 16_000);
+  await connection.endRealtimeInput();
+  const result = await connection.whenSettled(id);
+  assert.equal(result.status, 'completed', JSON.stringify(result));
+  for (const event of ['mic_input_captured','stt_completed','audio_handoff_started','turn_terminal_summary']) {
+    assert.ok(sink.records.some(row => row.event === event), event);
+  }
+  assert.equal(sink.records.find(row => row.event === 'turn_terminal_summary').data.terminalReason, 'completed');
+  assert.ok(!JSON.stringify(sink.records).includes('PRIVATE'));
+  connection.close();
+});
+
 test('offline summarizer separates outcomes, unknown usage, and incomplete traces', () => {
   const runId = randomUUID();
   const record = (event, data = {}) => ({ schemaVersion: 1, runId, event, identity: id, source: 'player_text', data });
@@ -231,4 +377,15 @@ test('source-pinned stock patch measures action routing at AP without altering i
   assert.match(patched.output, /actionDispatchStart\(\)/);
   assert.match(patched.output, /actionDispatchEnd\(routed === true\)/);
   assert.ok(patched.edits.some(edit => edit.label === 'Essential provider/action/playback bridge'));
+});
+
+test('social scene diagnostics survive privacy sanitizer without leaking arbitrary prompts',()=>{
+ const safe=sanitizeTelemetryData({source:'social',sceneType:'shared_vehicle_entry',
+   status:'not_delivered',nativeReason:'missing_receipt',diagnosticReason:'native_playback_unverified',
+   prompt:'NEVER LOG',speakerCaptureRef:'secret-actor'});
+ assert.equal(safe.source,'social');
+ assert.equal(safe.sceneType,'shared_vehicle_entry');
+ assert.equal(safe.nativeReason,'missing_receipt');
+ assert.equal(JSON.stringify(safe).includes('secret-actor'),false);
+ assert.equal(sanitizeTelemetryData({source:'reactive',sceneType:'untrusted_text',prompt:'PRIVATE'}).sceneType,undefined);
 });

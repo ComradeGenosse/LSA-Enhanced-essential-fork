@@ -51,6 +51,17 @@ test('describe returns display fields only for a promoted character, matched by 
   assert.equal(describeCurrent(f.service,{ ownerAlias:'promoted.' + randomUUID() }).kind,'unknown');
 });
 
+test('describe never names a promoted character when the owner alias is claimed by more than one profile',async t => {
+  const alias = 'promoted.' + randomUUID();
+  const profile = name => ({ characterId:randomUUID(),name,status:'available',promotion:{ ownerAlias:alias },relationship:{ state:'friend' },voiceReference:{ voice:'nova' } });
+  const store = list => ({ available:true,list:() => list });
+  const one = profile('Nathan');
+  assert.equal(describeCurrent({ ready:true,store:store([one]) },{ ownerAlias:alias }).name,'Nathan','a single claimant is named');
+  const ambiguous = describeCurrent({ ready:true,store:store([one,profile('Someone Else')]) },{ ownerAlias:alias });
+  assert.deepEqual(ambiguous,{ kind:'unknown',facts:[] },'two claimants of one alias are ambiguous: no name');
+  assert.deepEqual(describeCurrent({ ready:true,store:store([{ characterId:randomUUID(),name:'No promotion record' }]) },{ ownerAlias:alias }),{ kind:'unknown',facts:[] });
+});
+
 test('describe validates ids and bounds every returned string',async t => {
   const f = await fixture(t);
   for (const bad of [{ encounterId:'17' },{ encounterId:'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA' },{ ownerAlias:'promoted.17' },{ ownerAlias:42 },{ encounterId:{} }])

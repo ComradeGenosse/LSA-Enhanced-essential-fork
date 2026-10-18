@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../VoicePresenceTurnTracker.cs" Link="VoicePresenceTurnTracker.cs" />
+    <Compile Include="../NpcVoicePresenceObserver.cs" Link="NpcVoicePresenceObserver.cs" />
+    <Compile Include="../NpcVoiceMouthOverlay.cs" Link="NpcVoiceMouthOverlay.cs" />
+    <Compile Include="../NpcPlayoutLevelSource.cs" Link="NpcPlayoutLevelSource.cs" />
+    <Compile Include="../NpcPlaybackStateProbe.cs" Link="NpcPlaybackStateProbe.cs" />
+    <Compile Include="VoicePresenceNativeStubs.cs" />
+  </ItemGroup>
+</Project>

@@ -69,6 +69,36 @@ static class Program
         validateThrows=true;
         Check(anchors.Resolve(invalid.CaptureRef)==null && notified==1 && anchors.RetirementNotificationFaults==1,"failed validator retires and failed subscriber does not block fanout");
         Check(anchors.Retain(new object(),102,new IntPtr(102),"ped",null,()=> {throw new Exception();},0)==null,"throwing admission validation fails closed");
+        // #276: foreground evidence is OS-only and must not grant native
+        // ownership, reset a world, or infer pause solely from focus loss.
+        int foreground=1;
+        var focus=new HostInterruptionEvidence(()=>foreground,false);
+        var firstUtc=new DateTime(2026,10,18,19,22,40,DateTimeKind.Utc);
+        HostInterruptionEvidence.FocusTransition transition;
+        focus.Sample(firstUtc);
+        Check(focus.TryRead(out transition) && transition.Foreground==1 &&
+              transition.Utc==firstUtc,"foreground sample preserves observed UTC");
+        focus.Sample(firstUtc.AddMilliseconds(250));
+        Check(!focus.TryRead(out transition),"identical focus sample is suppressed");
+        foreground=0;
+        focus.Sample(firstUtc.AddMilliseconds(500));
+        foreground=1;
+        focus.Sample(firstUtc.AddMilliseconds(1700));
+        Check(focus.TryRead(out transition) && transition.Foreground==0 &&
+              transition.Utc==firstUtc.AddMilliseconds(500),"alt-tab loss recorded");
+        Check(focus.TryRead(out transition) && transition.Foreground==1 &&
+              transition.Utc==firstUtc.AddMilliseconds(1700),"resume recorded");
+        Check(!focus.TryRead(out transition),"focus queue fully drained");
+        Check(!HostInterruptionEvidence.OwnerFiberGap(100,1599) &&
+              HostInterruptionEvidence.OwnerFiberGap(100,1600) &&
+              !HostInterruptionEvidence.OwnerFiberGap(2000,1999),
+              "native owner gap threshold and monotonic regression");
+        focus.Dispose();focus.Sample();
+        Check(!focus.TryRead(out transition),"disposed monitor cannot emit");
+        // Real pipe failure is independent of the window state; these probes
+        // never alter HostContext, owner claims, or world epochs.
+        Check(host.WorldEpoch==3 && host.HostRunId!=null,
+              "focus probe never changes native host authority");
         Console.WriteLine("PASS "+assertions+" shared host/anchor assertions");
     }
 }

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "files": [
+    "lsa-essential-e1-candidate/tests/memory-i2-inspector.test.mjs",
+    "lsa-essential-e1-candidate/tests/memory/i2PauseForeground.test.mjs"
+  ]
+}

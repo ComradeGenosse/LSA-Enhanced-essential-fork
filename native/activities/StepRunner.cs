@@ -12,6 +12,12 @@ namespace LSA.Activities
         public uint RequestedGameMs, DispatchedGameMs, AcceptedGameMs, EstablishedGameMs;
         public int AcceptMs, EstablishMs, CompleteMs, HoldMaxMs;
         public bool Terminal, Handler;
+        // ACT3 additions. Args holds validated references; flags track observed (never assumed) progress.
+        public StepArgs Args;
+        public bool Act3, Special, Wrapper, ProgressSeen, ApproachDone, ApproachOk, StopOnTimeout, EstablishGated;
+        public string ApproachReason, Seat, ItemName, CancelPath;
+        public float StartDistance;
+        public long LostSince = -1;
         public string ModeHealth;
         public long FarSince = -1, LastReceiptWall;
         public readonly List<Dictionary<string, object>> Evidence = new List<Dictionary<string, object>>();
@@ -27,6 +33,10 @@ namespace LSA.Activities
     public sealed class StepRunner
     {
         static readonly HashSet<string> Act2 = new HashSet<string> { "hold_position", "follow_person", "resume_ambient", "sit_on_ground" };
+        static readonly HashSet<string> Act3 = new HashSet<string>(ActivityContracts.Act3Capabilities.Concat(new[] { "walk_to", "drive_to" }));
+        static readonly HashSet<string> TargetCapabilities = new HashSet<string> { "follow_person", "stop_and_face", "approach_person", "walk_away_from" };
+        // Adapters that report a real in-progress signal. Only those can fail an establish window.
+        static readonly HashSet<string> ProgressAdapters = new HashSet<string> { "approach", "seat_occupancy", "walk_away", "place_arrival", "drive_arrival" };
         readonly CapabilityTable table;
         readonly Dictionary<string, LiveExecution> active = new Dictionary<string, LiveExecution>();
         readonly Dictionary<string, int> leaseEpoch = new Dictionary<string, int>();
@@ -43,7 +53,15 @@ namespace LSA.Activities
         public PlaceTable Places => places;
         public bool HasPhysicalCompletion { get; private set; }
         public StepRunner(CapabilityTable table) { this.table = table ?? throw new ArgumentNullException(nameof(table)); }
-        public bool Advertises(string id) => Act2.Contains(id);
+        // ACT2 is always advertised. An ACT3 capability is advertised only when the bound world declares native
+        // support for it, so an unsupported capability never reaches the wire as available.
+        public bool Advertises(string id)
+        {
+            if (id == null) return false;
+            if (Act2.Contains(id)) return true;
+            if (!Act3.Contains(id) || World == null) return false;
+            try { return World.Supports(id); } catch { return false; }
+        }
         public int ActiveCount => active.Count;
         public bool Tracks(string encounterId) => encounterId != null && leaseId.ContainsKey(encounterId);
         public LiveExecution Active(string encounterId) => encounterId != null && active.TryGetValue(encounterId, out var execution) ? execution : null;
@@ -84,7 +102,7 @@ namespace LSA.Activities
         {
             leased = false; requiresHello = true; leaseAt = -1; leaseTtl = 0;
             foreach (var execution in active.Values.ToArray()) {
-                var stop = execution.OnLeaseLoss == "cancel_if_current";
+                var stop = execution.OnLeaseLoss == "cancel_if_current" && execution.CancelPath != "none";
                 if (stop) TryStop(execution, true);
                 Finish(session, execution, stop ? "CANCELLED" : "DETACHED", reason, gameMs, wallMs);
             }
@@ -95,10 +113,22 @@ namespace LSA.Activities
             var execution = Active(encounterId);
             if (execution == null || execution.Terminal) return;
             if (execution.IncarnationId != incarnationId) { StaleReceipts++; return; }
-            var own = table.NamesFor(execution.Capability).Contains(name ?? "");
+            var own = (execution.OwnName != null && !execution.OwnName.Contains("|") ? table.NamesForToken(execution.OwnName) : table.NamesFor(execution.Capability)).Contains(name ?? "");
             if (!own) { try { World?.NoteForeign(execution.EncounterId); } catch { } AddEvidence(execution, "control_changed", "weak", gameMs, "externalCommand", "essential"); Finish(Session, execution, "SUPERSEDED", "superseded_essential", gameMs, wallMs); return; }
             if (phase == "executed" && succeeded == false) Finish(Session, execution, "FAILED", "handler_false", gameMs, wallMs);
             else if (phase == "executed" && succeeded == true && execution.State == "DISPATCHED") { execution.Handler = true; execution.AcceptedGameMs = gameMs; Accepted++; AdvanceState(Session, execution, "HANDLER_ACCEPTED", gameMs, wallMs); }
+        }
+
+        // Essential's only native completion event. It is evidence for the one approach this runner dispatched:
+        // wrong incarnation, wrong target, or an event older than the dispatch is ignored. Completion still needs
+        // the adapter's distance check.
+        public void OnApproachFinished(string encounterId, string incarnationId, bool targetMatches, bool ok, string reason, uint gameMs)
+        {
+            var execution = Active(encounterId);
+            if (execution == null || execution.Terminal || execution.Capability != "approach_person") return;
+            if (execution.IncarnationId != incarnationId) { StaleReceipts++; return; }
+            if (!targetMatches || unchecked(gameMs - execution.DispatchedGameMs) >= 0x80000000u) return;
+            execution.ApproachDone = true; execution.ApproachOk = ok; execution.ApproachReason = reason;
         }
 
         public void Preempt(string encounterId, string incarnationId, string operation, uint gameMs, long wallMs, ActivitySession session)
@@ -107,6 +137,8 @@ namespace LSA.Activities
             if (execution == null) return;
             if (execution.IncarnationId != incarnationId) { StaleReceipts++; return; }
             Bump(encounterId);
+            // ACT6 must stop while ownership evidence is retained.
+            if (IsNavigation(execution)) TryStop(execution, true);
             try { World?.EndOwnership(encounterId, true); } catch { }
             AddEvidence(execution, "control_changed", "weak", gameMs, "externalCommand", "p2_control");
             Finish(session, execution, "SUPERSEDED", "superseded_player", gameMs, wallMs);
@@ -182,10 +214,17 @@ namespace LSA.Activities
                 var role = pair != null && pair.ContainsKey("role") ? pair["role"] as string : null;
                 var slot = pair != null && pair.ContainsKey("slot") ? pair["slot"] as Dictionary<string, object> : null;
                 var kind = slot != null && slot.ContainsKey("kind") ? slot["kind"] as string : null;
-                if (kind == "place") kind = "here";
+                if (kind == "place") {
+                    var place = slot.ContainsKey("place") ? slot["place"] as Dictionary<string, object> : null;
+                    var placeKind = place != null && place.ContainsKey("kind") ? place["kind"] as string : null;
+                    if (placeKind == "named" && place.ContainsKey("query") && place["query"] is string query) kind = "named:" + query;
+                    else if (placeKind == "near_person" && place.ContainsKey("person") && place["person"] is Dictionary<string, object> person && person.ContainsKey("kind") && person["kind"] as string == "player") kind = "near_player";
+                    else kind = placeKind;
+                }
                 var hit = World.Resolve(encounter, role, kind);
-                if (hit.Ok && kind == "here" && !places.TryGet(hit.Ref, out _)) {
-                    if (!places.TryAdd(new PlaceAnchor { PlaceRef = hit.Ref, Kind = "here", Label = hit.Label, IncarnationId = incarnation.ContainsKey(encounter) ? incarnation[encounter] : null, X = hit.X, Y = hit.Y, Z = hit.Z })) hit = new AnchorResult { Reason = "budget_exhausted" };
+                if (hit.Ok && (kind == "here" || kind == "waypoint" || kind == "near_player" || kind != null && kind.StartsWith("named:", StringComparison.Ordinal)) && !places.TryGet(hit.Ref, out _)) {
+                    var retainedKind = kind.StartsWith("named:", StringComparison.Ordinal) ? "named" : kind;
+                    if (!places.TryAdd(new PlaceAnchor { PlaceRef = hit.Ref, Kind = retainedKind, Label = hit.Label, IncarnationId = incarnation.ContainsKey(encounter) ? incarnation[encounter] : null, X = hit.X, Y = hit.Y, Z = hit.Z })) hit = new AnchorResult { Reason = "budget_exhausted" };
                 }
                 results.Add(new Dictionary<string, object> {{"role", role ?? "actor"},{"ref", hit.Ok ? (object)hit.Ref : null},{"reason", hit.Ok ? null : hit.Reason ?? "place_unresolved"},{"label", hit.Label},{"distanceBand", hit.Band}});
             }
@@ -200,21 +239,60 @@ namespace LSA.Activities
             var capability = frame.ContainsKey("capability") ? frame["capability"] as string : null;
             if (!ActivityContracts.IsUuid(request) || !Advertises(capability) || World == null) return Nack(session, request, "capability_unavailable");
             if (!leased || !LeaseMatches(frame, encounter)) return Nack(session, request, "lease_lost");
-            if (capability == "follow_person") {
-                var target = TargetRef(frame);
-                if (!ActivityContracts.IsUuid(target) || !World.AnchorLive(target)) return Nack(session, request, "target_retired");
+            var args = ParseArgs(frame, capability);
+            var bad = ArgReason(capability, args);
+            if (bad != null) return Nack(session, request, bad);
+            if (TargetCapabilities.Contains(capability)) {
+                if (!ActivityContracts.IsUuid(args.Target) || !World.AnchorLive(args.Target)) return Nack(session, request, "target_retired");
+            }
+            if (capability == "enter_vehicle_seat" && (!ActivityContracts.IsUuid(args.Vehicle) || !World.AnchorLive(args.Vehicle))) return Nack(session, request, "vehicle_invalid");
+            if (capability == "walk_to" || capability == "drive_to") {
+                if (!places.TryGet(args.Place, out var navPlace) || navPlace.IncarnationId != incarnation[encounter]) return Nack(session, request, "place_unresolved");
+                args.PlaceTarget = navPlace; args.HasPlace = true;
             }
             if (capability == "hold_position") {
                 var placeRef = PlaceRef(frame);
                 if (!places.TryGet(placeRef, out var place)) return Nack(session, request, "place_unresolved");
-                var sample = World.Sample(encounter);
+                var sample = World.Sample(encounter, null);
                 if (Distance(sample, place) > 6.0) return Nack(session, request, "target_out_of_range");
             }
-            var result = World.Preflight(encounter, capability);
+            var result = World.Preflight(encounter, capability, args);
             var verdicts = new List<Dictionary<string, object>>();
             if (frame.ContainsKey("preconditions") && frame["preconditions"] is object[] list) foreach (var item in list) if (item is string id) verdicts.Add(new Dictionary<string, object> {{"id",id},{"verdict", result.Ok || result.Already ? "satisfied" : "violated"}});
             Reply(session, new Dictionary<string, object> {{"type","step.preflighted"},{"requestId",request},{"verdicts",verdicts.ToArray()},{"alreadySatisfied",result.Already},{"reason",result.Already || result.Ok ? null : result.Reason ?? "capability_unavailable"}});
             return true;
+        }
+
+        // Closed arguments only. The scenario and item names are looked up in the pinned contract maps, so a
+        // frame can never smuggle in a name of its own.
+        StepArgs ParseArgs(IDictionary<string, object> frame, string capability)
+        {
+            var args = new StepArgs { Target = TargetRef(frame), Place = PlaceRef(frame) };
+            if (frame.ContainsKey("args") && frame["args"] is Dictionary<string, object> raw) {
+                if (raw.ContainsKey("vehicle") && raw["vehicle"] is Dictionary<string, object> vehicle && vehicle.ContainsKey("captureRef")) args.Vehicle = vehicle["captureRef"] as string;
+                args.Seat = raw.ContainsKey("seat") ? raw["seat"] as string : null;
+                args.Scenario = raw.ContainsKey("scenario") ? raw["scenario"] as string : null;
+                args.Item = raw.ContainsKey("item") ? raw["item"] as string : null;
+            }
+            args.ScenarioName = table.ScenarioName(args.Scenario);
+            args.ItemName = table.ItemName(args.Item);
+            args.Command = QueueCommand(capability, args.Seat);
+            return args;
+        }
+        string QueueCommand(string capability, string seat)
+        {
+            var row = table.Get(capability);
+            if (row == null || row.Path != "queue" || string.IsNullOrEmpty(row.EssentialName)) return null;
+            if (capability == "enter_vehicle_seat") return seat == "driver" ? "enterdriverseatoftargetvehicle" : seat == "rear" ? "enterbackoftargetvehicle" : seat == "passenger" || seat == "any_passenger" ? "entertargetvehicle" : null;
+            return row.EssentialName.Contains("|") || row.EssentialName.Contains(".") ? null : row.EssentialName;
+        }
+        static string ArgReason(string capability, StepArgs args)
+        {
+            if (!Act3.Contains(capability)) return null;
+            if (capability == "scenario_here" && (args.ScenarioName == null || args.Scenario == "sit_bench")) return "unsupported_combination";
+            if (capability == "grab_item" && args.ItemName == null) return "capability_unavailable";
+            if (capability == "enter_vehicle_seat" && args.Command == null) return "seat_unavailable";
+            return null;
         }
 
         bool Begin(ActivitySession session, IDictionary<string, object> frame)
@@ -232,31 +310,55 @@ namespace LSA.Activities
             if (active.ContainsKey(encounter)) return Nack(session, request, "activity_busy");
             if (active.Count >= ActivityContracts.MaxActors) return Nack(session, request, "activity_limit");
             var row = table.Get(capability);
+            var args = ParseArgs(frame, capability);
+            var act3 = Act3.Contains(capability);
+            if ((capability == "walk_to" || capability == "drive_to") && (!places.TryGet(args.Place, out var navPlace) || navPlace.IncarnationId != incarnationId)) return Nack(session, request, "place_unresolved");
+            if (capability == "walk_to" || capability == "drive_to") { args.PlaceTarget = places.TryGet(args.Place, out var captured) ? captured : default(PlaceAnchor); args.HasPlace = true; }
+            if (act3) {
+                var bad = ArgReason(capability, args);
+                if (bad != null) return Nack(session, request, bad);
+                if (row == null || !(frame["completion"] is Dictionary<string, object> declared) || declared["adapter"] as string != row.Adapter) return Nack(session, request, "unsupported_combination");
+                // A stale or retired reference is refused here too, not only at preflight.
+                if (TargetCapabilities.Contains(capability) && (!ActivityContracts.IsUuid(args.Target) || !World.AnchorLive(args.Target))) return Nack(session, request, "target_retired");
+                if (capability == "enter_vehicle_seat" && (!ActivityContracts.IsUuid(args.Vehicle) || !World.AnchorLive(args.Vehicle))) return Nack(session, request, "vehicle_invalid");
+            }
+            args.ExecutionId = executionId;
             var execution = new LiveExecution {
                 ExecutionId = executionId, ActivityId = Text(frame, "activityId"), StepId = Text(frame, "stepId"), EncounterId = encounter,
                 IncarnationId = incarnationId, LeaseId = held, Capability = capability, EssentialName = row?.EssentialName, Adapter = row?.Kind == "finite_then_mode" ? "resume_ambient" : AdapterOf(capability),
                 OnLeaseLoss = Text(frame, "onLeaseLoss") ?? "cancel_if_current", State = "REQUESTED", Attempt = Convert.ToInt32(frame["attempt"], CultureInfo.InvariantCulture),
                 LeaseEpoch = epoch, RequestedGameMs = World.GameTime, AcceptMs = row?.AcceptMs ?? 2000, EstablishMs = row == null ? 5000 : EstablishOf(row), HoldMaxMs = row?.HoldMaxMs ?? 0, CompleteMs = CompleteOf(capability),
-                PlaceRef = PlaceRef(frame)
+                PlaceRef = PlaceRef(frame), Args = args, Act3 = act3
             };
+            if (act3) {
+                execution.Adapter = row.Adapter; execution.EstablishMs = row.EstablishMs; execution.CompleteMs = row.CompleteMs;
+                execution.Special = row.Exposure == "queue_special"; execution.Wrapper = row.Path == "wrapper" || row.Path == "extension";
+                execution.CancelPath = row.CancelPath; execution.StopOnTimeout = row.CancelPath == "stop_api";
+                execution.Seat = args.Seat; execution.ItemName = args.ItemName;
+                // Only modes and adapters with a real in-progress read can fail an establish window.
+                execution.EstablishGated = !execution.Special && (row.Kind == "mode" || ProgressAdapters.Contains(row.Adapter));
+            }
             if (capability == "hold_position") {
                 if (!places.TryGet(execution.PlaceRef, out var place)) return Nack(session, request, "place_unresolved");
-                var sample = World.Sample(encounter);
+                var sample = World.Sample(encounter, null);
                 if (Distance(sample, place) > 6.0) return Nack(session, request, "target_out_of_range");
             }
-            execution.OwnName = execution.EssentialName;
+            execution.OwnName = args.Command ?? execution.EssentialName;
             var game = World.GameTime;
+            if (act3) { try { execution.StartDistance = World.Sample(encounter, args).TargetDistance; } catch { execution.StartDistance = 0; } }
             try { World.BeginOwnership(encounter); }
             catch { return Nack(session, request, "handler_exception"); }
             active[encounter] = execution;
             bool dispatched;
-            try { dispatched = World.Dispatch(encounter, capability, TargetRef(frame)); }
+            try { dispatched = World.Dispatch(encounter, capability, args); }
             catch { dispatched = false; }
             if (!dispatched) { Finish(session, execution, "FAILED", "handler_exception", game, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); return Nack(session, request, "handler_exception"); }
             execution.DispatchedGameMs = game; Dispatches++;
             AdvanceState(session, execution, "VALIDATED", game, 0);
             AdvanceState(session, execution, "DISPATCHED", game, 0);
-            AddEvidence(execution, "queue_submitted", "weak", game, null, null);
+            AddEvidence(execution, execution.Wrapper ? "wrapper_invoked" : "queue_submitted", "weak", game, null, null);
+            // A wrapper has no callback. Its acceptance is the call returning without throwing, nothing more.
+            if (execution.Wrapper) { execution.Handler = true; execution.AcceptedGameMs = game; Accepted++; AdvanceState(session, execution, "HANDLER_ACCEPTED", game, 0); }
             Reply(session, new Dictionary<string, object> {{"type","ack"},{"requestId",request}});
             return true;
         }
@@ -268,7 +370,8 @@ namespace LSA.Activities
             var mode = Text(frame, "mode");
             var execution = active.Values.FirstOrDefault(item => item.ExecutionId == executionId);
             if (execution == null) { if (ActivityContracts.IsUuid(request)) Reply(session, new Dictionary<string, object> {{"type","ack"},{"requestId",request}}); return true; }
-            var stop = mode == "cancel_if_current";
+            // A capability with no stop API cannot be cancelled. It is detached and reported as such.
+            var stop = mode == "cancel_if_current" && execution.CancelPath != "none";
             try { World?.Cancel(execution.EncounterId, execution.Capability, stop); } catch { }
             Finish(session, execution, stop ? "CANCELLED" : "DETACHED", stop ? "cancelled_by_player" : "cancelled_by_engine", World?.GameTime ?? execution.DispatchedGameMs, 0);
             if (ActivityContracts.IsUuid(request)) Reply(session, new Dictionary<string, object> {{"type","ack"},{"requestId",request}});
@@ -293,13 +396,18 @@ namespace LSA.Activities
             if (execution.Terminal || World == null) return;
             if (!World.SameIncarnation(execution.EncounterId, execution.IncarnationId)) { Finish(Session, execution, "DETACHED", "actor_retired", gameMs, wallMs); return; }
             ModeSample sample;
-            try { sample = World.Sample(execution.EncounterId); } catch { return; }
+            try { sample = World.Sample(execution.EncounterId, execution.Args); } catch { return; }
             if (sample.Dead || !sample.Alive) { Finish(Session, execution, "FAILED", "actor_dead", gameMs, wallMs); return; }
             if (sample.Injured) { Finish(Session, execution, "FAILED", "actor_injured", gameMs, wallMs); return; }
             if (sample.Scripted) { TryStop(execution, true); Finish(Session, execution, "CANCELLED", "scripted_state", gameMs, wallMs); return; }
             if (sample.Directed) { TryStop(execution, true); Finish(Session, execution, "CANCELLED", "directed_interaction", gameMs, wallMs); return; }
             if (sample.Reflex) { Finish(Session, execution, "SUPERSEDED", "superseded_reflex", gameMs, wallMs); return; }
             if (execution.Capability == "follow_person" && !sample.TargetValid) { Finish(Session, execution, "FAILED", "target_retired", gameMs, wallMs); return; }
+            if (execution.Act3) {
+                // Retained references are re-proved every tick: a retired or replaced target ends the step.
+                if (TargetCapabilities.Contains(execution.Capability) && !World.AnchorLive(execution.Args.Target)) { TryStop(execution, true); Finish(Session, execution, "FAILED", "target_retired", gameMs, wallMs); return; }
+                if (execution.Capability == "enter_vehicle_seat" && !World.AnchorLive(execution.Args.Vehicle)) { TryStop(execution, true); Finish(Session, execution, "FAILED", "vehicle_invalid", gameMs, wallMs); return; }
+            }
             if (execution.Capability == "follow_person") {
                 if (sample.DistanceBand == "far") { if (execution.FarSince < 0) execution.FarSince = wallMs; else if (wallMs - execution.FarSince >= 5000) { Finish(Session, execution, "FAILED", "target_out_of_range", gameMs, wallMs); return; } }
                 else execution.FarSince = -1;
@@ -309,23 +417,71 @@ namespace LSA.Activities
                 var displacement = Distance(sample, place);
                 if (displacement > 6.0) { Finish(Session, execution, "FAILED", "target_out_of_range", gameMs, wallMs); return; }
             }
-            if (execution.State == "DISPATCHED" && ActivityContracts.UnsignedDue(gameMs, execution.DispatchedGameMs, execution.AcceptMs)) { Finish(Session, execution, "TIMED_OUT", "accept_timeout", gameMs, wallMs); return; }
-            if (!execution.Handler) return;
-            var verdict = CompletionAdapters.Evaluate(execution.Adapter, sample);
-            if (execution.State == "HANDLER_ACCEPTED" && ActivityContracts.UnsignedDue(gameMs, execution.DispatchedGameMs, execution.EstablishMs) && verdict == "not_yet") { Finish(Session, execution, "TIMED_OUT", "establish_timeout", gameMs, wallMs); return; }
-            if (verdict == "completed") { HasPhysicalCompletion = true; Completed++; execution.EstablishedGameMs = gameMs; AddEvidence(execution, "mode_flag", "strong", gameMs, null, null); Finish(Session, execution, "PHYSICALLY_COMPLETED", null, gameMs, wallMs); return; }
-            if (verdict == "lost" && execution.State == "MODE_ESTABLISHED") { execution.ModeHealth = "lost"; Publish(Session, execution, gameMs, wallMs); Finish(Session, execution, "FAILED", "no_progress", gameMs, wallMs); return; }
-            if (verdict == "established" && execution.State != "MODE_ESTABLISHED") { execution.ModeHealth = "healthy"; execution.EstablishedGameMs = gameMs; Established++; AddEvidence(execution, "mode_flag", "medium", gameMs, null, null); AdvanceState(Session, execution, "MODE_ESTABLISHED", gameMs, wallMs); }
-            if (execution.State == "MODE_ESTABLISHED" && execution.HoldMaxMs > 0 && ActivityContracts.UnsignedDue(gameMs, execution.DispatchedGameMs, execution.HoldMaxMs)) Finish(Session, execution, "TIMED_OUT", "hold_limit", gameMs, wallMs);
+            // A queue-special command (take_cover) raises no callback, so it is accepted only by observation.
+            if (execution.State == "DISPATCHED" && !execution.Special && ActivityContracts.UnsignedDue(gameMs, execution.DispatchedGameMs, execution.AcceptMs)) { Finish(Session, execution, "TIMED_OUT", "accept_timeout", gameMs, wallMs); return; }
+            if (!execution.Handler && !execution.Special) return;
+            var verdict = CompletionAdapters.Judge(execution.Adapter, sample, new AdapterContext {
+                Capability = execution.Capability, Seat = execution.Seat, ItemName = execution.ItemName, StartDistance = execution.StartDistance,
+                ElapsedMs = unchecked((int)(gameMs - execution.DispatchedGameMs)), ApproachDone = execution.ApproachDone, ApproachOk = execution.ApproachOk, ApproachReason = execution.ApproachReason
+            });
+            var kind = verdict.Kind;
+            if (kind == "failed") {
+                if (execution.StopOnTimeout || execution.CancelPath == "stop_api") TryStop(execution, true);
+                Finish(Session, execution, "FAILED", verdict.Reason ?? "no_progress", gameMs, wallMs); return;
+            }
+            if (execution.Special && execution.State == "DISPATCHED") {
+                if (kind == "established" || kind == "progress" || kind == "completed") { execution.AcceptedGameMs = gameMs; Accepted++; AddEvidence(execution, "mode_flag", "medium", gameMs, null, null); AdvanceState(Session, execution, "HANDLER_ACCEPTED", gameMs, wallMs); }
+                else if (ActivityContracts.UnsignedDue(gameMs, execution.DispatchedGameMs, execution.EstablishMs)) { if (execution.StopOnTimeout) TryStop(execution, true); Finish(Session, execution, "TIMED_OUT", "establish_timeout", gameMs, wallMs); return; }
+                else return;
+            }
+            if (kind == "progress" && !execution.ProgressSeen) {
+                execution.ProgressSeen = true;
+                AddEvidence(execution, verdict.EvidenceKind ?? "mode_flag", verdict.Strength ?? "medium", gameMs, verdict);
+                // ACT6 receives a real movement-established milestone only after sampled physical progress,
+                // not when the nav native returns or the executor merely accepts its dispatch.
+                if ((execution.Capability == "walk_to" || execution.Capability == "drive_to") && execution.State == "HANDLER_ACCEPTED") {
+                    execution.ModeHealth = "healthy"; execution.EstablishedGameMs = gameMs; Established++;
+                    AdvanceState(Session, execution, "MODE_ESTABLISHED", gameMs, wallMs);
+                }
+            }
+            var waiting = execution.Act3 ? kind == "not_yet" || kind == "progress" || kind == "lost" && execution.State != "MODE_ESTABLISHED" : kind == "not_yet";
+            if (execution.State == "HANDLER_ACCEPTED" && waiting && (!execution.Act3 || execution.EstablishGated && !(execution.ProgressSeen && ProgressAdapters.Contains(execution.Adapter))) && ActivityContracts.UnsignedDue(gameMs, execution.DispatchedGameMs, execution.EstablishMs)) { if (execution.StopOnTimeout) TryStop(execution, true); Finish(Session, execution, "TIMED_OUT", "establish_timeout", gameMs, wallMs); return; }
+            if (kind == "completed") {
+                if (execution.Act3 && ActivityContracts.IsMode(execution.Capability)) return;
+                if (execution.Capability == "walk_to" || execution.Capability == "drive_to") TryStop(execution, true);
+                HasPhysicalCompletion = true; Completed++; execution.EstablishedGameMs = gameMs;
+                if (execution.Act3) AddEvidence(execution, verdict.EvidenceKind ?? "mode_flag", "strong", gameMs, verdict); else AddEvidence(execution, "mode_flag", "strong", gameMs, null, null);
+                Finish(Session, execution, "PHYSICALLY_COMPLETED", null, gameMs, wallMs); return;
+            }
+            if (kind == "lost" && execution.State == "MODE_ESTABLISHED") {
+                // Newer modes read game state that can flicker; they must stay lost before the step is failed.
+                if (execution.Act3) { if (execution.LostSince < 0) { execution.LostSince = wallMs; return; } if (wallMs - execution.LostSince < 1500) return; }
+                execution.ModeHealth = "lost"; Publish(Session, execution, gameMs, wallMs);
+                if (execution.StopOnTimeout) TryStop(execution, true);
+                Finish(Session, execution, "FAILED", execution.Act3 ? verdict.Reason ?? "no_progress" : "no_progress", gameMs, wallMs); return;
+            }
+            if (kind != "lost") execution.LostSince = -1;
+            if (kind == "established" && execution.State != "MODE_ESTABLISHED") { execution.ModeHealth = "healthy"; execution.EstablishedGameMs = gameMs; Established++; if (execution.Act3) AddEvidence(execution, verdict.EvidenceKind ?? "mode_flag", verdict.Strength ?? "medium", gameMs, verdict); else AddEvidence(execution, "mode_flag", "medium", gameMs, null, null); AdvanceState(Session, execution, "MODE_ESTABLISHED", gameMs, wallMs); }
+            if (execution.State == "MODE_ESTABLISHED" && execution.HoldMaxMs > 0 && ActivityContracts.UnsignedDue(gameMs, execution.DispatchedGameMs, execution.HoldMaxMs)) { if (execution.StopOnTimeout) TryStop(execution, true); Finish(Session, execution, "TIMED_OUT", "hold_limit", gameMs, wallMs); return; }
             if (execution.CompleteMs > 0 && execution.State == "MODE_ESTABLISHED" && execution.Capability == "resume_ambient" && ActivityContracts.UnsignedDue(gameMs, execution.DispatchedGameMs, execution.CompleteMs)) Finish(Session, execution, "TIMED_OUT", "complete_timeout", gameMs, wallMs);
+            // Finite ACT3 steps end on a typed complete timeout, never on the accepted command alone.
+            else if (execution.Act3 && !ActivityContracts.IsMode(execution.Capability) && execution.CompleteMs > 0 && ActivityContracts.UnsignedDue(gameMs, execution.DispatchedGameMs, execution.CompleteMs)) {
+                if (execution.CancelPath == "stop_api") TryStop(execution, true);
+                Finish(Session, execution, "TIMED_OUT", "complete_timeout", gameMs, wallMs);
+            }
         }
 
+        static bool IsNavigation(LiveExecution execution) => execution.Capability == "walk_to" || execution.Capability == "drive_to";
         void TryStop(LiveExecution execution, bool stop) { try { World?.Cancel(execution.EncounterId, execution.Capability, stop); } catch { } }
 
         void Finish(ActivitySession session, LiveExecution execution, string state, string reason, uint gameMs, long wallMs)
         {
             if (execution.Terminal) return;
-            if (state == "PHYSICALLY_COMPLETED" && Act2.Contains(execution.Capability) && execution.Capability != "resume_ambient") return;
+            // Modes never complete, and nothing completes without strong evidence. Handler acceptance is not completion.
+            if (state == "PHYSICALLY_COMPLETED" && (ActivityContracts.IsMode(execution.Capability) || !execution.Evidence.Any(item => (string)item["strength"] == "strong"))) return;
+            // Stop before EndOwnership discards nav state. NoteForeign deliberately discards
+            // it first when an unrelated Essential command takes control.
+            if (IsNavigation(execution)) TryStop(execution, true);
             execution.State = state; execution.Reason = reason; execution.Terminal = true; execution.Sequence++;
             if (state == "FAILED") Failed++; else if (state == "SUPERSEDED") Superseded++; else if (state == "TIMED_OUT") TimedOut++; else if (state == "DETACHED" || state == "CANCELLED") Detached++;
             active.Remove(execution.EncounterId);
@@ -355,8 +511,8 @@ namespace LSA.Activities
             return new Dictionary<string, object> {
                 {"receiptVersion",1},{"executionId",execution.ExecutionId},{"activityId",execution.ActivityId ?? execution.ExecutionId},{"stepId",execution.StepId ?? execution.ExecutionId},
                 {"attempt",execution.Attempt},{"actorEncounterId",execution.EncounterId},{"capability",execution.Capability},
-                {"essential", new Dictionary<string, object> {{"path","queue"},{"name",execution.EssentialName}}},
-                {"targets", new object[0]},
+                {"essential", new Dictionary<string, object> {{"path",execution.Capability == "walk_to" || execution.Capability == "drive_to" ? "extension" : execution.Wrapper ? "wrapper" : "queue"},{"name", execution.Act3 ? execution.OwnName ?? execution.EssentialName : execution.EssentialName}}},
+                {"targets", Targets(execution)},
                 {"epochs", new Dictionary<string, object> {{"nativeRun",session?.NativeRun ?? execution.ExecutionId},{"adapterEpoch",session?.AdapterEpoch ?? execution.ExecutionId},{"leaseEpoch",execution.LeaseEpoch}}},
                 {"state",execution.State},{"modeHealth", execution.State == "MODE_ESTABLISHED" ? (object)(execution.ModeHealth ?? "healthy") : null},
                 {"predicate", execution.State == "PHYSICALLY_COMPLETED" ? "satisfied" : execution.State == "MODE_ESTABLISHED" ? "not_yet" : "unknown"},
@@ -367,6 +523,15 @@ namespace LSA.Activities
             };
         }
 
+        static void AddEvidence(LiveExecution execution, string kind, string strength, uint gameMs, Verdict verdict)
+        {
+            object detail = null;
+            if (kind == "approach_event") detail = new Dictionary<string, object> {{"approachOk", true}, {"approachReason", verdict.Detail ?? "other"}};
+            else if (kind == "seat_occupancy" && verdict.Detail != null) detail = new Dictionary<string, object> {{"seat", verdict.Detail}};
+            else if (kind == "distance" && verdict.Detail != null) detail = new Dictionary<string, object> {{"distanceBand", verdict.Detail}};
+            if (execution.Evidence.Count >= ActivityContracts.EvidenceCap) { execution.Evidence.RemoveAt(0); execution.EvidenceDropped++; }
+            execution.Evidence.Add(new Dictionary<string, object> {{"kind",kind},{"strength",strength},{"gameMs",(long)gameMs},{"detail",detail}});
+        }
         static void AddEvidence(LiveExecution execution, string kind, string strength, uint gameMs, string detailKey, string detailValue)
         {
             if (execution.Evidence.Count >= ActivityContracts.EvidenceCap) { execution.Evidence.RemoveAt(0); execution.EvidenceDropped++; }
@@ -374,6 +539,15 @@ namespace LSA.Activities
             execution.Evidence.Add(new Dictionary<string, object> {{"kind",kind},{"strength",strength},{"gameMs",(long)gameMs},{"detail",detail}});
         }
 
+        static object[] Targets(LiveExecution execution)
+        {
+            var list = new List<object>();
+            if (!execution.Act3 || execution.Args == null) return list.ToArray();
+            if (ActivityContracts.IsUuid(execution.Args.Target)) list.Add(new Dictionary<string, object> {{"role","target"},{"ref",execution.Args.Target}});
+            if (ActivityContracts.IsUuid(execution.Args.Place)) list.Add(new Dictionary<string, object> {{"role","place"},{"ref",execution.Args.Place}});
+            if (ActivityContracts.IsUuid(execution.Args.Vehicle)) list.Add(new Dictionary<string, object> {{"role","vehicle"},{"ref",execution.Args.Vehicle}});
+            return list.ToArray();
+        }
         void Bump(string encounter) { leaseEpoch[encounter] = leaseEpoch.TryGetValue(encounter, out var epoch) ? epoch + 1 : 2; }
         void PublishLease(ActivitySession session, string encounter, string reason)
         {
@@ -405,7 +579,22 @@ namespace LSA.Activities
         static string AdapterOf(string capability) => capability == "hold_position" ? "hold_mode" : capability == "follow_person" ? "follow_mode" : capability == "sit_on_ground" ? "pose_mode" : "resume_ambient";
         static int EstablishOf(CapabilityRow row) => row.Id == "follow_person" ? 8000 : row.Id == "sit_on_ground" ? 6000 : row.Id == "resume_ambient" ? 10000 : 5000;
         static int CompleteOf(string capability) => capability == "resume_ambient" ? 45000 : 0;
-        static string IntentOf(string capability) => capability == "follow_person" ? "accompany" : capability == "resume_ambient" ? "resume_previous" : capability == "sit_on_ground" ? "sit_here" : "hold_position";
+        static string IntentOf(string capability)
+        {
+            if (capability == "follow_person") return "accompany";
+            if (capability == "resume_ambient") return "resume_previous";
+            if (capability == "sit_on_ground") return "sit_here";
+            if (capability == "stop_and_face" || capability == "approach_person") return "approach_and_face";
+            if (capability == "walk_away_from") return "leave_scene";
+            if (capability == "walk_to") return "go_to_place";
+            if (capability == "drive_to") return "vehicle_trip";
+            if (capability == "take_cover") return "take_cover_and_hold";
+            if (capability == "enter_vehicle_seat") return "board_vehicle";
+            if (capability == "exit_vehicle") return "exit_vehicle_and_hold";
+            if (capability == "scenario_here") return "scenario_here";
+            if (Act3.Contains(capability)) return capability;
+            return "hold_position";
+        }
         static string StatusOf(LiveExecution execution)
         {
             if (!execution.Terminal) return execution.State == "MODE_ESTABLISHED" ? "running" : "running";

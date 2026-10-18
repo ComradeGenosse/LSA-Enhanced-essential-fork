@@ -10,7 +10,10 @@
   "activities": {
     "mode": "off",
     "pipeName": "LSA.Activities.v1",
-    "dialogueReceipts": false
+    "dialogueReceipts": false,
+    "act5": false,
+    "act3Capabilities": [],
+    "act6Capabilities": []
   },
   "persistentIdentity": {
     "enabled": false,
@@ -70,6 +73,11 @@
     "jitter": "bounded",
     "minAttemptBudgetMs": 1000,
     "attemptTimeoutMs": null
+  },
+  "localVoiceFallback": {
+    "enabled": true,
+    "assetDirectory": "VoiceFallback",
+    "maxRecoveryDelayMs": 1500
   },
   "playbackCompletionGraceMs": 30000,
   "playbackCompletionMinMs": 60000,
@@ -137,5 +145,13 @@
     "intensity": "subtle",
     "maxTaggedSegmentsPerTurn": 2,
     "lunaDeliveryVersion": 0
+  },
+  "reactions": {
+    "mode": "off",
+    "pipeName": "LSA.Reactions.v1",
+    "enabled": []
+  },
+  "memoryK": {
+    "capabilities": {}
   }
 }

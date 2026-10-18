@@ -152,3 +152,31 @@ bounded intervals, subject to the current 30-second speech TTL.
   utterance may authorize new speech knowledge.
 - No user speech text, PCM, raw GTA handles or UUID identities are written
   to persistent diagnostics.
+
+## October 18, 2026 — reconciliation with latest main
+
+PR #37 was reconciled against main preserving current UX4 microphone state and
+targeting, PS2/PS3 optional consumer gates, M3/M9 witnessed Memory K events,
+Director admissions, native owner lifecycle, and observability.
+
+The C01-only test files passed 15/15; the focused activities, perception,
+Memory K and runtime integration suite passed 113/113. The production native
+reference compilation succeeded for PromotedCharacters and Loader using pinned
+RPH 1.124.0, RAGENativeUI 1.9.3, DamageTrackerLib 2.0.0. The companion
+build completed successfully.
+
+**Baseline blocks:** The isolated offline suite continues to report original
+Memory K source-blocked acceptance S01–S10. The original native-lifecycle and
+personal-test-defaults tests produce 40 failures both on unchanged latest main
+and on this candidate under direct Node testing. The full inventoried harness
+encounters a duplicate test-registration inventory in latest main. Do not
+represent these as C01-specific regressions or treat the CI job-level success
+(which makes baseline-blocked gates non-blocking) as full green suite coverage.
+
+**Still requires physical GTA acceptance:** original Core mic prefix/postfix
+binding on the actual pinned production Essential DLL; source-time LOS and
+vehicle/interior acoustics; simultaneous NPC hearing without unauthorized
+speech leakage; STT correction, cancellation, world-epoch and NPC retirement;
+PS4 private knowledge for each witness, UX4 target continuity, and A19/A20.
+C01 capture stays native opt-in and experimental. No GTA runtime acceptance
+is implied by compilation or offline tests.

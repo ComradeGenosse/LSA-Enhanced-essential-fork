@@ -1,5 +1,7 @@
 import { parseDecisionJson, LUNA_SEGMENT_DELIVERY_V1 } from '../context/essentialDecision.mjs';
 
+import { validateAct5Choice } from '../activities/act5Dialogue.mjs';
+
 const MAX_JSON_DEPTH = 32;
 
 export function parseJsonNoDuplicateKeys(source) {
@@ -16,6 +18,7 @@ export function createSegmentDecoder({
   maxDialogueChars = 1200,
   maxResponseChars = 32_768,
   lunaDeliveryVersion = 0,
+  act5Intents = null,
 } = {}) {
   if (lunaDeliveryVersion !== 0 && lunaDeliveryVersion !== 1)
     throw new TypeError('Unsupported Luna segment delivery protocol version.');
@@ -53,13 +56,14 @@ export function createSegmentDecoder({
     },
     finish() {
       const decision = parseJsonNoDuplicateKeys(source);
-      const normalized = validateDecision(decision, { maxSegments, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion });
+      const normalized = validateDecision(decision, { maxSegments, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion, act5Intents });
       if (normalized.length !== emitted || normalized.some((segment, i) =>
         segment.text !== emittedSegments[i]?.text ||
         (lunaDeliveryVersion === 1 && segment.delivery !== emittedSegments[i]?.delivery))) {
         throw new Error("Final segments did not match the segments observed in the stream.");
       }
-      const dialogue = normalized.map(segment => segment.text).join(' ');
+      const dialogue = normalized.map(segment => segment.text.trim()).join(' ');
+      const parsed = parseDecisionJson(JSON.stringify({ dialogue, command: decision.command, ...(Array.isArray(act5Intents) ? {activity:decision.activity} : {}) }), {act5Intents});
       return Object.freeze({
         mode: decision.mode,
         segments: Object.freeze(normalized.map(segment => Object.freeze({
@@ -67,7 +71,8 @@ export function createSegmentDecoder({
           ...(lunaDeliveryVersion === 1 ? { delivery: segment.delivery } : {}),
         }))),
         reflowedSegments: normalized.length - decision.segments.length,
-        decision: parseDecisionJson(JSON.stringify({ dialogue, command: decision.command })),
+        commandNormalized: parsed.command !== decision.command.trim(),
+        decision: parsed,
       });
     },
     get mode() { return extractMode(source); },
@@ -95,9 +100,10 @@ function validateSegment(value, maxDialogueChars, lunaDeliveryVersion = 0) {
   if (/[|\r\n\u0000-\u001f\u007f]/.test(value.text) ||
       /(^|\n)\s*DO\s*:?\s+[A-Za-z]/i.test(value.text))
     throw segmentFailure('segment_invalid_text', 'Speech segment contains a control command or invalid character.');
-  if (value.text.trim().length > maxDialogueChars)
+  if (value.text.length > maxDialogueChars)
     throw segmentFailure('segment_budget_exceeded', 'Speech segment exceeds dialogue budget.');
-  return value.text.trim();
+  // Keep the exact accepted TTS source, including inter-segment spacing.
+  return value.text;
 }
 function reflowSegment(value, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion = 0) {
   let remaining = validateSegment(value, maxDialogueChars, lunaDeliveryVersion);
@@ -137,10 +143,21 @@ function normalizeSegments(segments, limits) {
   return normalized;
 }
 function validateDecision(value, limits) {
-  assertExactKeys(value, ['mode', 'segments', 'command'], 'decision');
+  assertExactKeys(value, Array.isArray(limits.act5Intents) ? ['mode', 'segments', 'command', 'activity'] : ['mode', 'segments', 'command'], 'decision');
+  if (Array.isArray(limits.act5Intents)) {
+    if (!validateAct5Choice(value.activity, limits.act5Intents)) throw new Error('ACT5 activity is malformed or unavailable.');
+    if (value.activity !== null && (value.mode !== 'buffered_action' || value.command.trim()))
+      throw new Error('ACT5 requires buffered_action and no stock command.');
+  }
   if (!['dialogue_only', 'buffered_action'].includes(value.mode)) throw new Error('Decision mode is invalid.');
-  if (!Array.isArray(value.segments) || value.segments.length < 1 || value.segments.length > limits.maxSegments)
-    throw segmentFailure('segment_budget_exceeded', 'Decision segment count is invalid.');
+  if (!Array.isArray(value.segments))
+    throw segmentFailure('segment_invalid_text', 'Decision speech segments are missing.');
+  // An intentional silent decision is not a size-budget overflow. Treat
+  // it as failed speech, without publishing a fictitious completed turn.
+  if (value.segments.length===0)
+    throw segmentFailure('segment_empty_dialogue', 'Decision included no spoken dialogue.');
+  if (value.segments.length>limits.maxSegments)
+    throw segmentFailure('segment_budget_exceeded', 'Decision segment count exceeds the limit.');
   const normalized = normalizeSegments(value.segments, limits);
   if (typeof value.command !== 'string' || value.command.length > 300) throw new Error('Decision command is invalid or too long.');
   if (value.mode === 'dialogue_only' && value.command.trim())

@@ -3,22 +3,30 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
-import { P2SqliteFoundation } from './sqliteFoundation.mjs';
+import {AsyncLocalStorage} from 'node:async_hooks';
+import { P2SqliteFoundation, inspectP2ReadOnlyRecovery } from './sqliteFoundation.mjs';
+import { acquireWriterLock, releaseWriterLock, inspectWriterLock } from './sqliteDurability.mjs';
 import { validateProfile, validateProfiles } from './profileSchema.mjs';
+import {isUuid} from '../util/identity.mjs';
 import { addProfile, editProfile, changeMemory, removeProfile } from './profileCommands.mjs';
 import { TimelineGuard } from './timelineGuard.mjs';
-import { isUuid } from '../util/identity.mjs';
 
 const fail = code => { throw new Error(code); };
 
 export class P2SqliteProfileStore {
-  #db; #writer; #token; #initializing; #queue = Promise.resolve();
+  #db; #writer; #initializing; #queue = Promise.resolve();
+  #durabilityWarning = null; #lockState = 'unlocked';
   #available = true; #closed = false; #timeline = new TimelineGuard();
   #sourceRequired; #sourceContext = null; #confirmedSource = null;
-  // Increment on every trusted receipt, revocation and operator confirmation.
-  // A stale queued operation must never borrow a later authorization (ABA).
+  #lastSourceKey = null;
+  // Monotone revocation epoch: an operation admitted before source loss or a
+  // timeline selection cannot execute after later reauthorization (ABA).
   #authorityGeneration = 0;
-  constructor({ filePath, worldProfileId, legacyJsonPath = null, sourceRequired = false }) {
+  // Only privacy transactions invalidate already-sent memory prompts.
+  #privacyGeneration = 0;
+  #m7ConsentListeners = new Set();
+  #optionalMemoryFence=new AsyncLocalStorage();
+  constructor({ filePath, worldProfileId, legacyJsonPath = null, sourceRequired = false, journalLimits = {} }) {
     if (typeof sourceRequired !== 'boolean') throw new TypeError('invalid_timeline_source_config');
     this.#sourceRequired = sourceRequired;
     if (typeof filePath !== 'string' || !filePath.trim()) throw new TypeError('invalid_sqlite_profile_config');
@@ -26,23 +34,52 @@ export class P2SqliteProfileStore {
     this.lockPath = this.filePath + '.writer.lock';
     this.worldProfileId = worldProfileId;
     this.legacyJsonPath = legacyJsonPath;
-    this.#db = new P2SqliteFoundation({ filePath:this.filePath, worldProfileId, legacyJsonPath });
+    this.#db = new P2SqliteFoundation({ filePath:this.filePath, worldProfileId, legacyJsonPath, journalLimits });
   }
   get loaded() { return this.#db.initialized; }
   get available() { return this.#available && !this.#closed; }
+  get memoryReadFence() {
+    return this.available&&this.timelineWritable&&this.#db.initialized
+      ? this.#authorityGeneration+':'+this.#db.readFence : null;
+  }
+  // In-flight prompts are independent of ordinary M2/M3/M6 journal writes.
+  // Profile changes, privacy mutations, source changes and foreign writes
+  // still cancel them. The strict memoryReadFence remains for pre-send checks.
+  get memoryRequestFence() {
+    return this.available&&this.timelineWritable&&this.#db.initialized
+      ? `${this.#authorityGeneration}:${this.#db.snapshot.revision}:${this.#privacyGeneration}:${this.#db.externalReadFence}` : null;
+  }
+  // Safe, bounded diagnostics only. Never log an ID, content, or actual fence.
+  memoryRequestFenceFailure(expected) {
+    const actual=this.memoryRequestFence;
+    if(actual===null)return 'authority_revoked';
+    if(typeof expected!=='string')return 'not_verified';
+    const parts=actual.split(':'),before=expected.split(':');
+    if(before.length!==4)return 'invalid_fence';
+    if(parts[0]!==before[0])return 'authority_changed';
+    if(parts[1]!==before[1])return 'profile_changed';
+    if(parts[2]!==before[2])return 'privacy_changed';
+    if(parts[3]!==before[3])return 'external_write';
+    return null;
+  }
+  // Source/timeline authority only. An authorized privacy transaction changes
+  // the data read fence itself and must not mistake its own commit for a revoke.
+  get memoryAuthorityFence() {
+    return this.available&&this.timelineWritable&&this.#db.initialized?this.#authorityGeneration:null;
+  }
   get activeTimelineId() { return this.#timeline.activeTimelineId; }
-  get timelineWritable() { return this.available && this.loaded && this.#sourceRequired &&
-    this.#timeline.writable && this.#sourceValid(); }
-  // Read-only C-13 source snapshot. It is not valid without the *independent*
-  // exact operator timeline confirmation and source-generation gate.
+  get timelineSelectionConfirmed() {return this.#confirmedSource!==null;}
+  get timelineWritable() { return this.available&&this.loaded&&this.#timeline.writable&&this.#sourceValid(); }
+  // Read-only source used for journal attribution; only verified/current after
+  // an explicit timeline confirmation. No unverified native input is exposed.
   get verifiedHostContext() {
     return this.timelineWritable && this.#sourceContext
       ? Object.freeze({...this.#sourceContext}) : null;
   }
   get timelineSourceStatus() {
-    if (!this.#sourceRequired) return 'not_required';
-    if (!this.available || !this.loaded || !this.#sourceContext) return 'unavailable';
-    return this.timelineWritable ? 'verified' : 'confirmation_required';
+    if(!this.#sourceRequired)return 'not_required';
+    if(!this.available||!this.loaded||!this.#sourceContext)return 'unavailable';
+    return this.timelineWritable?'verified':'confirmation_required';
   }
   #sourceKey(context) { return context?.hostRunId + ':' + context?.worldEpoch; }
   #sourceValid() { return !this.#sourceRequired || this.#sourceContext !== null && this.#confirmedSource === this.#sourceKey(this.#sourceContext); }
@@ -53,14 +90,25 @@ export class P2SqliteProfileStore {
     return null;
   }
   get snapshot() { return this.#db.snapshot; }
+  get durabilityStatus() {
+    return Object.freeze({writer:this.#lockState,warning:this.#durabilityWarning,
+      mode:this.available&&this.loaded?'read_write':'unavailable'});
+  }
+  async inspectWriterStatus() {return inspectWriterLock(this.lockPath);}
+  // Safe even after initialize() fails: reads verified snapshots, never the
+  // damaged live SQLite database and never claims successful restoration.
+  async inspectReadOnlyRecovery(scope=null) {
+    return inspectP2ReadOnlyRecovery({filePath:this.filePath,worldProfileId:this.worldProfileId,scope});
+  }
   // Runtime adapters may only call this from an authenticated, accepted native
   // C-13 hello/world epoch. Never accept direct model/ped/user text as proof.
   setVerifiedHostContext(context) {
     if (!this.#sourceRequired) return false;
     if (context === null) {
-      this.#authorityGeneration++;
+      ++this.#authorityGeneration;
       this.#sourceContext = null;
-      this.#confirmedSource = null;
+      // Suspend all authority now. Remember only the user's selection stamp;
+      // it may resume after fresh authentication of this exact run AND epoch.
       return false;
     }
     if (!context || context.hostContextVersion !== 1 ||
@@ -68,45 +116,50 @@ export class P2SqliteProfileStore {
         !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(context.hostRunId) ||
         !Number.isSafeInteger(context.worldEpoch) || context.worldEpoch < 1 || context.worldEpoch > 0x7fffffff)
       throw new TypeError('invalid_timeline_source_context');
-    // C-13 emits accepted HELLO/boundary receipts, not periodic cached status.
-    // Even an identical host/epoch following disconnect can be a recycled
-    // channel. A new receipt always requires fresh operator confirmation.
-    this.#authorityGeneration++;
-    this.#confirmedSource = null;
-    this.#sourceContext = Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
+    // Any host incarnation/epoch change requires a fresh explicit user
+    // confirmation even when the stored active timeline id remains unchanged.
+    const sameSource = this.#sourceContext &&
+      this.#sourceKey(context) === this.#sourceKey(this.#sourceContext);
+    // Repeated samples from one live authenticated source are idempotent.
+    // Source replacement/ambiguity is revoked by onBoundary, even if run and
+    // epoch strings are reused. A temporary missing sample still fences queued
+    // operations; only a fresh sample of the exact confirmed source can recover.
+    if (!sameSource) {
+      ++this.#authorityGeneration;
+      const nextKey=this.#sourceKey(context);
+      if(this.#confirmedSource!==nextKey)this.#confirmedSource=null;
+      this.#lastSourceKey=nextKey;
+      this.#sourceContext=Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
+    }
     return true;
   }
   #serial(operation) {
-    const job = this.#queue.then(operation);
+    const fence=this.#optionalMemoryFence.getStore();
+    const job = this.#queue.then(()=>{fence?.();return operation();});
     this.#queue = job.catch(() => {});
     return job;
   }
+  // I2 narrow queue-admission fence. Optional runtime ports carry their
+  // revocation check across awaits; privileged privacy/profile calls do not.
+  // Storage ownership, source checks and transaction boundaries are unchanged.
+  withOptionalMemoryFence(check,operation) {
+    if(typeof check!=='function'||typeof operation!=='function')fail('invalid_memory_fence');
+    const parent=this.#optionalMemoryFence.getStore();
+    const current=()=>{parent?.();check();};
+    current();return this.#optionalMemoryFence.run(current,operation);
+  }
   async #releaseWriter() {
-    const writer = this.#writer;
-    this.#writer = null;
-    if (!writer) return;
-    await writer.close();
-    try {
-      // A replaced lock is never removed by this instance.
-      const contents = await fs.readFile(this.lockPath, 'utf8');
-      if (contents === this.#token + '\n') await fs.rm(this.lockPath);
-    } catch (error) {
-      if (error.code !== 'ENOENT') throw error;
-    }
+    const lease=this.#writer;this.#writer=null;
+    await releaseWriterLock(this.lockPath,lease);
+    this.#lockState='unlocked';
   }
   async initialize() {
     if (this.#closed || !this.#available) fail('profile_store_unavailable');
     return this.#initializing ||= (async () => {
       try {
         await fs.mkdir(path.dirname(this.filePath), { recursive:true });
-        this.#token = randomUUID();
-        try { this.#writer = await fs.open(this.lockPath, 'wx', 0o600); }
-        catch (error) {
-          if (error.code === 'EEXIST') fail('sqlite_writer_busy');
-          throw error;
-        }
-        await this.#writer.writeFile(this.#token + '\n');
-        await this.#writer.sync();
+        this.#writer=await acquireWriterLock(this.lockPath);
+        this.#lockState=this.#writer.reclaimed?'stale_reclaimed':'live_owned';
         await this.#db.initialize();
         const selected = this.#db.activeTimelineId();
         // A trusted reset can arrive before async SQLite bootstrap finishes.
@@ -118,6 +171,7 @@ export class P2SqliteProfileStore {
         return this.#db.snapshot;
       } catch (error) {
         this.#available = false;
+        this.#durabilityWarning=error.message;
         this.#db.close();
         try { await this.#releaseWriter(); } catch {}
         throw error;
@@ -199,40 +253,77 @@ export class P2SqliteProfileStore {
     return this.#serial(() => this.#db.listTimelines());
   }
   onBoundary(boundary) {
-    // Treat every uncertain GTA lineage/lifecycle transition as a revocation.
-    // Preserve the selected timeline for human inspection, not write authority.
-    const reason = boundary?.reason;
-    if (!['clock_regression','timeline_change','host_reload','world_epoch',
-           'save_fork','native_disconnect','unknown_source','source_change'].includes(reason))
-      throw new TypeError('invalid_timeline_boundary');
-    this.#authorityGeneration++;
-    this.#confirmedSource = null;
-    if (['native_disconnect','unknown_source','host_reload','source_change'].includes(reason))
-      this.#sourceContext = null;
-    return this.#timeline.onBoundary({reason:reason === 'clock_regression' ? reason : 'timeline_change'});
+    const reason=boundary?.reason;
+    const sourceLoss=['native_disconnect','unknown_source','source_change'].includes(reason)||
+      (this.#sourceRequired&&reason==='host_reload');
+    const ambiguous=['clock_regression','timeline_change','save_fork','world_epoch'].includes(reason);
+    if(sourceLoss||ambiguous){
+      ++this.#authorityGeneration;
+      if(this.#sourceRequired)this.#confirmedSource=null;
+      this.#lastSourceKey=null;
+      if(sourceLoss)this.#sourceContext=null;
+    }
+    // Keep innocuous host_reload as a no-op (M1 contract). Unsupported or
+    // ambiguous provenance boundaries cannot silently authorize new writes.
+    return this.#timeline.onBoundary({reason:sourceLoss||['save_fork','world_epoch'].includes(reason)
+      ? 'timeline_change' : reason});
   }
   async confirmTimeline(timelineId,{confirmation}={}) {
-    // A direct call without the player's exact selection is NOT a confirmation.
-    // Native proof and selected persisted save must both still exist at commit.
-    if (!isUuid(timelineId) || confirmation !== timelineId)
+    // Source-authenticated writes require explicit exact user choice.
+    if(this.#sourceRequired&&(!isUuid(timelineId)||confirmation!==timelineId))
       fail('explicit_confirmation_required');
-    // Capture the exact accepted source before any async lock/initialization.
-    // Do not approve an unrelated host or a newer identical-looking receipt.
-    const expectedContext = this.#sourceContext;
-    const expectedGeneration = this.#authorityGeneration;
-    if (!this.#sourceRequired || !expectedContext) fail('timeline_write_suspended');
+    // Legacy offline selection does not confer native write authority.
+    if(!this.#sourceRequired&&confirmation!==undefined&&confirmation!==timelineId)
+      fail('explicit_confirmation_required');
+    const expectedGeneration=this.#authorityGeneration;
+    const expectedContext=this.#sourceContext;
+    // A paused source may retain an explicit selection for its last observed
+    // run/epoch. It grants no reads/writes until that exact source returns.
+    // Real disconnect/replacement boundaries clear lastSourceKey.
+    if(this.#sourceRequired&&!expectedContext&&!this.#lastSourceKey)fail('timeline_write_suspended');
     await this.initialize();
     return this.#serial(() => {
-      if (!this.available || this.#sourceContext !== expectedContext ||
-          this.#authorityGeneration !== expectedGeneration)
-        fail('timeline_write_suspended');
-      if (!this.#db.listTimelines().some(item => item.timelineId === timelineId))
-        fail('timeline_unknown');
+      if(!this.available||this.#authorityGeneration!==expectedGeneration ||
+         this.#sourceContext!==expectedContext)fail('timeline_write_suspended');
+      // Native/UX layer must ask the user when clock/save-lineage is ambiguous.
+      // A user can select a timeline offline, but cannot enable provenance-
+      // scoped writes until current native source exists and is verified.
       this.#db.activateTimeline(timelineId);
       this.#timeline.selectTimeline(timelineId);
-      this.#confirmedSource = this.#sourceKey(this.#sourceContext);
-      this.#authorityGeneration++;
+      this.#confirmedSource = this.#sourceContext ? this.#sourceKey(this.#sourceContext) : this.#lastSourceKey;
+      ++this.#authorityGeneration;
       return this.#timeline.activeTimelineId;
+    });
+  }
+  // Opt-in resume (memoryK.autoResumeSingleTimeline). It never creates, switches
+  // or guesses a timeline: it re-applies the stored selection only when that is
+  // the sole timeline, no ambiguity boundary is pending, and `observed` is the
+  // exact authenticated native run/epoch this store currently holds. It runs
+  // through the same authority-generation fence as confirmTimeline, so a
+  // disconnect, reset or boundary that lands first revokes it (stale-write safe).
+  async resumeSelectedTimeline(observed) {
+    const refused=reason=>Object.freeze({resumed:false,reason});
+    const expectedGeneration=this.#authorityGeneration;
+    const expectedContext=this.#sourceContext;
+    if(!this.#sourceRequired||!expectedContext||!observed||
+       this.#sourceKey(observed)!==this.#sourceKey(expectedContext))
+      return refused('native_source_unavailable');
+    await this.initialize();
+    return this.#serial(() => {
+      if(this.#authorityGeneration!==expectedGeneration ||
+         this.#sourceContext!==expectedContext)return refused('timeline_write_suspended');
+      if(this.#timeline.writable&&this.#sourceValid())return refused('already_confirmed');
+      const timelines=this.#db.listTimelines();
+      if(timelines.length===0)return refused('no_timeline');
+      if(timelines.length>1)return refused('multiple_timelines');
+      const selected=this.#db.activeTimelineId();
+      if(selected!==timelines[0].timelineId)return refused('no_selected_timeline');
+      // clock_regression / timeline_change / source loss still need a human.
+      if(this.#timeline.pendingReason)return refused(this.#timeline.pendingReason);
+      if(this.#timeline.activeTimelineId!==selected)return refused('no_selected_timeline');
+      this.#confirmedSource=this.#sourceKey(this.#sourceContext);
+      ++this.#authorityGeneration;
+      return Object.freeze({resumed:true,timelineId:selected});
     });
   }
   assertTimelineWrite(timelineId) {
@@ -244,20 +335,28 @@ export class P2SqliteProfileStore {
   // invoking the durable commit. Profile/editor metadata remains global.
   async withTimelineWrite(timelineId, commit) {
     if (typeof commit !== 'function') throw new TypeError('invalid_timeline_operation');
-    // A write queued under an old session can never execute under a later
-    // native receipt or player re-confirmation of the same save UUID.
-    const expectedContext = this.#sourceContext;
-    const expectedGeneration = this.#authorityGeneration;
-    if (!this.timelineWritable || timelineId !== this.activeTimelineId)
-      fail('timeline_write_suspended');
+    // Capture at admission, BEFORE initialize/queue await. A revoked source
+    // cannot resurrect an already queued write under the same host/save.
+    const expectedGeneration=this.#authorityGeneration;
+    const expectedContext=this.#sourceContext;
     await this.initialize();
     return this.#serial(() => {
       if (!this.available) fail('profile_store_unavailable');
-      if (this.#authorityGeneration !== expectedGeneration ||
-          this.#sourceContext !== expectedContext) fail('timeline_write_suspended');
+      if(this.#authorityGeneration!==expectedGeneration ||
+         this.#sourceContext!==expectedContext)fail('timeline_write_suspended');
       this.assertTimelineWrite(timelineId);
-      const result = commit(this.#db, this.#db.snapshot);
+      let result;
+      try { result=commit(this.#db, this.#db.snapshot); }
+      catch(error) {
+        if(/^sqlite_journal_.*_cap$/.test(error.message))
+          this.#durabilityWarning=error.message;
+        throw error;
+      }
       if (result && typeof result.then === 'function') fail('timeline_write_async_not_supported');
+      // Legacy P2 methods can internally commit before returning. Their
+      // admission/execution generation checks occur above. Transactions through
+      // withP2SqliteTransaction additionally recheck INSIDE SQLite before
+      // the physical COMMIT, so those can still roll back source revocations.
       return result;
     });
   }
@@ -272,38 +371,39 @@ export class P2SqliteProfileStore {
   }
   async withP2SqliteRead(scope,operation) {
     if(typeof operation!=='function')throw new TypeError('p2_sqlite_callback_required');
-    // A reader queued before disconnect/fork cannot revive after an ABA
-    // re-confirmation of the same host and selected timeline.
-    const expectedContext=this.#sourceContext;
     const expectedGeneration=this.#authorityGeneration;
-    if(!this.timelineWritable || scope?.timelineId!==this.activeTimelineId)
-      fail('timeline_write_suspended');
+    const expectedContext=this.#sourceContext;
     await this.initialize();
     return this.#serial(()=>{
-      if(!this.available || this.#sourceContext!==expectedContext ||
-         this.#authorityGeneration!==expectedGeneration)
-        fail('timeline_write_suspended');
+      if(!this.available)fail('profile_store_unavailable');
+      if(this.#authorityGeneration!==expectedGeneration ||
+         this.#sourceContext!==expectedContext)fail('timeline_write_suspended');
       this.#assertMemoryScope(scope);
-      return this.#db.withP2SqliteRead(operation);
+      const result=this.#db.withP2SqliteRead(operation);
+      if(this.#authorityGeneration!==expectedGeneration ||
+         this.#sourceContext!==expectedContext)fail('timeline_write_suspended');
+      return result;
     });
   }
-  async withP2SqliteTransaction(scope,operation) {
+  async withP2SqliteTransaction(scope,operation,{privacyMutating=false}={}) {
     if(typeof operation!=='function')throw new TypeError('p2_sqlite_callback_required');
     return this.withTimelineWrite(scope?.timelineId,foundation=>{
       this.#assertMemoryScope(scope);
-      return foundation.withP2SqliteTransaction(db=>{
-        const result=operation(db);
+      const result=foundation.withP2SqliteTransaction(db=>{
+        const value=operation(db);
         // Recheck synchronously INSIDE P2's transaction immediately before
         // COMMIT; source invalidation in the callback rolls everything back.
         this.#assertMemoryScope(scope);
-        return result;
+        return value;
       });
+      if(privacyMutating)++this.#privacyGeneration;
+      return result;
     });
   }
   // API consumed by M5; alias documents that ALL privacy commits are part of
   // P2's write queue and source/timeline gate at actual SQLite COMMIT.
   async withTimelineSqliteWrite(scope,operation) {
-    return this.withP2SqliteTransaction(scope,operation);
+    return this.withP2SqliteTransaction(scope,operation,{privacyMutating:true});
   }
   // Append/update feed includes every committed M2 line and each M3 event
   // revision. Scanning is bounded; cursor ack is durable and independently
@@ -324,6 +424,37 @@ export class P2SqliteProfileStore {
       });
     });
   }
+  // W06: source-qualified append-order M6 replay, separate from B's per-protagonist
+  // consumer cursor. Every read and CAS runs through the original P2 queue.
+  // M6 MUST have a current source-authenticated native host. A P2 store
+  // configured for unauthenticated/test-only operation cannot authorize a
+  // production replay cursor merely because its timeline is writable.
+  #requireM6NativeSource(){
+    if(this.timelineSourceStatus!=='verified'||!this.verifiedHostContext)
+      fail('m6_native_authority_required');
+  }
+  async readM6Checkpoint({scope}){
+    this.#requireM6NativeSource();
+    return this.withP2SqliteRead(scope,()=>{
+      this.#requireM6NativeSource();
+      return this.#db.readM6Checkpoint({scope});
+    });
+  }
+  async readM6JournalPage({scope,afterCursor=null,limit=250}){
+    this.#requireM6NativeSource();
+    return this.withP2SqliteRead(scope,()=>{
+      this.#requireM6NativeSource();
+      return this.#db.readM6JournalPage({scope,afterCursor,limit});
+    });
+  }
+  async ackM6Checkpoint(request){
+    this.#requireM6NativeSource();
+    const scope=request?.scope;
+    return this.withP2SqliteTransaction(scope,()=>{
+      this.#requireM6NativeSource();
+      return this.#db.ackM6Checkpoint(request);
+    });
+  }
   // Scoped journal writes are serialized WITH the M1 source/lineage check.
   // A player/NPC acknowledgment from a stale native host is never durable.
   async appendDialogueLine(line,attribution) {
@@ -334,12 +465,15 @@ export class P2SqliteProfileStore {
       return db.appendDialogueLine(line,attribution);
     });
   }
-  async appendJournalEvent(event,{sourceEvidence=null}={}) {
+  async appendJournalEvent(event) {
     return this.withTimelineWrite(event?.timelineId,db=>
-      db.appendJournalEvent(event,{hostContext:this.#sourceContext,sourceEvidence}));
+      db.appendJournalEvent(event,{hostContext:this.#sourceContext}));
   }
   // Reads never switch save lineage or restore revoked write authorization;
   // callers must supply their requested character AND explicit timeline.
+  async readFreeRecallWindow(scope) {
+    return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.readFreeRecallWindow(scope);});
+  }
   async readDialogueLines(scope) {
     await this.initialize();
     return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.readDialogueLines(scope);});
@@ -375,7 +509,9 @@ export class P2SqliteProfileStore {
   async commitCommand(operation){
     return this.withTimelineWrite(operation?.scope?.timelineId,foundation=>{
       if(this.#sourceRequired&&!this.verifiedHostContext)fail('memory_native_host_unconfirmed');
-      return foundation.commitMemoryCommand(operation);
+      const result=foundation.commitMemoryCommand(operation);
+      ++this.#privacyGeneration;
+      return result;
     });
   }
   async verifyCommand({scope,commandId}){
@@ -385,11 +521,11 @@ export class P2SqliteProfileStore {
       return this.#db.verifyMemoryCommand({scope,commandId});
     });
   }
-  async listSuppressedMemoryIds(scope){
+  async listSuppressedMemoryIds(scope,options){
     await this.initialize();
     return this.#serial(()=>{
       if(!this.available)fail('profile_store_unavailable');
-      return this.#db.listSuppressedMemoryIds(scope);
+      return this.#db.listSuppressedMemoryIds(scope,options);
     });
   }
   async readPermanentMemoryRows(scope,options){
@@ -409,11 +545,9 @@ export class P2SqliteProfileStore {
   // M4 reads the actual committed v4 journal through the *same P2 database*
   // and serialized queue; no second SQLite connection or speculative FTS store.
   async readIntegratedRecall(query){
-    await this.initialize();
-    return this.#serial(()=>{
-      if(!this.available)fail('profile_store_unavailable');
-      return this.#db.readIntegratedRecall(query);
-    });
+    // No recall from a revoked host, unconfirmed save or different NPC.
+    // Reuse the same admission/serialized-execution fence as other P2 reads.
+    return this.withP2SqliteRead(query?.scope,()=>this.#db.readIntegratedRecall(query));
   }
   // Read-only M3 coverage projection. Writes are deliberately available only
   // via the verified binder -> recorder -> M1 fenced foundation port.
@@ -422,6 +556,13 @@ export class P2SqliteProfileStore {
     return this.#serial(()=>{
       if(!this.available)fail('profile_store_unavailable');
       return this.#db.readM3Coverage(scope);
+    });
+  }
+  async readObserverCoverage(scope){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readObserverCoverage(scope);
     });
   }
   async saveDeterministicMemory(proposal){
@@ -437,6 +578,10 @@ export class P2SqliteProfileStore {
   async claimCurationDue(args){
     const timelineId=this.activeTimelineId;
     return this.withTimelineWrite(timelineId,foundation=>foundation.claimCuration(args,timelineId));
+  }
+  async verifyCurationLease(args){
+    const timelineId=this.activeTimelineId;
+    return this.withTimelineWrite(timelineId,foundation=>foundation.verifyCurationLease(args,timelineId));
   }
   async completeCurationLease(args){
     const timelineId=this.activeTimelineId;
@@ -456,6 +601,55 @@ export class P2SqliteProfileStore {
   async finishCurationBudget(args,state){
     return this.withTimelineWrite(this.activeTimelineId,foundation=>foundation.finishCurationBudget(args,state));
   }
+  // Crash-era reservations stay conservatively spent (settled at their ceiling).
+  async reconcileCurationBudget(args){
+    return this.withTimelineWrite(this.activeTimelineId,foundation=>foundation.reconcileCurationBudget(args));
+  }
+  // M7 explicit cloud-curation consent. It lives in this one P2 database, is
+  // revisioned, and never depends on a writable timeline: withdrawal must
+  // always work. Listeners are told synchronously so in-flight work aborts.
+  subscribeM7ConsentInvalidation(listener){
+    if(typeof listener!=='function')throw new TypeError('m7_consent_listener_required');
+    this.#m7ConsentListeners.add(listener);
+    return ()=>{this.#m7ConsentListeners.delete(listener);};
+  }
+  #notifyM7Consent(){
+    for(const listener of [...this.#m7ConsentListeners])try{listener();}catch{}
+  }
+  async readM7Consent(scope){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readM7Consent(scope);
+    });
+  }
+  async grantM7Consent(args){
+    await this.initialize();
+    const result=await this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.grantM7Consent(args);
+    });
+    this.#notifyM7Consent();
+    return result;
+  }
+  async withdrawM7Consent(args){
+    // Cancel immediately on request, then again once the revision is durable.
+    this.#notifyM7Consent();
+    await this.initialize();
+    const result=await this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.withdrawM7Consent(args);
+    });
+    this.#notifyM7Consent();
+    return result;
+  }
+  async readCurationStatus(args){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readCurationStatus({timelineId:this.activeTimelineId,...args});
+    });
+  }
   async inspect({scope}){
     return this.findCandidates({scope,limit:200});
   }
@@ -465,13 +659,24 @@ export class P2SqliteProfileStore {
     const records=await this.inspect({scope});
     return Object.freeze({version:1,scope,records});
   }
+  // Explicit lifecycle checkpoint; the regular close also creates one.
+  async snapshotAtSessionEnd() {
+    await this.initialize();
+    return this.#serial(async()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      try{return await this.#db.createDurabilitySnapshot('session_end');}
+      catch(error){this.#durabilityWarning='sqlite_snapshot_failed: '+error.message;throw error;}
+    });
+  }
   async close() {
     if (this.#closed) return;
     this.#closed = true;
     if (this.#initializing) await this.#initializing.catch(() => {});
     await this.#serial(async () => {
-      this.#db.close();
-      await this.#releaseWriter();
+      try {
+        if(this.#db.initialized)await this.#db.createDurabilitySnapshot('session_end');
+      }catch(error){this.#durabilityWarning='sqlite_snapshot_failed: '+error.message;}
+      finally{this.#db.close();await this.#releaseWriter();}
     });
   }
 }

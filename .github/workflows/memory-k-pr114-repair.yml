@@ -1,0 +1,42 @@
+name: Memory K PR114 Source Authority and Shared Player
+on:
+  push:
+    branches:
+      - fix/memory-k-pr114-source-authority-replay-20261013
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/characters/sqliteProfileStore.mjs'
+      - 'lsa-shared-brain/src/memory/p2ReplayCursor.mjs'
+      - 'lsa-shared-brain/src/memory/curationSqlite.mjs'
+      - 'lsa-essential-e1-candidate/tests/ea-shared-player-memory.test.mjs'
+      - '.github/workflows/memory-k-pr114-repair.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sqlite-shared-player:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Core source syntax
+        run: |
+          node --check lsa-shared-brain/src/characters/sqliteProfileStore.mjs
+          node --check lsa-shared-brain/src/memory/p2ReplayCursor.mjs
+          node --check lsa-shared-brain/src/memory/curationSqlite.mjs
+          node --check lsa-essential-e1-candidate/tests/ea-shared-player-memory.test.mjs
+      - name: Original EA/P2 shared-player and authority regressions
+        run: >-
+          node --test
+          lsa-essential-e1-candidate/tests/ea-shared-player-memory.test.mjs
+          lsa-essential-e1-candidate/tests/m1-source-write-gate.test.mjs
+          lsa-essential-e1-candidate/tests/m1-world-epoch-bridge.test.mjs
+          lsa-shared-brain/tests/memory-unified-player-avatars.test.mjs
+          lsa-shared-brain/tests/memory-m6-cursor-lifecycle.test.mjs
+          lsa-shared-brain/tests/memory-integrated-storage.test.mjs

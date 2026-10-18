@@ -55,8 +55,12 @@ static partial class Program
         r.Clock.Advance(1000); r.Fresh(FakeBridge.Absent());
         Check(d.Dispatch(CommandCatalog.CurrentFollow,"chord") == "no_current_npc" && r.Hud.Last == "No current NPC","no current NPC");
         r.Clock.Advance(1000); r.Fresh(FakeBridge.Owned());
+        Check(d.Dispatch(CommandCatalog.CurrentFollow,"menu",new CommandArgs {ExpectedEncounterId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",ExpectedOwnerAlias = FakeBridge.Alias}) == "target_changed" && r.Companion.Bodies.Count == 0,"F11 refuses stale selected encounter even though another owned NPC is current");
+        Check(d.Dispatch(CommandCatalog.CurrentFollow,"menu",new CommandArgs {ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnerAlias = null}) == "target_changed" && r.Companion.Bodies.Count == 0,"F11 refuses same encounter with changed owner alias");
+        r.Clock.Advance(1000); r.Fresh(FakeBridge.Owned());
         Check(d.Dispatch(CommandCatalog.CurrentFollow,"chord") == null && r.Companion.Last["action"] as string == "control_current" && r.Companion.Last["operation"] as string == "follow" && r.Companion.Last["expectedEncounterId"] as string == FakeBridge.Encounter && r.Companion.Last.Count == 3,"a promoted NPC follows through P2 control_current, naming the NPC the player saw");
         r.Companion.Reply(true); d.Update(); Check(r.Hud.Last == "Following" && d.Outstanding == 0,"P2 follow confirmed on the HUD");
+        Check(d.RecentOutcomes.Last() == "current.follow: accepted" && d.RecentOutcomes.Any(x => x == "current.follow: queued"),"HTTP success is accepted, never fabricated world-completed");
         r.Clock.Advance(1000); d.Dispatch(CommandCatalog.CurrentFollow,"chord"); r.Companion.Reply(false,"character_not_promoted"); d.Update();
         Check(r.Hud.Last == "Promote this NPC first","companion failure reasons come from the catalog");
         r.Clock.Advance(1000); r.Fresh(FakeBridge.Ordinary());
@@ -88,6 +92,48 @@ static partial class Program
         var quiet = new Rig("{\"version\":1,\"quickCommands\":{\"phrases\":{\"dismiss\":\"\"}}}"); quiet.Fresh(FakeBridge.Ordinary());
         Check(quiet.Dispatcher.Dispatch(CommandCatalog.CurrentDismiss,"menu") == "promote_first","an empty dismissal phrase turns the ask off");
 
+        var social = new Rig();
+        Check(social.Dispatcher.Dispatch(CommandCatalog.DirectorSocialManual,"menu") == null &&
+            social.Companion.Last["action"] as string == "director_social_manual" &&
+            social.Companion.Last.Count == 1,"F11 Director calls the existing browser/native Director manual endpoint");
+        social.Companion.Reply(true,null,"{\"queued\":true}");
+        social.Dispatcher.Update();
+        Check(social.Hud.Last == "Social request queued" && social.Dispatcher.RecentOutcomes.Last() == "director.socialManual: accepted","queued Director request never claims actual speech playback");
+        social.Clock.Advance(1000);
+        Check(social.Dispatcher.Dispatch(CommandCatalog.DirectorSocialManual,"menu") == null,"native Director can be requested again after first request resolves");
+        social.Companion.Reply(true,null,"{\"queued\":false}");
+        social.Dispatcher.Update();
+        Check(social.Dispatcher.RecentOutcomes.Last() == "director.socialManual: failed (native_unavailable)","Director HTTP 200 without native queue admission cannot report success");
+        social.Clock.Advance(1000);
+        Check(social.Dispatcher.Dispatch(CommandCatalog.DirectorSocialManual,"menu") == null,"native Director recheck follows failure without sticky busy");
+        social.Companion.Reply(true,null,"invalid");
+        social.Dispatcher.Update();
+        Check(social.Dispatcher.Outstanding == 0 && social.Dispatcher.RecentOutcomes.Last().Contains("failed"),"malformed Director response fails closed and releases busy state");
+        var rosterDriver = new Rig();
+        var exactCharacter = new CommandArgs {CharacterId = "11111111-1111-4111-8111-111111111111",
+            ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnershipToken = "33333333-3333-4333-8333-333333333333",
+            Value = "board_vehicle:driver"};
+        Check(rosterDriver.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",exactCharacter) == null &&
+            rosterDriver.Companion.Last["characterId"] as string == exactCharacter.CharacterId &&
+            rosterDriver.Companion.Last["expectedOwnershipToken"] as string == exactCharacter.ExpectedOwnershipToken &&
+            rosterDriver.Companion.Last["expectedEncounterId"] as string == FakeBridge.Encounter,"ACT commands for a roster character bypass mutable UX4 selection but require original ownership token");
+        Check(((Dictionary<string,object>)rosterDriver.Companion.Last["slots"])["seat"] as string == "driver","driver seat uses explicit closed ACT3 slot");
+        rosterDriver.Companion.Reply(true); rosterDriver.Dispatcher.Update(); rosterDriver.Clock.Advance(1000);
+        var invalidCharacter = new CommandArgs {CharacterId = exactCharacter.CharacterId,ExpectedEncounterId = FakeBridge.Encounter,Value = "vehicle_trip"};
+        int boundPosts = rosterDriver.Companion.Bodies.Count;
+        Check(rosterDriver.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",invalidCharacter) == "native_stale" &&
+            rosterDriver.Companion.Bodies.Count == boundPosts,"no ownership token never falls back to current NPC");
+        var menuActivity = new Rig(); menuActivity.Fresh(FakeBridge.Owned());
+        Check(menuActivity.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",new CommandArgs {Value = "vehicle_trip",ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnerAlias = FakeBridge.Alias}) == null && menuActivity.Companion.Last["intent"] as string == "vehicle_trip","F11 waypoint travel uses existing owned ACT companion path");
+        var waypointSlots = (Dictionary<string,object>)menuActivity.Companion.Last["slots"];
+        Check(((Dictionary<string,object>)waypointSlots["place"])["kind"] as string == "waypoint","ACT6 waypoint slot is finite and native-resolved, not invented coordinates");
+        menuActivity.Companion.Reply(true); menuActivity.Dispatcher.Update(); menuActivity.Clock.Advance(1000); menuActivity.Fresh(FakeBridge.Owned());
+        Check(menuActivity.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",new CommandArgs {Value = "vehicle_trip:airport",ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnerAlias = FakeBridge.Alias}) == null && ((Dictionary<string,object>)((Dictionary<string,object>)menuActivity.Companion.Last["slots"])["place"])["query"] as string == "airport","allowlisted ACT6 landmark uses named place slot");
+        menuActivity.Companion.Reply(true); menuActivity.Dispatcher.Update(); menuActivity.Clock.Advance(1000); menuActivity.Fresh(FakeBridge.Owned());
+        Check(menuActivity.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",new CommandArgs {Value = "board_vehicle",ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnerAlias = FakeBridge.Alias}) == null && ((Dictionary<string,object>)menuActivity.Companion.Last["slots"])["seat"] as string == "passenger","ACT3 boarding is explicitly passenger, never driver by implication");
+        menuActivity.Companion.Reply(true); menuActivity.Dispatcher.Update(); menuActivity.Clock.Advance(1000); menuActivity.Fresh(FakeBridge.Owned());
+        int activityPosts=menuActivity.Companion.Bodies.Count;
+        Check(menuActivity.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",new CommandArgs {Value = "teleport_to_arbitrary_coords"}) == "capability_unavailable" && menuActivity.Companion.Bodies.Count == activityPosts,"closed F11 template table rejects arbitrary activity intents");
         var c = new Rig(); d = c.Dispatcher;
         Check(d.Dispatch(CommandCatalog.CurrentPromote,"menu") == "native_unavailable" && c.Companion.Bodies.Count == 0,"promotion needs Essential's current NPC from the runtime");
         c.Fresh(FakeBridge.Ordinary());

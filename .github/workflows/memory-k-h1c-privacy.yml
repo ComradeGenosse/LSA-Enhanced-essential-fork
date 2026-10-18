@@ -1,0 +1,89 @@
+name: Memory K H1-C privacy and original #138 parity (offline)
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [feature/memory-k-h1a-history-extraction-20261015]
+    paths:
+      - 'lsa-essential-e1-candidate/src/memory/h1ConversationHistory.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/h1ConversationHistoryHardening.test.mjs'
+      - 'tools/memory-k-verification/registrations/h1-c-history.json'
+      - '.github/workflows/memory-k-h1c-privacy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  h1c-validation:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: H1-C authentic P2 + original parity (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check exact original #138 regression tests and pin baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/h1c-receipts"
+          BASE_SHA=3f4138d6f108ae6feda6d03ed54ac7c5e4e9c04a
+          git cat-file -e "$BASE_SHA^{commit}"
+          echo "BASE=$BASE_SHA HEAD=$(git rev-parse HEAD) NODE=$(node -v) OS=$RUNNER_OS" | tee "$RUNNER_TEMP/h1c-receipts/identity.log"
+          files=(
+            lsa-essential-e1-candidate/tests/memory/ws6LiveTurnMemory.test.mjs
+            lsa-essential-e1-candidate/tests/memory/ws6ProductionPipeline.test.mjs
+            lsa-essential-e1-candidate/tests/memory/ws6OriginalRunner.test.mjs
+          )
+          for file in "${files[@]}"; do
+            if ! git diff --quiet "$BASE_SHA" HEAD -- "$file"; then
+              echo "Original regression changed: $file" | tee -a "$RUNNER_TEMP/h1c-receipts/identity.log"
+              exit 2
+            fi
+          done
+          git worktree add --detach "$RUNNER_TEMP/h1c-base" "$BASE_SHA"
+          echo "BASELINE_DIR=$RUNNER_TEMP/h1c-base" >> "$GITHUB_ENV"
+      - name: Syntax and independent real P2 SQLite H1-C security regressions
+        shell: bash
+        env:
+          H1C_ORIGINAL_138_PATH: ${{ env.BASELINE_DIR }}
+        run: |
+          set -euo pipefail
+          node --check lsa-essential-e1-candidate/src/memory/h1ConversationHistory.mjs
+          node --check lsa-essential-e1-candidate/tests/memory/h1ConversationHistoryHardening.test.mjs
+          node --test --test-concurrency=1 --test-reporter=tap lsa-essential-e1-candidate/tests/memory/h1ConversationHistoryHardening.test.mjs 2>&1 | tee "$RUNNER_TEMP/h1c-receipts/h1c-sqlite.log"
+      - name: Compare identical original regression tests on exact #138 and H1-C
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            lsa-essential-e1-candidate/tests/memory/ws6LiveTurnMemory.test.mjs
+            lsa-essential-e1-candidate/tests/memory/ws6ProductionPipeline.test.mjs
+          )
+          for revision in baseline candidate; do
+            if [[ "$revision" == baseline ]]; then directory="$BASELINE_DIR"; else directory="$GITHUB_WORKSPACE"; fi
+            (cd "$directory" && node --test --test-concurrency=1 --test-reporter=tap "${files[@]}") > "$RUNNER_TEMP/h1c-receipts/$revision-original.log" 2>&1 || {
+              grep '^not ok ' "$RUNNER_TEMP/h1c-receipts/$revision-original.log" || true
+              echo "Original $revision regression failed; see preserved artifact"
+              exit 1
+            }
+            grep -E '^# (tests|pass|fail|skipped) ' "$RUNNER_TEMP/h1c-receipts/$revision-original.log" | tee -a "$RUNNER_TEMP/h1c-receipts/identity.log"
+          done
+      - name: Upload raw logs (including failed runs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: h1c-original-parity-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/h1c-receipts

@@ -1,0 +1,88 @@
+name: Memory K D02 native owner authenticity (not D01)
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'native/intelligence/**'
+      - 'native/promoted-characters/**'
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/**'
+      - 'lsa-essential-e1-candidate/src/memory/nativeCurrentOwnerPlayerAuthority.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/nativeCurrentOwner*'
+      - '.github/workflows/memory-k-d02-native-owner.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  authenticated-node24:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: Strict schema and private socket path (offline) / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Strict production import and syntax
+        run: |
+          node --check lsa-essential-e1-candidate/src/bootstrap.mjs
+          node --check lsa-essential-e1-candidate/src/perception/contracts.mjs
+          node --check lsa-essential-e1-candidate/src/perception/shadowRuntime.mjs
+          node --check lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs
+          node --check lsa-essential-e1-candidate/src/memory/nativeCurrentOwnerPlayerAuthority.mjs
+      - name: Adversarial private authenticated D02 intake and source policy
+        run: |
+          node --test lsa-essential-e1-candidate/tests/memory/nativeCurrentOwnerPlayerAuthority.test.mjs
+          node --test lsa-essential-e1-candidate/tests/memory/nativeCurrentOwnerAuthenticatedIntake.test.mjs
+          node --test lsa-essential-e1-candidate/tests/memory-k-native-intake.test.mjs
+  native-policy:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: Actual C# D02 policy (not compiled GTA runtime)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Compile and run production memory owner policy sources
+        run: dotnet run --project native/intelligence/memory-authority-tests/MemoryAuthorityTests.csproj --configuration Release
+      - name: Compile existing native integration harness
+        run: dotnet build native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
+      - name: K-21 production native owner sampler and lifecycle proof (net481; no GTA)
+        shell: pwsh
+        run: |
+          dotnet build native/promoted-characters/owner-sample-tests/OwnerSampleTests.csproj --configuration Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "native/promoted-characters/owner-sample-tests/bin/Release/net481/OwnerSampleTests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  production-native:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: Pinned net481 native source when real SDK is supplied
+    runs-on: windows-latest
+    env:
+      RPH_REFERENCE_PATH: ${{ vars.RPH_REFERENCE_PATH }}
+      DAMAGE_REFERENCE_PATH: ${{ vars.DAMAGE_REFERENCE_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Compile with genuine SDK references or report blocked
+        shell: pwsh
+        run: |
+          if (-not $env:RPH_REFERENCE_PATH -or -not $env:DAMAGE_REFERENCE_PATH -or
+              -not (Test-Path $env:RPH_REFERENCE_PATH) -or -not (Test-Path $env:DAMAGE_REFERENCE_PATH) -or
+              -not (Test-Path "lsa-essential-e1-candidate/upstream/LosSantosAlive.dll")) {
+            Write-Host "BLOCKED (not PASS): original net481 RPH/DamageTracker/Essential references unavailable"
+            exit 0
+          }
+          dotnet build native/promoted-characters/PromotedCharacters.csproj --configuration Release -p:RphReferencePath="$env:RPH_REFERENCE_PATH" -p:DamageReferencePath="$env:DAMAGE_REFERENCE_PATH"

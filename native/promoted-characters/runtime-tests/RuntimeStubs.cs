@@ -6,6 +6,14 @@ using System.Threading;
 // queue. No RAGE, Essential, P1, native ped, or production pipe is loaded.
 namespace Rage
 {
+    public sealed class Ped
+    {
+        public uint Handle;
+        public bool Alive = true, IsDead;
+        public bool Exists()=>Alive;
+        public override bool Equals(object value) => value is Ped other && other.Handle==Handle;
+        public override int GetHashCode() => (int)Handle;
+    }
     public static class Game
     {
         public static readonly ConcurrentQueue<string> Logs=new ConcurrentQueue<string>();
@@ -71,6 +79,11 @@ namespace LosSantosAlive.Integrations
 namespace LSA.SessionIdentity { public sealed class SessionIdentityIntegration { } }
 namespace LSA.PromotedCharacters
 {
+    internal sealed class PrimaryBehaviorOwner
+    {
+        public string owner, mode;
+        public PrimaryBehaviorOwner(string who,string state) {owner=who;mode=state;}
+    }
     public sealed class PromotedCharactersIntegration
     {
         public static int Constructed,Prepared,Initialized,InitializedOutsideCore,ShutdownRequests,Shutdowns,ShutdownOutsideCore,PreparationThread,InitializationThread,ShutdownThread;
@@ -82,7 +95,11 @@ namespace LSA.PromotedCharacters
         internal string UnavailabilityReason=>shutdown?"shutdown":"none";
         internal string IdentityRuntimeStatus=>"identity_status=test";
         public PromotedCharactersIntegration(string world,string pipe,string identityPipe,HostContext host=null)=>Interlocked.Increment(ref Constructed);
-        public LSA.Intelligence.OwnedParticipant[] PerceptionRoster()=>new LSA.Intelligence.OwnedParticipant[0];
+        public static LSA.Intelligence.OwnedParticipant[] RosterOverride=new LSA.Intelligence.OwnedParticipant[0];
+        public LSA.Intelligence.OwnedParticipant[] PerceptionRoster()=>RosterOverride;
+        public object SampleMemoryNativeAuthority()=>null;
+        public object SampleMemoryCurrentOwnerPlayer()=>null;
+        internal void ConfigureVoicePresence(string mode,bool mouthEnabled=false,float openLevel=0.015f,bool levelLog=false) { }
         public void Prepare()
         {
             Interlocked.Increment(ref Prepared);PreparationThread=Thread.CurrentThread.ManagedThreadId;prepared=true;
@@ -116,15 +133,45 @@ namespace LSA.PromotedCharacters
 }
 namespace LSA.Intelligence
 {
-    public sealed class OwnedParticipant { }
+    public static class DirectorAdmission {public const int NormalMaxAttempts=4,TestingMaxAttempts=12;}
+    public sealed class OwnedParticipant { public Rage.Ped Ped; public Func<object> PrimaryOwner; public Func<bool> Current; }
     public sealed class IntelligenceIntegration
     {
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off") { }
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null,bool protagonistEvidenceEnabled=false) { }
         public void OwnerRetired(string incarnationId) { }
         public void Shutdown() { }
         public void Shutdown(string reason) { }
         public void Initialize() { }
         internal string RuntimeStatus()=>"test";
         internal static void LogStatus(string message)=>Rage.Game.LogTrivial(message);
+    }
+}
+
+// Compile-only facsimiles for the optional reaction host integration. The
+// actual reaction state machine has its own 30-test offline harness.
+namespace LSA.Reactions
+{
+    public sealed class ReactionOptions
+    {
+        public string Mode;
+        public bool AllowDuringOwnedBehavior, Diagnostics;
+        public readonly System.Collections.Generic.HashSet<string> Disabled =
+            new System.Collections.Generic.HashSet<string>();
+        public readonly System.Collections.Generic.HashSet<string> Enabled =
+            new System.Collections.Generic.HashSet<string>();
+    }
+    public static class ReactionCatalog
+    {
+        public static bool IsKnown(string name) => name=="facepalm" || name=="middle_finger" || name=="nod" || name=="shrug";
+    }
+    public sealed class ReactionIntegration
+    {
+        public static int Requests, UnsafeShutdowns;
+        public ReactionIntegration(ReactionOptions options,string pipeName,string hostRunId,
+            Func<int> epoch,Func<long> now,Func<Rage.Ped,bool> owns) { }
+        public void Initialize() { }
+        public void WorldChanged(string reason) { }
+        public void RequestShutdown() { System.Threading.Interlocked.Increment(ref Requests); }
+        public void Shutdown() { System.Threading.Interlocked.Increment(ref UnsafeShutdowns); }
     }
 }

@@ -267,9 +267,42 @@ Do not merge if any of these occur:
 ## Direct-talk / explicit-selector split
 
 - Hold the Talk button without tapping first: microphone starts for the best candidate and **no selector bracket appears**.
-- Release, then hold again from a different camera aim: target choice is re-evaluated; the prior direct target is not retained as explicit selector state.
+- Release, then hold again from a different camera aim: ambient direct targets are re-evaluated. A previously committed P1-verified promoted recipient is instead reused while its bounded identity relationship remains valid, with no explicit selector bracket.
 - Tap once: selector bracket appears.
 - Wait about 1 second without talking: bracket fades, but the selected target remains available.
 - Hold after that fade but before the normal selection timeout: the previously tapped target receives the turn.
 - Tap repeatedly within the cycle window: bracket moves through the frozen candidate order.
 - Hold while the bracket is visible: the bracket disappears when PTT starts and does not sit over the NPC throughout the conversation.
+
+## Committed-recipient notice (A/B against the real native target)
+
+Applies only after a DLL built from the committed-recipient feedback change is installed. The notice is display-only; a matching HUD never proves identity unless native/companion logs corroborate it.
+
+1. Place ambient NPC A between you and promoted Nathan B. Direct-hold (no prior tap).
+   Pass: HUD says `Talking to: Nearby NPC`; `[UX4] talk_ptt recipient kind=ambient evidence=unowned` is logged; the RAGE `SendMicStart` target, F11 Current NPC and the companion turn ped agree with A, not B.
+2. Tap/cycle to B (preview shows `Target n/m - Promoted NPC`), then hold.
+   Pass: HUD says `Talking to: Promoted NPC`; `recipient kind=promoted evidence=owner_verified`; native target, Current NPC, companion CharacterId and the SQLite player-journal owner agree with B.
+3. Make three consecutive A/B switches. Pass: each notice names the class of the ped that actually received that turn; none reuses the previous one.
+4. Invalidate the selected ped (despawn/kill/walk out of retention) before the hold commits.
+   Pass: `Target lost`/`No nearby NPC` only; no `Talking to` notice and no retarget.
+5. Release the key before the native start returns, then lose focus mid-hold.
+   Pass: no `Talking to` notice for a start that was already released; mic closes once.
+6. A promoted character whose ownership is suspended/stale (for example after the P1 owner claim is retired) must not read as `Nearby NPC`: expect `NPC (identity unavailable)`.
+7. Give an ambient NPC the same voice as Nathan. Pass: the notice still says `Nearby NPC`.
+8. Named recipient (needs the companion running and the DLL with the `recipientAlias` change). Tap/cycle to promoted Nathan B, then hold.
+   Pass: one notice, `Talking to: Nathan` (no preceding `Promoted NPC`); log has `recipient kind=promoted evidence=owner_verified` and `recipient_name outcome=shown` and no name/alias/CharacterId. Rename Nathan in the character editor and hold again: the new name shows.
+9. Name fallbacks. With the companion stopped (or `current_describe` failing), hold on Nathan: after about 0.4 s `Talking to: Promoted NPC`, mic and reply unaffected. Promote two characters, then hand-edit the store so both claim one `ownerAlias` (offline test only): expect `Promoted NPC`, never either name. A profile named with `~r~` or markup must show `Promoted NPC`.
+10. Ended/changed target. Hold on Nathan and release inside 0.4 s: no `Talking to` line at all. Hold on Nathan, release, **tap/cycle intentionally to ambient A**, then hold: `Nearby NPC`, never Nathan. Without a tap, a verified Nathan conversation should continue to target Nathan. Switch A/B deliberately: each notice names the ped that actually received that turn.
+11. Regression: Text, MarkedTalk, shared Essential Talk interception, `talkTargeting.enabled=false`, F11 Follow/Wait/Promote, no per-frame cost increase and no HUD spam.
+
+## K. Verified conversation continuity — October 18 regression
+
+1. Select and talk to promoted, P1 owner-verified Nathan. Let his reply finish; keep him as your companion. With no additional tap, hold to speak again. **Pass:** `mode=verified_continuity`, `recipient=promoted evidence=owner_verified`; native mic recipient and companion turn still point to Nathan.
+2. Enter the same vehicle, seat Nathan as driver, and ask him to drive three times and then `DriveEvasively`. Change camera aim, speed and street. Have an ambient pedestrian become visually central. Hold and ask `Drive` and `Did you get stuck?`. **Pass:** Nathan remains the verified recipient; the pedestrian receives no turn. Compare to the original October 18 logs.
+3. Tap/cycle to the ambient NPC and hold. **Pass:** intent changes the exact mic target to ambient. Do not retain a promoted conversation over a deliberate tap.
+4. Restore Nathan by an intentional tap; then kill or despawn him, dismiss him, suspend his native P1 authority, switch ownership incarnation, or disrupt native proof. **Pass:** no stale handle/proof revival, `conversation_continuity invalidated`, and the next direct hold returns `target_lost` rather than picking the ambient bystander. After an explicit tap, ambient selection remains usable.
+5. Start conversation with Nathan and change protagonist or restart the world. **Pass:** world reset clears relationship and microphone; no old Ped handle can be reused.
+6. Stop speaking for 3 minutes on foot or 15 minutes in a shared vehicle. **Pass:** relationship eventually expires; it is not an indefinite forced lock. Move farther than retention distance without a shared vehicle to validate immediate fail-closed release.
+7. Review the native `[UX4]` logs plus companion recipient binding and dialogue metadata. **Pass:** each mic start carries a selected mode, proven recipient kind/evidence and one authoritative target; no excessive per-frame logs or transcript copies.
+
+Offline tests validate simulated lifetimes and target binding, not visible lip movement or audible speech. GTA live testing remains mandatory.

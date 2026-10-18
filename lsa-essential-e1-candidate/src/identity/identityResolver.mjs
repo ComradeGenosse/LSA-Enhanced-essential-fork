@@ -8,6 +8,9 @@ function emit(telemetry, event, identity, data) { try { telemetry?.emit(event, i
 
 export class IdentityResolver {
   #anchors = new Map();
+  // Expected associations only, never active evidence. A reconnect must obtain
+  // a fresh native proof matching every field before any binding is recreated.
+  #recoveryHints = new Map();
   constructor(config, { evidence = new OwnerEvidence(config), store = new CharacterStore({ filePath: config.storePath, worldProfileId: config.worldProfileId }),
     registry = new CharacterRegistry(store), telemetry = null, retireSession = () => {} } = {}) {
     this.config = config; this.evidence = evidence; this.registry = registry; this.telemetry = telemetry;
@@ -23,12 +26,23 @@ export class IdentityResolver {
     try { Promise.resolve(this.retireSession(anchor, reason)).catch(() => {}); } catch {}
   }
   #fact(fact) {
+    if(fact.type==='revoke'){
+      const hint=this.#recoveryHints.get(fact.pedId);
+      if(hint&&hint.adapterEpoch===fact.adapterEpoch&&hint.incarnationId===fact.incarnationId&&hint.claimRevision===fact.claimRevision)
+        this.#recoveryHints.delete(fact.pedId);
+    }
     for (const anchor of [...this.#anchors.values()]) {
       const matches = anchor.claim.adapterEpoch === fact.adapterEpoch &&
         (fact.type === 'lost' || fact.type === 'revoke' && anchor.pedId === fact.pedId &&
           anchor.claim.incarnationId === fact.incarnationId && anchor.claim.claimRevision === fact.claimRevision);
       if (matches) this.#retire(anchor, fact.type === 'lost' ? 'evidence_unavailable' : 'owner_retired');
     }
+  }
+  recoveryActor(identity,actor) {
+    if(actor?.pedId!==identity?.pedId||actorClaim(actor,this.config).reason!=='no_evidence'||
+       actor?.integrations?.raw?.sessionIdentity!==undefined)return actor;
+    const hint=this.#recoveryHints.get(identity.pedId);
+    return hint?{...actor,integrations:{...actor.integrations,sessionIdentity:hint}}:actor;
   }
   detach(session) {
     this.#anchors.delete(sessionKey(session));
@@ -63,6 +77,7 @@ export class IdentityResolver {
     const live = () => !combined.aborted && isCurrent();
     const fallback = reason => ({ snapshot: characterSnapshot(identity, resolution('ephemeral', reason)), speechProfile: null });
     const conflict = reason => {
+      this.#recoveryHints.delete(identity.pedId);
       emit(this.telemetry, 'identity_conflict', identity, { reason, identityKind: 'conflict' });
       const anchor = this.#anchors.get(sessionKey(identity));
       if (anchor) this.#retire(anchor, reason);
@@ -82,6 +97,7 @@ export class IdentityResolver {
       if (!live()) return fallback('native_stale');
       if (proof?.kind === 'conflict') return conflict('contradictory_claim');
       if (proof?.kind === 'retired') {
+        this.#recoveryHints.delete(identity.pedId);
         const anchor = this.#anchors.get(sessionKey(identity));
         if (anchor) this.#retire(anchor, 'owner_retired');
         return fallback('owner_retired');
@@ -111,6 +127,9 @@ export class IdentityResolver {
         return fallback('store_unavailable');
       }
       if (!authority()) return fallback('native_stale');
+      this.#recoveryHints.delete(identity.pedId);
+      this.#recoveryHints.set(identity.pedId,claim);
+      while(this.#recoveryHints.size>MAX_CHARACTERS)this.#recoveryHints.delete(this.#recoveryHints.keys().next().value);
       const result = this.bindings.bind(identity, claim, record, authority);
       if (!result.binding) return result.reason === 'native_stale' || result.reason === 'binding_limit'
         ? fallback(result.reason) : conflict(result.reason);
@@ -136,5 +155,5 @@ export class IdentityResolver {
     } catch { return fallback('evidence_unavailable'); }
     finally { clearTimeout(timer); abort.abort(); }
   }
-  close() { this.evidence.close?.(); this.unsubscribe?.(); for (const anchor of [...this.#anchors.values()]) this.#retire(anchor, 'evidence_unavailable'); }
+  close({closeEvidence=true}={}) { if(closeEvidence)this.evidence.close?.(); this.unsubscribe?.(); for (const anchor of [...this.#anchors.values()]) this.#retire(anchor, 'evidence_unavailable'); this.#recoveryHints.clear(); }
 }

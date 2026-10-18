@@ -1,0 +1,25 @@
+name: Memory M5 Explicit Commands
+on:
+  push:
+    branches:
+      - feature/memory-agent-d-m5-commands
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/memory/**'
+      - 'lsa-essential-e1-candidate/tests/m5-explicit-memory-commands.test.mjs'
+      - '.github/workflows/memory-m5-commands.yml'
+jobs:
+  m5-offline:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['22', '24']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: M5 explicit command and fixture durability tests
+        run: node --test lsa-essential-e1-candidate/tests/m5-explicit-memory-commands.test.mjs

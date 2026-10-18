@@ -1,5 +1,8 @@
 import {normalizeDialogueKnowledge} from './dialogueKnowledge.mjs';
+import {applyPersonalTestDefaults,shouldApplyPersonalTestDefaults} from './personalTestDefaults.mjs';
 import { normalizeExpressiveDeliveryConfig } from '../voice/emotion/deliveryContract.mjs';
+import { normalizeReactionConfig } from '../reactions/reactionConfig.mjs';
+import { normalizeMemoryKConfig } from '../memory/capabilityPolicy.mjs';
 import {directorSpeechLimitsForPreset} from '../perception/sceneDirector.mjs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -74,6 +77,21 @@ function boundedInteger(value, fallback, min, max, name) {
     throw new TypeError(`${name} must be an integer from ${min} to ${max}.`);
   }
   return number;
+}
+
+function normalizeLocalVoiceFallback(value = {}) {
+  if(!value || typeof value!=='object' || Array.isArray(value) ||
+     Object.keys(value).some(key=>!['enabled','assetDirectory','maxRecoveryDelayMs'].includes(key)))
+    throw new TypeError('localVoiceFallback has unknown or invalid fields.');
+  const enabled=value.enabled ?? true;
+  const assetDirectory=value.assetDirectory ?? 'VoiceFallback';
+  if(typeof enabled!=='boolean'||typeof assetDirectory!=='string'||
+     !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(assetDirectory))
+    throw new TypeError('localVoiceFallback requires a safe asset directory name.');
+  return Object.freeze({
+    enabled, assetDirectory,
+    maxRecoveryDelayMs:boundedInteger(value.maxRecoveryDelayMs,1500,250,5000,'localVoiceFallback.maxRecoveryDelayMs'),
+  });
 }
 
 function baseUrl(value, fallback, name) {
@@ -215,21 +233,24 @@ export function normalizeConfig(input = {}, env = process.env) {
       ? null : boundedInteger(retryInput.attemptTimeoutMs, null, 1_000, 120_000, 'retry.attemptTimeoutMs'),
   });
   if (typeof retry.enabled !== 'boolean' || typeof retry.honorRetryAfter !== 'boolean' || retry.jitter !== 'bounded' || retry.maxDelayMs < retry.baseDelayMs) throw new TypeError('retry configuration is invalid.');
-  const playbackCompletionGraceMs = boundedInteger(input.playbackCompletionGraceMs, 30_000, 5_000, 120_000, 'playbackCompletionGraceMs');
-  const playbackCompletionMinMs = boundedInteger(input.playbackCompletionMinMs, 60_000, 1_000, 600_000, 'playbackCompletionMinMs');
+  const playbackCompletionGraceMs = boundedInteger(input.playbackCompletionGraceMs, 12_000, 5_000, 120_000, 'playbackCompletionGraceMs');
+  const playbackCompletionMinMs = boundedInteger(input.playbackCompletionMinMs, 10_000, 1_000, 600_000, 'playbackCompletionMinMs');
   const playbackCompletionMaxMs = boundedInteger(input.playbackCompletionMaxMs, 600_000, 60_000, 1_800_000, 'playbackCompletionMaxMs');
   if (playbackCompletionMaxMs < playbackCompletionMinMs) throw new TypeError('playbackCompletionMaxMs must be greater than or equal to playbackCompletionMinMs.');
 
   return Object.freeze({
     provider: selectedProvider,
+    localVoiceFallback: normalizeLocalVoiceFallback(input.localVoiceFallback),
     speechProvider, elevenLabs,
     expressiveDelivery: normalizeExpressiveDeliveryConfig(input.expressiveDelivery, { speechProvider }),
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
+    memoryK: normalizeMemoryKConfig(input.memoryK),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),
     spontaneousSpeech: Object.freeze({mode:speechMode,preset:speechPreset}),
     dialogueKnowledge: normalizeDialogueKnowledge(input.dialogueKnowledge),
     activities: normalizeActivityConfig(input.activities),
+    reactions: normalizeReactionConfig(input.reactions),
     dialogueLogging: normalizeDialogueLoggingConfig(input.dialogueLogging, boundedInteger),
     reasoningModel, reasoningEffort, transcriptionModel, ttsModel, ttsVoice,
     speechVoices: Object.freeze(speechVoices), speechVoiceProfiles, voiceAssignment, ttsSpeed, ttsVolume, actingEnabled, speechInstructionsSupported,
@@ -270,5 +291,5 @@ export async function loadConfig({ configPath = process.env.LSA_E1_CONFIG || def
   } catch (error) {
     if (error?.code !== 'ENOENT') throw new Error(`Unable to read E1 configuration (${error.code || 'invalid JSON'}).`);
   }
-  return normalizeConfig(file, env);
+  return normalizeConfig(shouldApplyPersonalTestDefaults(configPath,file)?applyPersonalTestDefaults(file):file, env);
 }

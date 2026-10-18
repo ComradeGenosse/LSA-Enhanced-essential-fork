@@ -1,0 +1,43 @@
+name: Memory K E2 independent privacy and recovery
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - 'lsa-shared-brain/**'
+      - 'lsa-essential-e1-candidate/**'
+      - 'tools/memory-k-verification/**'
+      - '.github/workflows/memory-k-e2-privacy-recovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  privacy:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Unchanged original suites and separate adversarial E2 suites
+        run: node tools/memory-k-verification/e2-suite.mjs --output work/e2-validation
+      - name: Original pinned source verification and offline package build
+        run: node lsa-essential-e1-candidate/tools/buildCandidate.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2-privacy-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: work/e2-validation

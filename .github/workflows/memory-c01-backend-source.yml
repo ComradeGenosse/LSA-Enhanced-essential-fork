@@ -1,0 +1,40 @@
+name: D01 original backend source-negative tests (NOT acceptance)
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'lsa-essential-e1-candidate/src/memory/originalBackendAcceptedInput.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/originalBackendSourceAudit.mjs'
+      - 'lsa-essential-e1-candidate/tests/**'
+      - '.github/workflows/memory-c01-backend-source.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-negative:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: Node 24 source audit (NOT A01 pass) / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify specialist-owned modules parse
+        run: |
+          node --check lsa-essential-e1-candidate/src/memory/originalBackendAcceptedInput.mjs
+          node --check lsa-essential-e1-candidate/src/memory/originalBackendSourceAudit.mjs
+      - name: Pinned AST original source + typed/STT adversarial policy
+        run: node --test lsa-essential-e1-candidate/tests/memory/originalBackendAcceptedInput.test.mjs
+      - name: Explicitly retain A01a NO-GO
+        run: >-
+          node --input-type=module -e "import {ORIGINAL_BACKEND_PIN} from './lsa-essential-e1-candidate/src/memory/originalBackendAcceptedInput.mjs'; if(ORIGINAL_BACKEND_PIN.acceptedSourceHookAvailable!==false) process.exit(1); console.log('NO-GO A01a: missing original post-acceptance input source');"
