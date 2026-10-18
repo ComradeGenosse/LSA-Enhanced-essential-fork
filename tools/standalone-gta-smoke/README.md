@@ -24,13 +24,62 @@ or lip-sync. A correctly refused startup is a safe outcome.
 
 1. **Back up outside the GTA tree** your current `Plugins/LosSantosAlive.dll` and any installed optional native addon/bridge files listed below. Also separately preserve `Plugins/LosSantosAliveServer/` (including private `.env` and possible SQLite data), `Plugins/LosSantosAlive/`, any `Plugins/NPCGeminiFiles/`, P2 profiles/memory files at their configured locations, and relevant `%LOCALAPPDATA%/LSA Enhanced/` user state. Backups may contain secrets; keep them private. Check that the copies open and hashes match before moving anything. Neither the old server/config directory nor unrelated game mods need to be removed.
 2. **Move (do not rename inside the game)** the active legacy owner binaries into that off-game backup: `Plugins/LosSantosAlive.dll` (or an actual root `LosSantosAlive.dll`), plus whichever of these exist: `Plugins/LSA.PromotedCharacters.dll`, `Plugins/LSA.PromotedCharacters/` (native runtime and identity files), `Plugins/LSA.PromotedCharacters.json`, root `Plugins/LSA.SessionIdentity.dll` or `Plugins/LSA.Intelligence.dll`, and `Plugins/LSPDFR/LosSantosAlive.Interop.dll` / `LosSantosAlive.PRBridge.dll`. The preflight also checks alternate known loader names. Do not move generic RPH or unrelated mod dependencies.
-3. Confirm the active RPH loader configuration won't load any other Essential/LSA controller (including a renamed copy). Leave your ordinary GTA mods and original LSA server/config/data folders in place. Then run:
+3. Confirm the active RPH loader configuration won't load any other Essential/LSA controller (including a renamed copy). The scripts check known paths and also inspect managed assembly names to catch renamed copies. This does **not** reliably identify arbitrary native/unknown plugin loaders, so the actual RPH plugin list still matters. Leave your ordinary GTA mods and original LSA server/config/data folders in place. Then run:
 
 ```powershell
 .\Install-Standalone.ps1 -GamePath 'C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced' -ExistingInstallation
 ```
 
 4. Use `-Stage host`, then `-Stage probe` with the same `-GamePath`; proceed to `-Stage typed` only after the GTA native actor checks actually pass. The standalone companion runs from this extracted bundle, not `LosSantosAliveServer`.
+
+**Verified controller move example (PowerShell; only after preserving your separate config/data backup):**
+
+```powershell
+$game = 'C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced'
+$backup = Join-Path $env:USERPROFILE ('LSA-Controller-Backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+$controllers = @(
+  'Plugins/LosSantosAlive.dll',
+  'Plugins/LSA.PromotedCharacters.dll',
+  'Plugins/LSA.PromotedCharacters',
+  'Plugins/LSA.PromotedCharacters.json',
+  'Plugins/LSA.SessionIdentity.dll',
+  'Plugins/LSA.Intelligence.dll',
+  'Plugins/LSA.PromotedCharacters.Runtime.dll',
+  'Plugins/LSA.PromotedCharacters.Bootstrap.dll',
+  'Plugins/LSPDFR/LosSantosAlive.Interop.dll',
+  'Plugins/LSPDFR/LosSantosAlive.PRBridge.dll',
+  'LosSantosAlive.dll',
+  'Plugins/Los Santos Alive.dll'
+)
+New-Item -ItemType Directory -Force -Path $backup | Out-Null
+$proof = @()
+foreach ($relative in $controllers) {
+  $source = Join-Path $game $relative
+  if (-not (Test-Path -LiteralPath $source)) { continue }
+  $destination = Join-Path $backup $relative
+  $isDirectory = Test-Path -LiteralPath $source -PathType Container
+  $files = if ($isDirectory) { @(Get-ChildItem -LiteralPath $source -Recurse -File -Force) } else { @(Get-Item -LiteralPath $source) }
+  foreach ($file in $files) {
+    $within = $file.FullName.Substring($source.Length).TrimStart('\')
+    $proof += [pscustomobject]@{
+      relative = ($relative.TrimEnd('/') + '/' + $within).TrimEnd('/')
+      hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+    }
+  }
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+  Move-Item -LiteralPath $source -Destination $destination -ErrorAction Stop
+}
+$proof | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $backup 'sha256-controller-proof.json')
+foreach ($row in $proof) {
+  $target = Join-Path $backup $row.relative
+  if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -ne $row.hash) {
+    throw "Backup verification FAILED: $($row.relative)"
+  }
+}
+Write-Host "Verified controller backup: $backup"
+```
+
+For restoration, after Undo succeeds and GTA/RPH are closed, **move each entry in `$controllers` that exists under `$backup` back to the same relative path under `$game`**, refusing any existing destination. Re-run the checksum loop against `$game` rather than `$backup`. Restore the independently backed-up server/profile/settings data only if actually necessary; do not overwrite newer databases or player-authored files.
 
 **To return to original LSA:** exit GTA/RPH and stop the standalone companion. First run `.\Undo-Standalone.ps1 -GamePath '<same GTA path>'`, which checks and removes only its own three managed plugin files. **Then** restore the moved original LSA binaries/bridges/config from your off-game backup to their exact previous paths and verify their hashes. Never enable both controllers together; do not overwrite newer player profiles or SQLite data when restoring. The rollback script intentionally does **not** restore legacy files for you.
 

@@ -27,6 +27,29 @@ foreach ($relative in $blocked) {
   }
 }
 
+# Catch renamed copies of managed legacy controllers by their assembly
+# identity, not just the file name. Reflection-only name reads do not load
+# or execute those assemblies; native/unreadable DLLs remain a manual RPH
+# load-list gate. Standalone assemblies are never blocked here.
+$pluginDirectory = Join-Path $game 'Plugins'
+$candidates = @()
+if (Test-Path -LiteralPath $pluginDirectory -PathType Container) {
+  $candidates += @(Get-ChildItem -LiteralPath $pluginDirectory -Filter '*.dll' -File -Recurse -Force)
+}
+$candidates += @(Get-ChildItem -LiteralPath $game -Filter '*.dll' -File -Force)
+foreach ($dll in $candidates) {
+  try {
+    $identity = [System.Reflection.AssemblyName]::GetAssemblyName($dll.FullName).Name
+    if ($identity -match '^(LosSantosAlive($|\.)|LSA\.PromotedCharacters($|\.)|LSA\.SessionIdentity$|LSA\.Intelligence$)') {
+      throw "Legacy LSA conflict: renamed managed assembly $identity at $($dll.FullName). Move it outside the GTA installation."
+    }
+  } catch [System.BadImageFormatException] {
+    # Unmanaged/native DLL: no managed assembly name to inspect.
+  } catch [System.IO.FileLoadException] {
+    # Non-loadable metadata: leave loader-list verification to the operator.
+  }
+}
+
 # Existing Essential can use a separate bundled or system Node process.
 # Refuse a still-running instance belonging to this GTA folder.
 $server = Join-Path $game 'Plugins/LosSantosAliveServer'

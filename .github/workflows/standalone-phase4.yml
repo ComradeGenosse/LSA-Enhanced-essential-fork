@@ -186,6 +186,9 @@ jobs:
           }
           & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage host -PreflightOnly
           Assert-CleanPreflight
+          if (Test-Path "$game/.LSAStandaloneSmoke/native-activation.json") {
+            throw 'Dry-run unexpectedly created GTA native activation file'
+          }
           $env:OPENAI_API_KEY='ci-fixture-only'
           & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage typed -Model ci-test -PreflightOnly
           Assert-CleanPreflight
@@ -235,6 +238,16 @@ jobs:
             throw 'Tampered rollback was not safely rejected'
           }
           Copy-Item "$root/payload/LSA.Standalone.RageHost.dll" "$fixture/Plugins/LSA.Standalone.RageHost.dll" -Force
+          # A launcher crash can leave a recognized activation file behind,
+          # even if GTA never got far enough to load the plugin.
+          @{
+            kind='lsa-standalone-native-activation'
+            version=1
+            stage='host'
+            ownerPid=999999
+            createdAtUtc=[DateTime]::UtcNow.ToString('o')
+            settings=@{ LSA_STANDALONE_ACTOR_MODE='off' }
+          } | ConvertTo-Json -Depth 5 | Set-Content "$fixture/.LSAStandaloneSmoke/native-activation.json"
           & "$root/Undo-Standalone.ps1" -GamePath $fixture
           if ((Test-Path "$fixture/Plugins/LSA.Standalone.RageHost.dll") -or
               (Test-Path "$fixture/Plugins/LSA.Standalone.enabled") -or
@@ -268,6 +281,16 @@ jobs:
           try { & "$root/Install-Standalone.ps1" -GamePath $game -ExistingInstallation } catch { $denied = $_.Exception.Message -like '*Legacy LSA conflict*' }
           if (-not $denied) { throw 'Old LSPDFR bridge was accepted' }
           Move-Item "$game/Plugins/LSPDFR/LosSantosAlive.PRBridge.dll" "$saved/LosSantosAlive.PRBridge.dll"
+          # A renamed .NET Essential controller is still a competing owner.
+          # Verify assembly metadata rather than trusting a changed filename.
+          $disguised = Join-Path $game 'Plugins/OldPluginDisguised.dll'
+          Add-Type -TypeDefinition 'public sealed class OldLsaTestController {}' -OutputAssembly "$game/Plugins/LosSantosAlive.dll" -OutputType Library
+          Move-Item "$game/Plugins/LosSantosAlive.dll" $disguised
+          $denied = $false
+          try { & "$root/Install-Standalone.ps1" -GamePath $game -ExistingInstallation }
+          catch { $denied = $_.Exception.Message -like '*Legacy LSA conflict*' }
+          if (-not $denied) { throw 'Renamed managed legacy controller bypassed exclusion' }
+          Remove-Item $disguised
           & "$root/Install-Standalone.ps1" -GamePath $game -ExistingInstallation
           if (-not (Test-Path "$game/Plugins/LSA.Standalone.RageHost.dll")) { throw 'Standalone host missing' }
           $manifest = Get-Content "$game/.LSAStandaloneSmoke/manifest.json" -Raw | ConvertFrom-Json
