@@ -1,13 +1,13 @@
 # LSA OBS0–OBS3 — Focused Logging, Comprehensive System Health and Offline Diagnostics
 
-**Repository:** \`ComradeGenosse/LSA-Enhanced-essential-fork\`  
-**Target:** Latest \`main\`  
+**Repository:** `ComradeGenosse/LSA-Enhanced-essential-fork`  
+**Target:** Latest `main`  
 **Status:** OBS0 completed and merged in PR #265; OBS1 implementation merged in PR #266; OBS2 and OBS3 planned.  
 **Scope:** Repair existing logging, automatically capture critical gameplay diagnostics **and health evidence for every implemented runtime system**, and enable reliable post-session debugging from one collected ZIP.
 
-**Relationship to other work:** GM0–GM6 and gameplay work proceed separately. Integrate with their current interfaces without duplicating F11/browser menus, changing gameplay behavior, or blocking other work. Rebase against current \`main\` before integrating.
+**Relationship to other work:** GM0–GM6 and gameplay work proceed separately. Integrate with their current interfaces without duplicating F11/browser menus, changing gameplay behavior, or blocking other work. Rebase against current `main` before integrating.
 
-**Canonical plan:** This document consolidates the previously agreed focused OBS0–OBS3 roadmap and adds comprehensive system health reporting **within OBS2 and OBS3**. It does not restart OBS0, add phases, or revive the superseded six-phase overhaul. See \`OBS0-COVERAGE-AUDIT-20261018.md\` and \`OBS1-FOCUSED-DIAGNOSTICS-20261018.md\` for evidence and implementation notes.
+**Canonical plan:** This document consolidates the previously agreed focused OBS0–OBS3 roadmap and adds comprehensive system health reporting **within OBS2 and OBS3**. It does not restart OBS0, add phases, or revive the superseded six-phase overhaul. See `OBS0-COVERAGE-AUDIT-20261018.md` and `OBS1-FOCUSED-DIAGNOSTICS-20261018.md` for evidence and implementation notes.
 
 ---
 
@@ -30,7 +30,7 @@ After an ordinary GTA session, one collected archive should let an independent d
 
 **The user must not need to open a debugging dashboard, switch out of GTA, or manually refresh F11/browser diagnostic pages to capture information already known by the runtime.**
 
-Use existing E1 structured JSONL telemetry, native/RPH messages, bounded sinks, capability/status read models and \`tools/lsa-local/Collect-Logs.ps1\`. Extend, do not replace, them. This is a targeted reliability and reporting improvement, not a new monitoring platform or logging framework.
+Use existing E1 structured JSONL telemetry, native/RPH messages, bounded sinks, capability/status read models and `tools/lsa-local/Collect-Logs.ps1`. Extend, do not replace, them. This is a targeted reliability and reporting improvement, not a new monitoring platform or logging framework.
 
 **Evidence standard:** Distinguish request, validation, transport acceptance, execution start, observed progress, actual outcome, and recovery. Evidence of a successful transport or model response is not proof of a successful GTA action; generated PCM is not proof of audible speech. Unknown evidence must remain unknown.
 
@@ -91,7 +91,7 @@ Extend E1 JSONL, not a replacement framework. Important events should carry, **w
 - Old/new states for important transitions.
 - Stable, safe failure/rejection codes; outcomes and evidence authority/source.
 
-Preserve native causal boundaries; do not invent shared identities or join unrelated events merely because their timestamps are close. Existing OBS1 event conventions and schema compatibility are recorded in \`OBS1-FOCUSED-DIAGNOSTICS-20261018.md\`.
+Preserve native causal boundaries; do not invent shared identities or join unrelated events merely because their timestamps are close. Existing OBS1 event conventions and schema compatibility are recorded in `OBS1-FOCUSED-DIAGNOSTICS-20261018.md`.
 
 ### OBS1.3 Connect critical execution chains
 
@@ -167,19 +167,19 @@ Reuse existing ACT6 readiness, Director, native channel, capabilities, ownership
 
 Build or maintain a **versioned, machine-readable inventory of every implemented LSA runtime subsystem and capability** for the shipped build, including optional, experimental, shadow, feature-gated and intentionally disabled components.
 
-Inventory coverage must include at least the ten OBS0 areas: native/RPH/P2/F11, companion IPC, UX4/input, STT/reasoning/TTS/playback/providers, Director/spontaneous scenes, PS0–PS6, Memory K M0–M9, ACT0–ACT6, NPC reaction/emotion/identity/ownership, and configuration/capability/editor/build/deployment. Include separately distinguishable sub-capabilities when they can be enabled or fail independently (e.g. ACT6 \`drive_to\` vs \`walk_to\`, provider selections, individual Memory K activation gates).
+Inventory coverage must include at least the ten OBS0 areas: native/RPH/P2/F11, companion IPC, UX4/input, STT/reasoning/TTS/playback/providers, Director/spontaneous scenes, PS0–PS6, Memory K M0–M9, ACT0–ACT6, NPC reaction/emotion/identity/ownership, and configuration/capability/editor/build/deployment. Include separately distinguishable sub-capabilities when they can be enabled or fail independently (e.g. ACT6 `drive_to` vs `walk_to`, provider selections, individual Memory K activation gates).
 
 Each stable inventory entry should identify:
 
 - System/capability ID, human-readable name, owning component and applicable build/contract version.
 - Whether it is implemented in the build, and where runtime installation/deployment can be proven.
-- Configured mode (e.g. \`off\`, \`shadow\`, \`on\`, \`experimental\`, or an actual supported mode), required dependencies and relevant gates.
+- Configured mode (e.g. `off`, `shadow`, `on`, `experimental`, or an actual supported mode), required dependencies and relevant gates.
 - What constitutes **initialization**, **readiness/connection**, **successful operation**, **failure/recovery**, and shutdown for that system.
 - Evidence type/source and any explicit limits of verification (e.g. a model response does not prove native movement).
 
 Derive the inventory from existing build manifests, capability registries, config activation/read models and native registration sources. Keep it maintainable alongside their evolution, preferably by generating or validating a compact inventory against real registries and builds. Do **not** hand-maintain a duplicated implementation of all capability rules. Add a focused consistency test so newly implemented systems do not silently disappear from reporting.
 
-**A system present in source but absent from a shipped binary is not proven installed.** Record \`implemented\`, \`installed\`, \`enabled\`, \`initialized\` and \`operational\` as different claims. Source/manifest-only assertions and incomplete deployment evidence must remain clearly labeled. Disabled and experimental features must remain rows, not disappear because no runtime events were emitted.
+**A system present in source but absent from a shipped binary is not proven installed.** Record `implemented`, `installed`, `enabled`, `initialized` and `operational` as different claims. Source/manifest-only assertions and incomplete deployment evidence must remain clearly labeled. Disabled and experimental features must remain rows, not disappear because no runtime events were emitted.
 
 ### OBS2.9 Automatic lifecycle and operation-health evidence (new mandatory health layer)
 
@@ -231,9 +231,9 @@ Existing high-value failure scenarios must be distinguishable from recorded evid
 
 ### OBS3.1 Improve the existing collector
 
-Extend \`tools/lsa-local/Collect-Logs.ps1\` rather than replacing it.
+Extend `tools/lsa-local/Collect-Logs.ps1` rather than replacing it.
 
-Collect native/RPH logs, companion service logs, structured telemetry, relevant provider/application error records, available versions/builds, sanitized effective configuration and capability/inventory snapshots, and session/source identity. Retain existing copy inventory, SHA-256 hashing and \`collection.json\` behavior.
+Collect native/RPH logs, companion service logs, structured telemetry, relevant provider/application error records, available versions/builds, sanitized effective configuration and capability/inventory snapshots, and session/source identity. Retain existing copy inventory, SHA-256 hashing and `collection.json` behavior.
 
 Add a concise source/session evidence manifest with collection time, available sources, missing/unreadable roots, incomplete/truncated streams, drops and source-to-session linkage where available. Missing an optional source must not fail the whole archive. Preserve collector privacy rules; do not indiscriminately package secrets, databases or dialogue logs without explicit opt-in and safeguards. Do not create an always-running collection service.
 
@@ -271,26 +271,26 @@ The report must show, at minimum:
 | Field | Meaning |
 | --- | --- |
 | System/capability | Stable inventory ID, component, implementation/build version and installation evidence |
-| Configured mode | Actual \`off\`/\`shadow\`/\`on\`/\`experimental\`/other mode, or \`unknown\` if not evidenced |
+| Configured mode | Actual `off`/`shadow`/`on`/`experimental`/other mode, or `unknown` if not evidenced |
 | Initialization | Not attempted/disabled, succeeded, failed, in progress at last evidence, or unknown |
 | Operational state | One of the six strictly defined health labels below |
 | Dependencies/connections | Last verified readiness, blocked prerequisites, disconnected/stale state and time, when known |
-| Last successful operation | Timestamp, operation class, correlation and **proof type**, or \`none observed\` |
-| Failures/recovery | Most recent safe reason(s), timestamps, transition/recovery evidence or \`none observed\` |
+| Last successful operation | Timestamp, operation class, correlation and **proof type**, or `none observed` |
+| Failures/recovery | Most recent safe reason(s), timestamps, transition/recovery evidence or `none observed` |
 | Supporting evidence | Exact source file + event/line/sequence IDs and known collection/coverage gaps |
 
 Health labels are **evidence-based**, not a simplistic count of errors:
 
-- **\`operational\`** — installed/initialized and **at least one relevant successful operation is demonstrably verified** within the session and applicable host/world scope, with no later recorded unresolved state that invalidates the claim. State the last success and proof boundary. A prior success does not guarantee the system is healthy at shutdown.
-- **\`ready but not exercised\`** — positive initialization/readiness and required dependency/connection evidence exists, but **no verified relevant successful operation** is available for the session. A mere configured \`on\` is insufficient.
-- **\`disabled\`** — explicitly configured off/disabled and supported by effective configuration and/or runtime evidence. Do not interpret absence of events as disabled.
-- **\`blocked\`** — observed activation or operation prevented by a known failed prerequisite, capability/authority gate, initialization failure or explicit unavailable/unsupported condition. Include the exact known reason.
-- **\`degraded\`** — observed partial/intermittent failure, stale/recovering connection, or unresolved failure following prior successful readiness/operation. Do not silently label a subsystem operational when later failure evidence contradicts it.
-- **\`unknown\`** — evidence is missing, incomplete, contradictory or insufficient to establish any other label; includes unproven installation, missing startup records and unsourced status.
+- **`operational`** — installed/initialized and **at least one relevant successful operation is demonstrably verified** within the session and applicable host/world scope, with no later recorded unresolved state that invalidates the claim. State the last success and proof boundary. A prior success does not guarantee the system is healthy at shutdown.
+- **`ready but not exercised`** — positive initialization/readiness and required dependency/connection evidence exists, but **no verified relevant successful operation** is available for the session. A mere configured `on` is insufficient.
+- **`disabled`** — explicitly configured off/disabled and supported by effective configuration and/or runtime evidence. Do not interpret absence of events as disabled.
+- **`blocked`** — observed activation or operation prevented by a known failed prerequisite, capability/authority gate, initialization failure or explicit unavailable/unsupported condition. Include the exact known reason.
+- **`degraded`** — observed partial/intermittent failure, stale/recovering connection, or unresolved failure following prior successful readiness/operation. Do not silently label a subsystem operational when later failure evidence contradicts it.
+- **`unknown`** — evidence is missing, incomplete, contradictory or insufficient to establish any other label; includes unproven installation, missing startup records and unsourced status.
 
-**Precedence and caveats:** Time-order authoritative evidence by session, run, and world epoch; do not carry old successes across a reset or unload without proof. Explicit \`off\` takes precedence where the effective configuration is verified; otherwise later observed blockers/failures can override earlier success/readiness. A recovered component may become operational again **only on new demonstrated operation evidence**, or ready-but-not-exercised with verified readiness. When evidence cannot resolve competing states, report unknown with the conflict rather than choosing a convenient label.
+**Precedence and caveats:** Time-order authoritative evidence by session, run, and world epoch; do not carry old successes across a reset or unload without proof. Explicit `off` takes precedence where the effective configuration is verified; otherwise later observed blockers/failures can override earlier success/readiness. A recovered component may become operational again **only on new demonstrated operation evidence**, or ready-but-not-exercised with verified readiness. When evidence cannot resolve competing states, report unknown with the conflict rather than choosing a convenient label.
 
-Keep \`implemented/installed\` and \`configured mode\` as separate dimensions from these six health labels: a build-included but uninstalled feature must not be reported operational or simply disabled without deployment/config evidence. Clearly label shadow/experimental implementations and any limits of authority, including that shadow observation never proves enabled execution.
+Keep `implemented/installed` and `configured mode` as separate dimensions from these six health labels: a build-included but uninstalled feature must not be reported operational or simply disabled without deployment/config evidence. Clearly label shadow/experimental implementations and any limits of authority, including that shadow observation never proves enabled execution.
 
 The matrix must allow a quick answer to **"Is every system switched on and working?"** while truthfully showing which functions are intentionally off, which were enabled but never used, and which were actually proven to work. Summarize counts for the six categories, but **retain every inventory row**, including systems with zero events.
 
@@ -366,12 +366,12 @@ To keep this targeted, **do not**:
 
 1. OBS0 is complete and OBS1 merged. Continue with **OBS2, then OBS3**; do not repeat the audit.
 2. Each phase must leave independently useful improvements. Implement inventory/lifecycle reporting as an OBS2 extension and the health matrix as an OBS3 extension.
-3. Reuse E1/RPH logging, capability registries, activation/status providers, telemetry fields and \`Collect-Logs.ps1\`.
+3. Reuse E1/RPH logging, capability registries, activation/status providers, telemetry fields and `Collect-Logs.ps1`.
 4. Preserve actual source evidence, correlation, event-time authority and the distinction between readiness and successful operation.
 5. Keep **all systems inventoried**, including disabled and experimental ones, but concentrate detailed instrumentation on real high-value failure paths.
 6. Make gameplay logic changes minimal and only for diagnostic correctness; no new gameplay functionality.
 7. Implement privacy/retention/performance safety and focused regressions alongside each change.
-8. Maintain compatibility with concurrently developed GM0–GM6 and latest \`main\`.
+8. Maintain compatibility with concurrently developed GM0–GM6 and latest `main`.
 9. Parallelize only independent slices; avoid simultaneous conflicting edits to common registries or telemetry.
 10. Review integration diffs, run available targeted/CI tests, rebase as needed and merge verified, focused PRs.
 11. Report whether evidence comes from source inspection, synthetic fixtures, CI or actual GTA; never substitute one for another.
@@ -400,7 +400,7 @@ After any **ordinary** GTA session, the user can collect **one ZIP**. An indepen
 - Enumerate **every implemented LSA runtime system and capability**, including disabled/experimental systems with no emitted runtime events.
 - Establish which were built/installed, enabled/disabled/unavailable, initialized, connected, blocked or recovering **only where supporting evidence exists**.
 - Show which demonstrably performed an intended function, including **last successful operation and its proof boundary**, versus those merely ready/not exercised.
-- Report a comprehensive evidence-linked status matrix with **\`operational\`, \`ready but not exercised\`, \`disabled\`, \`blocked\`, \`degraded\`, and \`unknown\`**; state missing evidence and never imply an unknown feature is healthy or broken.
+- Report a comprehensive evidence-linked status matrix with **`operational`, `ready but not exercised`, `disabled`, `blocked`, `degraded`, and `unknown`**; state missing evidence and never imply an unknown feature is healthy or broken.
 - Answer what was and was not verifiable without connecting to live GTA or opening F11/browser debugging views.
 
 **Success is measured by how much easier LSA becomes to debug and how reliably its real operational state can be established, not the number of telemetry events or dashboards added.**
