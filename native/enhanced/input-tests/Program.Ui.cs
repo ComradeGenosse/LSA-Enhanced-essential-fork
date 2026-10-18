@@ -223,6 +223,12 @@ static partial class Program
         Check(!data.CompanionReachable,"probe failure marks the companion unreachable");
         data.Probe(); companion.Reply(true,body: "{\"kind\":\"unknown\",\"facts\":[]}"); data.Pump();
         Check(data.CompanionReachable,"probe success restores it");
+        data.RequestDirectorStatus();
+        Check(companion.Last["action"] as string == "director_social_status","Director status reuses the original companion endpoint");
+        companion.Reply(true,body: "{\"executionAvailable\":true,\"nativeResult\":{\"receivedAt\":47,\"status\":\"rejected\",\"reason\":\"actor_busy\"}}"); data.Pump();
+        Check(data.DirectorStatus?.Status == "rejected" && data.DirectorStatus.Reason == "actor_busy","native admission rejection is retained as a typed status");
+        data.RequestDirectorStatus(); companion.Unreachable(); data.Pump();
+        Check(data.DirectorStatus == null,"unavailable Director status fails closed instead of reusing stale admission");
     }
 
     // The real loopback client against a local server: oversized success bodies
