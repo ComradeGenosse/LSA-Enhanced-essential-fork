@@ -38,11 +38,11 @@ namespace LSA.Enhanced.Ui
         public long BindingVerifiedAt {get;private set;} = -1;
         public string DescribeKey => describeKey;
         public int Version {get;private set;}
-        public void RequestCharacters()
+        public void RequestCharacters(bool refreshAfterInFlight = false)
         {
-            // Spawn can finish while a pre-spawn list request is still in flight.
-            // Coalesce an additional read rather than dropping the invalidation.
-            if (listInFlight) { listRefreshPending = true; return; }
+            // Only explicit post-mutation invalidations require a second read.
+            // Ordinary menu opens/polls must keep the original in-flight dedupe.
+            if (listInFlight) { if (refreshAfterInFlight) listRefreshPending = true; return; }
             listInFlight = true;
             companion.Post("{\"action\":\"list\"}",ListBodyBytes,RequestTimeoutMs,reply => {
                 List<CharacterRow> rows = reply != null && reply.Ok ? CharacterList.Parse(reply.Body) : null;
