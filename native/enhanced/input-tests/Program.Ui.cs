@@ -134,7 +134,13 @@ static partial class Program
             && CharacterList.Parse(Json.Serialize(new object[] {Profile(CharacterA,"Home",1)}))[0].StatusLabel == "Absent","availability labels");
         Check(CharacterList.Parse("{}") == null && CharacterList.Parse("oops") == null && CharacterList.Parse("[]").Count == 0,"non-array replies parse to null");
 
+        var profileWithOwner = Profile(CharacterA,"Nathan JustNate",10,runtimeStatus:"spawned");
+        profileWithOwner["promotion"] = new Dictionary<string,object> {{"ownerAlias","promoted." + CharacterA}};
+        var ownedRow = CharacterList.ParseProfile(profileWithOwner);
+        Check(ownedRow.OwnerAlias == "promoted." + CharacterA && CharacterList.ForOwnedAlias(new[] {ownedRow},"promoted." + CharacterA).Name == "Nathan JustNate","verified native alias resolves roster character's name");
+        Check(CharacterList.ForOwnedAlias(new[] {ownedRow},"promoted." + CharacterB) == null && CharacterList.ForOwnedAlias(rows,"promoted." + CharacterA) == null,"unverified/mismatched aliases cannot label another NPC");
         var actions = CharacterList.Actions(amy,true,true);
+        Check(Line(actions,"despawn").Text == "Banish addon-created NPC" && Line(actions,"dismiss").Description.Contains("not deleted"),"scene removal differs from releasing an adopted ped");
         Check(!Line(actions,"summon").Enabled && Line(actions,"follow").Enabled && Line(actions,"dismiss").Confirm && Line(actions,"despawn").Confirm && Line(actions,"despawn").Description.Contains("Amy, …aaaa"),"a spawned character: no summon; dismiss and despawn confirm with name and id suffix");
         var relationship = Line(actions,"relationship");
         Check(relationship.Options.SequenceEqual(CharacterList.Relationships) && relationship.Value == "trusted" && relationship.OptionLabels[2] == "Trusted" && relationship.Command == CommandCatalog.CharacterRelationship,"relationship is a left/right choice");
