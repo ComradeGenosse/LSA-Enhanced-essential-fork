@@ -290,6 +290,17 @@ class OBS3Tests(unittest.TestCase):
         self.assertEqual(report["unassigned_native_diagnostics"][0]["reason"], "request_timeout")
         self.assertNotEqual(table(report)["native.rph"]["health"], "operational")
 
+    def test_untrusted_inventory_mode_and_event_names_are_not_echoed(self):
+        changed = entries()
+        changed[0]["configuredMode"] = "PRIVATE_SECRETS_FROM_CONFIG"
+        rows = [json.loads(x) for x in fixture(systems=changed)[EVENT_NAME].decode().splitlines()]
+        rows[2]["event"] = "PRIVATE_UNTRUSTED_EVENT"
+        report = analyze(fixture(systems=changed, events=rows))
+        self.assertEqual(table(report)["act.drive_to"]["configured_mode"], "unknown")
+        self.assertNotIn("PRIVATE_SECRETS_FROM_CONFIG", json.dumps(report))
+        self.assertNotIn("PRIVATE_UNTRUSTED_EVENT", json.dumps(report))
+        self.assertIn("malformed_telemetry", report["sessions"][0]["evidence_gaps"])
+
     def test_multi_run_never_cross_correlates(self):
         files=fixture()
         second="33333333-3333-4333-8333-333333333333"
