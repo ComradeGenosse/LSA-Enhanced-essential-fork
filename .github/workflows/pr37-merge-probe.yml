@@ -1,0 +1,41 @@
+name: PR37 Merge Conflict Probe
+on:
+  push:
+    branches:
+      - feature/c01-source-time-utterance-lifecycle
+    paths:
+      - .github/workflows/pr37-merge-probe.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  conflict-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/c01-source-time-utterance-lifecycle
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Probe latest main with native Git merge
+        shell: bash
+        run: |
+          git config user.name 'LSA Integration Probe'
+          git config user.email 'integration-probe@users.noreply.github.com'
+          git fetch origin main
+          printf 'HEAD=%s\\nMAIN=%s\\n' "$(git rev-parse HEAD)" "$(git rev-parse origin/main)"
+          git merge --no-commit --no-ff origin/main || true
+          echo '=== MERGE STATE ==='
+          git status --short
+          echo '=== CONFLICTED FILES ==='
+          git diff --name-only --diff-filter=U
+          echo '=== CONFLICT COUNTS ==='
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            printf '%s: ' "$f"
+            grep -c '^<<<<<<< ' "$f" || true
+          done < <(git diff --name-only --diff-filter=U)
+          echo '=== SUMMARY ==='
+          git diff --stat
+          echo '=== END PROBE ==='
