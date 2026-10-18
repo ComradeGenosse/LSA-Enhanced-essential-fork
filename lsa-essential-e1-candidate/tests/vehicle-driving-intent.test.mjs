@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { drivingIntentKind, stockDrivingCommand, activeAct6Driving, liveAct6Driving, drivingModelGuidance, reconcileDrivingDecision } from '../src/activities/vehicleDrivingIntent.mjs';
+import { drivingIntentKind, stockDrivingCommand, activeAct6Driving, liveAct6Driving, drivingModelGuidance, reconcileDrivingDecision, normalizeBareStockDriveCommand } from '../src/activities/vehicleDrivingIntent.mjs';
 
 test('whole-utterance continuation is not mistaken for evasive driving or a new drive', () => {
   for (const text of ['Keep going','Okay, keep driving!','Nathan, carry on driving','Just keep driving','Come on, keep going','Hey man, please keep going','Don\'t stop driving','All right dude, keep it going'])
@@ -87,4 +87,26 @@ test('live ACT6 owner lookup restores exact native host scope, fences actor and 
   assert.equal(liveAct6Driving({stateForCharacter:()=>({...activities.stateForCharacter({...owner.binding,hostContext}),status:'completed'})},owner),false);
   assert.equal(liveAct6Driving({stateForCharacter:()=>{throw Error('native detached')}},owner),false);
   assert.equal(liveAct6Driving(null,owner),false);
+});
+
+test('October 18: safe bare stock-drive normalization never fabricates an action or vehicle',()=>{
+  assert.equal(normalizeBareStockDriveCommand('DriveEvasively'),'DO DriveEvasively');
+  assert.equal(normalizeBareStockDriveCommand(' drivenormally '),'DO DriveNormally');
+  assert.equal(normalizeBareStockDriveCommand('DO DriveEvasively'),'DO DriveEvasively');
+  for(const unsafe of ['BeginDriving','EnterDriverSeat','DO DriveTo V001',
+    'DriveEvasively V001','DriveEvasively;DO WaitHere','<vehicle>',
+    'DriveToWaypoint','DO AttackTargetWithWeapon P001']) {
+    assert.equal(normalizeBareStockDriveCommand(unsafe),unsafe,unsafe);
+  }
+});
+test('verified driving context allows bare Faster/Slower but not unrelated NPC turns',()=>{
+  assert.equal(drivingIntentKind('Faster'),null);
+  assert.equal(drivingIntentKind('Slower'),null);
+  assert.equal(drivingIntentKind('Faster',{verifiedDriver:true}),'speed_up');
+  assert.equal(drivingIntentKind('Nathan, faster!',{verifiedDriver:true}),'speed_up');
+  assert.equal(drivingIntentKind('Slower',{verifiedDriver:true}),'slow_down');
+  assert.equal(drivingIntentKind('Drive',{verifiedDriver:false}),'start');
+  for(const text of ['Drive to the waypoint','Drive faster to the waypoint',
+    'Tell me about a faster car','You said faster yesterday','Don\'t go faster'])
+    assert.equal(drivingIntentKind(text,{verifiedDriver:true}),null,text);
 });
