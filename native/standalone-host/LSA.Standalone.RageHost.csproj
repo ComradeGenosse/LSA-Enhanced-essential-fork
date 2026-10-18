@@ -16,12 +16,23 @@
     <Reference Include="RagePluginHook">
       <HintPath>$(RphReferencePath)</HintPath>
       <Private>false</Private>
+      <SpecificVersion>true</SpecificVersion>
     </Reference>
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net481" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
+  <!-- Fail BEFORE compilation if MSBuild silently resolved the fake unit-test
+       assembly instead of the exact reference path requested by the packager. -->
+  <Target Name="VerifyRphReferenceResolution" AfterTargets="ResolveReferences" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <_VerifiedRph Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'RagePluginHook'" />
+    </ItemGroup>
+    <Message Importance="high" Text="RPH compile reference requested=$(RphReferencePath) resolved=@(_VerifiedRph)" />
+    <Error Condition="'@(_VerifiedRph)' != '$(RphReferencePath)'"
+           Text="RPH compile reference does not equal the requested real SDK. Refusing cached/fake assembly resolution." />
+  </Target>
   <Target Name="RequireRealRphSdk" BeforeTargets="ResolveReferences" Condition="'$(RphReferencePath)' == '' or !Exists('$(RphReferencePath)')">
     <Error Text="Supply -p:RphReferencePath=&lt;installed approved RagePluginHook.dll&gt;; no RPH SDK is bundled." />
   </Target>
