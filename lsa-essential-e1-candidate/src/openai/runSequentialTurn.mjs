@@ -348,7 +348,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       !turn.knowledgeInputs?.ownerPendingProof && !vehicleActivityEvidence?.reason &&
       !vehicleActivityEvidence?.ownerPendingProof &&
       activeAct6Driving(vehicleActivityEvidence?.state,vehicleActivityEvidence?.binding);
-    if (vehicleIntent) metrics?.event('vehicle_request_classified',{kind:vehicleIntent});
+    if (vehicleIntent) metrics?.event('vehicle_request_classified',{vehicleKind:vehicleIntent});
     const reasoningContext=()=>{
       const activity=turn.act5Reply;
       const navigation=['go_to_place','vehicle_trip','move_to_and_hold'].includes(activity?.intent);
@@ -677,7 +677,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         // accepted words after handoff. No competing command is published.
         if (nativeHandoffStarted) throw Object.assign(new TypeError('Vehicle command conflicts with player intent or ACT6 ownership.'),{code:'vehicle_command_conflict'});
         decision=guarded.decision;
-        metrics?.event('vehicle_command_reconciled',{reason:guarded.blocked});
+        metrics?.event('vehicle_command_reconciled',{vehicleReason:guarded.blocked,vehicleKind:vehicleIntent});
       }
     }
     recordReasoningSuccess(decision);
@@ -734,7 +734,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     await emit({ type: 'output_transcript', text: validated.internalTranscript });
     // Publication is not the Essential handler ACK and not evidence of motion.
     if (stockDrivingCommand(decision.command)) metrics?.event('vehicle_stock_command_published',{
-      action:stockDrivingCommand(decision.command),execution:'unverified'});
+      actionName:stockDrivingCommand(decision.command),verification:'unverified'});
     check();
     if (turn.act5Reply?.kind === 'approval_pending') {
       const accepted = await services.act5?.commitApproved(turn, valid);

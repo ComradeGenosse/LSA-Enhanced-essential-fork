@@ -34,6 +34,10 @@ namespace LSA.PromotedCharacters
                 public uint IssuedAt, LastProgressAt, LastSampleAt;
                 public bool Progress, TaskSeen;
                 public int ArrivalSamples;
+                // Diagnostic cadence and transitions only; never used for task authority.
+                public uint LastTraceAt;
+                public int LastTraceTask = int.MinValue;
+                public bool LastTraceSeen, LastTraceProgress, LastTraceArrived, LastTraceLost, LastTraceVehicleSame, LastTraceStuck;
             }
             static readonly Dictionary<string, Vector3> Landmarks = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase) {
                 {"los santos international airport", new Vector3(-1037f,-2738f,13.75f)},
@@ -55,6 +59,41 @@ namespace LSA.PromotedCharacters
             readonly Dictionary<string, NavMemory> navigation = new Dictionary<string, NavMemory>();
             public EssentialActivityWorld(PromotedCharactersIntegration host) { this.host = host; }
             public uint GameTime => unchecked((uint)Game.GameTime);
+            static void DriveLog(string stage, string encounterId, string data)
+            {
+                // Logging must never change the outcome of an ACT6 GTA operation.
+                try { Game.LogTrivial("[LSA ACT6 DRIVE] " + stage + " encounter=" + encounterId + " " + data); }
+                catch { }
+            }
+            void TraceDriveSample(NavMemory item, ModeSample sample, Ped actor, string encounterId, int task)
+            {
+                if (item.Capability != "drive_to") return;
+                var now = GameTime;
+                var changed = task != item.LastTraceTask || sample.NavTaskSeen != item.LastTraceSeen ||
+                    sample.NavProgress != item.LastTraceProgress || sample.NavArrived != item.LastTraceArrived ||
+                    sample.NavTaskLost != item.LastTraceLost || sample.NavVehicleSame != item.LastTraceVehicleSame ||
+                    sample.NavStuck != item.LastTraceStuck;
+                // One sample at first observation, upon transitions, and at most one
+                // periodic heartbeat per five seconds; not once per native tick.
+                if (!changed && unchecked(now - item.LastTraceAt) < 5000u) return;
+                item.LastTraceAt = now; item.LastTraceTask = task;
+                item.LastTraceSeen = sample.NavTaskSeen; item.LastTraceProgress = sample.NavProgress;
+                item.LastTraceArrived = sample.NavArrived; item.LastTraceLost = sample.NavTaskLost;
+                item.LastTraceVehicleSame = sample.NavVehicleSame; item.LastTraceStuck = sample.NavStuck;
+                bool? freeDrive = null;
+                try { var state = NpcStateStore.TryGetState(actor); if (state != null) freeDrive = state.DriveToXWhenBothSeated; } catch { }
+                // GET_SCRIPT_TASK_STATUS is a task-family observation, not a unique
+                // proof of ownership of this specific native task invocation.
+                DriveLog("sample", encounterId,
+                    "taskStatus=" + task + " taskSeen=" + sample.NavTaskSeen +
+                    " taskLost=" + sample.NavTaskLost + " vehicleSame=" + sample.NavVehicleSame +
+                    " progress=" + sample.NavProgress + " arrived=" + sample.NavArrived +
+                    " stuck=" + sample.NavStuck + " freeDriveFlag=" +
+                    (freeDrive.HasValue ? freeDrive.Value.ToString() : "unknown") +
+                    " speedMps=" + sample.VehicleSpeed.ToString("F1") +
+                    " distanceM=" + sample.NavDistance.ToString("F1") +
+                    " movedM=" + item.MovedMeters.ToString("F1"));
+            }
 
             public bool TryAcquire(string ownerAlias, string ownershipToken, out string encounterId, out string incarnationId, out string reason)
             {
@@ -288,9 +327,13 @@ namespace LSA.PromotedCharacters
                         // overwriting the ACT6 destination task. Stop stock modes first
                         // and retire that *same actor's* persistent free-drive flag
                         // before issuing the one owned route task.
+                        var freeDriveBefore = state.DriveToXWhenBothSeated;
                         VehicleBehavior.StopAllVehicleCommands(ped,state);
                         state.DriveToXWhenBothSeated = false;
                         state.StayUnderLsaControl = true;
+                        DriveLog("handoff", encounterId, "freeDriveBefore=" + freeDriveBefore +
+                            " freeDriveAfter=" + state.DriveToXWhenBothSeated +
+                            " driverVerified=true vehicleVerified=true");
                     }
                     var dest = new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z);
                     if (capability == "walk_to")
@@ -304,6 +347,10 @@ namespace LSA.PromotedCharacters
                         InitialDistance=FlatDistance(ped.Position,dest), BestDistance=FlatDistance(ped.Position,dest), LastPosition=ped.Position,
                         IssuedAt=GameTime, LastProgressAt=GameTime, LastSampleAt=GameTime
                     };
+                    if (capability == "drive_to")
+                        DriveLog("route_issued", encounterId,
+                            "taskFamily=drive_to status=issued_unverified distanceM=" +
+                            FlatDistance(ped.Position,dest).ToString("F1"));
                     own[encounterId] = capability;
                 }
                 else if (capability == "grab_item") { if (args.ItemName == null) return false; NpcActionQueue.QueueNpcAction("grabitem", args.ItemName, "", ped); own[encounterId] = "grabitem"; }
@@ -353,6 +400,8 @@ namespace LSA.PromotedCharacters
                     }
                 }
                 else if (capability == "grab_item") NpcActions.ClearHeldItem(encounter.Ped);
+                if (capability == "drive_to")
+                    DriveLog("cancel", encounterId, "ownedStep=true reason=cancel_or_supersede");
                 own.Remove(encounterId); navigation.Remove(encounterId);
             }
             public ModeSample Sample(string encounterId, StepArgs args)
@@ -437,21 +486,21 @@ namespace LSA.PromotedCharacters
                 sample.NavDistance = Distance3(actor.Position,position);
                 var now = GameTime;
                 int task;
-                try {task=NavStatus(actor,item.Capability);}catch{sample.NavTaskLost=true;return;}
+                try {task=NavStatus(actor,item.Capability);}catch{sample.NavTaskLost=true;TraceDriveSample(item,sample,actor,encounterId,-1);return;}
                 if(task==1)item.TaskSeen=true;
                 sample.NavTaskSeen=item.TaskSeen;
                 // 7 is complete; any other unexpected state means this task is gone.
                 if ((task!=0 && task!=1 && task!=7) ||
                     (task==7 && (!item.TaskSeen ||
                        sample.NavDistance>(item.Capability=="drive_to"?8f:3f)))) {
-                    sample.NavTaskLost=true;return;
+                    sample.NavTaskLost=true;TraceDriveSample(item,sample,actor,encounterId,task);return;
                 }
                 if (item.Capability == "drive_to") {
                     Vehicle current = null;
                     try { current=actor.CurrentVehicle; } catch {}
                     sample.NavVehicleSame=current!=null && current.Exists() && current.IsAlive &&
                         Convert.ToUInt64(current.Handle)==item.VehicleHandle && current.MemoryAddress==item.VehicleAddress;
-                    if (!sample.NavVehicleSame) return;
+                    if (!sample.NavVehicleSame) {TraceDriveSample(item,sample,actor,encounterId,task);return;}
                 } else sample.NavVehicleSame = true;
                 // Driving legitimately moves away from the goal for turns, junctions and roundabouts.
                 // Establish progress from actual displacement under the owned task; judge final arrival
@@ -460,7 +509,7 @@ namespace LSA.PromotedCharacters
                 var elapsed=unchecked(now-item.LastSampleAt);item.LastSampleAt=now;
                 // Do not mistake a teleport or scripted reposition for navigation.
                 var max=(item.Capability=="drive_to"?90f:12f)*Math.Max(0.2f,elapsed/1000f)+4f;
-                if(displacement>max){sample.NavTaskLost=true;return;}
+                if(displacement>max){sample.NavTaskLost=true;TraceDriveSample(item,sample,actor,encounterId,task);return;}
                 if(displacement>=1f){
                     item.LastPosition=actor.Position;
                     if(task==1){item.MovedMeters+=displacement;item.LastProgressAt=now;}
@@ -475,6 +524,7 @@ namespace LSA.PromotedCharacters
                 // Do not repeatedly issue tasks or fight another controller. Report loss after bounded stall.
                 sample.NavStuck=!sample.NavArrived && unchecked(now-item.LastProgressAt)>35000u &&
                     unchecked(now-item.IssuedAt)>35000u;
+                TraceDriveSample(item,sample,actor,encounterId,task);
             }
             static bool SameVehicle(Vehicle left, Vehicle right)
             {
@@ -495,6 +545,9 @@ namespace LSA.PromotedCharacters
             public void EndOwnership(string encounterId, bool preempted)
             {
                 if (encounterId == null || !seats.ContainsKey(encounterId)) return;
+                if (navigation.TryGetValue(encounterId,out var completedDrive) &&
+                    completedDrive.Capability == "drive_to")
+                    DriveLog("ownership_ended", encounterId, "preempted=" + preempted);
                 navigation.Remove(encounterId);
                 own.Remove(encounterId);
                 var memory = seats[encounterId]; seats.Remove(encounterId);

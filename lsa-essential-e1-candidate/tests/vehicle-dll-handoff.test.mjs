@@ -51,3 +51,18 @@ test('native ACT6 handoff explicitly disables the still-active stock mode before
   const task=handoff.indexOf('"TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE"');
   assert.ok(off>=0&&task>off,'free-drive flag is retired before ACT6 route task');
 });
+
+test('ACT6 emits bounded RPH diagnostics without turning logging into a second task controller',()=>{
+  const cs=readFileSync(new URL('../../native/promoted-characters/ActivityDispatch.cs',import.meta.url),'utf8');
+  assert.match(cs,/\[LSA ACT6 DRIVE\]/);
+  for(const stage of ['handoff','route_issued','sample','cancel','ownership_ended'])
+    assert.ok(cs.includes('DriveLog("'+stage+'"'),'missing native '+stage+' diagnostic');
+  assert.match(cs,/freeDriveBefore=.+freeDriveAfter=/s);
+  assert.match(cs,/taskStatus=.+speedMps=.+distanceM=.+movedM=/s);
+  assert.match(cs,/unchecked\(now - item\.LastTraceAt\) < 5000u/);
+  assert.match(cs,/task != item\.LastTraceTask/);
+  assert.match(cs,/sample\.NavTaskLost != item\.LastTraceLost/);
+  assert.match(cs,/TraceDriveSample\(item,sample,actor,encounterId,task\);/);
+  assert.ok(cs.indexOf('state.DriveToXWhenBothSeated = false;') <
+    cs.indexOf('DriveLog("route_issued"'), 'log-only fix must keep original ACT6 takeover ordering');
+});
