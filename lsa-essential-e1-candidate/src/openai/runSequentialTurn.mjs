@@ -1,6 +1,6 @@
 import {combineDirectorSocialMemory} from '../memory/h1ConversationHistory.mjs';
 import { drivingIntentKind, activeAct6Driving, liveAct6Driving, drivingModelGuidance, reconcileDrivingDecision, stockDrivingCommand } from '../activities/vehicleDrivingIntent.mjs';
-import { parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind, navigationRequestKind, isAct6StopRequest } from '../activities/act5Dialogue.mjs';
+import { parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind, navigationRequestKind, isAct6StopRequest, reconcileAct6Decision } from '../activities/act5Dialogue.mjs';
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 import {scalePcm16} from '../voice/pcmVolume.mjs';
 import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
@@ -690,6 +690,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       decision=reconciled.decision;
       metrics?.event('vehicle_seat_reconciled',{seat:seatRequest.slots.seat,
         accepted:reconciled.accepted,code:reconciled.reason,modelCommandKind});
+    }
+    if (isPlayer && ['go_to_place','vehicle_trip','move_to_and_hold'].includes(turn.act5Reply?.intent)) {
+      const corrected=reconcileAct6Decision(decision,turn.act5Reply,{nativeHandoffStarted});
+      if (corrected.suppressed) {
+        decision=corrected.decision;
+        metrics?.event('act6_player_direct_model_conflict',{intent:turn.act5Reply.intent,code:'stock_command_suppressed'});
+      }
     }
     if (isPlayer && (vehicleIntent || act6OwnsDrive)) {
       const guarded = reconcileDrivingDecision(decision,{kind:vehicleIntent,act6OwnsDrive});
