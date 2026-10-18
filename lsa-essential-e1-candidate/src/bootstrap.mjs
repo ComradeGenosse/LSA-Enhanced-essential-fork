@@ -9,6 +9,7 @@ const {createRuntime}=essentialRuntimeGlue;
 import { loadPrivateEnvironment } from './config/privateEnvironment.mjs';
 import { createFileSink } from './observability/fileSink.mjs';
 import { Telemetry, createNoopTelemetry } from './observability/telemetry.mjs';
+import {buildSystemInventory,createSystemHealthMonitor,persistSystemInventory} from './observability/systemHealth.mjs';
 import { identityContractSupported } from './identity/nativeSupport.mjs';
 import { startCharacterEditor } from './characters/editorServer.mjs';
 import { defaultControlEndpointPath } from './control/endpointFile.mjs';
@@ -81,6 +82,7 @@ export async function createRuntimeForBundle(options = {}) {
   const owner=composition.scope;
   try {
   let telemetry = options.telemetry;
+  let health = null, persistentTelemetry = false;
   if (!telemetry) {
     const entry = path.basename(process.argv[1] || '');
     const enabled = options.enableTelemetry === true || (!Object.hasOwn(options, 'enableTelemetry') && entry === 'server.bundle.mjs');
@@ -103,11 +105,34 @@ export async function createRuntimeForBundle(options = {}) {
           bundleHash: manifest.builtBundleSha256, dllHash: manifest.nativeContract?.dllSha256,
         } });
         owner.own('telemetry',telemetry,value=>value.close());
+        persistentTelemetry = true;
       } catch (error) {
         try { console.warn(`[E1 telemetry] persistent logging unavailable (${/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'initialization_failed'}).`); } catch {}
         telemetry = createNoopTelemetry();
       }
     } else telemetry = createNoopTelemetry();
+  }
+  // OBS2 startup evidence is a single bounded, secret-free registry-derived
+  // JSONL manifest. Off/experimental capabilities remain in it even if no
+  // session operation ever touches them. Only actual persistent E1 runs write.
+  if (persistentTelemetry && telemetry?.runId) {
+    try {
+      const inventory=buildSystemInventory(config);
+      health=createSystemHealthMonitor({config,telemetry,inventory});
+      const detachEvents=telemetry.subscribe(record=>health.onEvent(record));
+      const detachResources=owner.subscribe(record=>health.onResource(record));
+      owner.own('obs2.health',{close:()=>{health.close();detachEvents();detachResources();}},
+        value=>value.close());
+      const persisted=await persistSystemInventory({directory:options.telemetryDirectory||path.resolve(process.cwd(),'logs'),
+        runId:telemetry.runId,inventory});
+      telemetry.emit('system_health_manifest',null,'internal',{count:persisted.count,
+        manifestHash:persisted.sha256},'internal',{component:'observability'});
+      health.note('companion.telemetry','initialized',{proof:'resource_lifecycle'});
+      health.note('resource.telemetry','initialized',{proof:'resource_lifecycle'});
+    } catch {
+      try{telemetry.emit('system_health_gap',null,'internal',{code:'inventory_unavailable'},'internal',{component:'observability',severity:'warn'});}catch{}
+      try{console.warn('[OBS2] inventory_persistence_unavailable');}catch{}
+    }
   }
   let dialogueTrace = options.dialogueTrace || createNoopDialogueTrace();
   if (!options.dialogueTrace && config.provider === 'openai' && config.dialogueLogging.enabled) {
@@ -144,6 +169,7 @@ export async function createRuntimeForBundle(options = {}) {
     deferCharacterInitialization:true,
     memoryNativeAuthority:options.memoryNativeAuthority??memoryAuthorityPort,
     telemetry, dialogueTrace });
+  runtime.services.systemHealth=()=>health?.snapshot()??null;
   owner.own('essential.connections',runtime,value=>value.closeConnections());
   if(runtime.identityService) owner.own('p1.identity',runtime.identityService,value=>value.close({closeEvidence:!options.identityEvidence}));
   // Initialize the single P2 writer before registering consumers. Bootstrap
@@ -190,7 +216,22 @@ export async function createRuntimeForBundle(options = {}) {
         // registered once the authenticated native channel exists. Absent => blocked.
         nativeIdleSource:()=>options.m7NativeIdleSource??runtime.m7IdleSource??null,
         fetchImpl:options.fetchImpl??globalThis.fetch,
-        ...options.m7CloudCurationOptions});
+        ...options.m7CloudCurationOptions,
+        onStatusChange:({state,reason})=>{
+          // Real M7 transitions, independent of F11/browser status refresh.
+          try{options.m7CloudCurationOptions?.onStatusChange?.({state,reason});}catch{}
+          const status=state==='blocked'||state==='awaiting_consent'||state==='paused'?'blocked':
+            state==='starting'?'initializing':state==='stopped'?'stopped':
+            state==='idle'&&reason==='cloud_unavailable_retry_scheduled'?'degraded':
+            state==='idle'||state==='processing'?'ready':'unknown';
+          if(status!=='unknown')health?.note('mk.memory.cloudCuration',status,{
+            code:reason??undefined,proof:'resource_lifecycle'});
+        },
+        onVerifiedOperation:({kind,processed})=>{
+          try{options.m7CloudCurationOptions?.onVerifiedOperation?.({kind,processed});}catch{}
+          if(kind==='curation_checkpoint'&&processed>0)
+            health?.note('mk.memory.cloudCuration','verified',{proof:'durable_write'});
+        }});
       owner.own('memory.cloudCuration',cloudCuration,value=>value.dispose());
       runtime.cloudCuration=cloudCuration;
       cloudCuration.start();
@@ -621,7 +662,18 @@ export async function createRuntimeForBundle(options = {}) {
       owner.starting('activities');
       const notifyKnowledge=()=>{try{runtime.intelligence?.notifyKnowledgeInvalidation();}catch{}};
       const onEvent = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data, 'internal', { component: 'activities', severity: event === 'activity_channel_failure' ? 'warn' : 'info' }); } catch {} notifyKnowledge(); };
-      const onFrame=frame=>{try{options.activityOptions?.onFrame?.(frame);}catch{}notifyKnowledge();};
+      const onFrame=frame=>{
+        try{options.activityOptions?.onFrame?.(frame);}catch{}
+        // Native hello and restart are real edge-triggered transport evidence,
+        // not an assumed navigation or action success.
+        if(frame?.type==='hello') try {
+          telemetry?.emit?.(frame.clientRestart?'activity_channel_closed':'activity_channel_ready',
+            null,'internal',{nativeRun:frame.nativeRun,adapterEpoch:frame.adapterEpoch,
+              hostRunId:frame.hostRunId,worldEpoch:frame.worldEpoch},
+            'internal',{component:'activities'});
+        }catch{}
+        notifyKnowledge();
+      };
       runtime.activities = config.activities.mode === 'on'
         ? new ActivityRuntime(config.activities, { ...options.activityOptions, onEvent,onFrame })
         : new ActivityClient(config.activities, { ...options.activityOptions, onEvent,onFrame });
@@ -696,6 +748,7 @@ export async function createRuntimeForBundle(options = {}) {
   });};
   process.once('beforeExit',beforeExit);
   owner.own('process.beforeExit',beforeExit,value=>process.removeListener('beforeExit',value));
+  health?.note('companion.service','initialized',{proof:'resource_lifecycle'});
   return runtime;
   } catch(error) {
     const cleanup=await owner.dispose();

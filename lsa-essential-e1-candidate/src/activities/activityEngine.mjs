@@ -684,7 +684,7 @@ export class ActivityEngine {
     this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind, intent: activity.template, evidence, reason, placeLabel: activity.placeLabel || null, atMs: now });
     this.history.push({ characterId: activity.actor.characterId, activityId: activity.activityId, intent: activity.template, status, reason, atMs: now });
     if (this.history.length > 64) this.history.shift();
-    this.onEvent('activity_terminal', { activityId: activity.activityId, intent: activity.template, capability: step?.capability, reason });
+    this.onEvent('activity_terminal', { activityId: activity.activityId, intent: activity.template, capability: step?.capability, status, proofLevel: evidence === 'world_strong' ? 'world_strong' : 'none', reason });
     if (goal && goal.deadlineAtMs < goal.createdAtMs) goal.deadlineAtMs = goal.createdAtMs;
   }
 

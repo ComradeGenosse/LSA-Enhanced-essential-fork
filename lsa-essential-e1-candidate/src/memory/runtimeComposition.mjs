@@ -4,7 +4,9 @@ import {MEMORY_K_CAPABILITIES,resolveMemoryKCapabilities} from './capabilityPoli
 // Factories still own their authority/privacy fences and native lifecycle.
 export class RuntimeResourceScope {
   #resources=[]; #states=new Map(); #disposal=null; #closed=false;
-  #next=0; #cleanup=Promise.resolve();
+  #next=0; #cleanup=Promise.resolve(); #listeners=new Set();
+  subscribe(listener) { if (typeof listener!=='function') throw new TypeError('resource_listener_required'); this.#listeners.add(listener); return ()=>this.#listeners.delete(listener); }
+  #notify(name) { const record={name,...this.#states.get(name)}; for (const listener of this.#listeners) try { listener(record); } catch {} }
   checkpoint() { return this.#next; }
   #assertCanAcquire() {
     if(this.#closed) throw new Error('runtime_scope_stopped');
@@ -15,6 +17,7 @@ export class RuntimeResourceScope {
     this.#assertCanAcquire();
     if(this.#states.get(name)?.state==='operational') throw new Error('runtime_resource_already_started');
     this.#states.set(name,{state:'starting',reason:null});
+    this.#notify(name);
   }
   own(name,resource,close) {
     this.#assertCanAcquire();
@@ -22,9 +25,10 @@ export class RuntimeResourceScope {
     if(typeof close!=='function') throw new TypeError('runtime_resource_disposer_required');
     this.#resources.push({name,order:this.#next++,close:()=>close(resource)});
     this.#states.set(name,{state:'operational',reason:null});
+    this.#notify(name);
     return resource;
   }
-  failed(name) { this.#states.set(name,{state:'failed',reason:'initialization_failed'}); }
+  failed(name) { this.#states.set(name,{state:'failed',reason:'initialization_failed'}); this.#notify(name); }
   rollback(checkpoint=0) {
     // Serialize cleanup; retain ownership until a close actually succeeds.
     // Monotonic checkpoints remain valid when earlier closes failed.
@@ -37,9 +41,11 @@ export class RuntimeResourceScope {
           await close();
           this.#resources.splice(this.#resources.indexOf(entry),1);
           this.#states.set(name,{state:'stopped',reason:null});
+          this.#notify(name);
         } catch {
           failures.push(name);
           this.#states.set(name,{state:'failed',reason:'disposal_failed'});
+          this.#notify(name);
         }
       }
       return Object.freeze({failures:Object.freeze(failures)});

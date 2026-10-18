@@ -1,0 +1,29 @@
+name: OBS2 system health inventory and transitions
+on:
+  pull_request:
+    paths:
+      - 'lsa-essential-e1-candidate/src/observability/**'
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/m7RuntimeCuration.mjs'
+      - 'lsa-essential-e1-candidate/src/activities/activityEngine.mjs'
+      - 'lsa-essential-e1-candidate/tests/obs2-system-health.test.mjs'
+      - '.github/workflows/obs2-system-health.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate OBS2 sources
+        run: |
+          node --check lsa-essential-e1-candidate/src/observability/systemHealth.mjs
+          node --check lsa-essential-e1-candidate/src/bootstrap.mjs
+          node --check lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs
+      - name: System health, telemetry and ACT shadow regression
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/obs2-system-health.test.mjs lsa-essential-e1-candidate/tests/observability.test.mjs lsa-essential-e1-candidate/tests/activities-shadow.test.mjs
