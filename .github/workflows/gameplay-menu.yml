@@ -64,6 +64,7 @@ jobs:
         run: |
           node --test --test-concurrency=1 \
             lsa-essential-e1-candidate/tests/gameplay-menu-readiness.test.mjs \
+            lsa-essential-e1-candidate/tests/gameplay-menu-character-binding.test.mjs \
             lsa-essential-e1-candidate/tests/gameplay-menu-parity-source.test.mjs \
             lsa-essential-e1-candidate/tests/commands-contract.test.mjs \
             lsa-essential-e1-candidate/tests/p2-editor.test.mjs \
