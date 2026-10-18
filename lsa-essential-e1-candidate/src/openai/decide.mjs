@@ -1,5 +1,5 @@
-import { buildRequest, extractResponseText, parseDecisionJson } from '../context/essentialDecision.mjs';
-import { endpoint, requestJson } from './request.mjs';
+import { buildRequest, extractResponseText, parseDecisionJson, isRetryableDecisionFormatError } from '../context/essentialDecision.mjs';
+import { endpoint, requestJson, ProviderRequestError } from './request.mjs';
 import { streamDecision } from './streamDecision.mjs';
 import { sha256 } from '../characters/characterAuthority.mjs';
 
@@ -61,7 +61,18 @@ export async function decide({ config, context, input, history, signal, knowledg
       model: typeof response.model === 'string' ? response.model : config.reasoningModel,
     });
   } else telemetry?.event('model_usage', { outcome: 'unknown' });
-  return parseDecisionJson(extractResponseText(response), {act5Intents: activityContext?.intents ?? null});
+  try {
+    const text = extractResponseText(response);
+    const parsed = parseDecisionJson(text, {act5Intents: activityContext?.intents ?? null});
+    const original = JSON.parse(text);
+    if (typeof original.command === 'string' && parsed.command !== original.command.trim())
+      telemetry?.event('model_command_normalized',{code:'bare_drive_action'});
+    return parsed;
+  } catch(error) {
+    if (isRetryableDecisionFormatError(error))
+      throw new ProviderRequestError('Luna returned a malformed stock command.',{code:'decision_format_error'});
+    throw error;
+  }
 }
 
 export async function decideStreaming({ config, context, input, history, signal, knowledgeProjection, knowledgeDelivery,

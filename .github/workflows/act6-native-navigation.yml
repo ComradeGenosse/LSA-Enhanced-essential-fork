@@ -8,6 +8,10 @@ on:
       - 'native/promoted-characters/**'
       - 'lsa-essential-e1-candidate/src/activities/**'
       - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
+      - 'lsa-essential-e1-candidate/src/openai/{decide,segmentDecoder,streamDecision}.mjs'
+      - 'lsa-essential-e1-candidate/src/context/essentialDecision.mjs'
+      - 'lsa-essential-e1-candidate/src/reliability/{errorClassifier,providerExecutor,retryPolicy}.mjs'
+      - 'lsa-essential-e1-candidate/tests/{decisions-and-requests,streaming-decision,reliability}.test.mjs'
       - 'lsa-essential-e1-candidate/src/characters/editorServer.mjs'
       - 'lsa-essential-e1-candidate/tests/p2-editor.test.mjs'
       - 'lsa-essential-e1-candidate/src/observability/**'
@@ -24,6 +28,10 @@ on:
       - 'native/promoted-characters/**'
       - 'lsa-essential-e1-candidate/src/activities/**'
       - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
+      - 'lsa-essential-e1-candidate/src/openai/{decide,segmentDecoder,streamDecision}.mjs'
+      - 'lsa-essential-e1-candidate/src/context/essentialDecision.mjs'
+      - 'lsa-essential-e1-candidate/src/reliability/{errorClassifier,providerExecutor,retryPolicy}.mjs'
+      - 'lsa-essential-e1-candidate/tests/{decisions-and-requests,streaming-decision,reliability}.test.mjs'
       - 'lsa-essential-e1-candidate/src/characters/editorServer.mjs'
       - 'lsa-essential-e1-candidate/tests/p2-editor.test.mjs'
       - 'lsa-essential-e1-candidate/src/observability/**'
@@ -55,11 +63,19 @@ jobs:
           node --check lsa-essential-e1-candidate/src/observability/eventContract.mjs
           node --check lsa-essential-e1-candidate/src/activities/activityKnowledge.mjs
           node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
+          node --check lsa-essential-e1-candidate/src/openai/decide.mjs
+          node --check lsa-essential-e1-candidate/src/openai/streamDecision.mjs
+          node --check lsa-essential-e1-candidate/src/openai/segmentDecoder.mjs
+          node --check lsa-essential-e1-candidate/src/context/essentialDecision.mjs
+          node --check lsa-essential-e1-candidate/src/reliability/errorClassifier.mjs
       - name: ACT2–ACT6 focused regression
         run: |
           node --test --test-concurrency=1 \
             lsa-essential-e1-candidate/tests/vehicle-dll-handoff.test.mjs \
             lsa-essential-e1-candidate/tests/vehicle-driving-intent.test.mjs \
+            lsa-essential-e1-candidate/tests/decisions-and-requests.test.mjs \
+            lsa-essential-e1-candidate/tests/streaming-decision.test.mjs \
+            lsa-essential-e1-candidate/tests/reliability.test.mjs \
             lsa-essential-e1-candidate/tests/observability.test.mjs \
             lsa-essential-e1-candidate/tests/activities-act6.test.mjs \
             lsa-essential-e1-candidate/tests/p2-editor.test.mjs \

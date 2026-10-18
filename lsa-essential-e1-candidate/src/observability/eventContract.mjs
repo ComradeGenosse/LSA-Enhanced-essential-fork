@@ -5,7 +5,7 @@ export const EVENT_NAMES = new Set([
   'run_started','bridge_ready','bridge_disconnected','run_shutdown','turn_bound','turn_stage','mic_input_captured','stt_completed','memory_bypass','memory_fallback','audio_handoff_started','phase_started','phase_finished','phase_failed','pcm_first_forwarded','voice_profile_assigned','speech_provider_selected',
   'input_ready','capture_started','capture_stopped','mic_chunk','input_overflow','provider_request_started',
   'provider_headers','provider_first_byte','provider_request_finished','provider_request_failed','model_usage',
-  'model_first_content_delta','stream_segment_validated','stream_segments_reflowed','model_decision_validation_failure','stream_tts_segment_started','stream_tts_segment_finished',
+  'model_first_content_delta','model_command_normalized','stream_segment_validated','stream_segments_reflowed','model_decision_validation_failure','stream_tts_segment_started','stream_tts_segment_finished',
   'decision_validated','decision_rejected','pcm_first_ready','pcm_delivery_summary','elevenlabs_tts_timing_summary','elevenlabs_stream_stage','native_authorization_requested',
   'native_authorization_accepted','native_authorization_rejected','native_playback_started','native_stream_end_handoff',
   'native_playback_ended','provider_deadline_fired','playback_watchdog_armed','playback_watchdog_fired','native_playback_recovery','native_playback_retirement_requested','late_pcm_ignored',

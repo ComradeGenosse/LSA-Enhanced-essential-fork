@@ -1,4 +1,5 @@
 import {renderKnowledge} from './knowledgeRenderer.mjs';
+import {normalizeBareStockDriveCommand} from '../activities/vehicleDrivingIntent.mjs';
 import {ACT5_CHOICES,validateAct5Choice} from '../activities/act5Dialogue.mjs';
 import {captureReferenceMap} from './turnSnapshot.mjs';
 import {composeKnowledgeInstruction,separateKnowledgeInstruction,KNOWLEDGE_GROUNDING} from './knowledgeInstructions.mjs';
@@ -53,7 +54,7 @@ export function parseDecisionJson(raw, { act5Intents = null } = {}) {
     throw new TypeError('Luna ACT5 activity is malformed or unavailable.');
   if (typeof value.dialogue !== 'string' || typeof value.command !== 'string') throw new TypeError('Luna decision fields must be strings.');
   const dialogue = value.dialogue.trim();
-  const command = value.command.trim();
+  const command = normalizeBareStockDriveCommand(value.command.trim());
   if (!dialogue || dialogue.length > 1200) throw new TypeError('Luna dialogue must contain 1 to 1200 characters.');
   if (command.length > 300 || (command && (!/^DO\s+[A-Za-z]/i.test(command) || /[|\r\n]/.test(command)))) {
     throw new TypeError('Luna command must be empty or one complete DO command.');
@@ -64,6 +65,13 @@ export function parseDecisionJson(raw, { act5Intents = null } = {}) {
   if (act5 && command && value.activity !== null)
     throw new TypeError('Luna ACT5 activity and stock DO command are mutually exclusive.');
   return Object.freeze({ dialogue, command, ...(act5 ? { activity: value.activity } : {}) });
+}
+
+// Retry a model *format* mistake, not semantic actor/vehicle/action denial.
+// This is only invoked by provider parsing, before any action publication.
+export function isRetryableDecisionFormatError(error) {
+  return error instanceof TypeError &&
+    error.message === 'Luna command must be empty or one complete DO command.';
 }
 
 export function validateDecisionShape(decision) {

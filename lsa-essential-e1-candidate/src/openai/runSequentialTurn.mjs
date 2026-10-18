@@ -342,7 +342,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       ]);}
       finally{clearTimeout(timer);}
     };
-    const vehicleIntent = isPlayer ? drivingIntentKind(finalInput) : null;
+    // Bare "Faster"/"Slower" is a follow-up only when this turn's verified
+    // Essential actor state says the NPC is currently the vehicle driver.
+    // Previous dialogue, free-drive loops and inferred ACT6 state cannot grant it.
+    const drivingCapabilities = context?.actor?.actionCapabilities;
+    const verifiedDriver = drivingCapabilities?.isDriver === true &&
+      drivingCapabilities?.inVehicle === true;
+    const vehicleIntent = isPlayer ? drivingIntentKind(finalInput,{verifiedDriver}) : null;
     const seatRequest = isPlayer ? parseVehicleSeatPlayerRequest(finalInput) : null;
     if(seatRequest)metrics?.event('vehicle_seat_requested',{seat:seatRequest.slots.seat,stage:'classified'});
     // ACT4 state is source-qualified by the same P2 owner/host knowledge boundary.
