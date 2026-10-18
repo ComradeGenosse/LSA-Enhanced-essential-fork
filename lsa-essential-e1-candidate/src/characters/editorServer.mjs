@@ -212,7 +212,9 @@ export async function startCharacterEditor(service,{ port = service.config.promo
         case 'memory': result = await service.memory(body.characterId,body.operation,{memoryId:body.memoryId,patch:body.patch,expectedRevision:body.expectedRevision}); break;
         case 'control': result = await service.control(body.characterId,body.operation); break;
         case 'control_current': result = await service.controlCurrent(body.operation,expectedEncounter(body.expectedEncounterId)); break;
-        case 'activity': result = await service.activity(body.operation,{expectedEncounterId:expectedEncounter(body.expectedEncounterId),intent:body.intent,slots:body.slots}); break;
+        case 'character_activity_binding': result = await service.activityBinding(body.characterId); break;
+        case 'activity': result = await service.activity(body.operation,{expectedEncounterId:expectedEncounter(body.expectedEncounterId),
+          characterId:body.characterId,expectedOwnershipToken:body.expectedOwnershipToken,intent:body.intent,slots:body.slots}); break;
         case 'remove': result = await service.remove(body.characterId,body.confirmation,body.expectedRevision); break;
         // UX4 mic meter: scalar level and phase only, read from memory; it never
         // touches a profile, the store or a native request.

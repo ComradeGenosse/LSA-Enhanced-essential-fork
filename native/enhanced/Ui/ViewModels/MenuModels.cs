@@ -18,12 +18,12 @@ namespace LSA.Enhanced.Ui
     {
         public string Key, Text, Right, Description, Command, Value;
         // Frozen at render time for current-NPC actions: never silently retarget to a replacement actor.
-        public string ExpectedEncounterId, ExpectedOwnerAlias;
+        public string ExpectedEncounterId, ExpectedOwnerAlias, BindingCharacterId, ExpectedOwnershipToken;
         public bool Enabled = true, Info, Confirm, Toggle;   // Toggle: an on/off checkbox; Value is "on" or "off"
         public string[] Options, OptionLabels;              // a left/right choice; Value is one of Options
         public static MenuLine Fact(string key,string text,string right,string description = null) => new MenuLine {Key = key,Text = text,Right = right,Description = description,Info = true,Enabled = true};
         public static MenuLine Action(string key,string text,string command,string description,bool enabled = true,bool confirm = false) => new MenuLine {Key = key,Text = text,Command = command,Description = description,Enabled = enabled,Confirm = confirm};
-        public string Signature => Key + "|" + Text + "|" + Right + "|" + Enabled + "|" + Command + "|" + Value + "|" + Toggle + "|" + (Options == null ? "" : string.Join(",",Options)) + "|" + Description + "|" + ExpectedEncounterId + "|" + ExpectedOwnerAlias;
+        public string Signature => Key + "|" + Text + "|" + Right + "|" + Enabled + "|" + Command + "|" + Value + "|" + Toggle + "|" + (Options == null ? "" : string.Join(",",Options)) + "|" + Description + "|" + ExpectedEncounterId + "|" + ExpectedOwnerAlias + "|" + BindingCharacterId + "|" + ExpectedOwnershipToken;
         public static MenuLine Choice(string key,string text,string command,string value,string[] options,string[] labels,string description,bool enabled = true) =>
             new MenuLine {Key = key,Text = text,Command = command,Value = value,Options = options,OptionLabels = labels ?? options,Description = description,Enabled = enabled};
         public static MenuLine Switch(string key,string text,string command,bool on,string description,bool enabled = true) =>
@@ -171,6 +171,30 @@ namespace LSA.Enhanced.Ui
     }
     // Page content is pure; unavailable ACT6/Director features must never pretend to execute.
 
+    public sealed class CharacterActivityBinding
+    {
+        public string CharacterId,OwnerAlias,EncounterId,OwnershipToken;
+        public bool Safe;
+        static readonly Regex Uuid = new Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$");
+        public static CharacterActivityBinding Parse(string json)
+        {
+            try {
+                var row = new JavaScriptSerializer {MaxJsonLength = 8192,RecursionLimit = 5}.DeserializeObject(json ?? "") as Dictionary<string,object>;
+                if (row == null) return null;
+                string id = row.TryGetValue("characterId",out var character) ? character as string : null;
+                string encounter = row.TryGetValue("encounterId",out var e) ? e as string : null;
+                string token = row.TryGetValue("ownershipToken",out var t) ? t as string : null;
+                string alias = row.TryGetValue("ownerAlias",out var a) ? a as string : null;
+                if (id == null || encounter == null || token == null || !Uuid.IsMatch(id) || !Uuid.IsMatch(encounter) ||
+                    !Uuid.IsMatch(token) || alias != "promoted." + id) return null;
+                return new CharacterActivityBinding {CharacterId=id,OwnerAlias=alias,EncounterId=encounter,OwnershipToken=token,
+                    Safe=row.TryGetValue("safe",out var safe) && safe is bool yes && yes};
+            } catch { return null; }
+        }
+        public bool SameIncarnation(CharacterActivityBinding other) => other != null &&
+            CharacterId == other.CharacterId && EncounterId == other.EncounterId &&
+            OwnerAlias == other.OwnerAlias && OwnershipToken == other.OwnershipToken;
+    }
     // Read-only preflight is advisory and fails closed; the native actor-fiber
     // still performs the authoritative owner, seat, vehicle and place checks.
     public sealed class GameplayMenuReadiness
@@ -224,6 +248,7 @@ namespace LSA.Enhanced.Ui
             lines.Add(MenuLine.Fact("act3","ACT3 interactions","Native capability gated","Only explicit, owner-verified actions are sent."));
             lines.Add(Offer(model,readiness,"approach","Approach and face player","approach_and_face","Walk toward you and turn to face you."));
             lines.Add(Offer(model,readiness,"board","Enter passenger seat","board_vehicle","Use a passenger seat in the player's vehicle."));
+            lines.Add(Offer(model,readiness,"driverSeat","Enter driver's seat","board_vehicle:driver","Take the driver seat in a stationary player vehicle; requires native seat probes.","board_vehicle"));
             lines.Add(Offer(model,readiness,"ride","Ride along","ride_along","Ride as a passenger; driver seating is not implied."));
             lines.Add(Offer(model,readiness,"exit","Exit vehicle and wait","exit_vehicle_and_hold","Exit the vehicle then hold position."));
             lines.Add(Offer(model,readiness,"leave","Leave the scene","leave_scene","Walk away and return to ambient behavior."));
@@ -238,6 +263,37 @@ namespace LSA.Enhanced.Ui
         }
     }
 
+    // When F11 selects a named character, activities no longer require UX4 to
+    // set Essential's mutable current-NPC pointer. They carry a frozen token.
+    public static class CharacterNavigationView
+    {
+        public static List<MenuLine> Build(CharacterRow row,CharacterActivityBinding binding,GameplayMenuReadiness readiness,bool companionAvailable)
+        {
+            var model = new CurrentNpcModel {Title=row?.Name ?? "Character unavailable"};
+            bool valid = row != null && binding != null && binding.Safe && binding.CharacterId == row.CharacterId;
+            model.Present = valid; model.Owned = valid;
+            model.EncounterId = valid ? binding.EncounterId : null;
+            model.OwnerAlias = valid ? binding.OwnerAlias : null;
+            if (valid) {
+                model.Lines.Add(MenuLine.Fact("activity","Activity","Inspect status","Activity Status queries this exact character."));
+                model.Lines.Add(MenuLine.Action("assign","Assign Activity...","local.openActivities","ACT2 presets for this owned character.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityPause","Pause Activity",CommandCatalog.ActivityPause,"Pause this character's activity if present.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityResume","Resume Activity",CommandCatalog.ActivityResume,"Resume after a native safety check.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityCancel","Cancel Activity",CommandCatalog.ActivityCancel,"Stop the current activity.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityStatus","Activity Status",CommandCatalog.ActivityStatus,"Show step, result and native progress.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityHistory","Activity History",CommandCatalog.ActivityHistory,"Show recent activity results.",companionAvailable));
+            }
+            var lines=GameplayNavigationView.Build(model,readiness);
+            if (!valid) lines.Insert(1,MenuLine.Fact("binding","Native incarnation","Absent / unsafe / changed","No action can execute until this character's original native binding is verified and safe."));
+            foreach (var line in lines.Where(item => item.Command != null && (item.Command.StartsWith("activity.",StringComparison.Ordinal) || item.Command == "local.openActivities"))) {
+                line.BindingCharacterId = valid ? binding.CharacterId : null;
+                line.ExpectedOwnershipToken = valid ? binding.OwnershipToken : null;
+                line.ExpectedEncounterId = valid ? binding.EncounterId : null;
+                line.ExpectedOwnerAlias = valid ? binding.OwnerAlias : null;
+            }
+            return lines;
+        }
+    }
     public sealed class DirectorSocialStatus
     {
         public long ReceivedAt = -1;

@@ -19,8 +19,8 @@ namespace LSA.Enhanced.Ui
         readonly IClock clock;
         readonly Action<Action> worker;
         readonly ConcurrentQueue<Action> applied = new ConcurrentQueue<Action>();
-        bool listInFlight, describeInFlight, probeInFlight, readinessInFlight, directorInFlight;
-        string describeKey, pendingKey;
+        bool listInFlight, describeInFlight, probeInFlight, readinessInFlight, directorInFlight, bindingInFlight;
+        string describeKey, pendingKey, desiredBindingId;
         long describeAt;
         // worker runs JSON parsing off the game fiber (the thread pool by default).
         public MenuData(ICompanion companion,IClock clock,Action<Action> worker = null)
@@ -34,6 +34,7 @@ namespace LSA.Enhanced.Ui
         public Describe Describe {get;private set;}
         public GameplayMenuReadiness ActivityReadiness {get;private set;}
         public DirectorSocialStatus DirectorStatus {get;private set;}
+        public CharacterActivityBinding CharacterBinding {get;private set;}
         public string DescribeKey => describeKey;
         public int Version {get;private set;}
         public void RequestCharacters()
@@ -92,6 +93,28 @@ namespace LSA.Enhanced.Ui
                     directorInFlight = false;
                     DirectorStatus = result; // unknown means no admission claim
                     Version++;
+                });
+            });
+        }
+        public void RequestCharacterBinding(string id)
+        {
+            if (desiredBindingId != id) {
+                desiredBindingId = id; CharacterBinding = null; Version++;
+            }
+            if (bindingInFlight || id == null) return;
+            bindingInFlight = true;
+            string requested = id;
+            string body = new JavaScriptSerializer().Serialize(new Dictionary<string,object> {
+                {"action","character_activity_binding"},{"characterId",id}
+            });
+            companion.Post(body,DescribeBodyBytes,RequestTimeoutMs,reply => {
+                var parsed = reply != null && reply.Ok ? CharacterActivityBinding.Parse(reply.Body) : null;
+                applied.Enqueue(() => {
+                    bindingInFlight = false;
+                    if (desiredBindingId == requested) {
+                        CharacterBinding = parsed;
+                        Version++;
+                    } else RequestCharacterBinding(desiredBindingId);
                 });
             });
         }

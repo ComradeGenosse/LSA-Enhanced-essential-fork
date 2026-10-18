@@ -11,7 +11,7 @@ namespace LSA.Enhanced.Commands
 {
     public sealed class CommandArgs
     {
-        public string CharacterId, MemoryId, Text, Value, Phrase, ExpectedEncounterId, ExpectedOwnerAlias;
+        public string CharacterId, MemoryId, Text, Value, Phrase, ExpectedEncounterId, ExpectedOwnerAlias, ExpectedOwnershipToken;
         public long ExpectedRevision;
         public bool Flag;
         // Invoked on the loader fiber with (reason or null, response body or null).
@@ -175,16 +175,30 @@ namespace LSA.Enhanced.Commands
         }
         string Activity(CommandInfo info,CommandArgs args)
         {
-            var npc = CurrentNpc(out string reason);
-            if (!MatchesSelection(npc,args)) return Reject(info.Id,"target_changed",args,true);
-            if (npc == null) return Reject(info.Id,reason,args,true);
-            if (!npc.Owned) return Reject(info.Id,"actor_not_owned",args,true);
-            var body = new Dictionary<string,object> {{"action","activity"},{"operation",info.Id.Substring("activity.".Length)},{"expectedEncounterId",npc.EncounterId}};
+            var body = new Dictionary<string,object> {{"action","activity"},{"operation",info.Id.Substring("activity.".Length)}};
+            if (args?.CharacterId != null) {
+                // Selecting a roster character must NEVER fall back to the currently
+                // highlighted NPC. Require the exact native incarnation lease.
+                if (!Uuid.IsMatch(args.CharacterId) || args.ExpectedEncounterId == null ||
+                    !Uuid.IsMatch(args.ExpectedEncounterId) || args.ExpectedOwnershipToken == null ||
+                    !Uuid.IsMatch(args.ExpectedOwnershipToken))
+                    return Reject(info.Id,"native_stale",args,true);
+                body["characterId"] = args.CharacterId;
+                body["expectedEncounterId"] = args.ExpectedEncounterId;
+                body["expectedOwnershipToken"] = args.ExpectedOwnershipToken;
+            } else {
+                var npc = CurrentNpc(out string reason);
+                if (!MatchesSelection(npc,args)) return Reject(info.Id,"target_changed",args,true);
+                if (npc == null) return Reject(info.Id,reason,args,true);
+                if (!npc.Owned) return Reject(info.Id,"actor_not_owned",args,true);
+                body["expectedEncounterId"] = npc.EncounterId;
+            }
             if (info.Id == CommandCatalog.ActivityAssign) {
                 // Closed menu template table. Never take arbitrary model/user-provided
                 // coordinates, vehicle handles, targets or free-form activity slots.
                 string selection = args?.Value;
-                string intent = selection == "vehicle_trip:airport" ? "vehicle_trip" : selection;
+                string intent = selection == "vehicle_trip:airport" ? "vehicle_trip" :
+                    selection == "board_vehicle:driver" ? "board_vehicle" : selection;
                 var supported = new[] {"accompany","hold_position","sit_here","resume_previous",
                     "approach_and_face","board_vehicle","ride_along","exit_vehicle_and_hold",
                     "leave_scene","take_cover_and_hold","scenario_here","go_to_place","vehicle_trip"};
@@ -199,7 +213,7 @@ namespace LSA.Enhanced.Commands
                             : new Dictionary<string,object> {{"kind","waypoint"}};
                         break;
                     case "approach_and_face": slots["person"] = new Dictionary<string,object> {{"kind","player"}}; break;
-                    case "board_vehicle": slots["vehicle"] = new Dictionary<string,object> {{"kind","player_vehicle"}}; slots["seat"] = "passenger"; break;
+                    case "board_vehicle": slots["vehicle"] = new Dictionary<string,object> {{"kind","player_vehicle"}}; slots["seat"] = selection == "board_vehicle:driver" ? "driver" : "passenger"; break;
                     case "ride_along": slots["seat"] = "any_passenger"; break;
                     case "scenario_here": slots["scenario"] = "drink_coffee"; break;
                 }
