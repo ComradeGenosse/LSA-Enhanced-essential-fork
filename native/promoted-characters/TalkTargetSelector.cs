@@ -286,7 +286,10 @@ namespace LSA.PromotedCharacters
                 var character = Game.LocalPlayer.Character;
                 player = character != null && ped == character;
                 human = exists && !dead && !player && NpcTargeting.IsValidHumanPed(ped);
-                if (character != null && character.Exists()) distance = Distance(ped.Position,character.Position);
+                if (character != null && character.Exists()) {
+                    distance = Distance(ped.Position,character.Position);
+                    if (SameVehicle(character,ped)) distance = 0f; // Seats may report displaced native positions while driving.
+                }
             } catch { return "lost"; }
             string problem = policy.Problem(pedId,address,exists,dead,player,human,distance,options.RetentionRadiusMeters,now);
             if (problem != null) return problem;
