@@ -143,6 +143,19 @@ namespace LSA.Intelligence
             // never the entire unsampled gap. One millisecond stays partial.
             return from==relative && relative>0?relative-1:from;
         }
+        static void AppendSpeechSpan(SpeechListener listener,int from,int until) {
+            if(until<=from)return;
+            var tail=listener.Intervals.Count>0
+                ?listener.Intervals[listener.Intervals.Count-1]:null;
+            if(tail!=null && from<=tail.End) {
+                tail.End=Math.Max(tail.End,until);return;
+            }
+            // Retain at most four DISTINCT positive windows. Evicting an old
+            // segment cannot create full-word coverage; it only preserves
+            // recent partial speech-presence evidence for rotated listeners.
+            if(listener.Intervals.Count>=4)listener.Intervals.RemoveAt(0);
+            listener.Intervals.Add(new SpeechSpan{Start=from,End=until});
+        }
         void SweepSpeechWindow() {
             var w=speechWindow;
             if(w==null || w.WorldEpoch!=host.WorldEpoch) {speechWindow=null;return;}
@@ -221,12 +234,7 @@ namespace LSA.Intelligence
                     l.PositiveSourceVehicle=vehicleSource;l.PositiveObserverVehicle=vehicleObserver;
                     // Never bridge a rejected, absent or unprobed listener.
                     int from=SpeechSampleStart(relative,l.LastSample,l.Intervals.Count==0);
-                    if(relative>from) {
-                        var tail=l.Intervals.Count>0?l.Intervals[l.Intervals.Count-1]:null;
-                        if(tail!=null && from<=tail.End)tail.End=relative;
-                        else if(l.Intervals.Count<4)l.Intervals.Add(new SpeechSpan{Start=from,End=relative});
-                        else l.Overflow=true;
-                    }
+                    AppendSpeechSpan(l,from,relative);
                     l.LastSample=relative;
                 } catch {l.Path="unknown";l.Reason="sample_failed";l.LastSample=-1;}
             }

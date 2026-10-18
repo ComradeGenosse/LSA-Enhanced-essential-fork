@@ -35,6 +35,18 @@ class Program
         Check((int)start.Invoke(null,new object[]{300,230,false})==230 &&
               (int)start.Invoke(null,new object[]{80,-1,true})==0,
               "C01 adjacent and first-sweep coverage remain explicitly bounded");
+        var listenerType=typeof(IntelligenceIntegration).GetNestedType("SpeechListener",BindingFlags.NonPublic);
+        var append=typeof(IntelligenceIntegration).GetMethod("AppendSpeechSpan",flags);
+        Check(listenerType!=null && append!=null,"C01 native bounded-window helper is compiled");
+        var listener=Activator.CreateInstance(listenerType,true);
+        for(int i=0;i<8;i++)
+            append.Invoke(null,new object[]{listener,i*250+1,i*250+2});
+        var spans=(System.Collections.IList)listenerType.GetField("Intervals").GetValue(listener);
+        Check(spans.Count==4 && (int)spans[0].GetType().GetField("Start").GetValue(spans[0])==1001,
+              "C01 sixteen-observer rotation keeps latest bounded PARTIAL evidence without overflow");
+        append.Invoke(null,new object[]{listener,1752,1760});
+        Check(spans.Count==4 && (int)spans[3].GetType().GetField("End").GetValue(spans[3])==1760,
+              "C01 adjacent positive windows merge without inventing across rejected intervals");
     }
     static void Check(bool condition,string name) {if(!condition) throw new Exception(name);assertions++;}
     static object Get(object target,string name)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).GetValue(target);

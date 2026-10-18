@@ -180,3 +180,24 @@ speech leakage; STT correction, cancellation, world-epoch and NPC retirement;
 PS4 private knowledge for each witness, UX4 target continuity, and A19/A20.
 C01 capture stays native opt-in and experimental. No GTA runtime acceptance
 is implied by compilation or offline tests.
+
+## October 18 follow-up — native hearing and CI repair
+
+- C-01 rotates up to three line-of-sight probes among the same 16 permitted
+  observers, preventing stable nearest-first starvation without allocating
+  additional native read budget. Any skipped or retired observer loses their
+  continuity lease. Out-of-range (>18 m), invalid distance and other rejected
+  acoustic eligibility also invalidate positive continuity.
+- The first isolated positive sample contributes only one millisecond of
+  bounded speech-presence evidence; it **cannot** authorize a whole transcript.
+  Retain the most recent four separate positive intervals when the rotation
+  yields sparse observations. Dropped old intervals cannot turn partial speech
+  into full coverage; unknown gaps remain unknown.
+- Production native sampling helpers have deterministic integration assertions
+  for rotation, missing candidates, eligibility breaks, conservative first
+  samples, and retention of separate partial windows.
+- Native runtime test doubles implement the optional C-01 capture-mode entry
+  points so unrelated UX4/ACT/owner/gesture tests still compile.
+- The Memory K verification inventory includes the current main and C-01
+  test files; an actual failing test remains a failing test. These fixes do
+  not replace the in-game microphone/LOS/vehicle acceptance requirements.
