@@ -478,7 +478,7 @@ namespace LSA.Enhanced.Ui
             return DiagnosticsView.Build(new DiagnosticsInput {
                 HostStatus = context.HostStatus(),RouterState = router?.State,Conflict = router?.Conflict,SettingsRevision = context.Settings()?.Revision,
                 EndpointState = context.EndpointState(),CatalogSha = context.Catalog.Sha256,BridgeAvailable = context.Bridge.Available,CompanionReachable = data.CompanionReachable,
-                SnapshotAgeMs = snapshot == null ? -1 : Math.Max(0,utc - snapshot.BuiltAtUtc),Outstanding = context.Dispatcher.Outstanding,RecentReasons = context.Dispatcher.RecentReasons,
+                SnapshotAgeMs = snapshot == null ? -1 : Math.Max(0,utc - snapshot.BuiltAtUtc),Outstanding = context.Dispatcher.Outstanding,RecentReasons = context.Dispatcher.RecentReasons,RecentOutcomes = context.Dispatcher.RecentOutcomes,
                 TalkState = context.TalkStatus(),TalkConflict = context.TalkConflict(),IndicatorState = snapshot?.TalkTarget?.Indicator});
         }
         // Public companion settings only; the credential file is checked for
