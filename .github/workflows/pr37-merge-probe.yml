@@ -169,10 +169,10 @@ jobs:
           exact='  acceptPlayerTranscript(input) {return this.runtime.acceptPlayerTranscript(input);}'
           if client.count(exact)!=1: raise RuntimeError('intelligence client C01 API anchor changed')
           client=client.replace(exact,exact+chr(10)+insert,1)
-          diag="      c01:{...(this.runtime.utterances?.diagnostics??{}),"+chr(10)+
+          diag=("      c01:{...(this.runtime.utterances?.diagnostics??{}),"+chr(10)+
                "        ...this.runtime.speechDiagnostics,"+chr(10)+
                "        enabled:this.runtime.utteranceLifecycleVersion===1,"+chr(10)+
-               "        proximityEnabled:this.runtime.capabilities.playerSpeech===true},"+chr(10)
+               "        proximityEnabled:this.runtime.capabilities.playerSpeech===true},"+chr(10))
           marker='      ps3:{...this.runtime.ps3Diagnostics,'
           if client.count(marker)!=1: raise RuntimeError('intelligence diagnostics anchor changed')
           client=client.replace(marker,diag+marker,1)
