@@ -81,9 +81,9 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
    // Only a fully validated, frozen model request may report a contribution.
    try{onRequest(projection);}catch{}
   },
-  success(decision){
+  success(decision,decisionValidation){
    if(terminal)return null;
-   validateDecisionShape(decision);
+   validateDecisionShape(decision,decisionValidation);
    const reason=currentReason();if(reason)fail(reason,'success');
    if(!sent)return null;
    return report('delivered');
