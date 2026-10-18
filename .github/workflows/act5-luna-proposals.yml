@@ -30,6 +30,7 @@ jobs:
           node --check lsa-essential-e1-candidate/src/activities/activityValidator.mjs
           node --check lsa-essential-e1-candidate/src/activities/intentTemplates.mjs
           node --check lsa-essential-e1-candidate/src/context/essentialDecision.mjs
+          node --check lsa-essential-e1-candidate/src/context/knowledgeDelivery.mjs
           node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
           node --check lsa-essential-e1-candidate/src/openai/segmentDecoder.mjs
           node --check lsa-essential-e1-candidate/src/openai/streamDecision.mjs
@@ -42,6 +43,8 @@ jobs:
             lsa-essential-e1-candidate/tests/activity-act4.test.mjs \
             lsa-essential-e1-candidate/tests/activities-contract.test.mjs \
             lsa-essential-e1-candidate/tests/decisions-and-requests.test.mjs \
+            lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs \
+            lsa-essential-e1-candidate/tests/knowledge-act5-delivery.test.mjs \
             lsa-essential-e1-candidate/tests/streaming-decision.test.mjs \
             lsa-essential-e1-candidate/tests/activity-knowledge.test.mjs \
             lsa-essential-e1-candidate/tests/tts-and-history.test.mjs
