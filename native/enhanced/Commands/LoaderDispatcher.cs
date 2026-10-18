@@ -137,6 +137,8 @@ namespace LSA.Enhanced.Commands
         }
         string Companion(CommandInfo info,CommandArgs args)
         {
+            if (info.Id == CommandCatalog.DirectorSocialManual)
+                return StartCompanion(info,"{\"action\":\"director_social_manual\"}",CompanionTimeoutMs,2048,info.Hud,args);
             if (info.Id != null && info.Id.StartsWith("activity.",StringComparison.Ordinal)) return Activity(info,args);
             if (info.Id == CommandCatalog.CurrentPromote) {
                 var npc = CurrentNpc(out string reason);
@@ -233,6 +235,14 @@ namespace LSA.Enhanced.Commands
                 } else if (now > job.Deadline) Complete(job,"companion_unavailable",null);
             }
         }
+        // HTTP success is insufficient: Director must explicitly acknowledge queuing.
+        static bool DirectorQueued(string body)
+        {
+            try {
+                var data = new JavaScriptSerializer {MaxJsonLength = 2048,RecursionLimit = 4}.DeserializeObject(body ?? "") as Dictionary<string,object>;
+                return data != null && data.TryGetValue("queued",out var queued) && queued is bool yes && yes;
+            } catch { return false; }
+        }
         static string BridgeReason(string text)
         {
             try {
@@ -243,6 +253,8 @@ namespace LSA.Enhanced.Commands
         }
         void Complete(Job job,string reason,string body)
         {
+            if (reason == null && job.CommandId == CommandCatalog.DirectorSocialManual && !DirectorQueued(body))
+                reason = "native_unavailable";
             jobs.Remove(job); Record(job.CommandId,reason);
             // Successful transport/admission is not proof of physical action or spoken delivery.
             Outcome(job.CommandId,reason == null ? (job.Class == "read" || job.Class == "profile" ? "completed" : "accepted") : reason.Contains("cancel") ? "cancelled" : "failed",reason);
