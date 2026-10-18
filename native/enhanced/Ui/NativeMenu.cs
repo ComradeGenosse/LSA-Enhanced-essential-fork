@@ -41,7 +41,7 @@ namespace LSA.Enhanced.Ui
         string selectedCharacterId, currentTitle, activityTargetEncounterId, activityTargetOwnerAlias;
         Page armedPage; UIMenuItem armedItem; MenuLine armedLine; string armedTarget; long armedUntil;
         List<MenuLine> aiLines;
-        long nextRender, nextInterest, nextRoster, aiReadAt = -1;
+        long nextRender, nextInterest, nextRoster, nextReadiness, aiReadAt = -1;
         int dataVersion = -1;
         bool rendering, yielded;
         string aiConfig; bool aiCredential;
@@ -146,6 +146,7 @@ namespace LSA.Enhanced.Ui
                 if (data.Version != dataVersion) { dataVersion = data.Version; nextRender = 0; }
                 if (now >= nextRender) { Render(page); nextRender = now + RenderIntervalMs; }
                 if ((menu == roster || menu == character) && now >= nextRoster) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
+                if (menu == navigation && now >= nextReadiness) { data.RequestActivityReadiness(); nextReadiness = now + AiReadIntervalMs; }
             }
             pool.ProcessMenus();
         }
@@ -183,6 +184,7 @@ namespace LSA.Enhanced.Ui
             if (!pages.TryGetValue(menu,out var page)) return;
             Invalidate(page);
             if (menu == roster || menu == character || ((menu == current || menu == navigation) && data.Characters == null)) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
+            if (menu == navigation) { data.RequestActivityReadiness(); nextReadiness = now + AiReadIntervalMs; }
             if (menu == ai) aiReadAt = -1;
         }
         void Selected(UIMenu sender,UIMenuItem item,int index)
@@ -235,6 +237,9 @@ namespace LSA.Enhanced.Ui
         {
             switch (line.Command ?? line.Key) {
                 case LocalOpenCharacter: OpenCharacter(line.Value,page.Menu); break;
+                case "local.openNavigation":
+                    navigation.ParentMenu = page.Menu; Invalidate(pages[navigation]);
+                    page.Menu.Visible = false; navigation.Visible = true; break;
                 case "local.openActivities":
                     activityTargetEncounterId = line.ExpectedEncounterId;
                     activityTargetOwnerAlias = line.ExpectedOwnerAlias;
@@ -452,7 +457,7 @@ namespace LSA.Enhanced.Ui
             if (page.Menu == navigation) {
                 var model = LiveNpcModel(utc,settings);
                 subtitle = "Activities & Navigation";
-                return GameplayNavigationView.Build(model);
+                return GameplayNavigationView.Build(model,data.ActivityReadiness);
             }
             if (page.Menu == director) {
                 subtitle = "Director & Social";
