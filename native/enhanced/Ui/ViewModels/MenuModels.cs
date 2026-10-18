@@ -248,6 +248,7 @@ namespace LSA.Enhanced.Ui
             lines.Add(MenuLine.Fact("act3","ACT3 interactions","Native capability gated","Only explicit, owner-verified actions are sent."));
             lines.Add(Offer(model,readiness,"approach","Approach and face player","approach_and_face","Walk toward you and turn to face you."));
             lines.Add(Offer(model,readiness,"board","Enter passenger seat","board_vehicle","Use a passenger seat in the player's vehicle."));
+            lines.Add(Offer(model,readiness,"driverSeat","Enter driver's seat","board_vehicle:driver","Take the driver seat in a stationary player vehicle; requires native seat probes.","board_vehicle"));
             lines.Add(Offer(model,readiness,"ride","Ride along","ride_along","Ride as a passenger; driver seating is not implied."));
             lines.Add(Offer(model,readiness,"exit","Exit vehicle and wait","exit_vehicle_and_hold","Exit the vehicle then hold position."));
             lines.Add(Offer(model,readiness,"leave","Leave the scene","leave_scene","Walk away and return to ambient behavior."));
@@ -262,6 +263,37 @@ namespace LSA.Enhanced.Ui
         }
     }
 
+    // When F11 selects a named character, activities no longer require UX4 to
+    // set Essential's mutable current-NPC pointer. They carry a frozen token.
+    public static class CharacterNavigationView
+    {
+        public static List<MenuLine> Build(CharacterRow row,CharacterActivityBinding binding,GameplayMenuReadiness readiness,bool companionAvailable)
+        {
+            var model = new CurrentNpcModel {Title=row?.Name ?? "Character unavailable"};
+            bool valid = row != null && binding != null && binding.Safe && binding.CharacterId == row.CharacterId;
+            model.Present = valid; model.Owned = valid;
+            model.EncounterId = valid ? binding.EncounterId : null;
+            model.OwnerAlias = valid ? binding.OwnerAlias : null;
+            if (valid) {
+                model.Lines.Add(MenuLine.Fact("activity","Activity","Inspect status","Activity Status queries this exact character."));
+                model.Lines.Add(MenuLine.Action("assign","Assign Activity...","local.openActivities","ACT2 presets for this owned character.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityPause","Pause Activity",CommandCatalog.ActivityPause,"Pause this character's activity if present.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityResume","Resume Activity",CommandCatalog.ActivityResume,"Resume after a native safety check.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityCancel","Cancel Activity",CommandCatalog.ActivityCancel,"Stop the current activity.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityStatus","Activity Status",CommandCatalog.ActivityStatus,"Show step, result and native progress.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityHistory","Activity History",CommandCatalog.ActivityHistory,"Show recent activity results.",companionAvailable));
+            }
+            var lines=GameplayNavigationView.Build(model,readiness);
+            if (!valid) lines.Insert(1,MenuLine.Fact("binding","Native incarnation","Absent / unsafe / changed","No action can execute until this character's original native binding is verified and safe."));
+            foreach (var line in lines.Where(item => item.Command != null && (item.Command.StartsWith("activity.",StringComparison.Ordinal) || item.Command == "local.openActivities"))) {
+                line.BindingCharacterId = valid ? binding.CharacterId : null;
+                line.ExpectedOwnershipToken = valid ? binding.OwnershipToken : null;
+                line.ExpectedEncounterId = valid ? binding.EncounterId : null;
+                line.ExpectedOwnerAlias = valid ? binding.OwnerAlias : null;
+            }
+            return lines;
+        }
+    }
     public sealed class DirectorSocialStatus
     {
         public long ReceivedAt = -1;
