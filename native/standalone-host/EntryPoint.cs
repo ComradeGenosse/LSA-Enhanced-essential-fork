@@ -166,8 +166,10 @@ namespace LSA.Standalone.RageHost
             }
             catch (Exception error)
             {
-                // Stable code only. Do not log private configuration or exception messages.
-                Game.LogTrivial("[LSA-S2] host_failed kind=" + error.GetType().Name);
+                // G2: report the missing CLR symbol, never raw exception messages
+                // (which may contain local paths, credentials or configuration).
+                Game.LogTrivial("[LSA-S2] host_failed " +
+                    BindingFailureDiagnostics.Summary(error));
             }
             finally
             {
