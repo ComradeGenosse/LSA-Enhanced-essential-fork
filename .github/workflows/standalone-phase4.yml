@@ -118,7 +118,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # RPH expects a public static void(bool) ExitPoint on the exact built host.
           # Verify CLR metadata without executing RPH or starting GTA.
-          dotnet run --project native/standalone-host/tests/ExitPointSignature.Tests.csproj -c Release -- 'native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll'
+          dotnet run --project native/standalone-host/tests/exitpoint/ExitPointSignature.Tests.csproj -c Release -- 'native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll'
           if ($LASTEXITCODE -ne 0) { throw 'G3 RPH ExitPoint signature mismatch in Release host' }
       - name: Native typed replies and exact PCM escrow over real net481 IPC
         shell: pwsh
@@ -166,7 +166,7 @@ jobs:
           Copy-Item 'native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll' "$root/payload/"
           Copy-Item 'native/standalone/bin/Release/net481/LSA.Standalone.Core.dll' "$root/payload/"
           # Independently verify the packaged host also has RPH's required ExitPoint.
-          dotnet run --project native/standalone-host/tests/ExitPointSignature.Tests.csproj -c Release -- "$root/payload/LSA.Standalone.RageHost.dll"
+          dotnet run --project native/standalone-host/tests/exitpoint/ExitPointSignature.Tests.csproj -c Release -- "$root/payload/LSA.Standalone.RageHost.dll"
           if ($LASTEXITCODE -ne 0) { throw 'G3 packaged RPH ExitPoint signature mismatch' }
           # Repeat on the exact COPIED host that the ZIP will distribute.
           # Build reports alone cannot certify a stale or swapped package DLL.
