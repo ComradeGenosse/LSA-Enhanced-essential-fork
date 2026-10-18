@@ -31,7 +31,7 @@ namespace LSA.Enhanced.Ui
         readonly UiContext context;
         readonly MenuPool pool = new MenuPool();
         readonly List<UIMenu> menus = new List<UIMenu>();
-        readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities;
+        readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage;
         readonly Dictionary<UIMenu,Page> pages = new Dictionary<UIMenu,Page>();
         readonly MenuData data;
         readonly OnscreenKeyboard keyboard = new OnscreenKeyboard();
@@ -55,20 +55,26 @@ namespace LSA.Enhanced.Ui
             current = Menu("Current NPC");
             roster = Menu("Characters");
             character = Menu("Character");
-            controls = Menu("Controls");
+            controls = Menu("Gameplay Controls");
             ai = Menu("AI and voice");
             diagnostics = Menu("Diagnostics");
             activities = Menu("Assign Activity");
+            navigation = Menu("Activities & Navigation");
+            director = Menu("Director & Social");
+            settingsPage = Menu("Settings / Browser Editor");
             Bind(current,"Current NPC","Status and actions for the NPC Essential has selected.");
-            Bind(roster,"Characters","Promoted characters: summon, follow, wait and edit.");
-            Bind(controls,"Controls","Gestures, router keys and Essential's own keys.");
-            Bind(ai,"AI and voice","The AI companion's settings (read-only here).");
+            Bind(roster,"My Characters","Select a promoted character, summon, dismiss or manage gameplay.");
+            Bind(navigation,"Activities & Navigation","ACT activity status, control and navigation readiness.");
+            Bind(director,"Director & Social","Manual social scenes, availability and admission feedback.");
+            Bind(controls,"Gameplay Controls","Gestures, router keys and Essential's own keys.");
             Bind(diagnostics,"Diagnostics","Native host, command bridge, AI companion and recent failures.");
-            editorItem = new UIMenuItem("Character editor","Open this address in a browser for long text and full editing.");
-            main.AddItem(editorItem);
+            Bind(settingsPage,"Settings / Browser Editor","Full character and memory editing, AI providers and configuration.");
+            Bind(ai,"AI and voice","Read-only companion configuration.",settingsPage);
+            editorItem = new UIMenuItem("Browser editor","Open this address in a browser for character editing and configuration.");
+            settingsPage.AddItem(editorItem);
             character.ParentMenu = roster;
             activities.ParentMenu = current;
-            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities)})
+            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director)})
                 pages[pair.Item2] = new Page {Name = pair.Item1,Menu = pair.Item2};
         }
         UIMenu Menu(string subtitle)
@@ -84,10 +90,11 @@ namespace LSA.Enhanced.Ui
             pool.Add(menu); menus.Add(menu);
             return menu;
         }
-        void Bind(UIMenu child,string text,string description)
+        void Bind(UIMenu child,string text,string description,UIMenu parent = null)
         {
+            var host = parent ?? main;
             var item = new UIMenuItem(text,description);
-            main.AddItem(item); main.BindMenuToItem(child,item);
+            host.AddItem(item); host.BindMenuToItem(child,item);
         }
 
         // ---- IMenuSurface
@@ -171,7 +178,8 @@ namespace LSA.Enhanced.Ui
             long now = context.Clock.Monotonic;
             context.Bridge.RequestSnapshots(InterestMs); nextInterest = now + InterestIntervalMs;
             if (!data.CompanionReachable) data.Probe();
-            if (menu == main) { editorItem.RightLabel = Plain(EditorAddress()); current.ParentMenu = main; return; }
+            if (menu == main) { current.ParentMenu = main; return; }
+            if (menu == settingsPage) { editorItem.RightLabel = Plain(EditorAddress()); return; }
             if (!pages.TryGetValue(menu,out var page)) return;
             Invalidate(page);
             if (menu == roster || menu == character) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
@@ -412,6 +420,15 @@ namespace LSA.Enhanced.Ui
             if (!string.IsNullOrEmpty(line.Right)) item.RightLabel = Plain(line.Right);
             return item;
         }
+        CurrentNpcModel LiveNpcModel(long utc,EnhancedSettings settings)
+        {
+            var snapshot = Snapshot(utc);
+            var npc = snapshot != null && snapshot.Fresh(utc,InputGates.SnapshotMaxAgeMs) ? snapshot.Current : null;
+            string alias = npc != null && npc.Owned ? npc.OwnerAlias : null;
+            if (npc != null && npc.Present) data.RequestDescribe(npc.EncounterId,alias);
+            var describe = npc != null && npc.Present ? data.DescribeFor(npc.EncounterId,alias) : null;
+            return CurrentNpcView.Build(snapshot,utc,describe,context.Bridge.Available,data.CompanionReachable,settings);
+        }
         List<MenuLine> Build(Page page,out string subtitle)
         {
             var settings = context.Settings();
@@ -423,20 +440,25 @@ namespace LSA.Enhanced.Ui
                 return lines;
             }
             if (page.Menu == current) {
-                var snapshot = Snapshot(utc);
-                var npc = snapshot != null && snapshot.Fresh(utc,InputGates.SnapshotMaxAgeMs) ? snapshot.Current : null;
-                string alias = npc != null && npc.Owned ? npc.OwnerAlias : null;
-                if (npc != null && npc.Present) data.RequestDescribe(npc.EncounterId,alias);
-                var describe = npc != null && npc.Present ? data.DescribeFor(npc.EncounterId,alias) : null;
-                var model = CurrentNpcView.Build(snapshot,utc,describe,context.Bridge.Available,data.CompanionReachable,settings);
+                var model = LiveNpcModel(utc,settings);
+                var describe = model.Owned ? data.DescribeFor(model.EncounterId,model.OwnerAlias) : null;
                 currentTitle = model.Present ? model.Title : null;
                 if (model.Owned && describe != null && describe.Kind == "promoted" && describe.CharacterId != null)
                     model.Lines.Add(new MenuLine {Key = "details",Text = "Character details",Command = LocalOpenCharacter,Value = describe.CharacterId,Description = "Rename, relationship, availability and memories."});
                 subtitle = model.Title;
                 return model.Lines;
             }
+            if (page.Menu == navigation) {
+                var model = LiveNpcModel(utc,settings);
+                subtitle = "Activities & Navigation";
+                return GameplayNavigationView.Build(model);
+            }
+            if (page.Menu == director) {
+                subtitle = "Director & Social";
+                return DirectorSocialView.Build();
+            }
             if (page.Menu == roster) {
-                subtitle = "Characters";
+                subtitle = "My Characters";
                 var lines = new List<MenuLine>();
                 if (data.CharactersError != null) lines.Add(MenuLine.Fact("error",data.Characters == null ? "Characters unavailable" : "Last refresh failed",context.Catalog.Describe(data.CharactersError),"The AI companion must be running with promoted characters enabled."));
                 if (data.Characters == null) { if (data.CharactersError == null) lines.Add(MenuLine.Fact("loading","Loading characters…","")); }
