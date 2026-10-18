@@ -132,6 +132,12 @@ namespace LSA.PromotedCharacters {
             // Spatialization is Essential's (NpcSpatialAudio). This observer never
             // pans, attenuates or changes volume, so it can never apply it twice.
         }
+        static string SafeTraceId(string value) {
+            if(string.IsNullOrEmpty(value)||value.Length>100)return "invalid";
+            foreach(char c in value)if(!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||
+                (c>='0'&&c<='9')||c=='-'||c=='_'||c=='.'))return "invalid";
+            return value;
+        }
         bool ShouldAuditPlayback(long nowMs) => state.Active && activeSinceMs>=0 &&
             nowMs>=activeSinceMs && nowMs-activeSinceMs>=PlaybackAuditAfterMs &&
             playbackAuditSamples<PlaybackAuditMaxSamples &&
@@ -161,7 +167,8 @@ namespace LSA.PromotedCharacters {
                 // This is a *pending turn*, not proof of a stall: a long
                 // response can legitimately exceed eight seconds. Correlate
                 // with the companion's exact-turn EOS/PCM log before diagnosis.
-                Game.LogTrivial("[VP] playback_pending_audit generation="+key.Generation+
+                Game.LogTrivial("[VP] playback_pending_audit ped_id="+SafeTraceId(key.PedId)+
+                    " turn_id="+SafeTraceId(key.TurnId)+" generation="+key.Generation+
                     " age_ms="+(nowMs-activeSinceMs)+" speaking="+(speaking?1:0)+
                     " read="+(have?1:0)+" turn_buffered="+(have?(buffered?1:0):-1)+
                     " audible="+(have?(audible?1:0):-1)+
