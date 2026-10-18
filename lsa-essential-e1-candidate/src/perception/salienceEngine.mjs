@@ -12,19 +12,28 @@ export const REASON_CODES = Object.freeze([
   'involvement_self', 'involvement_player',
   'relationship_close', 'relationship_conflict',
   'prior_memory', 'novelty_escalation', 'novelty_material',
-  'situation_occupied', 'situation_conversation', 'trait_policy', 'routine_low_relevance',
+  'situation_occupied', 'situation_conversation', 'trait_policy', 'environment_requested', 'routine_low_relevance', 'ambient_direct_witness',
 ]);
 export const TRAIT_POLICIES = Object.freeze(['protective', 'cautious', 'loyal', 'bold']);
 export const SALIENCE_POLICY_VERSION = 1;
+// suppressionTtlMs bounds FAMILY (cross-observation) repetition suppression.
+// A per-observation ledger entry is only needed while that exact random
+// observation ID can still be re-evaluated (it is live in the PS2 store) or
+// acknowledged by an in-flight PS4/PS6 consumer; see ledgerGraceMs.
 export const SALIENCE_BOUNDS = Object.freeze({
-  decisions: 256, perObserver: 32, suppression: 1024, suppressionTtlMs: 10 * 60 * 1000, reasons: 4,
+  decisions: 256, perObserver: 32, suppression: 1024, suppressionTtlMs: 10 * 60 * 1000, ledgerGraceMs: 60 * 1000, reasons: 4,
 });
 const REASON_SET = new Set(REASON_CODES);
 const RELATIONSHIPS = new Set(['associate', 'friend', 'trusted', 'strained', 'neutral']);
 const ACTIVITIES = new Set(['unknown', 'idle', 'driving', 'passenger', 'in_vehicle', 'conversation', 'following', 'waiting']);
 const CLOSE = new Set(['friend', 'trusted']);
 const OCCUPIED = new Set(['driving', 'passenger', 'in_vehicle']);
-const ROUTINE_EVENTS = new Set(['character_present', 'location_changed', 'activity_changed', 'speech_heard', 'action_observed', 'vehicle_transition']);
+const ROUTINE_EVENTS = new Set(['character_present', 'location_changed', 'activity_changed', 'speech_heard', 'radio_heard', 'action_observed', 'vehicle_transition']);
+// Opt-in, low-stakes opportunities: only witnessed native scene changes; no
+// transcripts, radio chatter, reports, synthetic timers or NPC commands.
+export const PS6_AMBIENT_EVENTS = Object.freeze(['character_present','location_changed','activity_changed','vehicle_transition']);
+const AMBIENT_EVENTS = new Set(PS6_AMBIENT_EVENTS);
+const AMBIENT_KINDS = new Set(['presence','location']);
 const HARM_EVENTS = new Set(['injury', 'death_seen', 'body_found', 'vehicle_impact', 'threat']);
 const SEVERITY = Object.freeze({ routine: 0, notable: 1, danger: 2, critical: 3 });
 const RESPONSE_RANK = Object.freeze({ none: 0, eligible: 1, urgent: 2 });
@@ -191,7 +200,7 @@ export function situationFromCharacterView(view = {}) {
   });
 }
 
-function classify(observation, situation) {
+function classify(observation, situation, ambientSpeech=false) {
   const reasons = [];
   if (!situation.lifetimeCurrent) reasons.push('evidence_lifetime_ended');
   if (!situation.channelHealthy) reasons.push('evidence_channel_unhealthy');
@@ -202,6 +211,11 @@ function classify(observation, situation) {
   const supported = observation.claims.filter(claim => claim.certainty === 'supported' && claim.evidence.channel !== 'report');
   if (!supported.length) return { context: 'candidate', memory: 'none', response: 'none', reasons: ['evidence_uncertain'], closed: true };
 
+  // Radio is a low-priority factual candidate only. PS4's frozen, direct-question
+  // selector determines visibility; no automatic memory or speech entitlement.
+  if(observation.eventType==='radio_heard' && supported.some(claim=>claim.kind==='sound'&&claim.evidence.channel==='auditory'&&claim.details?.soundType==='radio')) {
+    return {context:'candidate',memory:'none',response:'none',reasons:['routine_low_relevance'],closed:false};
+  }
   const selfRef = observation.observer.captureRef;
   const playerRef = situation.playerCaptureRef;
   const kindOf = kind => supported.some(claim => claim.kind === kind);
@@ -220,6 +234,13 @@ function classify(observation, situation) {
   const firing = observation.eventType === 'firing_burst' || kindOf('firing');
   const routineEvent = ROUTINE_EVENTS.has(observation.eventType) && !selfHarm && !playerHarm && !death && !injury && !firing;
   const remembered = situation.memories.some(memory => memory.relatedCharacterIds.some(id => hits.some(hit => hit.characterId === id)));
+  // Native PS2 must have carried a supported, direct observer claim. A
+  // companion-transcribed report or an old PS3 contextual candidate cannot
+  // create its own unsolicited conversation opportunity.
+  const ambientWitness = ambientSpeech && AMBIENT_EVENTS.has(observation.eventType) &&
+    observation.severity==='routine' && Boolean(playerRef) &&
+    situation.activity!=='conversation' && supported.some(claim=>
+      AMBIENT_KINDS.has(claim.kind) && ['self','visual'].includes(claim.evidence.channel));
   let context = 'omit', memory = 'none', response = 'none';
 
   if (selfHarm) {
@@ -256,6 +277,11 @@ function classify(observation, situation) {
     reasons.push('safety_nearby_threat');
     if (close.length) reasons.push('relationship_close');
     else if (conflict.length) reasons.push('relationship_conflict');
+  } else if (ambientWitness) {
+    // ACT/P2/Essential native admission and the Director's separate long
+    // ambient cadence still decide whether Nathan may actually speak.
+    context = 'candidate'; response = 'eligible';
+    reasons.push('ambient_direct_witness');
   } else if (playerInvolved) {
     context = 'candidate';
     reasons.push('involvement_player');
@@ -279,7 +305,7 @@ function classify(observation, situation) {
     context = 'must_include';
     if (response === 'none') response = 'eligible';
     reasons.push('safety_nearby_threat');
-  } else if (OCCUPIED.has(situation.activity) && routineEvent) {
+  } else if (OCCUPIED.has(situation.activity) && routineEvent && !ambientWitness) {
     context = remembered ? 'candidate' : 'omit';
     response = 'none'; memory = 'none';
     reasons.push('situation_occupied');
@@ -352,7 +378,7 @@ export function evaluateSalience(observation, situationInput = {}, cache = null)
   const situation = situationInput?.nowMonotonicMs !== undefined && Object.isFrozen(situationInput) && situationInput.traitPolicies
     ? situationInput
     : normalizeSalienceSituation(situationInput);
-  const draft = applyLedger(classify(observation, situation), observation, situation, cache);
+  const draft = applyLedger(classify(observation, situation,cache?.ambientSpeech===true), observation, situation, cache);
   const decision = blank(observation, situation.nowMonotonicMs, draft);
   if (cache && !draft.closed) cache.remember(observation, situation, decision, draft);
   else if (cache && draft.closed) cache.rememberClosed(observation, situation, decision);
@@ -389,8 +415,8 @@ export function orderSalienceDecisions(entries) {
 }
 
 export class SalienceCache {
-  constructor({ now = () => 0 } = {}) {
-    this.now = now;
+  constructor({ now = () => 0,ambientSpeech=false } = {}) {
+    this.now = now;this.ambientSpeech=ambientSpeech===true;
     this.decisions = new Map();
     this.order = [];
     this.ledger = new Map();
@@ -419,6 +445,12 @@ export class SalienceCache {
       const latest=this.latestById.get(pair.observation.observationId);if(latest?.pair===pair) this.latestById.set(pair.observation.observationId,Object.freeze({decision:latest.decision,profileRevision:latest.profileRevision,policy:latest.policy}));
       bytes-=pairs.get(pair);
     }
+  }
+  forgetObservation(observationId) {
+    if(!isUuid(observationId))return false;
+    const found=this.decisions.has(observationId)||this.ledger.has(observationId)||this.latestById.has(observationId);
+    this.decisions.delete(observationId);this.ledger.delete(observationId);this.latestById.delete(observationId);
+    return found;
   }
   snapshotForObserver(observerRef,observations,now=this.now(),diagnostics=null) {
     this.expire(now);const result=[],counts={observations:0,observationExpired:0,noMatchingSalience:0,revisionMismatch:0};
@@ -461,6 +493,34 @@ export class SalienceCache {
     // Consumption remains scoped to PS4 context; the current PS6 key/grant
     // never becomes usable through the frozen key.
     return this.acknowledge(entry.decisionKey, 'ps4_context', outcome);
+  }
+  // PS6 consumption is downstream of a verified native playback completion.
+  // The ledger may have rotated its PS3 key during TTS: use immutable original
+  // observation/owner/run identity, never this method for a new speech grant.
+  acknowledgeDirectorCompletion(proposal,adapterEpoch) {
+    if(!proposal || typeof proposal.decisionKey!=='string' ||
+       typeof proposal.observationId!=='string' ||
+       !Number.isSafeInteger(proposal.observationRevision) ||
+       proposal.observationRevision<=0 ||
+       proposal.policyVersion!==SALIENCE_POLICY_VERSION ||
+       !proposal.decisionKey.startsWith(
+         `${proposal.observationId}:${proposal.observationRevision}:${proposal.policyVersion}:`) ||
+       typeof proposal.speakerCaptureRef!=='string' ||
+       typeof adapterEpoch!=='string' || !adapterEpoch)return false;
+    const entry=this.ledger.get(proposal.observationId),now=this.now();
+    if(!entry || entry.expires<=now || entry.consumed ||
+       entry.consumedBy?.has('ps6_ticket') ||
+       entry.revision!==proposal.observationRevision ||
+       entry.policyVersion!==proposal.policyVersion ||
+       entry.observerRef!==proposal.speakerCaptureRef ||
+       entry.adapterEpoch!==adapterEpoch || !entry.familyKey ||
+       entry.pair && (
+         entry.pair.observation?.observationId!==proposal.observationId ||
+         entry.pair.observation?.revision!==proposal.observationRevision ||
+         entry.pair.observation?.observer?.captureRef!==proposal.speakerCaptureRef ||
+         entry.pair.observation?.observedAt?.nativeRun!==adapterEpoch
+       ))return false;
+    return this.acknowledge(entry.decisionKey,'ps6_ticket','delivered');
   }
   acknowledge(decisionKeyValue, consumer, outcome) {
     if (typeof decisionKeyValue !== 'string' || !['ps4_context', 'ps6_ticket', 'ps5_memory'].includes(consumer) || !['delivered', 'rejected', 'expired'].includes(outcome)) return false;
@@ -530,6 +590,16 @@ export class SalienceCache {
     const pairBytes=Buffer.byteLength(JSON.stringify(pair));
     const now = situation.nowMonotonicMs;
     const expires = now + SALIENCE_BOUNDS.suppressionTtlMs;
+    // Observation IDs are random per observer+episode and never reissued once
+    // the PS2 observation expires, so its replay entry cannot outlive it plus
+    // a bounded grace for in-flight PS4/PS6 acknowledgements. October GTA
+    // sessions produced roughly 2-3 observations/s: a ten-minute observation
+    // ledger would reach its fail-closed 1024-entry capacity (every new
+    // decision forced to response:none / suppression_capacity) in ordinary
+    // long play. Family suppression below keeps the full ten-minute window,
+    // and capacity pressure still fails closed rather than evicting.
+    const ledgerExpires = Math.min(expires,
+      Math.max(now, observation.expiresAtMonotonicMs) + SALIENCE_BOUNDS.ledgerGraceMs);
     const grant = decision.response === 'eligible' || decision.response === 'urgent';
     const existing = draft.existing;
     if (this.ledger.has(observation.observationId) || this.ledger.size < SALIENCE_BOUNDS.suppression) {
@@ -546,13 +616,21 @@ export class SalienceCache {
         decisionKey: decision.decisionKey,
         grantEpoch: draft.grantEpoch || existing?.grantEpoch || 0,
         familyKey: familyKey(observation),
+        observerRef:observation.observer.captureRef,
+        adapterEpoch:observation.observedAt.nativeRun,
+        policyVersion:decision.policyVersion,
         memoryStaged: Boolean(existing?.memoryStaged) || decision.memory === 'stage',
-        expires,
+        expires: ledgerExpires,
       });
     }
     const key = familyKey(observation);
     const family = this.families.get(key);
-    const trackFamily = grant || decision.memory === 'stage' || Boolean(existing?.consumed) || Boolean(existing?.memoryStaged) || Boolean(family?.consumed) || Boolean(family?.memoryStaged);
+    // Ambient presence/scene grants are short-lived and already separately
+    // paced by Director. Do not turn every passerby into a ten-minute family
+    // entry; otherwise busy play can exhaust 1024 family slots and block
+    // unrelated danger responses via suppression_capacity.
+    const ambientGrant=decision.reasons.includes('ambient_direct_witness');
+    const trackFamily = (grant && !ambientGrant) || decision.memory === 'stage' || Boolean(existing?.consumed && !ambientGrant) || Boolean(existing?.memoryStaged) || Boolean(family?.consumed) || Boolean(family?.memoryStaged);
     if (trackFamily && (family || this.families.size < SALIENCE_BOUNDS.suppression)) {
       this.families.set(key, {
         severity: Math.max(draft.severity, family?.severity || 0),

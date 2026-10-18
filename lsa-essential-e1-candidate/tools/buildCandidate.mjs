@@ -1,4 +1,5 @@
 import {verifyDialogueKnowledgePayload} from './verifyDialogueKnowledgePayload.mjs';
+import { stageSharedMemory } from './stageSharedMemory.mjs';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
@@ -78,6 +79,12 @@ export function patchSource(source) {
      `  directorBeginOriginalTurn(ticketId) { const evidence=this.directorTurnPrioritySnapshot(); return evidence ? __LSA_E1_RUNTIME.beginDirectorOriginalTurn(ticketId,evidence) : false; },\n` +
      `  directorOriginalPhase(ticketId) { return __LSA_E1_RUNTIME.directorOriginalPhase(ticketId); },\n` +
     `  isCurrent(identity) { const turn = le.getTurn(identity.turnId); const session = A.sessionsByPedId.get(identity.pedId); return !!turn && !Vt(turn.status) && turn.metadata?.provider === "openai" && turn.metadata?.sessionNonce === identity.sessionNonce && turn.pedId === identity.pedId && turn.generationId === identity.generationId && le.isCurrentGeneration(turn) && iP(identity.pedId) === identity.sessionNonce && session?.provider === "openai" && session.nonce === identity.sessionNonce; },\n` +
+    // D01/D03 source facts read from the ORIGINAL turn registry: only for the
+    // current OpenAI turn of the session that this exact connection object is
+    // registered for. Callers supply an identity, never facts. pedId was fixed
+    // by Xi from the Core submission; input.transcript is the original record
+    // (Xi typed input, or the single AP/SK-merged STT transcript).
+    `  originalTurnFacts(identity, connection) { if (!identity || !this.isCurrent(identity)) return null; const session = A.sessionsByPedId.get(identity.pedId); if (!connection || session?.connection !== connection) return null; const turn = le.getTurn(identity.turnId); const message = turn.source === Ht.PLAYER_TEXT && turn.metadata?.originalMessage && typeof turn.metadata.originalMessage === "object" ? turn.metadata.originalMessage : null; return Object.freeze({ pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce, source: String(turn.source || ""), inputTranscript: String(turn.input?.transcript ?? ""), typed: message ? Object.freeze({ messageType: String(message.type ?? ""), rawText: typeof message.text === "string" ? message.text : null }) : null }); },\n` +
     `  reportTargetRejection(turn, error) { const reason = ["target_changed","target_missing","target_invalid"].includes(error?.code) ? error.code : ""; if (!reason || !turn || turn.metadata?.targetRejectionReported) return false; turn.metadata.targetRejectionReported = true; try { __LSA_E1_RUNTIME.telemetry?.emit(reason, { pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce }, turn.source, { reason, outcome: "rejected" }); } catch {} return true; },\n` +
     `  reportReferenceMapChange(turn, snapshot, actor) { if (!turn || turn.metadata?.referenceMapChangeReported) return false; const currentMap = __LSA_E1_RUNTIME.captureReferenceMap(actor); const stableMap = value => JSON.stringify(Object.fromEntries(Object.entries(value || {}).sort(([left],[right]) => left.localeCompare(right)))); if (stableMap(snapshot?.persons) === stableMap(currentMap.persons) && stableMap(snapshot?.vehicles) === stableMap(currentMap.vehicles)) return false; turn.metadata.referenceMapChangeReported = true; try { __LSA_E1_RUNTIME.telemetry?.emit("reference_map_revision_changed", { pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce }, turn.source, { reason: "reference_map_revision_changed", outcome: "changed" }); } catch {} return true; },\n` +
     `  validateDecision(decision, context, identity) { if (!this.isCurrent(identity)) return { identityValid: false }; const turn = le.getTurn(identity.turnId); const session = A.sessionsByPedId.get(identity.pedId); const actor = Sb(identity.pedId) || session?.actorContext || context.actor || {}; const allowedActionNames = new Set(ra(actor).map(item => h4(String(item.tag || "").split(/[\\s<]/, 1)[0])).filter(Boolean)); const person = reference => { const refs = actor?.nearbyPersonReferences; const value = refs instanceof Map ? refs.get(reference) : refs?.[reference] ?? refs?.[String(reference).toUpperCase()]; return value && typeof value === "object" ? value.pedId || value.id || null : value || null; }; const vehicle = reference => { const refs = actor?.nearbyVehicleReferences; const value = refs instanceof Map ? refs.get(reference) : refs?.[reference] ?? refs?.[String(reference).toUpperCase()]; return value && typeof value === "object" ? value.vehicleId || value.id || null : value || null; }; const snapshot = turn?.metadata?.contextSnapshot || Object.freeze({ identity: Object.freeze({ ...identity }), actor: context.actor, listener: context.listener, listenerState: context.listenerState, world: context.world, referenceMap: context.referenceMap, capturedAt: context.capturedAt, revision: context.revision }); this.reportReferenceMapChange(turn, snapshot.referenceMap, actor); let result; try { result = __LSA_E1_RUNTIME.validateStockDecision(decision, { identity, actor, referenceSnapshot: snapshot.referenceMap, allowedActionNames, parseActions: Cb, resolvePerson: person, resolveVehicle: vehicle }); } catch (error) { this.reportTargetRejection(turn, error); throw error; } if (turn) { turn.metadata.contextSnapshot = snapshot; turn.metadata.targetReferenceBindings = result.referenceBindings; } return result; },\n` +
@@ -86,6 +93,9 @@ export function patchSource(source) {
     `  authorize(identity) { if (!this.isCurrent(identity)) return false; this.assertCapabilities(); const turn = le.getTurn(identity.turnId); RP(turn); return true; },\n` +
     `  assertCapabilities() { const endpoint = A.audioEndpoint; if (!endpoint?.connected || !endpoint.ready || endpoint.protocolVersion !== 3 || !endpoint.supportsTurnIdentity || !endpoint.supportsStreamEnded || !endpoint.supportsExactInterrupt || !endpoint.supportsPlaybackStarted || !endpoint.supportsStaleGenerationRejection) throw new Error("E1 requires the Hotfix 3 tagged playback contract."); },\n` +
     `  onNativeEvent(listener) { return xn(event => { const turn = event?.turn; if (turn?.metadata?.provider !== "openai") return; if (iP(turn.pedId) !== turn.metadata.sessionNonce) return; const msg = event.message || {}; listener({ type: event.type, pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce, reason: String(msg.reason || event.reason || ""), wasInterrupted: msg.wasInterrupted === true, hadAudio: msg.hadAudio === true, playbackStarted: msg.playbackStarted === true }); }); },\n` +
+    // Read-only snapshot at watchdog expiry. Native v3 exposes no verified
+    // pending-buffer or drained-duration getter: never guess native audibility.
+    `  inspectNativePlayback(identity) { const turn = le.getTurn(identity?.turnId); const endpoint = A.audioEndpoint; const owned = this.isCurrent(identity); return Object.freeze({ turnCurrent: owned, endpointReady: endpoint?.connected === true && endpoint?.ready === true, playbackStarted: owned && turn?.audio?.playbackStarted === true, bufferState: "unavailable" }); },\n` +
     `  failMatchingTurn(identity, error) { const turn = le.getTurn(identity.turnId); if (!turn || Vt(turn.status) || turn.pedId !== identity.pedId || turn.metadata?.provider !== "openai" || turn.metadata?.sessionNonce !== identity.sessionNonce || turn.generationId !== identity.generationId) return false; const attempted = Number(turn.output?.audioChunkCount || 0) > 0 || turn.audio?.playbackStarted === true; Zt(turn.id, attempted ? ke.PLAYBACK_ERROR : ke.GEMINI_ERROR, error); return true; },\n` +
     `  log(identity, event, details = {}) { se("E1", event, { pedId: identity.pedId, turnId: identity.turnId, generationId: identity.generationId, sessionNonce: identity.sessionNonce, provider: "openai", source: details.source, terminalReason: details.reason, stage: details.stage, cause: details.cause }); },\n` +
     `});\n`, 'Essential provider/action/playback bridge');
@@ -334,13 +344,20 @@ export function patchSource(source) {
 
 function sourceSlice(source, node) { return source.slice(node.start, node.end); }
 
-async function copyDirectory(source, destination) {
+// Offline audit tooling that lives under src/ for the test suite but imports build-time
+// vendored code (tools/vendor/acorn). It is never imported by the runtime, so it must not ship.
+const NON_RUNTIME_MODULES = new Set(['memory/originalBackendSourceAudit.mjs']);
+
+async function copyDirectory(source, destination, base = source) {
   await mkdir(destination, { recursive: true });
   for (const item of await readdir(source, { withFileTypes: true })) {
     const from = path.join(source, item.name);
     const to = path.join(destination, item.name);
-    if (item.isDirectory()) await copyDirectory(from, to);
-    else if (item.isFile()) await copyFile(from, to);
+    if (item.isDirectory()) await copyDirectory(from, to, base);
+    else if (item.isFile()) {
+      if (NON_RUNTIME_MODULES.has(path.relative(base, from).split(path.sep).join('/'))) continue;
+      await copyFile(from, to);
+    }
   }
 }
 
@@ -374,7 +391,26 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   const identityContract = await verifyIdentityContract(dllHash);
   const characterContract = await verifyCharactersContract(dllHash);
   const perceptionContract = await verifyPerceptionContract(dllHash);
-  const knowledgePayload=await verifyDialogueKnowledgePayload(nativePayloadPath,perceptionContract);
+  // The native build script writes a source- and DLL-hash-attested payload to
+  // dist/promoted-characters. An ordinary candidate rebuild must not silently
+  // disable PS4 merely because LSA_PS4_NATIVE_PAYLOAD was not passed again.
+  // Explicit paths remain authoritative and invalid/stale artifacts fail closed.
+  let resolvedNativePayloadPath=nativePayloadPath;
+  if(resolvedNativePayloadPath===undefined) {
+    const nativeBuild=path.join(root,'dist/promoted-characters');
+    try {
+      await readFile(path.join(nativeBuild,'build-manifest.json'));
+      resolvedNativePayloadPath=nativeBuild;
+    } catch(error) {
+      if(error?.code!=='ENOENT')throw error;
+    }
+  }
+  const knowledgePayload=await verifyDialogueKnowledgePayload(resolvedNativePayloadPath,perceptionContract);
+  if(!knowledgePayload.contract.available) {
+    console.warn('[PS4] Build has no verified native knowledge payload; perceived '+
+      'context will be unavailable. Run npm run build:ps4 or provide '+
+      'LSA_PS4_NATIVE_PAYLOAD from the matching native build.');
+  }
   const patched = patchSource(source);
   if (patched.edits.length !== expectedPatchCount) throw new Error(`AST patch inventory changed: expected ${expectedPatchCount}, found ${patched.edits.length}. Re-audit the source seam list before building.`);
   const entry = path.join(target, launcherName);
@@ -384,8 +420,21 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   await mkdir(target, { recursive: true });
   await writeFile(entry, patched.output, 'utf8');
   await copyDirectory(src, stagedE1);
+  // Include optional user-recorded offline assets when present. Missing audio
+  // must remain an observable capability gap, never silently synthesized.
+  const fallbackSource=path.join(root,'VoiceFallback');
+  try{await readdir(fallbackSource);await copyDirectory(fallbackSource,path.join(target,'VoiceFallback'));}
+  catch(error){if(error?.code!=='ENOENT')throw error;}
+  // Copy the canonical host-neutral memory modules into the distributable E1 tree.
+  // Runtime imports must not rely on the source repository layout.
+  await stageSharedMemory({ projectRoot:root, stagedE1 });
   await copyFile(path.join(root, 'e1.config.example.json'), path.join(target, 'e1.config.example.json'));
+  // Runtime bootstrap resolves this from ../data relative to e1/bootstrap.mjs.
+  await mkdir(path.join(target,'data'),{recursive:true});
+  await copyFile(path.join(root,'data','radioTrackTextIds.v2.json'),path.join(target,'data','radioTrackTextIds.v2.json'));
   const e1SourceTreeSha256 = await directoryDigest(stagedE1);
+  // Digest of the staged shared-brain copy alone (also covered by e1SourceTreeSha256).
+  const sharedBrainSourceTreeSha256 = await directoryDigest(path.join(stagedE1, '_shared'));
   const releasePayloadSha256 = await directoryDigest(target);
   const manifest = {
     nativeContract,
@@ -398,12 +447,12 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
     features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1,
       sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' },
       promotedCharacters: { defaultEnabled:false,profileStoreSchemaVersion:1,manualMemoryOnly:true,requiresAuthoredP1Owner:true,nativeAddressing:'unchanged',summonWaitMs:30000,maxSummonWaitMs:60000 },
-      intelligence: {defaultMode:'off',modes:['off','shadow'],phases:['PS0','PS1','PS2','PS3'],witness:'source_sample_visual',playerSpeech:'disabled_unsupported_capture_receipt',salience:'deterministic_local',responderSelection:false,modelContext:knowledgePayload.contract.available,automaticMemory:false,initiative:false},
+      intelligence: {defaultMode:'off',modes:['off','shadow'],radioDefault:'off',radioModes:['off','shadow'],radioIdentity:'trackTextId_v2',radioSoundHashRole:'secondary_container_evidence',radioCatalog:'research_candidate_gta_validation_pending',radioKnowledge:'PS2 same-vehicle shadow',radioContext:'PS4 frozen direct-question only',phases:['PS0','PS1','PS2','PS3'],witness:'source_sample_visual',playerSpeech:'disabled_unsupported_capture_receipt',salience:'deterministic_local',responderSelection:false,modelContext:knowledgePayload.contract.available,automaticMemory:false,initiative:false},
       dialogueKnowledge:{safeBase:true,frameVersion:1,optionalPerceptionDelivery:knowledgePayload.contract.available,sourcePresence:true,frameBytes:112*1024,requestBytes:160*1024},
       dialogueLogging: { defaultEnabled:false,provider:'openai',storage:'rotating-jsonl' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),
-    e1SourceTreeSha256, releasePayloadSha256,
+    e1SourceTreeSha256, sharedBrainSourceTreeSha256, releasePayloadSha256,
     astPatchCount: patched.edits.length, astPatches: patched.edits,
     externalRuntimePackaging: 'not included; no GTA-folder deployment performed',
     realApiCalls: false, gtaRuntimeTest: false,

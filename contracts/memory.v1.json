@@ -1,0 +1,709 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LSA promoted-character memory interface v1",
+  "description": "Design-time logical contract, not an active GTA native wire. Provenance and cross-record checks are additionally required.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/journalEvent"
+    },
+    {
+      "$ref": "#/$defs/dialogueLine"
+    },
+    {
+      "$ref": "#/$defs/recallQuery"
+    },
+    {
+      "$ref": "#/$defs/recallBundle"
+    },
+    {
+      "$ref": "#/$defs/memoryAction"
+    },
+    {
+      "$ref": "#/$defs/curationProposal"
+    }
+  ],
+  "$defs": {
+    "ownerProof": {
+      "type": "object",
+      "properties": {
+        "ownerAlias": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "incarnationId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "encounterId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "hostRunId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "worldEpoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observerCaptureRef": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "ownerAlias",
+        "incarnationId",
+        "encounterId",
+        "hostRunId",
+        "worldEpoch",
+        "observerCaptureRef"
+      ],
+      "additionalProperties": false
+    },
+    "evidenceClaim": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "modality": {
+          "enum": [
+            "self",
+            "visual",
+            "auditory",
+            "report"
+          ]
+        },
+        "certainty": {
+          "enum": [
+            "direct",
+            "reported",
+            "inferred",
+            "unknown"
+          ]
+        },
+        "durableSubject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "sourceEvidenceId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "kind",
+        "modality",
+        "certainty",
+        "durableSubject",
+        "sourceEvidenceId"
+      ],
+      "additionalProperties": false
+    },
+    "transcription": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "confidence": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          ]
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "confidence"
+      ],
+      "additionalProperties": false
+    },
+    "recallItem": {
+      "type": "object",
+      "properties": {
+        "sourceKind": {
+          "enum": [
+            "journal_event",
+            "dialogue_line",
+            "permanent_memory",
+            "canon"
+          ]
+        },
+        "recordId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "mode": {
+          "enum": [
+            "exact_quote",
+            "observed_fact",
+            "reported_claim",
+            "opinion"
+          ]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3072
+        },
+        "freshness": {
+          "enum": [
+            "live",
+            "recent",
+            "archive",
+            "permanent"
+          ]
+        },
+        "speaker": {
+          "enum": [
+            "player",
+            "npc"
+          ]
+        }
+      },
+      "required": [
+        "sourceKind",
+        "recordId",
+        "mode",
+        "content",
+        "freshness"
+      ],
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "matched",
+            "not_recorded",
+            "unavailable"
+          ]
+        },
+        "returnedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "matchedCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "status",
+        "returnedCount",
+        "matchedCount"
+      ],
+      "additionalProperties": false
+    },
+    "journalEvent": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "characterId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "worldProfileId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "timelineId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "kind": {
+          "const": "journal_event"
+        },
+        "recordId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "observationId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "eventType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "receivedAtUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sourceHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "ownerProof": {
+          "$ref": "#/$defs/ownerProof"
+        },
+        "receiptStatus": {
+          "enum": [
+            "witnessed",
+            "reported"
+          ]
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceClaim"
+          },
+          "maxItems": 32,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "version",
+        "characterId",
+        "worldProfileId",
+        "timelineId",
+        "kind",
+        "recordId",
+        "observationId",
+        "revision",
+        "eventType",
+        "receivedAtUtc",
+        "sourceHash",
+        "ownerProof",
+        "receiptStatus",
+        "claims"
+      ],
+      "additionalProperties": false
+    },
+    "dialogueLine": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "characterId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "worldProfileId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "timelineId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "kind": {
+          "const": "dialogue_line"
+        },
+        "recordId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "speaker": {
+          "enum": [
+            "player",
+            "npc"
+          ]
+        },
+        "source": {
+          "enum": [
+            "typed",
+            "stt",
+            "npc_generated"
+          ]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "delivery": {
+          "enum": [
+            "accepted",
+            "completed",
+            "interrupted",
+            "failed"
+          ]
+        },
+        "committedAtUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "turnIdentityHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "utteranceId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transcription": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/transcription"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deliveryReceiptId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "characterId",
+        "worldProfileId",
+        "timelineId",
+        "kind",
+        "recordId",
+        "speaker",
+        "source",
+        "content",
+        "delivery",
+        "committedAtUtc",
+        "turnIdentityHash",
+        "utteranceId",
+        "transcription",
+        "deliveryReceiptId"
+      ],
+      "additionalProperties": false
+    },
+    "recallQuery": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "characterId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "worldProfileId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "timelineId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "kind": {
+          "const": "recall_query"
+        },
+        "queryId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "turnIdentityHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "intent": {
+          "enum": [
+            "recent_fact",
+            "exact_quote",
+            "open_recall",
+            "spontaneous"
+          ]
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "maxBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 14336
+        }
+      },
+      "required": [
+        "version",
+        "characterId",
+        "worldProfileId",
+        "timelineId",
+        "kind",
+        "queryId",
+        "turnIdentityHash",
+        "intent",
+        "question",
+        "maxBytes"
+      ],
+      "additionalProperties": false
+    },
+    "recallBundle": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "characterId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "worldProfileId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "timelineId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "kind": {
+          "const": "recall_bundle"
+        },
+        "queryId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "status": {
+          "enum": [
+            "matched",
+            "not_recorded",
+            "unavailable"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recallItem"
+          },
+          "maxItems": 32,
+          "minItems": 0
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage"
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 14336
+        }
+      },
+      "required": [
+        "version",
+        "characterId",
+        "worldProfileId",
+        "timelineId",
+        "kind",
+        "queryId",
+        "status",
+        "items",
+        "coverage",
+        "totalBytes"
+      ],
+      "additionalProperties": false
+    },
+    "memoryAction": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "characterId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "worldProfileId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "timelineId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "kind": {
+          "const": "memory_action"
+        },
+        "commandId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "requestedByLineId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "operation": {
+          "enum": [
+            "remember",
+            "forget",
+            "correct"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "saved",
+            "forgotten",
+            "corrected",
+            "clarify",
+            "failed",
+            "pending"
+          ]
+        },
+        "durableCommit": {
+          "type": "boolean"
+        },
+        "evidenceRecordIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "maxItems": 64,
+          "minItems": 0
+        },
+        "memoryId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "characterId",
+        "worldProfileId",
+        "timelineId",
+        "kind",
+        "commandId",
+        "requestedByLineId",
+        "operation",
+        "outcome",
+        "durableCommit",
+        "evidenceRecordIds",
+        "memoryId"
+      ],
+      "additionalProperties": false
+    },
+    "curationProposal": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "characterId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "worldProfileId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "timelineId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "kind": {
+          "const": "curation_proposal"
+        },
+        "proposalId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "provider": {
+          "enum": [
+            "luna",
+            "deterministic"
+          ]
+        },
+        "evidenceRecordIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "maxItems": 64,
+          "minItems": 1
+        },
+        "candidate": {
+          "enum": [
+            "episode",
+            "semantic",
+            "relationship",
+            "joke"
+          ]
+        },
+        "notability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "groundedSummary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2400
+        },
+        "inCharacterTake": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "batchId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "version",
+        "characterId",
+        "worldProfileId",
+        "timelineId",
+        "kind",
+        "proposalId",
+        "provider",
+        "evidenceRecordIds",
+        "candidate",
+        "notability",
+        "groundedSummary",
+        "inCharacterTake",
+        "batchId"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

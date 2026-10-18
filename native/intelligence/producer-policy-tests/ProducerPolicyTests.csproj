@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework><OutputType>Exe</OutputType><LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../NativeProducerPolicy.cs" Link="NativeProducerPolicy.cs"/>
+    <Compile Include="../SensorAdapters.cs" Link="SensorAdapters.cs"/>
+    <Compile Include="../WitnessPolicy.cs" Link="WitnessPolicy.cs"/>
+  </ItemGroup>
+</Project>

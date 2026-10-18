@@ -1,0 +1,32 @@
+name: OBS3 offline ZIP health reporting
+on:
+  pull_request:
+    paths:
+      - 'tools/lsa-local/Analyze-Logs.py'
+      - 'tools/lsa-local/Collect-Logs.ps1'
+      - 'tools/lsa-local/tests/test_obs3_analyzer.py'
+      - 'tools/lsa-local/tests/obs3-collector-fixture.ps1'
+      - '.github/workflows/obs3-offline-zip.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  analyzer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile analyzer
+        run: python -m py_compile tools/lsa-local/Analyze-Logs.py
+      - name: Exercise six-state matrix and ZIP fault fixtures
+        run: python -m unittest discover -s tools/lsa-local/tests -p 'test_obs3_*.py' -v
+  collector:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PowerShell collector and ZIP evidence
+        shell: powershell
+        run: |
+          .\tools\lsa-local\tests\obs3-collector-fixture.ps1

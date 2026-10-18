@@ -48,10 +48,25 @@ function view(patch = {}) {
     channelHealthy: patch.channelHealthy,
     perceptionSupported: patch.perceptionSupported,
     distanceBand: patch.distanceBand,
+    requestedEnvironmentChannels: patch.requestedEnvironmentChannels,
   });
 }
 function injuryOf(target, channel = 'visual') {
   return claim({ kind: 'injured', channel, basis: channel === 'self' ? 'native_callback' : 'sampled_state', target, targetKind: target ? 'ped' : undefined });
+}
+
+function radioClaim({ vehicle = randomUUID(), title = 'Track A', artist = 'Artist A', station = 'RADIO_TEST_A' } = {}) {
+  return {
+    claimId: randomUUID(),
+    kind: 'sound',
+    certainty: 'supported',
+    evidence: { channel: 'auditory', basis: 'audibility_model', sampledGameTick: 1 },
+    target: { captureRef: vehicle, kind: 'vehicle' },
+    details: {
+      eventSignalId: randomUUID(), reason: 'same_vehicle_radio', soundType: 'radio',
+      station, trackKnown: true, stationName: 'Test Radio', artist, title, contentKind: 'music',
+    },
+  };
 }
 
 test('missing activity evidence stays unknown in normalization and shadow salience', () => {
@@ -64,6 +79,70 @@ test('missing activity evidence stays unknown in normalization and shadow salien
   runtime.salience.evaluate = (_observation, situation) => { salienceSituation = situation; return null; };
   runtime.noteSalience(seen);
   assert.equal(salienceSituation.activity, 'unknown');
+});
+
+test('opt-in PS6 ambient grants require verified source, keep radio/report quiet and preserve danger', () => {
+  const observer=randomUUID(),player=randomUUID(),other=randomUUID();
+  const make=(eventType,kind='presence',channel='visual',certainty='supported')=>
+    observation({observer,eventType,severity:'routine',claims:[claim({kind,channel,
+      certainty,basis:channel==='report'?'dialogue_report':channel==='auditory'?'audibility_model':'sampled_state',
+      reportRef:channel==='report'?randomUUID():undefined,target:other})]});
+  const enabled=new SalienceCache({now:()=>NOW,ambientSpeech:true});
+  const inactive=new SalienceCache({now:()=>NOW});
+  for(const event of ['character_present','activity_changed','vehicle_transition']) {
+    const seen=make(event);
+    const situation=view({playerCaptureRef:player});
+    assert.equal(inactive.evaluate(seen,situation).response,'none','opt-out '+event);
+    const result=enabled.evaluate(seen,situation);
+    assert.equal(result.response,'eligible','opt-in '+event);
+    assert.equal(result.memory,'none','ambient must not stage a memory');
+    assert(result.reasons.includes('ambient_direct_witness'));
+    assert.equal(enabled.ledger.get(seen.observationId).granted,'eligible');
+  }
+  const location=make('location_changed','location');
+  assert.equal(enabled.evaluate(location,view({playerCaptureRef:player,activity:'driving'})).response,'eligible');
+  for(const bad of [
+    make('character_present','presence','report'),
+    make('character_present','presence','auditory'),
+    make('character_present','presence','visual','uncertain'),
+    make('action_observed','action','visual'),
+    make('speech_heard','sound','auditory'),
+  ])assert.equal(enabled.evaluate(bad,view({playerCaptureRef:player})).response,'none',bad.eventType);
+  assert.equal(enabled.evaluate(make('character_present'),view({playerCaptureRef:player,activity:'conversation'})).response,'none');
+  assert.equal(enabled.evaluate(make('character_present'),view()).response,'none','no verified player');
+  const danger=observation({observer,claims:[claim({kind:'injured',channel:'self',basis:'native_callback'})]});
+  assert.equal(enabled.evaluate(danger,view({playerCaptureRef:player})).response,'urgent');
+});
+
+test('ambient crowd observations cannot exhaust the ten-minute danger family ledger',()=>{
+  const observer=randomUUID(),player=randomUUID();
+  const cache=new SalienceCache({now:()=>NOW,ambientSpeech:true});
+  const situation=view({playerCaptureRef:player});
+  for(let i=0;i<180;i++) {
+    const seen=observation({observer,eventType:'character_present',severity:'routine',
+      claims:[claim({kind:'presence',channel:'visual',basis:'sampled_state',target:randomUUID()})]});
+    assert.equal(cache.evaluate(seen,situation).response,'eligible');
+  }
+  assert.equal(cache.families.size,0,'ambient grants never consume long-lived suppression slots');
+  const danger=observation({observer,claims:[claim({kind:'injured',channel:'self',basis:'native_callback'})]});
+  assert.equal(cache.evaluate(danger,situation).response,'urgent');
+  assert.equal(cache.families.size,1,'danger still gets original family dedupe');
+});
+
+test('owned PS3 diagnostics separate missing routine grants from witnessed ambient grants',()=>{
+  const observer=randomUUID(),player=randomUUID(),other=randomUUID();
+  const make=()=>observation({observer,eventType:'character_present',severity:'routine',
+    claims:[claim({kind:'presence',channel:'visual',basis:'sampled_state',target:other})]});
+  const disabled=new ShadowRuntime({mode:'shadow',ambientSpeech:false,now:()=>NOW});
+  const enabled=new ShadowRuntime({mode:'shadow',ambientSpeech:true,now:()=>NOW});
+  for(const runtime of [disabled,enabled]) {
+    runtime.observerIndex.set(observer,{owned:true,kind:'ped'});
+    const decision=runtime.noteSalience(make(),view({playerCaptureRef:player}));
+    assert.equal(runtime.ps3Diagnostics.ownedByEvent.character_present.decisions,1);
+    assert.equal(runtime.ps3Diagnostics.ownedByEvent.character_present[decision.response],1);
+    assert.equal(runtime.ps3Diagnostics.ownedDecisions,1);
+    assert.equal(runtime.ps3Diagnostics.ownedReasons[decision.response==='eligible'?'ambient_direct_witness':'routine_low_relevance'],1);
+  }
 });
 
 test('urgent self-danger is priority only and does not authorize an effect', () => {
@@ -199,6 +278,46 @@ test('driving suppresses routine presence and keeps vehicle danger', () => {
   assert.equal(danger.reasons.includes('situation_occupied'), false);
   assert.equal(urgent.response, 'urgent');
   assert.equal(urgent.reasons.includes('situation_occupied'), false);
+});
+
+test('radio R4 is low priority by default and explicit environment relevance only enables context', () => {
+  const vehicle = randomUUID(), characterId = randomUUID();
+  const seen = observation({ eventType: 'radio_heard', severity: 'routine', claims: [radioClaim({ vehicle })] });
+  const plain = evaluateSalience(seen, view({ traits: ['protective','loyal'], bindings: [{ captureRef: vehicle, characterId, recognized: true, relationship: 'trusted' }], memories: [{ memoryId: randomUUID(), importance: 90, relatedCharacterIds: [characterId] }] }));
+  assert.equal(plain.context, 'candidate');assert.equal(plain.memory, 'none');assert.equal(plain.response, 'none');assert.ok(plain.reasons.includes('routine_low_relevance'));
+  const requested = evaluateSalience(seen, view({ requestedEnvironmentChannels: ['radio'] }));
+  assert.equal(requested.context, 'candidate');assert.equal(requested.memory, 'none');assert.equal(requested.response, 'none');assert.ok(requested.reasons.includes('routine_low_relevance'));
+  const normalized = normalizeSalienceSituation({ requestedEnvironmentChannels: ['radio','radio','music','speech'] });
+  assert.equal(normalized.requestedEnvironmentChannels,undefined,'only frozen PS4 input selection can authorize a radio mention');
+});
+
+test('radio R5 explicit questions remain context-eligible after delivery and track revisions stay current', () => {
+  const cache = new SalienceCache(), vehicle = randomUUID(), observationId = randomUUID(), episodeId = randomUUID(), nativeRun = randomUUID();
+  const firstSeen = observation({ observationId, episodeId, nativeRun, revision: 1, eventType: 'radio_heard', severity: 'routine', claims: [radioClaim({ vehicle, title: 'Track A' })] });
+  const relevant = view({ requestedEnvironmentChannels: ['radio'] });
+  const first = cache.evaluate(firstSeen, relevant);
+  assert.equal(first.context, 'candidate');assert.equal(first.response, 'none');assert.equal(first.memory, 'none');
+  assert.equal(cache.acknowledge(first.decisionKey, 'ps4_context', 'delivered'), true);
+  const repeatedQuestion = cache.evaluate(firstSeen, relevant);
+  assert.equal(repeatedQuestion.context, 'candidate');assert.equal(repeatedQuestion.response, 'none');assert.equal(repeatedQuestion.memory, 'none');
+  const unrelated = cache.evaluate(firstSeen, view());
+  assert.equal(unrelated.context, 'candidate');assert.equal(unrelated.response, 'none');assert.equal(unrelated.memory, 'none');
+  const secondSeen = observation({ observationId, episodeId, nativeRun, revision: 2, eventType: 'radio_heard', severity: 'routine', gameTick: 20, claims: [radioClaim({ vehicle, title: 'Track B' })] });
+  const changed = cache.evaluate(secondSeen, relevant);
+  assert.equal(changed.context, 'candidate');assert.equal(changed.response, 'none');assert.equal(changed.memory, 'none');
+});
+
+test('radio R4 never outranks supported danger', () => {
+  const radio = observation({ eventType: 'radio_heard', severity: 'routine', claims: [radioClaim()] });
+  const danger = observation({ eventType: 'injury', severity: 'danger', claims: [injuryOf(randomUUID())] });
+  const radioDecision = evaluateSalience(radio, view({ requestedEnvironmentChannels: ['radio'] }));
+  const dangerDecision = evaluateSalience(danger, view());
+  const ordered = orderSalienceDecisions([
+    { decision: radioDecision, observation: radio, situation: view({ requestedEnvironmentChannels: ['radio'] }) },
+    { decision: dangerDecision, observation: danger, situation: view() },
+  ]);
+  assert.equal(ordered[0].decision.observationId, danger.observationId);
+  assert.equal(radioDecision.response, 'none');assert.equal(radioDecision.memory, 'none');
 });
 
 test('relevant prior memory raises routine presence without staging a new memory', () => {
@@ -617,4 +736,32 @@ test('PS4 frozen acknowledgment refuses expired, retired, changed-revision, and 
   assert.equal(reset.cache.acknowledgeFrozenContext(reset.original.decisionKey,reset.frozen,'delivered'),false);
   for(const fixture of [expired,retired,revised,replaced,reset])
     assert.equal([...fixture.cache.ledger.values()].some(row=>row.consumedBy.has('ps4_context')),false);
+});
+
+
+test('PS6 completes a native-verified original turn after PS3 decision-key rotation without replay or identity substitution',()=>{
+  let now=NOW;
+  const cache=new SalienceCache({now:()=>now});
+  const witness=randomUUID(),target=randomUUID(),run=randomUUID();
+  const seen=observation({observer:witness,nativeRun:run,eventType:'injury',
+    claims:[injuryOf(target)]});
+  const original=cache.evaluate(seen,view({activity:'idle'}));
+  const proposal={observationId:seen.observationId,observationRevision:seen.revision,
+    speakerCaptureRef:witness,policyVersion:original.policyVersion,
+    decisionKey:original.decisionKey};
+  const refreshed=cache.evaluate(seen,view({activity:'conversation'}));
+  assert.notEqual(refreshed.decisionKey,original.decisionKey);
+  assert.equal(cache.acknowledge(original.decisionKey,'ps6_ticket','delivered'),false);
+  for(const [altered,epoch] of [
+    [{...proposal,speakerCaptureRef:randomUUID()},run],
+    [{...proposal,observationRevision:proposal.observationRevision+1},run],
+    [proposal,randomUUID()],
+  ])assert.equal(cache.acknowledgeDirectorCompletion(altered,epoch),false);
+  assert.equal(cache.acknowledgeDirectorCompletion(proposal,run),true);
+  assert.equal(cache.ledger.get(seen.observationId).consumed,true);
+  assert.equal(cache.acknowledgeDirectorCompletion(proposal,run),false);
+  const late=new SalienceCache({now:()=>now});
+  late.evaluate(seen,view({activity:'idle'}));
+  now+=SALIENCE_BOUNDS.suppressionTtlMs+1;
+  assert.equal(late.acknowledgeDirectorCompletion(proposal,run),false);
 });

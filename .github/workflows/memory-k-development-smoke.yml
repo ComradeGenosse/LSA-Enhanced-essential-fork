@@ -1,0 +1,81 @@
+name: Memory K development smoke (fast, draft-friendly)
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'lsa-essential-e1-candidate/src/memory/**'
+      - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
+      - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
+      - 'lsa-essential-e1-candidate/src/context/**'
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/**'
+      - 'lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/prompt-legacy-action-cleanup.test.mjs'
+      - 'lsa-essential-e1-candidate/src/context/knowledgeDelivery.mjs'
+      - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
+      - 'lsa-essential-e1-candidate/src/observability/eventContract.mjs'
+      - 'lsa-essential-e1-candidate/src/observability/telemetry.mjs'
+      - 'lsa-essential-e1-candidate/tests/observability.test.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/m3ProductionMemory.mjs'
+      - 'lsa-shared-brain/src/events/m3ObserverCoverageTracker.mjs'
+      - 'lsa-shared-brain/tests/m3-observer-coverage-tracker.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs'
+      - 'tools/memory-k-verification/**'
+      - '.github/workflows/memory-k-development-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  fast-foreground:
+    name: H1/H2 SQLite and policy smoke (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax of independent Memory K foreground
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            lsa-essential-e1-candidate/src/memory/h1ConversationHistory.mjs \
+            lsa-essential-e1-candidate/src/memory/h2FactualRecall.mjs \
+            lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs \
+            lsa-essential-e1-candidate/src/integration/essentialGlue.mjs \
+            lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs; do
+            node --check "$file"
+          done
+          if [[ -f lsa-essential-e1-candidate/src/memory/independentForegroundMemory.mjs ]]; then
+            node --check lsa-essential-e1-candidate/src/memory/independentForegroundMemory.mjs
+          fi
+      - name: Focused real P2 and activation unit tests (not full release acceptance)
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            lsa-essential-e1-candidate/tests/memory/h1ConversationHistory.test.mjs
+            lsa-essential-e1-candidate/tests/memory/h2FactualRecall.test.mjs
+            lsa-essential-e1-candidate/tests/memory/memoryRequestFence.test.mjs
+            lsa-essential-e1-candidate/tests/memory/memoryFallbackReliability.test.mjs
+            lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs
+            lsa-essential-e1-candidate/tests/prompt-legacy-action-cleanup.test.mjs
+            lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs
+            lsa-essential-e1-candidate/tests/observability.test.mjs
+            lsa-shared-brain/tests/m3-observer-coverage-tracker.test.mjs
+          )
+          if [[ -f lsa-essential-e1-candidate/tests/memory/independentForegroundMemory.test.mjs ]]; then
+            files+=(lsa-essential-e1-candidate/tests/memory/independentForegroundMemory.test.mjs)
+          fi
+          node --import ./tools/memory-k-verification/offline.mjs --test --test-concurrency=1 "${files[@]}"
+      - name: Focused optional NPC reaction regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 \
+            lsa-essential-e1-candidate/tests/reactions.test.mjs \
+            lsa-essential-e1-candidate/tests/reactions-turn-hook.test.mjs

@@ -46,13 +46,44 @@ The highlight is a screen-space bracket around the projected head bone, plus a `
 
 `talkTargeting` is off unless `Plugins/LSA.Enhanced.json` enables it. It can use a neutral key or share Essential's configured `TalkKey` without changing the controller binding. See [controller setup](controller-setup.md).
 
+## Committed-recipient feedback (source change, October 16, 2026)
+
+**Status: source implemented and offline-tested; not built into a DLL, deployed, or GTA-validated.** Plan: `docs/plans/memory-k-npc-speech-ledger-and-ux4-target-feedback-20261016.md` section 3 (draft PR #188). This is feedback only: it does not change who receives a turn, lock a character, or add proximity listening.
+
+Why: a direct hold can legitimately pick an ambient NPC standing in front of a promoted character, and nothing on screen said so. The NPC may even share the promoted character's voice, which is not identity evidence.
+
+Behavior (UX4-controlled **mic** turns only; stock Text and stock Talk with UX4 off are unchanged):
+
+| Moment | HUD |
+| --- | --- |
+| Native `talk.ptt_start` committed on a ped with verified current promoted ownership | `Talking to: Promoted NPC` |
+| Committed on a valid ped with no ownership | `Talking to: Nearby NPC` |
+| Ownership cannot be proven or contradicts itself | `Talking to: NPC (identity unavailable)` |
+| Tap / cycle preview, when the same evidence is available | `Target 2/3 - Promoted NPC` or `... - Nearby NPC`; an unverified preview keeps plain `Target 2/3` |
+
+- The notice comes from the native commit result for the exact committed ped (after mic ownership is confirmed), never from button-down, request acceptance, a preview, a previous selection, the voice or a name.
+- No notice for a rejected, cancelled, target-lost, target-changed, ownership-lost, failed, or already-released start. One notice per committed generation; later ticks do not repeat it.
+- `PromotedCharactersIntegration.ResolveTalkRecipient` is read-only: it uses the P2 encounter roster and P1 `TryResolveCurrent` proof that `PerceptionRoster` already relies on. It creates no encounter, registration or character, retires no anchor, and does no SQLite/HTTP/pipe I/O. `Promoted` requires: P2 ready, ped exists/alive/not the player, retained native address unchanged, matching encounter handle/address, a registration, and a current P1 claim with the same incarnation. A registration whose proof is stale is `Unknown`, never `Ambient`; an owner claim with no roster registration is also `Unknown`. Only a valid ped with neither is `Ambient`.
+- `talk.ptt_start` and the select commands gained `recipientKind` (`promoted`/`ambient`/`unknown`) and a bounded `recipientEvidence` code. The loader matches `recipientKind` against that allowlist, builds the fixed generic label itself, and logs `[UX4] talk_ptt recipient kind=... evidence=...` only when the evidence is a short lowercase code. An absent field (older native) shows nothing; an unrecognized value shows the generic unknown notice.
+- No alias, CharacterId, address, profile text or name is sent to the HUD or normal logs. The `talk.inspect`/snapshot path does not carry the class.
+- **Named characters** are a separate, display-only upgrade of the `Promoted` row (source change, October 16, 2026; same build/GTA status as above). The native roster still has only owner aliases, so the name comes from the companion's existing `current_describe` action (the same lookup the F11 Current NPC page uses):
+  1. Native adds the P1-verified `claim.sourceKey` to the commit result as `recipientAlias`, on `promoted` results only (shape-checked; never on `ambient`/`unknown`). It is a lookup key for the loader; it is never displayed or logged.
+  2. The loader asks the companion for that exact `(encounterId, ownerAlias)` after the mic is already committed. The generic `Talking to: Promoted NPC` notice waits up to 400 ms for the answer, so the normal case shows one line: `Talking to: Nathan`. If the companion is slow it shows the generic label, and a verified name may still replace it within 3 s.
+  3. A name is shown only if the companion answers `kind: promoted` with a CharacterId, the alias maps to **exactly one** profile (two claimants of one alias return no name), the name matches a conservative display set (letters, digits, space, `. ' _ -`, 40 chars; GTA `~` codes, control characters and markup never pass), the conversation is still the same talking generation, and a one-time fresh native `current.inspect` rechecks current P1 ownership for the same ped, encounter and alias after the name reply; cached HUD snapshots cannot authorize names.
+  4. Anything else keeps the existing labels: `Promoted NPC` (alias missing, companion unreachable/erroring, unknown/ambiguous/unnamed profile, snapshot disagrees), `Nearby NPC` and `NPC (identity unavailable)`. Ambient and unknown recipients never trigger a lookup.
+  5. Release, `Clear`, shutdown, settings change, a new hold or a changed target discard any pending lookup, so a late answer never names a conversation that ended or a different NPC. Previews (`Target n/m - ...`) are unchanged and stay generic.
+  6. Normal logs carry only `[UX4] talk_ptt recipient_name outcome=shown|unavailable|unconfirmed`; no name, alias or CharacterId. The name never reaches targeting, mic, memory or dialogue routing: it is read-only HUD text.
+- A direct hold may still choose the ambient NPC. The notice makes that visible; it does not lock Nathan.
+
+Offline coverage added: loader HUD/log/allowlist/edge cases (`input-tests`), resolver cases and selector fault-degradation (`lifecycle-tests`), and preview/direct/explicit payload classification through the real command bridge (`bridge-tests`). These sources were written without a local .NET toolchain; Windows CI is the compile and run gate.
+
 ## Deviations from the research plan
 
 - T0A stands. UX4 does not synthesize Essential's `TalkKey`. Stock normal Talk still runs `GetBestConversationPed` and would overwrite an explicit target. The research notes that still said "synthesize TalkKey" were corrected.
 - `SetPlayerConversationPed` runs only at committed PTT start. Preview and cycling do not call it, and they do not call `ActivateAttention`. Current-NPC precedence is the UX4 selection while it is valid, then the existing conversation ped, then the current speaker.
 - Stock Text input is unchanged. It still chooses its own best ped. UX4 does not claim to control Text.
 - Candidate limits travel inside each talk command because the settings file lives in the loader AppDomain. The native side rechecks the same bounds.
-- A hold with no explicit tap selection uses a temporary hidden native target for that PTT only. It is discarded on release and never becomes persistent selector state. A hold while an explicit tap selection is still valid commits that exact selection.
+- A direct hold with no existing committed promoted relationship still uses a temporary hidden target, and ambient targets are discarded on release. After a **successfully committed promoted/owner-verified turn**, UX4 remembers that exact Ped lifetime, owner alias, P1 incarnation and P2 ownership token *inside the existing selector*. Later direct holds reuse it through camera changes and vehicle movement only after a fresh native P1 proof. The relationship expires after 3 minutes without speech on foot (15 minutes while sharing a vehicle), or immediately on explicit selection, manual clear, owner dismissal/suspension, death, changed incarnation or ownership token, distance without a shared vehicle, or world reset. Lost/unverified continuity fails closed on the next direct hold; tap/cycle intentionally selects a new recipient. No unconditional target lock is created. A hold while an explicit tap selection is still valid commits that exact selection.
 - If `talk.ptt_stop` is processed before `talk.ptt_start` for the same generation, the start is cancelled and `SendMicStart` is not called. If start runs first, the queued stop closes it once.
 - UX4 source-resolves Essential's active microphone Ped from the hash-pinned `SendMicStop()` IL. A UX4 stop calls `SendMicStop()` only while that exact Ped is still active. If stock Talk/MarkedTalk replaced it, UX4 releases its own generation without stopping the newer stock mic.
 - Native `talk.ptt_start` rechecks Essential text/F7 gates plus loading, cutscene, player switch, mission, and online/scripted state immediately before the side-effecting mic start.
@@ -133,3 +164,11 @@ Use [UX4-talk-targeting-gta-acceptance.md](UX4-talk-targeting-gta-acceptance.md)
 ## Rollback
 
 Set `"talkTargeting": { "enabled": false }` in `Plugins/LSA.Enhanced.json`, or delete that section. In the recommended shared-key setup no Steam remap is needed: interception releases and the same button returns to stock Essential Talk after physical release. Only neutral-key setups need their old Steam mapping restored. `LosSantosAlive.config` is never modified. Details are in [controller setup](controller-setup.md).
+
+## October 18 recipient-continuity correction (PR candidate)
+
+**Demonstrated code path:** earlier direct holds called `Drop("direct_override")`, re-ranked the fresh perception snapshot and silently replaced the committed conversation partner. The October 18 report observed Nathan's promoted/owner-verified recipient become ambient/unowned after `DriveEvasively`; microphone, STT and playback remained operational. The original ZIP was not available as raw bytes in this implementation environment, so timestamp-level log reconstruction must still be checked against the original capture.
+
+**New trace:** `[UX4] conversation_continuity established|released|invalidated` (bounded, no transcript, owner UUID or native address), `talk_target selected reason=verified_continuity`, and `talk_ptt commit=accepted mode=verified_continuity recipient=promoted evidence=owner_verified intended_actual=match`. Existing P2 command results still expose the committed `recipientKind`/`recipientEvidence`; unknown ownership must never be recast as ambient merely because proof was lost.
+
+**Verification:** Windows source bridge tests cover the reported consecutive driving commands, vehicle/camera shift, ambient bystander, intentional retarget, P1 suspension/release and fail-closed refusal. Pure lease tests cover token/address/incarnation mismatch, liveness and expiry. A green offline CI result does **not** prove real RPH vehicle offsets, mic audio, native driving, or live companion delivery; those still need GTA testing in the linked acceptance matrix. Do not deploy this branch in place of a verified release until production native compile and smoke tests pass.

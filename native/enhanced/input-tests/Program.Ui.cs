@@ -87,11 +87,43 @@ static partial class Program
 
         var owned = CurrentNpcView.Build(SnapshotOf(now,FakeBridge.Owned()),now,Describe.Parse("{\"kind\":\"promoted\",\"name\":\"Lamar Davis\",\"characterId\":\"" + CharacterA + "\",\"relationship\":\"friend\",\"status\":\"available\",\"voice\":\"ash\",\"facts\":[]}"),true,true,settings);
         Check(owned.Owned && owned.Title == "Lamar Davis" && Line(owned.Lines,"mode").Right == "Waiting" && Line(owned.Lines,"relationship").Right == "Friend","promoted name, mode and relationship");
+        Check(Line(owned.Lines,"follow").ExpectedEncounterId == FakeBridge.Encounter && Line(owned.Lines,"follow").ExpectedOwnerAlias == FakeBridge.Alias,"current menu retains the rendered actor identity, not the next NPC");
         Check(Line(owned.Lines,"follow").Command == CommandCatalog.CurrentFollow && Line(owned.Lines,"wait").Command == CommandCatalog.CurrentWait && Line(owned.Lines,"dismiss").Confirm && Line(owned.Lines,"promote") == null,"promoted NPCs get Follow, Wait and a confirmed Dismiss");
         Check(Line(owned.Lines,"activity").Right == "No activity" && Line(owned.Lines,"assign").Command == "local.openActivities" && Line(owned.Lines,"activityPause").Command == CommandCatalog.ActivityPause && Line(owned.Lines,"activityResume").Command == CommandCatalog.ActivityResume && Line(owned.Lines,"activityCancel").Command == CommandCatalog.ActivityCancel && Line(owned.Lines,"activityStatus").Command == CommandCatalog.ActivityStatus && Line(owned.Lines,"activityHistory").Command == CommandCatalog.ActivityHistory,"owned page shows ACT2 activity controls");
         var pausedDescribe = Describe.Parse("{\"kind\":\"promoted\",\"name\":\"Lamar Davis\",\"characterId\":\"" + CharacterA + "\",\"activity\":{\"present\":true,\"intent\":\"hold_position\",\"step\":\"hold_position\",\"status\":\"paused\",\"reason\":null,\"phrase\":\"Wait here: Paused\"}}");
         var paused = CurrentNpcView.Build(SnapshotOf(now,FakeBridge.Owned()),now,pausedDescribe,true,true,settings);
         Check(Line(paused.Lines,"activity").Right == "Wait here · Paused" && Line(paused.Lines,"activityResume").Enabled && !Line(paused.Lines,"activityPause").Enabled && Line(paused.Lines,"activityCancel").Enabled,"companion lifecycle keeps a detached paused activity resumable in F11");
+        var navigation = GameplayNavigationView.Build(owned);
+        Check(Line(navigation,"assign").Command == "local.openActivities" && Line(navigation,"assign").ExpectedEncounterId == FakeBridge.Encounter && Line(navigation,"activityStatus").Command == CommandCatalog.ActivityStatus,"ACT2 navigation page reuses the current owned NPC and frozen identity");
+        Check(Line(GameplayNavigationView.Build(CurrentNpcView.Build(SnapshotOf(now,FakeBridge.Ordinary()),now,null,true,true,settings)),"prerequisite").Right == "Select a promoted NPC" && Line(navigation,"act6").Info,"navigation disables unknown ownership and ACT6 without readiness");
+        Check(Line(DirectorSocialView.Build(),"admission").Info,"Director admission is read-only until a live native result exists");
+        var admitted = DirectorSocialStatus.Parse("{\"executionAvailable\":true,\"nativeResult\":{\"receivedAt\":42,\"status\":\"accepted\",\"reason\":null}}");
+        Check(admitted != null && admitted.ExecutionAvailable && admitted.ReceivedAt == 42 && admitted.Status == "accepted","director accepts only typed native admission result");
+        var socialView = DirectorSocialView.Build(admitted,true,false);
+        Check(Line(socialView,"startSocial").Command == CommandCatalog.DirectorSocialManual && Line(socialView,"startSocial").Enabled && Line(socialView,"admission").Right == "Accepted" && Line(socialView,"delivery").Right == "Not verified","native admission never claims delivered dialogue");
+        Check(Line(DirectorSocialView.Build(admitted,true,true,42),"admission").Right == "Queued; awaiting native admission","pre-request result does not fulfill new Director request");
+        Check(Line(DirectorSocialView.Build(admitted,false,false),"startSocial").Enabled == false && DirectorSocialStatus.Parse("{broken") == null,"Director fails closed when companion is offline or result invalid");
+        var menuReady = GameplayMenuReadiness.Parse("{\"act3\":{\"board_vehicle\":{\"eligibleForPreflight\":true,\"reason\":null}},\"walk\":{\"eligibleForPreflight\":false,\"reason\":\"native_probes_missing\"},\"drive\":{\"eligibleForPreflight\":true,\"reason\":null}}");
+        Check(menuReady != null && menuReady.Allows("board_vehicle") && !menuReady.Allows("go_to_place") && menuReady.Allows("vehicle_trip"),"native readiness response is parsed by closed capability keys");
+        var acceptedNavigation = GameplayNavigationView.Build(owned,menuReady);
+        Check(Line(acceptedNavigation,"board").Enabled && Line(acceptedNavigation,"board").Value == "board_vehicle" && Line(acceptedNavigation,"board").ExpectedEncounterId == FakeBridge.Encounter,"available ACT3 action preserves actor binding");
+        Check(Line(acceptedNavigation,"driveWaypoint").Enabled && Line(acceptedNavigation,"driveWaypoint").Confirm && Line(acceptedNavigation,"driveAirport").Value == "vehicle_trip:airport","ACT6 driving is opt-in, explicit and confirmed");
+        Check(Line(acceptedNavigation,"driverSeat").Value == "board_vehicle:driver" && Line(acceptedNavigation,"driverSeat").Confirm && Line(acceptedNavigation,"driverSeat").Enabled,"F11 explicitly offers driver-seat boarding only under native seat probes");
+        var binding=CharacterActivityBinding.Parse(Json.Serialize(new Dictionary<string,object> {
+            {"characterId",CharacterA},{"ownerAlias","promoted." + CharacterA},
+            {"encounterId",FakeBridge.Encounter},{"ownershipToken","33333333-3333-4333-8333-333333333333"},{"safe",true}
+        }));
+        Check(binding != null && binding.Safe && binding.SameIncarnation(binding),"native owner binding parses only exact character and 4-v4 UUID token");
+        var selectedRow=CharacterList.ParseProfile(Profile(CharacterA,"Nathan JustNate",1,runtimeStatus:"spawned"));
+        var explicitMenu=CharacterNavigationView.Build(selectedRow,binding,menuReady,true);
+        Check(Line(explicitMenu,"driveWaypoint").Enabled && Line(explicitMenu,"driveWaypoint").BindingCharacterId == CharacterA &&
+          Line(explicitMenu,"driveWaypoint").ExpectedOwnershipToken == binding.OwnershipToken &&
+          Line(explicitMenu,"assign").BindingCharacterId == CharacterA,"roster F11 activities bind to Nathan's exact incarnation without UX4 selection");
+        Check(!Line(CharacterNavigationView.Build(selectedRow,null,menuReady,true),"driveWaypoint").Enabled &&
+          CharacterActivityBinding.Parse("{\"characterId\":\"11111111-1111-4111-8111-111111111111\",\"ownerAlias\":\"promoted.not-same\",\"encounterId\":\"22222222-2222-4222-8222-222222222222\",\"ownershipToken\":\"33333333-3333-4333-8333-333333333333\",\"safe\":true}") == null,
+          "unbound and forged roster identities fail closed");
+        Check(!Line(acceptedNavigation,"walkWaypoint").Enabled && Line(acceptedNavigation,"walkWaypoint").Description.Contains("native probes missing"),"missing native probes disable F11 walking with an explanation");
+        Check(!GameplayNavigationView.Build(owned,null).First(line => line.Key == "driveWaypoint").Enabled && GameplayMenuReadiness.Parse("oops") == null,"missing or malformed readiness fails closed");
         var assign = CurrentNpcView.Assign(true);
         Check(assign.Lines.Count == 4 && Line(assign.Lines,"followMe").Value == "accompany" && Line(assign.Lines,"followMe").Confirm && Line(assign.Lines,"waitHere").Value == "hold_position" && Line(assign.Lines,"sitHere").Value == "sit_here" && Line(assign.Lines,"resumePrevious").Value == "resume_previous","assign page offers only the four ACT2 activities");
         var mismatch = CurrentNpcView.Build(SnapshotOf(now,FakeBridge.Owned()),now,Describe.Parse("{\"kind\":\"encounter\",\"name\":\"Old name\"}"),true,true,settings);
@@ -129,7 +161,13 @@ static partial class Program
             && CharacterList.Parse(Json.Serialize(new object[] {Profile(CharacterA,"Home",1)}))[0].StatusLabel == "Absent","availability labels");
         Check(CharacterList.Parse("{}") == null && CharacterList.Parse("oops") == null && CharacterList.Parse("[]").Count == 0,"non-array replies parse to null");
 
+        var profileWithOwner = Profile(CharacterA,"Nathan JustNate",10,runtimeStatus:"spawned");
+        profileWithOwner["promotion"] = new Dictionary<string,object> {{"ownerAlias","promoted." + CharacterA}};
+        var ownedRow = CharacterList.ParseProfile(profileWithOwner);
+        Check(ownedRow.OwnerAlias == "promoted." + CharacterA && CharacterList.ForOwnedAlias(new[] {ownedRow},"promoted." + CharacterA).Name == "Nathan JustNate","verified native alias resolves roster character's name");
+        Check(CharacterList.ForOwnedAlias(new[] {ownedRow},"promoted." + CharacterB) == null && CharacterList.ForOwnedAlias(rows,"promoted." + CharacterA) == null,"unverified/mismatched aliases cannot label another NPC");
         var actions = CharacterList.Actions(amy,true,true);
+        Check(Line(actions,"despawn").Text == "Banish addon-created NPC" && Line(actions,"dismiss").Description.Contains("not deleted"),"scene removal differs from releasing an adopted ped");
         Check(!Line(actions,"summon").Enabled && Line(actions,"follow").Enabled && Line(actions,"dismiss").Confirm && Line(actions,"despawn").Confirm && Line(actions,"despawn").Description.Contains("Amy, …aaaa"),"a spawned character: no summon; dismiss and despawn confirm with name and id suffix");
         var relationship = Line(actions,"relationship");
         Check(relationship.Options.SequenceEqual(CharacterList.Relationships) && relationship.Value == "trusted" && relationship.OptionLabels[2] == "Trusted" && relationship.Command == CommandCatalog.CharacterRelationship,"relationship is a left/right choice");
@@ -139,6 +177,17 @@ static partial class Program
         var absent = CharacterList.Parse(Json.Serialize(new object[] {Profile(CharacterB,"Bo",2)}))[0];
         var absentActions = CharacterList.Actions(absent,true,true);
         Check(Line(absentActions,"summon").Enabled && !Line(absentActions,"follow").Enabled && !Line(absentActions,"despawn").Enabled && Line(absentActions,"memories").Right == "None yet","an absent character can only be summoned");
+        var unknownRoster = CharacterList.Parse(Json.Serialize(new object[] {Profile(CharacterB,"Bo",2,runtimeStatus:"unverified")}))[0];
+        Check(unknownRoster.StatusLabel == "Checking native roster" &&
+              !Line(CharacterList.Actions(unknownRoster,true,true),"summon").Enabled &&
+              !Line(CharacterList.Actions(unknownRoster,true,true),"follow").Enabled,
+              "native roster unavailable is not proof of absence or control authority");
+        var verifiedFallback = CharacterList.Actions(unknownRoster,true,true,true);
+        Check(Line(verifiedFallback,"follow").Enabled && !Line(verifiedFallback,"summon").Enabled &&
+              Line(verifiedFallback,"status").Right == "In world (native verified)",
+              "exact native binding restores Follow while roster refresh catches up");
+        Check(!Line(CharacterList.Actions(unknownRoster,false,true,true),"follow").Enabled,
+              "a verified binding never bypasses a disconnected command bridge");
         Check(!Line(CharacterList.Actions(absent,true,false),"summon").Enabled && Line(CharacterList.Actions(absent,true,false),"rename").Enabled,"without the native host only profile edits stay available");
         Check(!Line(CharacterList.Actions(absent,false,true),"rename").Enabled && !Line(CharacterList.Actions(absent,false,true),"relationship").Enabled,"without the companion nothing can be edited");
         var retired = CharacterList.Parse(Json.Serialize(new object[] {Profile(CharacterB,"Ret",2,status: "retired")}))[0];
@@ -149,6 +198,22 @@ static partial class Program
 
     static void MenuDataTests()
     {
+        // A spawn completion that races a pre-spawn roster reply must request
+        // new native evidence. Routine duplicate reads still coalesce.
+        {
+            var racedCompanion = new FakeCompanion();
+            var raced = new MenuData(racedCompanion,new FakeClock(),work => work());
+            raced.RequestCharacters();
+            raced.RequestCharacters(refreshAfterInFlight:true);
+            Check(racedCompanion.Bodies.Count == 1,"post-spawn roster invalidation coalesces while in flight");
+            racedCompanion.Reply(true,body:Json.Serialize(new object[] {Profile(CharacterA,"Amy",1)}));
+            raced.Pump();
+            Check(racedCompanion.Bodies.Count == 2 && !raced.Characters[0].Spawned,
+                "pre-spawn result is followed by one native roster refresh");
+            racedCompanion.Reply(true,body:Json.Serialize(new object[] {Profile(CharacterA,"Amy",1,runtimeStatus:"spawned")}));
+            raced.Pump();
+            Check(raced.Characters[0].Spawned,"post-spawn refresh updates the displayed owner status");
+        }
         var companion = new FakeCompanion(); var clock = new FakeClock(); var data = new MenuData(companion,clock,work => work());
         data.RequestCharacters(); data.RequestCharacters();
         Check(companion.Bodies.Count == 1 && companion.Last["action"] as string == "list","one roster request in flight");
@@ -199,6 +264,23 @@ static partial class Program
         Check(!data.CompanionReachable,"probe failure marks the companion unreachable");
         data.Probe(); companion.Reply(true,body: "{\"kind\":\"unknown\",\"facts\":[]}"); data.Pump();
         Check(data.CompanionReachable,"probe success restores it");
+        data.RequestDirectorStatus();
+        Check(companion.Last["action"] as string == "director_social_status","Director status reuses the original companion endpoint");
+        companion.Reply(true,body: "{\"executionAvailable\":true,\"nativeResult\":{\"receivedAt\":47,\"status\":\"rejected\",\"reason\":\"actor_busy\"}}"); data.Pump();
+        Check(data.DirectorStatus?.Status == "rejected" && data.DirectorStatus.Reason == "actor_busy","native admission rejection is retained as a typed status");
+        data.RequestDirectorStatus(); companion.Unreachable(); data.Pump();
+        Check(data.DirectorStatus == null,"unavailable Director status fails closed instead of reusing stale admission");
+        data.RequestCharacterBinding(CharacterA);
+        Check(companion.Last["action"] as string == "character_activity_binding" && companion.Last["characterId"] as string == CharacterA,"per-character binding uses native-verified read-only endpoint");
+        companion.Reply(true,body: Json.Serialize(new Dictionary<string,object> {
+            {"characterId",CharacterA},{"ownerAlias","promoted." + CharacterA},
+            {"encounterId",FakeBridge.Encounter},{"ownershipToken","33333333-3333-4333-8333-333333333333"},{"safe",true}
+        }));
+        data.Pump(); Check(data.CharacterBinding?.CharacterId == CharacterA,"character binding only applies on the native loader fiber");
+        data.RequestCharacterBinding(CharacterB);
+        Check(data.CharacterBinding == null,"changing selected roster character immediately drops the previous ownership token");
+        companion.Reply(false,"character_not_spawned"); data.Pump();
+        Check(data.CharacterBinding == null,"failed owner verification never falls back to the stale character");
     }
 
     // The real loopback client against a local server: oversized success bodies
@@ -258,9 +340,11 @@ static partial class Program
         Check(ControlsView.Build(null,essential,"ready",null,false,120,new GestureBinding[0]).Count == 0,"no settings: no lines");
 
         var empty = DiagnosticsView.Build(new DiagnosticsInput {HostStatus = "host=none",RouterState = "disabled",SettingsRevision = "defaults",CatalogSha = catalog.Sha256});
+        Check(Line(empty,"outcomes").Right == "None","empty command outcomes appear explicitly");
         Check(Line(empty,"snapshot").Right == "None" && Line(empty,"reasons").Right == "None" && Line(empty,"settings").Right == "Defaults" && Line(empty,"catalog").Right == catalog.Sha256.Substring(0,8) && Line(empty,"companion").Right == "Not reachable","empty diagnostics");
         Check(Line(empty,"refresh").Command == null && Line(empty,"log").Command == null && !Line(empty,"refresh").Info,"diagnostics actions are local");
-        var busy = DiagnosticsView.Build(new DiagnosticsInput {HostStatus = "status=ready",BridgeAvailable = true,CompanionReachable = true,SnapshotAgeMs = 120,Outstanding = 1,SettingsRevision = new string('a',64),RecentReasons = new[] {"first: a","second: b"}});
+        var busy = DiagnosticsView.Build(new DiagnosticsInput {HostStatus = "status=ready",BridgeAvailable = true,CompanionReachable = true,SnapshotAgeMs = 120,Outstanding = 1,SettingsRevision = new string('a',64),RecentReasons = new[] {"first: a","second: b"},RecentOutcomes = new[] {"activity.assign: queued","activity.assign: accepted"}});
+        Check(busy.Where(line => line.Text == "Action").Select(line => line.Right).SequenceEqual(new[] {"activity.assign: accepted","activity.assign: queued"}),"typed outcomes newest first");
         Check(Line(busy,"snapshot").Right == "120 ms" && Line(busy,"bridge").Right == "Available" && Line(busy,"settings").Right == "aaaaaaaa" && busy.Where(line => line.Text == "Recent").Select(line => line.Right).SequenceEqual(new[] {"second: b","first: a"}),"recent failures newest first");
     }
 

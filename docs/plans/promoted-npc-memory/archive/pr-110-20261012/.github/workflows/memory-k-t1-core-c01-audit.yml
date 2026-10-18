@@ -1,0 +1,39 @@
+name: Memory K T1 pinned original Core C-01 audit (NOT acceptance)
+on:
+  pull_request:
+    paths:
+      - 'native/intelligence/memory-c01-audit/**'
+      - '.github/workflows/memory-k-t1-core-c01-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core-metadata-audit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build C-01 audit with compiler diagnostics visible
+        shell: pwsh
+        run: dotnet build native/intelligence/memory-c01-audit/CoreC01Audit.csproj --configuration Release
+      - name: Pin and inspect original Core IL (read only)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "evidence" | Out-Null
+          dotnet run --no-build --project native/intelligence/memory-c01-audit/CoreC01Audit.csproj --configuration Release -- lsa-essential-e1-candidate/upstream/LosSantosAlive.dll | Out-File -FilePath evidence/core-c01-callgraph.json -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $a = Get-Content -Raw evidence/core-c01-callgraph.json | ConvertFrom-Json
+          Write-Host "Original DLL: $($a.dllSha256)"
+          Write-Host "Methods: $($a.methodCount); calls: $($a.scannedCallCount); candidates: $($a.candidateMethods.Count)"
+          if (@($a.candidateMethods | Where-Object { $_.label -match 'InputController::SendTextPrompt' }).Count -ne 1) { throw "missing pinned text input audit candidate" }
+          Write-Host "Native C-01 accepted verified: $($a.nativeAcceptedTurnReceiptVerified) (always false until separately proven)"
+          $a.candidateMethods | Where-Object { $_.Label -match 'SendTextPrompt|TextInput|InputController|ConversationHydration|Accept|Transcri|Turn' } | Select-Object -First 80 | ForEach-Object { Write-Host $_.Label }
+      - name: Upload provenance audit (research evidence, NOT native acceptance)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pinned-original-core-c01-callgraph
+          path: evidence/core-c01-callgraph.json
+          if-no-files-found: error
+          retention-days: 14

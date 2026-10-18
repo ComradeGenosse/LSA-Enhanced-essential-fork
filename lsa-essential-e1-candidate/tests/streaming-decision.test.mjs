@@ -41,6 +41,29 @@ test('complete-segment decoder emits only closed locally validated objects and r
   assert.throws(() => { const invalid = createSegmentDecoder(); invalid.append(contradiction); invalid.finish(); }, /command after speech/);
 });
 
+test('October 18 buffered DriveEvasively response is normalized before Essential validation',async()=>{
+  const raw=JSON.stringify({mode:'buffered_action',segments:[{text:'You got it, man.'}],command:'DriveEvasively'});
+  const decoder=createSegmentDecoder();
+  decoder.append(raw);
+  const result=decoder.finish();
+  assert.equal(result.commandNormalized,true);
+  assert.deepEqual(result.decision,{dialogue:'You got it, man.',command:'DO DriveEvasively'});
+  const config=normalizeConfig({structuredStreamingEnabled:true},{OPENAI_API_KEY:'test-key'});
+  const events=[];
+  const outcome=await streamDecision({
+    config,body:{model:'gpt-6-luna',input:[],text:{format:{type:'json_schema',strict:true}}},
+    timeoutMs:3000,fetchImpl:async()=>streamingResponse(responseEvents(raw)),
+    onSegment:()=>{},telemetry:{event:(name,data)=>events.push({name,data})},
+  });
+  assert.deepEqual(outcome.decision,result.decision);
+  assert.ok(events.some(item=>item.name==='model_command_normalized'&&item.data.code==='bare_drive_action'));
+  const malformed=JSON.stringify({mode:'buffered_action',segments:[{text:'Okay.'}],command:'BeginDriving'});
+  await assert.rejects(streamDecision({
+    config,body:{model:'gpt-6-luna',input:[],text:{format:{type:'json_schema',strict:true}}},
+    timeoutMs:3000,fetchImpl:async()=>streamingResponse(responseEvents(malformed)),onSegment:()=>{},
+  }),error=>error.code==='decision_format_error');
+});
+
 test('Responses stream yields only validated complete segments before response.completed', async () => {
   const config = normalizeConfig({ structuredStreamingEnabled: true }, { OPENAI_API_KEY: 'test-key' });
   let firstValidated;
@@ -116,4 +139,44 @@ test('local segment delivery failures are logged separately from invalid model o
   assert.equal(records.find(record => record.event === 'provider_request_failed')?.data.code, 'segment_delivery_failed');
   assert.equal(JSON.stringify(records).includes('PRIVATE CALLBACK CONTENT'), false);
   assert.equal(JSON.stringify(records).includes('I saw him.'), false);
+});
+
+test('one oversized speech segment reflows into safe bounded pieces without losing words', async () => {
+  const dialogue = Array.from({length:65},(_,i)=>'word'+i).join(' ');
+  const raw = JSON.stringify({mode:'dialogue_only',segments:[{text:dialogue}],command:''});
+  const decoder = createSegmentDecoder();
+  decoder.append(raw);
+  const parts = decoder.takeNewSegments();
+  const final = decoder.finish();
+  assert.ok(parts.length>1 && parts.length<=6);
+  assert.ok(parts.every(p=>p.text.length<=240));
+  assert.equal(parts.map(p=>p.text).join(' '),dialogue);
+  assert.equal(final.decision.dialogue,dialogue);
+  assert.equal(final.reflowedSegments,parts.length-1);
+
+  const events = [];
+  const telemetry = {event:(name,data)=>events.push({name,data}),startSpan:()=>()=>{}};
+  const result = await streamDecision({config:normalizeConfig({structuredStreamingEnabled:true},
+    {OPENAI_API_KEY:'test-key'}),body:{},telemetry,timeoutMs:2000,
+    fetchImpl:async()=>streamingResponse(responseEvents(raw))});
+  assert.equal(result.decision.dialogue,dialogue);
+  assert.ok(events.some(e=>e.name==='stream_segments_reflowed'));
+});
+test('reflow stays within hard dialogue, segment and command validation limits',()=>{
+  const tooLong = JSON.stringify({mode:'dialogue_only',
+    segments:[{text:'word '.repeat(300)}],command:''});
+  const decoder=createSegmentDecoder();
+  assert.throws(()=>decoder.append(tooLong),error=>error.code==='segment_budget_exceeded');
+  const tooMany=JSON.stringify({mode:'dialogue_only',segments:
+    Array.from({length:6},()=>({text:'word '.repeat(65)})),command:''});
+  assert.throws(()=>createSegmentDecoder().append(tooMany),error=>error.code==='segment_budget_exceeded');
+  const command=JSON.stringify({mode:'dialogue_only',
+    segments:[{text:'x '.repeat(119)+'DO WaitHere'}],command:''});
+  assert.throws(()=>createSegmentDecoder().append(command),error=>error.code==='segment_invalid_text');
+});
+
+test('empty Luna dialogue is a separate failure, not segment budget exhaustion',()=>{
+ const decoder=createSegmentDecoder();
+ decoder.append(JSON.stringify({mode:'dialogue_only',segments:[],command:''}));
+ assert.throws(()=>decoder.finish(),error=>error.code==='segment_empty_dialogue');
 });

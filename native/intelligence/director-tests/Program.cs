@@ -80,8 +80,38 @@ class Program
               "caller authorization flag is forbidden");
     }
 
+    static void NativeAttemptPresetContract()
+    {
+        long at=1000;
+        var regular=new DirectorAdmission(()=>at,r=>false,()=>host,()=>world,true,
+            ()=>special,()=>playerEpoch);
+        for(int i=1000;i<1004;i++)
+            Check(regular.Handle(Request(i)).Status=="unsafe",
+                "normal cap counts unsafe admission attempts");
+        Check(regular.Handle(Request(1004)).Status=="busy","native default remains 4/min");
+
+        var testing=new DirectorAdmission(()=>at,r=>false,()=>host,()=>world,true,
+            ()=>special,()=>playerEpoch,null,DirectorAdmission.TestingMaxAttempts);
+        Check(testing.AttemptLimitPerMinute==12,"explicit native testing preset exactly 12/min");
+        for(int i=1100;i<1112;i++)
+            Check(testing.Handle(Request(i)).Status=="unsafe",
+                "native test cap counts all 12 unsafe attempts");
+        Check(testing.Handle(Request(1112)).Status=="busy","native testing refuses 13th attempt");
+        Check(testing.Handle(Request(1100,"cancel")).Status=="not_found",
+            "rate exhaustion cannot block the native cancellation operation");
+        at+=60001;
+        Check(testing.Handle(Request(1113)).Status=="unsafe",
+            "native test cap resets after 60 seconds");
+        bool rejected=false;
+        try {
+            new DirectorAdmission(()=>at,r=>true,()=>host,()=>world,true,
+                ()=>special,()=>playerEpoch,null,1000);
+        }catch(ArgumentOutOfRangeException){rejected=true;}
+        Check(rejected,"arbitrary native attempt overrides are rejected");
+    }
     static void Run()
     {
+        NativeAttemptPresetContract();
         OriginalTurnBindingFrameContract();
         var off=New(false);
         Check(off.Handle(Request()).Status=="busy","default off rejects reserve");
@@ -657,6 +687,77 @@ class Program
         var req=Request(23);
         var proof=ReadyProof(req);
         Check(DirectorC06Policy.Safe(req,proof),"complete authoritative same-host/owner C06 snapshot admits");
+        // The owner policy is intentionally a CLOSED set. An established
+        // movement/pose state can speak, but an arbitrary ACT task cannot.
+        foreach(var mode in new[]{"follow","wait","sit"}) {
+            Check(DirectorC06Policy.SpeechCompatibleOwner("p2",mode,false,null),
+                "owned P2 "+mode+" permits speech while other C06 fences are idle");
+        }
+        foreach(var capability in new[]{"hold_position","follow_person","sit_on_ground",
+            "resume_ambient","stop_and_face","begin_driving","approach_person","walk_away_from"}) {
+            Check(DirectorC06Policy.SpeechCompatibleOwner("act","activity",false,capability),
+                "source-verified ACT "+capability+" can speak without changing activity");
+        }
+        foreach(var capability in new[]{(string)null,"take_cover","scenario_here",
+            "enter_vehicle_seat","exit_vehicle","grab_item","clear_held_item","go_to_place"}) {
+            Check(!DirectorC06Policy.SpeechCompatibleOwner("act","activity",false,capability),
+                "unverified or conflicting ACT capability must stay silent");
+        }
+        Check(!DirectorC06Policy.SpeechCompatibleOwner("p2","wait",true,null),
+            "suspended wait remains blocked");
+        Check(!DirectorC06Policy.SpeechCompatibleOwner("act","activity",true,"follow_person"),
+            "suspended ACT remains blocked");
+        Check(!DirectorC06Policy.SpeechCompatibleOwner("essential_residual","follow",false,null) &&
+              !DirectorC06Policy.SpeechCompatibleOwner("none","unknown",false,null) &&
+              !DirectorC06Policy.SpeechCompatibleOwner("act","unknown",false,"follow_person"),
+            "residual, missing and mismatched ownership remain blocked");
+        proof.OwnerIdle=DirectorC06Policy.SpeechCompatibleOwner("act","activity",false,"hold_position");
+        Check(DirectorC06Policy.Safe(req,proof),"ACT established hold still passes all native C06 gates");
+        proof.OwnerIdle=DirectorC06Policy.SpeechCompatibleOwner("act","activity",false,"take_cover");
+        Check(!DirectorC06Policy.Safe(req,proof),"conflicting ACT blocks actual Director admission");
+        proof.OwnerIdle=true;
+        // Core selection is not a turn-ownership signal. An unchanged exact
+        // speaker may be treated as a retained target ONLY after all existing
+        // global quiet, player-input, owner, playback and reflex gates pass.
+        proof.ConversationIdle=false;
+        Check(DirectorC06Policy.RetainedTargetIdle(proof,true,true),
+            "stable exact selected target with sealed quiet proof can be released");
+        Check(!DirectorC06Policy.Safe(req,proof),
+            "selected target alone is not enough to grant a new Director turn");
+        Check(!DirectorC06Policy.RetainedTargetIdle(proof,false,true) &&
+              !DirectorC06Policy.RetainedTargetIdle(proof,true,false),
+            "other-speaker and changed Core selections never qualify");
+        proof.PlayerTurnSourceCurrent=false;
+        Check(!DirectorC06Policy.RetainedTargetIdle(proof,true,true),
+            "missing authenticated backend player-turn source stays blocked");
+        proof.PlayerTurnSourceCurrent=true;proof.EssentialTurnIdle=false;
+        Check(!DirectorC06Policy.RetainedTargetIdle(proof,true,true),
+            "active Essential generation is not a stale selection");
+        proof.EssentialTurnIdle=true;proof.PlaybackIdle=false;
+        Check(!DirectorC06Policy.RetainedTargetIdle(proof,true,true),
+            "pending playback blocks retained selection release");
+        proof.PlaybackIdle=true;proof.MicIdle=false;
+        Check(!DirectorC06Policy.RetainedTargetIdle(proof,true,true),
+            "player mic activity blocks retained selection release");
+        proof.MicIdle=true;proof.TextInputIdle=false;
+        Check(!DirectorC06Policy.RetainedTargetIdle(proof,true,true),
+            "player text input blocks retained selection release");
+        proof.TextInputIdle=true;proof.OwnerIdle=false;
+        Check(!DirectorC06Policy.RetainedTargetIdle(proof,true,true),
+            "unknown or occupied P2 owner blocks retained selection release");
+        proof.OwnerIdle=true;proof.ActorReflexKnown=false;
+        Check(!DirectorC06Policy.RetainedTargetIdle(proof,true,true),
+            "unreadable actor reflex blocks retained selection release");
+        proof.ActorReflexKnown=true;proof.ScriptSafe=false;
+        Check(!DirectorC06Policy.RetainedTargetIdle(proof,true,true),
+            "unsafe scripted state blocks retained selection release");
+        proof.ScriptUnsafeReason="script_mission_flag";
+        Check(DirectorC06Policy.FirstVeto(req,proof,"reserve")=="script_mission_flag",
+            "native script veto identifies exact protective flag without weakening admission");
+        proof.ScriptSafe=true;proof.ScriptUnsafeReason=null;
+        proof.ConversationIdle=DirectorC06Policy.RetainedTargetIdle(proof,true,true);
+        Check(DirectorC06Policy.Safe(req,proof),
+            "authenticated stable retained target can pass unchanged full Director policy");
         // This Core API covers special turns only. Its status is diagnostic,
         // never a substitute for the mandatory *global* player-turn arbiter.
         Check(!proof.SpecialTurnVersionKnown && DirectorC06Policy.Safe(req,proof),

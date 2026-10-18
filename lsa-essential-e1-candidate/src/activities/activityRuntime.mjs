@@ -45,6 +45,7 @@ export class ActivityRuntime {
     this.client.stop();
   }
   factsForCharacter(binding) {return this.engine.factsForCharacter(binding);}
+  stateForCharacter(binding) {return this.client.runtime.ready && sameHostContext(binding?.hostContext,this.client.runtime.hostContext)?this.engine.stateForCharacter(binding):null;}
   status(characterId) { return this.engine.status(characterId); }
   pause(characterId) { return this.engine.pause(characterId); }
   resume(characterId) { return this.engine.resume(characterId); }

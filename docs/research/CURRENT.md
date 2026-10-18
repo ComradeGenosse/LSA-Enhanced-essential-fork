@@ -1,10 +1,6 @@
 # LSA Research Corpus — Current Architectural Truth
 
-**Active delivery boundary — October 9, 2026:** The current feature branch follows the [playable LSA v1.0 milestone](../lsa-v1-implementation-milestone.md), retaining settled architecture and the original PR #21 specification. Finish Phase 6 and baseline PS4 validation, then Phase 13a; 10a is conditional on demonstrated Essential gaze insufficiency. All other unfinished master phases are deferred. Use the implementation ledger for branch progress; earlier main/deployment statements below are the recorded baseline.
-
-Updated: 2026-10-08. Source reconciliation: `main@7e54b17` and PR #21; this update is planning only.
-
-This document summarizes **what the research corpus currently believes**. It is not the implementation/deployment ledger; use [../ROADMAP.md](../ROADMAP.md) for that.
+**Architecture reconciliation — October 17, 2026.** This document preserves settled architecture, not release status. Latest reviewed canonical main is c9ad717a (#231); #224 integrated Memory K + ElevenLabs EA, #32/#223 radio is mainline, #213/#214 and #229–#231 add later source/reliability improvements. Read the [canonical roadmap](../ROADMAP.md), [current phase/evidence matrix](../IMPLEMENTATION-STATUS-20261017.md) and [implementation queue](../NEXT-PHASES-20261017.md). The [October 8 master plan](UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md) and older v1 milestone are retained technical and historical artifacts, not a bound on today's next-phase queue. Normative D-001–D-017 and C-01–C-15 remain unchanged.
 
 ## One-sentence architecture
 
@@ -29,11 +25,7 @@ This document summarizes **what the research corpus currently believes**. It is 
 
 ## Current repository state
 
-Current `main` contains the dialogue/provider foundation E1–E6, P0–P2, UX0–UX4, PS0–PS3, ACT0–ACT2, and bounded intelligence JSONL telemetry. PS3 is deployed in shadow and live PS2→PS3 evaluation/telemetry has been exercised. ACT0–ACT2 merged through PR #18 on October 6; the 83-file install and integrated GTA smoke test are recorded, while focused capability probes/default-off gates remain open.
-
-Radio R0–R5/v2 is implemented on the unmerged `feature/radio-track-perception-v2-text-id@ad6cad61` stack; its fresh offline/build/GTA/catalog release gates are not closed. Its R5 live observer/contextText writer must be converted to the frozen C-04 seam before incorporation. CGE, proximity routing and PS4+ remain planned/researched rather than implemented. Existing P2 canon/manual memories already enrich dialogue; PS2/PS3 world awareness still stops before Luna requests.
-
-For exact gates and GTA acceptance state, use [../ROADMAP.md](../ROADMAP.md).
+**Authority is the [implementation matrix](../IMPLEMENTATION-STATUS-20261017.md), not the October 11 snapshot.** E1–E6, P0–P2, UX0–UX4, ACT0–ACT2, PS0–PS4, radio, Phase 13a, and Memory K M0–M9 modules are integrated on main with independent activation/acceptance requirements. ACT3 is contract/scaffolding only; ACT4–ACT7, PS7, PS8, CGE and standalone cutover remain future tasks. #35/#37/#47/#50/#222 are open branch work; #224 replaces #216/#138. Current install, production net481 build and GTA validation must be proven per exact binary.
 
 ## Locked / settled architecture
 
@@ -98,9 +90,7 @@ PS5 + 13a → optional memory-aware reactions (13b; same Director pipeline)
 
 ## Current next-work interpretation
 
-The [unified intelligence master plan](UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md) is the implementation sequencing blueprint. Preserve the [PR #21 PS4 code-level plan](PS4-code-level-implementation-plan-20261008.md) as its detailed MVP specification. Next: C-02/C-13 actor/host association → qualified PS2/C-14 → frozen C-04 → all Luna request paths → controlled MVP acceptance. ACT0–ACT2 do not need rebuilding/remerging. Fresh UX4 physical acceptance and focused ACT probes remain separate validation obligations.
-
-After accepted baseline PS4, prioritize C-06/admission and early PS6 passive speech (13a), plus independently probed playback-only gaze (10a). PS5 is not required for transient reactions; C-01 is required for player-listening (10b), not native playback engagement. ACT/C-05 self-knowledge, radio, hearing, timeline-safe automatic memory and advanced social/physical autonomy retain their separate gates. Optional radio, gaze, proximity, Genesis and autonomy never block baseline PS4. ACT3 can develop after shared references; advanced physical execution still needs its own probes. Reuse existing PS2 stores, providers, P2 persistence and ACT engine; no new event ledger, service, database or inference router is required. Future decision-policy variation replaces only a bounded Director selection function; all policies share C-11 validation/tickets, quotas/receipts and ACT/Essential authority. No alternative production policy is added.
+Use the [priority roadmap](../ROADMAP.md) and [scoped tasks](../NEXT-PHASES-20261017.md), not a legacy Phase 6-only milestone. Immediate owner/readiness/memory/voice/PS6 GTA checks and open-PR triage precede new feature claims. Next implement ACT3 first capability and ACT4/ACT5 using existing architecture; C-01 source-time hearing can reconcile in parallel before PS7/ACT7. Preserve the detailed research dependencies without rerunning already implemented phases.
 
 ## Important historical-status rule
 

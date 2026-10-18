@@ -1,0 +1,20 @@
+{
+  "GamePath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Grand Theft Auto V Enhanced",
+  "Repository": "ComradeGenosse/LSA-Enhanced-essential-fork",
+  "RepositoryPath": "%USERPROFILE%\\Documents\\Codex\\repos\\LSA-Enhanced-essential-fork",
+  "EssentialRef": "main",
+  "StandalonePullRequest": 50,
+  "SwitchBackupPath": "%USERPROFILE%\\Documents\\Codex\\lsa-essential-switch-backup",
+  "CurrentStandalonePackage": "",
+  "PackageRoot": "packages",
+  "BackupRoot": "backups",
+  "LogOutputRoot": "logs",
+  "LogSearchRoots": [],
+  "ExtraLogRoots": [
+    "%LOCALAPPDATA%\\LSA Enhanced"
+  ],
+  "ReasoningModel": "gpt-6-luna",
+  "TtsModel": "gpt-4o-mini-tts",
+  "Voice": "nova",
+  "EssentialSourcePath": "%USERPROFILE%\\Documents\\Codex\\repos\\LSA-Enhanced-essential-fork-main"
+}

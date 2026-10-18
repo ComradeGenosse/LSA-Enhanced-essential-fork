@@ -8,7 +8,7 @@ export function controlsContractSupported(value) {
 }
 // UX phases 2-3 plus ACT2. contracts/commands.v2.json is embedded into the loader, and
 // native/enhanced/Commands/CommandCatalog.cs pins the same SHA-256.
-export const COMMANDS_CONTRACT_SHA256 = '07e0ad837bcbce8b6ff088a0b57ae6aad94e23cdbb5ac4a6bc4668a20b15d754';
+export const COMMANDS_CONTRACT_SHA256 = '88d87f1d47fc06c4cdb497d9d9be8813447d7ad41466ba7a5f33d70498e71899';
 // Compile-only RAGENativeUI reference (NuGet RAGENativeUI 1.9.3, lib/net472). It is
 // never packaged; the loader requires assembly version 1.9.3.0 at runtime.
 export const RNUI_DLL_SHA256 = 'd2607481b206e7907c9c1f2cabf15797654aacaaf1746ea202740dcdd5eb8bbb';

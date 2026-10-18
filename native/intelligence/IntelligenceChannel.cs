@@ -19,23 +19,28 @@ namespace LSA.Intelligence
         readonly Func<object> capabilities;
         readonly string hostRunId;
         readonly Func<int> worldEpoch;
-        readonly bool observerIndex,directorRequests;
+        readonly bool observerIndex,directorRequests,currentOwnerPlayer,m9Sample;
         readonly JavaScriptSerializer json=new JavaScriptSerializer {MaxJsonLength=8192,RecursionLimit=8};
         NamedPipeServerStream pipe;
         string streamId;
         long sequence;
         volatile bool stopping,connected;
         public int ConnectionVersion {get;private set;}
+        // Read-only transport state; authoritative source checks still bind connection version and epoch.
+        public bool Connected => connected && !stopping;
         public long Dropped {get;private set;}
-        public IntelligenceChannel(string name,string epoch,Func<object> capabilities,string hostRunId=null,Func<int> worldEpoch=null,bool observerIndex=false,bool directorRequests=false) {
+        public IntelligenceChannel(string name,string epoch,Func<object> capabilities,string hostRunId=null,Func<int> worldEpoch=null,bool observerIndex=false,bool directorRequests=false,bool currentOwnerPlayer=false,bool m9Sample=false) {
             if((hostRunId==null)!=(worldEpoch==null) || hostRunId!=null && !System.Text.RegularExpressions.Regex.IsMatch(hostRunId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")) throw new ArgumentException("invalid_host_context");
-            this.name=name;this.epoch=epoch;this.capabilities=capabilities;this.hostRunId=hostRunId;this.worldEpoch=worldEpoch;this.observerIndex=observerIndex;this.directorRequests=directorRequests;
+            this.name=name;this.epoch=epoch;this.capabilities=capabilities;this.hostRunId=hostRunId;this.worldEpoch=worldEpoch;this.observerIndex=observerIndex;this.directorRequests=directorRequests;this.currentOwnerPlayer=currentOwnerPlayer;this.m9Sample=m9Sample;
         }
         object Hello() {
             var value=new Dictionary<string,object>{{"version",1},{"type","hello"},{"adapterEpoch",epoch},{"streamId",streamId},{"capabilities",capabilities()}};
             if(hostRunId!=null) {value["hostContextVersion"]=1;value["hostRunId"]=hostRunId;value["worldEpoch"]=worldEpoch();}
             if(observerIndex && hostRunId!=null) {value["observerIndexVersion"]=1;value["observerSituationVersion"]=1;value["primaryBehaviorOwnerVersion"]=1;}
             if(directorRequests && hostRunId!=null)value["directorRequestVersion"]=1;
+            if(currentOwnerPlayer && observerIndex && hostRunId!=null)value["memoryCurrentOwnerPlayerVersion"]=1;
+            // M9 state samples require the host and observer index contexts.
+            if(m9Sample && observerIndex && hostRunId!=null)value["m9SampleVersion"]=1;
             return value;
         }
         public void Start() {new Thread(Serve) {IsBackground=true,Name="LSA intelligence facts"}.Start();}
@@ -90,6 +95,31 @@ namespace LSA.Intelligence
                 lock(gate)if(ReferenceEquals(pipe,active)){connected=false;directorFrames.Clear();}
                 try{active.Dispose();}catch{}
             }
+        }
+        // The native owner fiber admits only a version-1 receiver declaration
+        // read from THIS same user-ACL, inbound C-13 pipe. The declaration
+        // cannot come from an actor, an unauthenticated IPC socket or a stale
+        // connection. Legacy output-only receivers never negotiate support.
+        public bool AcceptProtagonistConsumer(string raw,string currentHost,int currentWorld)
+        {
+            if(!directorRequests || raw==null || raw.Length>512 || currentWorld<1)return false;
+            try {
+                var parser=new JavaScriptSerializer {MaxJsonLength=512,RecursionLimit=3};
+                var data=parser.DeserializeObject(raw) as Dictionary<string,object>;
+                if(data==null || data.Count!=7 ||
+                   !(data["version"] is int) || (int)data["version"]!=1 ||
+                   !(data["supportedVersion"] is int) || (int)data["supportedVersion"]!=1 ||
+                   !string.Equals(data["type"] as string,"protagonist_capability",StringComparison.Ordinal) ||
+                   !string.Equals(data["hostRunId"] as string,currentHost,StringComparison.Ordinal) ||
+                   !(data["worldEpoch"] is int) || (int)data["worldEpoch"]!=currentWorld)
+                    return false;
+                lock(gate) return connected && !stopping && pipe!=null &&
+                    pipe.IsConnected && !string.IsNullOrEmpty(streamId) &&
+                    string.Equals(data["adapterEpoch"] as string,epoch,StringComparison.Ordinal) &&
+                    string.Equals(data["streamId"] as string,streamId,StringComparison.Ordinal) &&
+                    string.Equals(currentHost,hostRunId,StringComparison.Ordinal) &&
+                    worldEpoch!=null && worldEpoch()==currentWorld;
+            } catch {return false;}
         }
         public bool TryTakeDirectorFrame(out string frame)
         {

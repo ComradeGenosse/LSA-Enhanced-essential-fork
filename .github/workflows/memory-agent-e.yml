@@ -1,0 +1,37 @@
+name: M6 M7 Agent E offline verification
+on:
+  push:
+    branches: [feature/memory-agent-e-m6-m7-curation]
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/memory/**'
+      - 'lsa-essential-e1-candidate/src/memory/lunaCurationBridge.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory-agent-e.test.mjs'
+      - '.github/workflows/memory-agent-e.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  agent-e:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20.19.0', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Check source syntax
+        shell: bash
+        run: |
+          node --check lsa-shared-brain/src/memory/evidence.mjs
+          node --check lsa-shared-brain/src/memory/selection.mjs
+          node --check lsa-shared-brain/src/memory/consolidation.mjs
+          node --check lsa-shared-brain/src/memory/queueContract.mjs
+          node --check lsa-shared-brain/src/memory/lunaCurator.mjs
+      - name: Run M6 M7 offline no-network contract tests
+        shell: bash
+        run: node --test lsa-essential-e1-candidate/tests/memory-agent-e.test.mjs

@@ -1,0 +1,61 @@
+name: EA Consolidated G H EA9 Gate
+on:
+  push:
+    branches:
+      - integration/elevenlabs-emotional-acting-consolidated-20261012
+  pull_request:
+    branches:
+      - feature/elevenlabs-v4-tts-provider-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  ELEVENLABS_API_KEY: ''
+  LSA_EA9_BILLING_APPROVED: '0'
+jobs:
+  combined:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify exact integration HEAD
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Verify source syntax
+        shell: bash
+        run: |
+          node --check lsa-essential-e1-candidate/src/voice/emotion/moodRuntime.mjs
+          node --check lsa-essential-e1-candidate/src/voice/emotion/moodStore.mjs
+          node --check lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs
+          node --check tools/ea9/isolated-deploy.mjs
+          node --check lsa-shared-brain/src/characters/sqliteFoundation.mjs
+          node --check lsa-shared-brain/src/memory/integratedSqlite.mjs
+      - name: Exact integrated G H EA9 regression suite
+        working-directory: lsa-essential-e1-candidate
+        run: >-
+          node --test
+          tests/ea-g-v4-compatibility.test.mjs
+          tests/ea6-storage-timeline.test.mjs
+          tests/ea-final-b-timeline.test.mjs
+          tests/ea-final-h-unified-player.test.mjs
+          tests/emotional-mood-continuity.test.mjs
+          tests/ea4-runtime-integration.test.mjs
+          tests/ea7-emotional-continuity-completion.test.mjs
+          tests/ea5-native-protagonist-authority.test.mjs
+          tests/ea-final-a-native-intake.test.mjs
+          tests/ea-final-c-emotional-delivery.test.mjs
+          tests/ea-final-integration-wiring.test.mjs
+          tests/ea8-elevenlabs-provider-safety.test.mjs
+          tests/ea9-release.test.mjs
+          tests/p2-profiles.test.mjs
+      - name: Assert complete EA0 to EA9 suites exist at this HEAD
+        shell: bash
+        run: node tools/ea9/matrix.mjs --require-combined --expected-head "${{ github.event.pull_request.head.sha || github.sha }}" --report ea9-combined-inventory.json

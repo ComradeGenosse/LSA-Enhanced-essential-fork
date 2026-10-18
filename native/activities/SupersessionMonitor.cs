@@ -71,6 +71,10 @@ namespace LSA.Activities
         // has no Rage dependency. The promoted-character owner resolves it only
         // when draining the ring on Essential's update fiber.
         public object PedReference;
+        // approach_finished only: the opaque target ped, the native ok flag and its reason string.
+        public object TargetReference;
+        public bool? Ok;
+        public string Reason;
         public string ActorKey, IncarnationId, Name, Phase, Source;
         public bool? Succeeded;
         public uint GameMs;
@@ -103,7 +107,7 @@ namespace LSA.Activities
                 if (ring.Count >= ActivityContracts.CallbackRing) { dropped++; overflowing = true; return false; }
                 // Keep source-time fields stable even if a producer reuses its
                 // record object. Ped remains opaque; no native/state reads here.
-                ring.Enqueue(new CallbackRecord{PedReference=record.PedReference,ActorKey=record.ActorKey,IncarnationId=record.IncarnationId,Name=record.Name,Phase=record.Phase,Source=record.Source,Succeeded=record.Succeeded,GameMs=record.GameMs,CaptureSequence=sequence});
+                ring.Enqueue(new CallbackRecord{PedReference=record.PedReference,TargetReference=record.TargetReference,Ok=record.Ok,Reason=record.Reason,ActorKey=record.ActorKey,IncarnationId=record.IncarnationId,Name=record.Name,Phase=record.Phase,Source=record.Source,Succeeded=record.Succeeded,GameMs=record.GameMs,CaptureSequence=sequence});
                 return true;
             }
         }

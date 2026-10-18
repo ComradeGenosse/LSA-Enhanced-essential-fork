@@ -4,12 +4,16 @@
   },
   "intelligence": {
     "mode": "off",
-    "pipeName": "LSA.Intelligence.v1"
+    "pipeName": "LSA.Intelligence.v1",
+    "radio": "off"
   },
   "activities": {
     "mode": "off",
     "pipeName": "LSA.Activities.v1",
-    "dialogueReceipts": false
+    "dialogueReceipts": false,
+    "act5": false,
+    "act3Capabilities": [],
+    "act6Capabilities": []
   },
   "persistentIdentity": {
     "enabled": false,
@@ -23,6 +27,8 @@
   "promotedCharacters": {
     "enabled": false,
     "storePath": "characters/profiles.v1.json",
+    "storageMode": "json",
+    "sqliteStorePath": "characters/profiles.v2.sqlite",
     "pipeName": "LSA.PromotedCharacters.v1",
     "editorPort": 37921,
     "summonWaitMs": 30000
@@ -54,6 +60,7 @@
   ],
   "voiceAssignment": "character-aware-session",
   "ttsSpeed": 1,
+  "ttsVolume": 1,
   "actingEnabled": true,
   "maxOutputTokens": 300,
   "providerWorkDeadlineMs": 45000,
@@ -66,6 +73,11 @@
     "jitter": "bounded",
     "minAttemptBudgetMs": 1000,
     "attemptTimeoutMs": null
+  },
+  "localVoiceFallback": {
+    "enabled": true,
+    "assetDirectory": "VoiceFallback",
+    "maxRecoveryDelayMs": 1500
   },
   "playbackCompletionGraceMs": 30000,
   "playbackCompletionMinMs": 60000,
@@ -120,6 +132,26 @@
     }
   },
   "spontaneousSpeech": {
-    "mode": "off"
+    "mode": "off",
+    "preset": "normal"
+  },
+  "speechProvider": "openai",
+  "elevenLabs": {
+    "modelId": "eleven_v4_turbo",
+    "voices": {}
+  },
+  "expressiveDelivery": {
+    "mode": "off",
+    "intensity": "subtle",
+    "maxTaggedSegmentsPerTurn": 2,
+    "lunaDeliveryVersion": 0
+  },
+  "reactions": {
+    "mode": "off",
+    "pipeName": "LSA.Reactions.v1",
+    "enabled": []
+  },
+  "memoryK": {
+    "capabilities": {}
   }
 }

@@ -28,6 +28,19 @@ export class DialogueHistory {
   readForSession(pedId, sessionNonce) {
     return (this.#sessions.get(this.#key(pedId, sessionNonce))?.messages || []).map(({ role, content }) => ({ role, content }));
   }
+  // Reuse the same playback-accepted RAM conversation; not a second ledger.
+  // Only this session's completed spontaneous turns with an exact current
+  // P2 privacy/owner seal are eligible. Interruption and TTS-only are absent.
+  readCompletedSocialForSession(pedId, sessionNonce, socialProof, nowMs=Date.now()) {
+    if(!socialProof || !Number.isFinite(nowMs))return [];
+    let seal;try{seal=JSON.stringify(socialProof);}catch{return [];}
+    return (this.#sessions.get(this.#key(pedId,sessionNonce))?.messages||[])
+      .filter(item=>item.role==='assistant'&&item.socialProofSeal===seal&&
+        Number.isFinite(item.completedAtMs)&&item.completedAtMs<=nowMs&&
+        nowMs-item.completedAtMs<=5*60_000)
+      .slice(-20).map(item=>({role:'assistant',content:item.content,
+        atUtc:new Date(item.completedAtMs).toISOString()}));
+  }
 
   commitPlayerInput({ identity, input }) {
     const text = String(input || '').trim().slice(0, 12_000);
@@ -41,17 +54,27 @@ export class DialogueHistory {
     return true;
   }
 
-  stage({ identity, spokenReply }) {
+  stage({ identity, spokenReply, socialProof = null }) {
     const session = this.#get(identity.pedId,identity.sessionNonce);
+    let socialProofSeal=null;
+    try{if(socialProof)socialProofSeal=JSON.stringify(socialProof);}catch{}
     session.pending.set(identity.turnId, {
       identity: { ...identity },
       spokenReply: String(spokenReply || '').slice(0, 1200), ttsSucceeded:false,
+      socialProofSeal,
     });
   }
 
   markModelAndTtsSucceeded(identity) {
     const item = this.#sessions.get(this.#key(identity.pedId, identity.sessionNonce))?.pending.get(identity.turnId);
     if (item && sameIdentity(item.identity, identity)) item.ttsSucceeded = true;
+  }
+
+  // A local recording is actual speech but not a successful model response.
+  // It may be admitted only after the original pending text has been replaced.
+  markFallbackAudioReady(identity) {
+    const item = this.#sessions.get(this.#key(identity.pedId,identity.sessionNonce))?.pending.get(identity.turnId);
+    if(item && sameIdentity(item.identity,identity)) item.ttsSucceeded = true;
   }
 
   acceptPlaybackResult(result) {
@@ -63,7 +86,9 @@ export class DialogueHistory {
       return false;
     }
     session.pending.delete(result.turnId);
-    session.messages.push({ role:'assistant', content:item.spokenReply });
+    session.messages.push({ role:'assistant', content:item.spokenReply,
+      ...(item.socialProofSeal?{socialProofSeal:item.socialProofSeal,
+        completedAtMs:Date.now()}:{}), });
     this.#trim(session);
     return true;
   }

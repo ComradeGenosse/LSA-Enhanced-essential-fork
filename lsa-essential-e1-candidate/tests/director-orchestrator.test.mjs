@@ -30,7 +30,7 @@ function fixture({mode='active',nativeStatus,terminal=completed,gateOk=true,appr
  const admission=new DirectorSpeechReservations({now:()=>now,enabled:mode==='active',
   checkCurrent:()=>approve,
   uuid:()=>`00000000-0000-4000-8000-${String(++counter).padStart(12,'0')}`,
-  acknowledge:(...args)=>{acknowledgements.push(args);return true;}});
+  acknowledge:(...args)=>{acknowledgements.push(args.slice(0,3));return true;}});
  const director=new SceneDirectorSpeech({admission,now:()=>now,mode,
   originalEntitlement:(proposal,s)=>sourceCurrent?sourceTransform({
     source:'original_companion_ps2_ps3',
@@ -141,4 +141,42 @@ test('native denial reason vocabulary is bounded and cannot leak arbitrary nativ
  assert.deepEqual(await submit.director.attempt({candidates:[candidate],facts,stamp}),
    {status:'native_submit_rejected',nativeReason:'unsafe'});
  assert.equal(submit.dispatches.length,0);
+});
+
+
+test('13a exceptions identify native reserve, submit, stock dispatch, or playback stage without leaking exceptions',async()=>{
+ const {SceneDirectorSpeech}=await import('../src/perception/sceneDirectorOrchestrator.mjs');
+ const src=await import('../src/perception/sceneDirector.mjs');
+ const speaker='d34713cd-ff8e-4ab3-9f83-241a8cf812c7';
+ const player='24846870-fdcc-444f-9aca-7487d4c01048';
+ const obsId='c9f50874-c003-4437-a944-9200cf6e30e5';
+ const now=10000,decision='error-test';
+ const candidates=[{entitlementCurrent:true,observedAtMonotonicMs:9900,
+ observation:{observationId:obsId,revision:1,eventType:'firing_burst',severity:'danger',
+ observer:{captureRef:speaker,kind:'ped'},expiresAtMonotonicMs:15000,
+ claims:[{kind:'firing',certainty:'supported',evidence:{channel:'visual'}}]},
+ decision:{observationId:obsId,revision:1,decisionKey:decision,policyVersion:1,
+ response:'eligible',expiresAtMonotonicMs:15000},
+ situation:{lifetimeCurrent:true,channelHealthy:true,perceptionSupported:true,playerCaptureRef:player}}];
+ const facts={speakerCaptureRef:speaker,playerCaptureRef:player,nowMonotonicMs:now};
+ const proposal=src.selectDirectorIntent(candidates,facts);
+ const stamp={hostRunId:'run',worldEpoch:1,ownerIncarnationId:'owner',proofRevision:1};
+ const ticket=Object.freeze({ticketId:'ticket'});
+ const originalEntitlement=()=>({source:'original_companion_ps2_ps3',hostRunId:'run',worldEpoch:1,
+ speakerCaptureRef:speaker,playerCaptureRef:player,ownerIncarnationId:'owner',proofRevision:1,
+ observationId:obsId,observationRevision:1,decisionKey:decision,policyVersion:1,
+ expiresAtMonotonicMs:proposal.expiresAtMonotonicMs});
+ for(const [stage,expected] of [['reserve','native_reserve_exception'],['submit','native_submit_exception'],['dispatch','stock_dispatch_exception']]){
+  let releases=0;
+  const admission={reserve:()=>ticket,consume:()=>true,cancel:()=>{releases++;return true;}};
+  const flow=new SceneDirectorSpeech({mode:'active',admission,now:()=>now,originalEntitlement,
+   nativeRequest:async({operation})=>{if(operation==='cancel')return{status:'cancelled'};
+     if(operation===stage)throw Error('PRIVATE SPECIAL TURN DETAILS');
+     return {status:operation==='reserve'?'reserved':'submitted',ticketId:'ticket'};},
+   dispatch:async()=>{if(stage==='dispatch')throw Error('PRIVATE NPC DIALOGUE');
+     throw Error('unexpected');}});
+  const outcome=await flow.attempt({candidates,facts,stamp});
+  assert.deepEqual(outcome,{status:'failed',diagnosticReason:expected});
+  assert.equal(releases,1);
+ }
 });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectDirectorIntent, DIRECTOR_SPEECH_LIMITS } from '../src/perception/sceneDirector.mjs';
+import { selectDirectorIntent, DIRECTOR_SPEECH_LIMITS, directorSpeechLimitsForPreset } from '../src/perception/sceneDirector.mjs';
 
 const speaker = 'd34713cd-ff8e-4ab3-9f83-241a8cf812c7';
 const player = '24846870-fdcc-444f-9aca-7487d4c01048';
@@ -12,7 +12,7 @@ function candidate(changes = {}) {
     entitlementCurrent: true,
     observedAtMonotonicMs: NOW - 300,
     observation: {
-      observationId, revision: 1, observer: {captureRef: speaker,kind:'ped'},
+      observationId, revision: 1, eventType:'firing_burst', observer: {captureRef: speaker,kind:'ped'},
       expiresAtMonotonicMs: NOW + 15_000,
       claims: [{certainty:'supported',evidence:{channel:'visual'}}],
     },
@@ -74,6 +74,27 @@ test('urgent is prioritized, expires within two seconds and never uses a fallbac
   assert.equal(selectDirectorIntent([candidate({...urgent,observedAtMonotonicMs:NOW-2000})],facts),null);
 });
 
+test('opt-in routine event stays source-qualified and never outranks danger',()=>{
+  const base=candidate();
+  const ambientId='ab405d8b-2dd7-4128-b412-2ece232124bf';
+  const ambient=candidate({
+    observation:{...base.observation,observationId:ambientId,
+      eventType:'character_present',severity:'routine',
+      claims:[{certainty:'supported',kind:'presence',evidence:{channel:'visual'}}]},
+    decision:{...base.decision,observationId:ambientId,decisionKey:'ambient-original-grant'},
+    observedAtMonotonicMs:NOW-100,
+  });
+  assert.equal(selectDirectorIntent([ambient],facts)?.observationId,ambientId);
+  assert.equal(selectDirectorIntent([ambient,base],facts)?.observationId,observationId,
+    'fresh everyday event cannot displace an older urgent-scene observation');
+  for(const claim of [
+    {certainty:'supported',kind:'presence',evidence:{channel:'report'}},
+    {certainty:'supported',kind:'sound',evidence:{channel:'auditory'}},
+    {certainty:'uncertain',kind:'presence',evidence:{channel:'visual'}},
+  ]) assert.equal(selectDirectorIntent([{...ambient,observation:{...ambient.observation,claims:[claim]}}],facts),null);
+  assert.equal(selectDirectorIntent([{...ambient,observation:{...ambient.observation,eventType:'radio_heard'}}],facts),null);
+});
+
 test('selection stays deterministic and safely bounded', () => {
   const base = candidate();
   const otherId = '3b74ae3d-819c-475b-b222-1793af3dddad';
@@ -82,4 +103,16 @@ test('selection stays deterministic and safely bounded', () => {
   assert.equal(selectDirectorIntent(Array.from({length:129},()=>base),facts),null);
   assert.equal(DIRECTOR_SPEECH_LIMITS.attemptsPerMinute,4);
   assert.equal(DIRECTOR_SPEECH_LIMITS.ticketTtlMs,2000);
+});
+
+
+test('testing chatter preset never widens PS3 event freshness or ticket lease',()=>{
+ const normal=directorSpeechLimitsForPreset('normal'),testing=directorSpeechLimitsForPreset('testing');
+ for(const key of ['urgentCandidateTtlMs','routineCandidateTtlMs','ticketTtlMs',
+  'globalInFlight','sceneReservations','pendingTickets'])
+  assert.equal(testing[key],normal[key],key);
+ assert.equal(normal.attemptsPerMinute,4);
+ assert.equal(testing.attemptsPerMinute,12);
+ assert(Object.isFrozen(testing));
+ assert.throws(()=>directorSpeechLimitsForPreset('unlimited'));
 });

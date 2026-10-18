@@ -1,5 +1,6 @@
 import { sameIdentity } from '../integration/nativeDelivery.mjs';
 import { runSequentialTurn } from './runSequentialTurn.mjs';
+import { reasonForAbort } from '../voice/voiceActivity.mjs';
 import { captureReferenceMap, immutableSnapshot, unknownWorld } from '../context/turnSnapshot.mjs';
 
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
@@ -37,9 +38,14 @@ export class OpenAIConnection {
   #voiceProfile = null;
   #voicePolicyLocked = false;
   #characterSnapshot = null;
+  // Private memory-source capabilities from createRuntime (never on runtime,
+  // services or the bridge): the original-turn ledger recorder and the D01
+  // accepted-input issuer. Null for providers/runtimes without them.
+  #memorySources = null;
 
-  constructor({ runtime, onEvent, options, diagnosticContext }) {
+  constructor({ runtime, onEvent, options, diagnosticContext, memorySources = null }) {
     this.#runtime = runtime;
+    this.#memorySources = memorySources;
     this.#context = Object.freeze({
       systemInstruction: String(options.systemInstruction || ''),
       actor: this.#snapshotActor(options.actorContext),
@@ -63,7 +69,8 @@ export class OpenAIConnection {
     const source = String(turn.source || 'player_text').toLowerCase();
     this.#metrics = this.#runtime.telemetry?.beginTurn(turn.identity, source, { inputChars: String(turn.context?.inputText || '').length }) || null;
     const inputContext = turn.context || {};
-    const actor = hasOwn(inputContext, 'actor') ? this.#snapshotActor(inputContext.actor) : this.#context.actor;
+    const actorInput = hasOwn(inputContext, 'actor') ? inputContext.actor : this.#context.actor;
+    const actor = this.#snapshotActor(this.#runtime.recoverIdentityActor?.(turn.identity,actorInput)??actorInput);
     const listenerProvided = hasOwn(inputContext, 'listener') && inputContext.listener !== undefined;
     const listener = listenerProvided ? immutableSnapshot(inputContext.listener) : this.#context.listener;
     const requestedListenerState = inputContext.listenerState;
@@ -142,6 +149,10 @@ export class OpenAIConnection {
       characterInputs,
       knowledgeInputs: this.#runtime.captureKnowledgeInputs?.({identity:turn.identity,source,p0Snapshot:contextSnapshot,characterInputs}) ?? null,
     });
+    // The patched original Xn calls beginTurn synchronously after binding the
+    // generation; record the original backend's own turn facts now, read back
+    // from the original registry for this exact registered connection.
+    try { this.#memorySources?.recordTurn?.(this.#turn.identity, this); } catch {}
     this.#characterSnapshot = null;
     this.#launched = false;
     this.#retired = false;
@@ -168,6 +179,7 @@ export class OpenAIConnection {
     this.#mic = [];
     this.#micBytes = 0;
     this.#micOverflow = false;
+    this.#voice('captureStarted', this.#turn.identity);
     return Promise.resolve(true);
   }
 
@@ -183,11 +195,14 @@ export class OpenAIConnection {
       this.#metrics?.event('input_overflow', { bytes: this.#micBytes + chunk.length });
       this.#mic = [];
       this.#micBytes = 0;
+      this.#voice('captureEnded', this.#turn.identity, { submitted: false, reason: 'input_overflow' });
       throw new Error('PTT input exceeded the configured 30-second limit.');
     }
     this.#mic.push(chunk);
     this.#micBytes += chunk.length;
     this.#metrics?.count('micChunks');
+    // Peak of this chunk only (UX4 meter). Nothing is retained from the samples.
+    this.#voice('level', this.#turn.identity, chunk);
     return Promise.resolve(true);
   }
 
@@ -205,12 +220,19 @@ export class OpenAIConnection {
     if (!this.#inputStarted) return Promise.resolve(false);
     this.#inputStarted = false;
     this.#metrics?.event('capture_stopped', { bytes: this.#micBytes, sampleRate: 16_000, durationMs: Math.max(0, performance.now() - this.#captureStartedAt) });
-    if (this.#micOverflow) throw new Error('PTT input exceeded the configured limit; no truncated audio was submitted.');
+    if (this.#micOverflow) {
+      this.#voice('captureEnded', this.#turn.identity, { submitted: false, reason: 'input_overflow' });
+      throw new Error('PTT input exceeded the configured limit; no truncated audio was submitted.');
+    }
     const pcm = Buffer.concat(this.#mic, this.#micBytes);
     this.#mic = [];
     this.#micBytes = 0;
     this.#metrics?.event('input_ready', { bytes: pcm.length, sampleRate: 16_000, channels: 1, role: 'microphone' });
-    if (!pcm.length) throw new Error('PTT input did not contain microphone audio.');
+    if (!pcm.length) {
+      this.#voice('captureEnded', this.#turn.identity, { submitted: false, reason: 'no_audio' });
+      throw new Error('PTT input did not contain microphone audio.');
+    }
+    this.#voice('captureEnded', this.#turn.identity, { submitted: true });
     this.#launch({ pcm: new Uint8Array(pcm), sampleRate: 16_000 });
     return Promise.resolve(true);
   }
@@ -244,6 +266,8 @@ export class OpenAIConnection {
     this.#inputStarted = false;
     this.#mic = [];
     this.#micBytes = 0;
+    // Before launch there is no runner to report the terminal state.
+    if (!this.#active) this.#voice('terminal', identity, reasonForAbort(reason));
     if (!this.#active || !sameIdentity(this.#active.identity, identity)) return true;
     this.#active.cancelReason = String(reason || 'cancelled');
     this.#active.controller?.abort(new Error(this.#active.cancelReason));
@@ -296,9 +320,22 @@ export class OpenAIConnection {
     };
     const state = { identity: turn.identity, controller, done: null, cancelReason: '' };
     this.#active = state;
+    // One-shot D01 capability for this launch only, bound to its AbortSignal
+    // and this connection; runSequentialTurn may use it once at its commit.
+    let acceptance = null;
+    try { acceptance = this.#memorySources?.acceptance?.openTurn({ identity: turn.identity, source: turn.source, connection: this, signal: controller.signal }) ?? null; }
+    catch { acceptance = null; }
+    // One-shot NPC speech-delivery recorder for this launch (WS-5a). Same
+    // privacy rules as `acceptance`: held here and by the runner only.
+    let speech = null;
+    try { speech = this.#memorySources?.speech?.openTurn({ identity: turn.identity, source: turn.source, connection: this, signal: controller.signal }) ?? null; }
+    catch { speech = null; }
     const run = Promise.resolve().then(async () => {
       if (controller.signal.aborted || this.#closed) {
+        try { acceptance?.release(); } catch {}
+        try { speech?.release(); } catch {}
         const reason = this.#closed ? 'disconnected' : this.#active?.cancelReason || 'cancelled';
+        this.#voice('terminal', turn.identity, reasonForAbort(reason));
         this.#metrics?.finish({ reason, stage: 'input', assistantCommitted: false });
         return { status: 'cancelled', terminalReason: reason };
       }
@@ -309,6 +346,9 @@ export class OpenAIConnection {
         services: this.#runtime.services,
         history: this.#runtime.history,
         host: this.#runtime.hostFor(this),
+        acceptance,
+        speech,
+        voice: this.#runtime.voiceActivity ?? null,
       });
     });
     state.done = run;
@@ -323,10 +363,14 @@ export class OpenAIConnection {
   }
 
   async prepareIdentity(turn, signal, deadlineAt) {
+    await this.#runtime.waitForMemorySource?.(turn,signal,deadlineAt);
     const prepared = await this.#runtime.identityService?.prepare({ identity: turn.identity, actor: turn.context.actor, signal, deadlineAt,
       isCurrent: () => !this.#closed && sameIdentity(this.#turn?.identity, turn.identity) && this.#runtime.host.isCurrent(turn.identity),
       voiceResolver: this.#runtime.voiceResolver, allowVoice: !this.#voicePolicyLocked });
     if (signal.aborted || this.#closed || !sameIdentity(this.#turn?.identity, turn.identity) || !this.#runtime.host.isCurrent(turn.identity)) return;
+    // A known authored character must not silently become a generated persona
+    // while its independent native ownership proof is unavailable.
+    if(turn.characterInputs?.profile&&prepared?.snapshot?.resolution.kind!=='persistent')throw new Error('identity_unavailable');
     turn.knowledgeInputs = this.#runtime.releaseOwnedKnowledge?.(turn.knowledgeInputs,turn.identity,prepared?.snapshot) ?? turn.knowledgeInputs;
     this.#characterSnapshot = prepared?.snapshot || null;
     if (!this.#voicePolicyLocked) {
@@ -351,6 +395,9 @@ export class OpenAIConnection {
     const snapshot=immutableSnapshot(actor);
     return this.#runtime.copyActorPresence?.(actor,snapshot) ?? snapshot;
   }
+
+  // UX4 meter hook: a missing or failing tracker can never affect the conversation.
+  #voice(method, ...args) { try { return this.#runtime.voiceActivity?.[method](...args); } catch { return false; } }
 
   #ensureOpen() { if (this.#closed) throw new Error('OpenAI session is closed.'); }
   #ensureTurn() { this.#ensureOpen(); if (!this.#turn) throw new Error('OpenAI generation is not bound to an Essential turn.'); }

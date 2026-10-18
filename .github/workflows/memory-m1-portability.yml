@@ -1,0 +1,81 @@
+name: M1 Shared Memory Portability
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'lsa-shared-brain/**'
+      - 'lsa-essential-e1-candidate/**'
+      - 'lsa-standalone-companion/**'
+      - 'docs/plans/promoted-npc-memory/**'
+      - '.github/workflows/memory-m1-portability.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  memory-m1:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: Node 24 / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Probe SQLite and FTS5 (real runtime)
+        shell: bash
+        run: |
+          node -e "const {DatabaseSync}=require('node:sqlite'); const d=new DatabaseSync(':memory:');d.exec('CREATE VIRTUAL TABLE t USING fts5(body)');d.close(); console.log('SQLite FTS5 available on',process.version)"
+      - name: Exercise M1 migration and both host adapters
+        shell: bash
+        run: |
+          node --test lsa-essential-e1-candidate/tests/m1-sqlite-foundation.test.mjs lsa-essential-e1-candidate/tests/m1-shared-memory-parity.test.mjs lsa-essential-e1-candidate/tests/m1-world-epoch-bridge.test.mjs lsa-essential-e1-candidate/tests/m1-source-write-gate.test.mjs lsa-essential-e1-candidate/tests/m1-offline-inspection.test.mjs
+      - name: M2 durable conversation and M3 journal contract matrix
+        shell: bash
+        run: |
+          node --test lsa-essential-e1-candidate/tests/m2-journal.test.mjs
+          node --check lsa-shared-brain/src/memory/journalSqlite.mjs
+          node --check lsa-shared-brain/src/memory/conversationRecorder.mjs
+          node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
+      - name: Regress existing Essential P2 editor, identity, profile and lifecycle
+        shell: bash
+        run: |
+          # Existing stock-controller regression fixtures share one pinned dist path.
+          # Run test modules serially so parallel builds do not delete that path.
+          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/p2-authority.test.mjs lsa-essential-e1-candidate/tests/p2-contract.test.mjs lsa-essential-e1-candidate/tests/p2-editor.test.mjs lsa-essential-e1-candidate/tests/p2-lifecycle.test.mjs lsa-essential-e1-candidate/tests/p2-profiles.test.mjs lsa-essential-e1-candidate/tests/identity-store.test.mjs lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs
+      - name: Parse portable source and candidate packager
+        shell: bash
+        run: |
+          node --check lsa-shared-brain/src/characters/sqliteFoundation.mjs
+          node --check lsa-shared-brain/src/characters/sqliteProfileStore.mjs
+          node --check lsa-essential-e1-candidate/tools/buildCandidate.mjs
+
+  legacy-json-import:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: Default JSON smoke / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20.19.0', '22']
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Default Essential JSON startup must not require SQLite
+        shell: bash
+        run: |
+          node --input-type=module -e "import {CharacterService,normalizeCharacterConfig} from './lsa-essential-e1-candidate/src/characters/characterService.mjs'; import {ProfileStore} from './lsa-essential-e1-candidate/src/characters/profileStore.mjs'; import {probeP2Sqlite} from './lsa-shared-brain/src/characters/sqliteFoundation.mjs'; const c=normalizeCharacterConfig({enabled:true,storePath:'characters/profiles.v1.json'}); if(c.storageMode!=='json') process.exit(1); if(typeof CharacterService!=='function'||typeof ProfileStore!=='function'||typeof probeP2Sqlite!=='function') process.exit(1); console.log(process.version,'JSON mode import works without requiring SQLite activation');"

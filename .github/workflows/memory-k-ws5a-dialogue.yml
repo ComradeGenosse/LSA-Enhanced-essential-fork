@@ -1,0 +1,45 @@
+name: Memory K WS-5a NPC dialogue persistence (offline, not GTA)
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/**'
+      - 'lsa-essential-e1-candidate/src/openai/**'
+      - 'lsa-essential-e1-candidate/tests/memory/**'
+      - 'lsa-essential-e1-candidate/tests/memory-k-w03-m2-receipts.test.mjs'
+      - 'lsa-shared-brain/src/memory/**'
+      - '.github/workflows/memory-k-ws5a-dialogue.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ws5a-e2e:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: WS-5a original runner, authenticated D03 and P2 SQLite (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check runtime syntax and single-writer source
+        run: |
+          node --check lsa-essential-e1-candidate/src/memory/npcSpeechDeliveryLedger.mjs
+          node --check lsa-essential-e1-candidate/src/memory/d03OriginalDialogueJoin.mjs
+          node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
+          node --check lsa-shared-brain/src/memory/journalSqlite.mjs
+      - name: NPC dialogue real-runner end to end, ledger and P2 SQLite, no shared dist races
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws5aNpcDialogueCapture.test.mjs lsa-essential-e1-candidate/tests/memory/ws5aJournalAndLedger.test.mjs lsa-essential-e1-candidate/tests/npc-speech-stream-ledger.test.mjs
+      - name: Existing W03, D03 and D01 security regression
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory-k-w03-m2-receipts.test.mjs lsa-essential-e1-candidate/tests/memory/d03OriginalDialogueJoin.test.mjs lsa-essential-e1-candidate/tests/memory/d01OpenAIAcceptance.test.mjs

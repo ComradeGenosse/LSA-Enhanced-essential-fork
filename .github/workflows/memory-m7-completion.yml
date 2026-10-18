@@ -1,0 +1,39 @@
+name: M7 Completion Offline
+on:
+  push:
+    branches:
+      - feature/memory-completion-f-m7-luna-20261011
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/memory/curationSqlite.mjs'
+      - 'lsa-shared-brain/src/memory/lunaCurator.mjs'
+      - 'lsa-shared-brain/src/memory/queueContract.mjs'
+      - 'lsa-shared-brain/src/memory/idleCurationScheduler.mjs'
+      - 'lsa-shared-brain/tests/memory-m7-completion.test.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/lunaCurationBridge.mjs'
+      - '.github/workflows/memory-m7-completion.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['22', '24']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax check M7 modules
+        run: |
+          node --check lsa-shared-brain/src/memory/curationSqlite.mjs
+          node --check lsa-shared-brain/src/memory/lunaCurator.mjs
+          node --check lsa-shared-brain/src/memory/queueContract.mjs
+          node --check lsa-shared-brain/src/memory/idleCurationScheduler.mjs
+          node --check lsa-essential-e1-candidate/src/memory/lunaCurationBridge.mjs
+      - name: Mock-only M7 and shared integration suites (no network)
+        run: node --test lsa-shared-brain/tests/memory-m7-completion.test.mjs lsa-essential-e1-candidate/tests/memory-agent-e.test.mjs lsa-shared-brain/tests/memory-integrated-storage.test.mjs

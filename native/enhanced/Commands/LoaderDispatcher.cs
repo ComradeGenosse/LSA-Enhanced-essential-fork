@@ -11,7 +11,7 @@ namespace LSA.Enhanced.Commands
 {
     public sealed class CommandArgs
     {
-        public string CharacterId, MemoryId, Text, Value, Phrase;
+        public string CharacterId, MemoryId, Text, Value, Phrase, ExpectedEncounterId, ExpectedOwnerAlias, ExpectedOwnershipToken;
         public long ExpectedRevision;
         public bool Flag;
         // Invoked on the loader fiber with (reason or null, response body or null).
@@ -37,6 +37,7 @@ namespace LSA.Enhanced.Commands
         readonly ConcurrentQueue<KeyValuePair<string,CompanionReply>> replies = new ConcurrentQueue<KeyValuePair<string,CompanionReply>>();
         readonly Dictionary<string,long> lastAt = new Dictionary<string,long>();
         readonly Queue<string> recent = new Queue<string>();
+        readonly Queue<string> outcomes = new Queue<string>();
         public LoaderDispatcher(CommandCatalog catalog,INativeBridge bridge,ICompanion companion,IHud hud,EssentialKeyRelay relay,IClock clock)
         {
             this.catalog = catalog; this.bridge = bridge; this.companion = companion; this.hud = hud; this.relay = relay; this.clock = clock;
@@ -49,6 +50,7 @@ namespace LSA.Enhanced.Commands
         public IUiController Ui;
         public CommandCatalog Catalog => catalog;
         public IReadOnlyList<string> RecentReasons => recent.ToList();
+        public IReadOnlyList<string> RecentOutcomes => outcomes.ToList();
         public int Outstanding => jobs.Count;
         public bool Busy(string commandClass) => jobs.Any(job => job.Class == commandClass);
 
@@ -97,6 +99,7 @@ namespace LSA.Enhanced.Commands
         string Current(CommandInfo info,string source,EnhancedSettings settings,CommandArgs args)
         {
             var npc = CurrentNpc(out string reason);
+            if (!MatchesSelection(npc,args)) return Reject(info.Id,"target_changed",args,true);
             if (npc == null) return Reject(info.Id,reason,args,true);
             string operation = info.Id.Substring(info.Id.IndexOf('.') + 1);
             // The companion refuses with target_changed if Essential's current NPC is
@@ -106,6 +109,8 @@ namespace LSA.Enhanced.Commands
             if (string.IsNullOrEmpty(phrase)) return Reject(info.Id,"promote_first",args,true);
             return StartAsk(info,source,npc.EncounterId,phrase,info.AskHud ?? info.Hud,args);
         }
+        static bool MatchesSelection(CurrentNpc npc,CommandArgs args) => args?.ExpectedEncounterId == null ||
+            npc != null && npc.EncounterId == args.ExpectedEncounterId && npc.OwnerAlias == args.ExpectedOwnerAlias;
         CurrentNpc CurrentNpc(out string reason)
         {
             var snapshot = NativeSnapshot.Parse(bridge.Snapshot());
@@ -117,6 +122,7 @@ namespace LSA.Enhanced.Commands
         {
             if (validate && !EnhancedSettings.ValidPhrase(phrase)) return Reject(info.Id,"invalid_text",args,true);
             var npc = CurrentNpc(out string reason);
+            if (!MatchesSelection(npc,args)) return Reject(info.Id,"target_changed",args,true);
             if (npc == null) return Reject(info.Id,reason,args,true);
             return StartAsk(info,source,npc.EncounterId,phrase,successText,args);
         }
@@ -126,13 +132,17 @@ namespace LSA.Enhanced.Commands
             string reply = bridge.Submit(CommandEnvelope.Build(id,CommandCatalog.NpcAsk,source,clock.Utc,encounterId,phrase));
             if (reply != "accepted") return Reject(info.Id,reply ?? "native_unavailable",args,true);
             jobs.Add(new Job {Key = id,CommandId = info.Id,Class = info.Class,Kind = "bridge",SuccessText = successText,Deadline = clock.Monotonic + BridgeTimeoutMs,OnDone = args?.OnDone});
+            Outcome(info.Id,"queued",null);
             return null;
         }
         string Companion(CommandInfo info,CommandArgs args)
         {
+            if (info.Id == CommandCatalog.DirectorSocialManual)
+                return StartCompanion(info,"{\"action\":\"director_social_manual\"}",CompanionTimeoutMs,2048,info.Hud,args);
             if (info.Id != null && info.Id.StartsWith("activity.",StringComparison.Ordinal)) return Activity(info,args);
             if (info.Id == CommandCatalog.CurrentPromote) {
                 var npc = CurrentNpc(out string reason);
+                if (!MatchesSelection(npc,args)) return Reject(info.Id,"target_changed",args,true);
                 if (npc == null) return Reject(info.Id,reason,args,true);
                 return StartCompanion(info,Json(new Dictionary<string,object> {{"action","promote"},{"expectedEncounterId",npc.EncounterId}}),CompanionTimeoutMs,0,info.Hud,args);
             }
@@ -165,13 +175,49 @@ namespace LSA.Enhanced.Commands
         }
         string Activity(CommandInfo info,CommandArgs args)
         {
-            var npc = CurrentNpc(out string reason);
-            if (npc == null) return Reject(info.Id,reason,args,true);
-            if (!npc.Owned) return Reject(info.Id,"actor_not_owned",args,true);
-            var body = new Dictionary<string,object> {{"action","activity"},{"operation",info.Id.Substring("activity.".Length)},{"expectedEncounterId",npc.EncounterId}};
+            var body = new Dictionary<string,object> {{"action","activity"},{"operation",info.Id.Substring("activity.".Length)}};
+            if (args?.CharacterId != null) {
+                // Selecting a roster character must NEVER fall back to the currently
+                // highlighted NPC. Require the exact native incarnation lease.
+                if (!Uuid.IsMatch(args.CharacterId) || args.ExpectedEncounterId == null ||
+                    !Uuid.IsMatch(args.ExpectedEncounterId) || args.ExpectedOwnershipToken == null ||
+                    !Uuid.IsMatch(args.ExpectedOwnershipToken))
+                    return Reject(info.Id,"native_stale",args,true);
+                body["characterId"] = args.CharacterId;
+                body["expectedEncounterId"] = args.ExpectedEncounterId;
+                body["expectedOwnershipToken"] = args.ExpectedOwnershipToken;
+            } else {
+                var npc = CurrentNpc(out string reason);
+                if (!MatchesSelection(npc,args)) return Reject(info.Id,"target_changed",args,true);
+                if (npc == null) return Reject(info.Id,reason,args,true);
+                if (!npc.Owned) return Reject(info.Id,"actor_not_owned",args,true);
+                body["expectedEncounterId"] = npc.EncounterId;
+            }
             if (info.Id == CommandCatalog.ActivityAssign) {
-                if (args?.Value != "accompany" && args?.Value != "hold_position" && args?.Value != "sit_here" && args?.Value != "resume_previous") return Reject(info.Id,"capability_unavailable",args,true);
-                body["intent"] = args.Value;
+                // Closed menu template table. Never take arbitrary model/user-provided
+                // coordinates, vehicle handles, targets or free-form activity slots.
+                string selection = args?.Value;
+                string intent = selection == "vehicle_trip:airport" ? "vehicle_trip" :
+                    selection == "board_vehicle:driver" ? "board_vehicle" : selection;
+                var supported = new[] {"accompany","hold_position","sit_here","resume_previous",
+                    "approach_and_face","board_vehicle","ride_along","exit_vehicle_and_hold",
+                    "leave_scene","take_cover_and_hold","scenario_here","go_to_place","vehicle_trip"};
+                if (!supported.Contains(intent)) return Reject(info.Id,"capability_unavailable",args,true);
+                body["intent"] = intent;
+                var slots = new Dictionary<string,object>();
+                switch (intent) {
+                    case "go_to_place":
+                    case "vehicle_trip":
+                        slots["place"] = selection == "vehicle_trip:airport"
+                            ? new Dictionary<string,object> {{"kind","named"},{"query","airport"}}
+                            : new Dictionary<string,object> {{"kind","waypoint"}};
+                        break;
+                    case "approach_and_face": slots["person"] = new Dictionary<string,object> {{"kind","player"}}; break;
+                    case "board_vehicle": slots["vehicle"] = new Dictionary<string,object> {{"kind","player_vehicle"}}; slots["seat"] = selection == "board_vehicle:driver" ? "driver" : "passenger"; break;
+                    case "ride_along": slots["seat"] = "any_passenger"; break;
+                    case "scenario_here": slots["scenario"] = "drink_coffee"; break;
+                }
+                body["slots"] = slots;
             }
             var responseBytes = info.Id == CommandCatalog.ActivityStatus || info.Id == CommandCatalog.ActivityHistory ? 16384 : 0;
             return StartCompanion(info,Json(body),CompanionTimeoutMs,responseBytes,info.Hud,args);
@@ -182,6 +228,7 @@ namespace LSA.Enhanced.Commands
         {
             string key = Guid.NewGuid().ToString("N");
             jobs.Add(new Job {Key = key,CommandId = info.Id,Class = info.Class,Kind = "companion",SuccessText = successText,Deadline = clock.Monotonic + timeoutMs + 2000,OnDone = args?.OnDone});
+            Outcome(info.Id,"queued",null);
             companion.Post(body,maxBodyBytes,timeoutMs,reply => replies.Enqueue(new KeyValuePair<string,CompanionReply>(key,reply)));
             return null;
         }
@@ -202,6 +249,14 @@ namespace LSA.Enhanced.Commands
                 } else if (now > job.Deadline) Complete(job,"companion_unavailable",null);
             }
         }
+        // HTTP success is insufficient: Director must explicitly acknowledge queuing.
+        static bool DirectorQueued(string body)
+        {
+            try {
+                var data = new JavaScriptSerializer {MaxJsonLength = 2048,RecursionLimit = 4}.DeserializeObject(body ?? "") as Dictionary<string,object>;
+                return data != null && data.TryGetValue("queued",out var queued) && queued is bool yes && yes;
+            } catch { return false; }
+        }
         static string BridgeReason(string text)
         {
             try {
@@ -212,13 +267,18 @@ namespace LSA.Enhanced.Commands
         }
         void Complete(Job job,string reason,string body)
         {
+            if (reason == null && job.CommandId == CommandCatalog.DirectorSocialManual && !DirectorQueued(body))
+                reason = "native_unavailable";
             jobs.Remove(job); Record(job.CommandId,reason);
+            // Successful transport/admission is not proof of physical action or spoken delivery.
+            Outcome(job.CommandId,reason == null ? (job.Class == "read" || job.Class == "profile" ? "completed" : "accepted") : reason.Contains("cancel") ? "cancelled" : "failed",reason);
             hud.Show(reason == null ? job.SuccessText : catalog.Describe(reason));
             try { job.OnDone?.Invoke(reason,body); } catch { }
         }
         string Reject(string commandId,string reason,CommandArgs args,bool show)
         {
             Record(commandId,reason);
+            Outcome(commandId,reason.Contains("cancel") ? "cancelled" : "failed",reason);
             if (show) hud.Show(catalog.Describe(reason));
             try { args?.OnDone?.Invoke(reason,null); } catch { }
             return reason;
@@ -228,6 +288,13 @@ namespace LSA.Enhanced.Commands
             if (reason == null || reason == "cooldown") return;
             recent.Enqueue(commandId + ": " + reason);
             while (recent.Count > RecentLimit) recent.Dequeue();
+        }
+        void Outcome(string commandId,string stage,string reason)
+        {
+            if (reason == "cooldown") return;
+            // IDs and coded reasons only: never record typed prompts, private memory or actor names.
+            outcomes.Enqueue((commandId ?? "unknown") + ": " + stage + (reason == null ? "" : " (" + reason + ")"));
+            while (outcomes.Count > RecentLimit) outcomes.Dequeue();
         }
         static bool ValidText(string text,int max)
         {

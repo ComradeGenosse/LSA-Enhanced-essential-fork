@@ -1,0 +1,36 @@
+name: Memory K cross-session factual recall
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [main]
+    paths:
+      - 'lsa-shared-brain/src/memory/**'
+      - 'lsa-essential-e1-candidate/src/memory/**'
+      - 'lsa-essential-e1-candidate/tests/memory/**'
+      - '.github/workflows/memory-k-cross-session-factual-recall.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  focused:
+    name: Factual recall and PS4
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+      - name: P2 PS4 cross-session, H2 authority, M4 and latency regressions
+        shell: bash
+        run: |
+          node --import ./tools/memory-k-verification/offline.mjs --test --test-concurrency=1 \
+            lsa-essential-e1-candidate/tests/memory/h2CrossSessionFactualRecall.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/h2FactualRecall.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/h2RealAuthority.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/h2Latency.test.mjs \
+            lsa-shared-brain/tests/memory-m4-recall.test.mjs

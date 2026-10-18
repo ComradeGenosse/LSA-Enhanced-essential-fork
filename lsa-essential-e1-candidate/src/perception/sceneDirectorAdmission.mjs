@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { DIRECTOR_SPEECH_LIMITS as LIMITS } from './sceneDirector.mjs';
+import { DIRECTOR_SPEECH_LIMITS } from './sceneDirector.mjs';
 
 // Candidate selection is not admission. This RAM-only shell does not perform
 // any native dispatch, provider request, turn allocation or physical effect.
@@ -41,12 +41,15 @@ const validProposal = p => !!p && p.kind === 'speech' &&
  * is always a veto. An independent native one-shot check remains mandatory.
  */
 export class DirectorSpeechReservations {
-  constructor({now,checkCurrent,acknowledge,enabled=false,uuid=randomUUID} = {}) {
+  constructor({now,checkCurrent,acknowledge,enabled=false,uuid=randomUUID,limits=DIRECTOR_SPEECH_LIMITS} = {}) {
     if (typeof now !== 'function' || typeof checkCurrent !== 'function' ||
         typeof acknowledge !== 'function' || typeof uuid !== 'function')
       throw new TypeError('director_dependencies_required');
     this.now=now;this.checkCurrent=checkCurrent;this.acknowledge=acknowledge;
     this.uuid=uuid;this.enabled=enabled === true;
+    // Only named, frozen presets created in our trusted module are supplied
+    // by bootstrap. Native independently caps to 4 or (if opted in) 12.
+    this.limits=limits;
     this.active=null;this.attempts=[];this.speakerAt=new Map();
     this.sceneAt=-Infinity;this.attemptedKeys=new Map();this.lastReserveFailure=null;
   }
@@ -61,10 +64,27 @@ export class DirectorSpeechReservations {
         !stampValid(stamp,proposal) || !same(stamp,record?.stamp ?? stamp) ||
         // The source-time candidate must be fresh through native admission and
         // publication. Playback itself may outlast that candidate TTL.
-        (stage!=='complete' && proposal.expiresAtMonotonicMs<=this.now()))return false;
+        (stage!=='complete' && proposal.expiresAtMonotonicMs<=this.now() &&
+         !(proposal.source==='native_director_social' && record &&
+           ['consumed','bound'].includes(record.state) &&
+           ['hydrated','publication','bind'].includes(stage))))return false;
     // Optional subsystem failures and missing evidence cannot grant admission.
     try {return this.checkCurrent(Object.freeze({proposal,stamp,stage,ticketId:record?.id??null}))===true;}
     catch {return false;}
+  }
+  // Read-only view of reserve()'s pacing gates: no attempt is counted, no key
+  // or ticket is recorded, and no safety/source check is skipped by callers.
+  pacingVeto(proposal) {
+    if(!this.enabled || !validProposal(proposal))return 'invalid_or_disabled';
+    const at=this.now();
+    if(!integer(at))return 'invalid_clock';
+    if(this.active)return 'ticket_already_active';
+    if(this.attemptedKeys.has(proposal.decisionKey))return 'decision_already_attempted';
+    if(this.attempts.filter(t=>t>at-this.limits.attemptWindowMs).length>=this.limits.attemptsPerMinute)return 'rate_limited';
+    const cooldown=proposal.urgency==='urgent' ? this.limits.urgentSpeakerCooldownMs : this.limits.routineSpeakerCooldownMs;
+    if(at-this.sceneAt<this.limits.sceneGapMs ||
+        at-(this.speakerAt.get(proposal.speakerCaptureRef)??-Infinity)<cooldown)return 'scene_or_speaker_cooldown';
+    return null;
   }
   // Counts attempts even if the final safety check rejects. Selection alone
   // does not count; no implicit fallback speaker is ever selected.
@@ -79,15 +99,15 @@ export class DirectorSpeechReservations {
     if(this.attemptedKeys.has(proposal.decisionKey)) {
       this.lastReserveFailure='decision_already_attempted';return null;
     }
-    this.attempts=this.attempts.filter(t=>t>at-LIMITS.attemptWindowMs);
+    this.attempts=this.attempts.filter(t=>t>at-this.limits.attemptWindowMs);
     // Bounded historical suppression: retired evidence is no longer selectable
     // and does not grow the in-memory key table for an entire GTA session.
     for(const [key,time] of this.attemptedKeys)if(time<=at-600_000)this.attemptedKeys.delete(key);
-    if(this.attempts.length>=LIMITS.attemptsPerMinute) {
+    if(this.attempts.length>=this.limits.attemptsPerMinute) {
       this.lastReserveFailure='rate_limited';return null;
     }
-    const cooldown=proposal.urgency==='urgent' ? LIMITS.urgentSpeakerCooldownMs : LIMITS.routineSpeakerCooldownMs;
-    if(at-this.sceneAt<LIMITS.sceneGapMs ||
+    const cooldown=proposal.urgency==='urgent' ? this.limits.urgentSpeakerCooldownMs : this.limits.routineSpeakerCooldownMs;
+    if(at-this.sceneAt<this.limits.sceneGapMs ||
         at-(this.speakerAt.get(proposal.speakerCaptureRef)??-Infinity)<cooldown) {
       this.lastReserveFailure='scene_or_speaker_cooldown';return null;
     }
@@ -101,7 +121,9 @@ export class DirectorSpeechReservations {
     if(!text(id)) {this.lastReserveFailure='ticket_id_unavailable';return null;}
     const record={
       id,proposal:Object.freeze({...proposal}),stamp:Object.freeze({...stamp}),
-      expiresAt:Math.min(at+LIMITS.ticketTtlMs,proposal.expiresAtMonotonicMs),
+      previousSceneAt:this.sceneAt,
+      previousSpeakerAt:this.speakerAt.get(proposal.speakerCaptureRef),
+      expiresAt:Math.min(at+this.limits.ticketTtlMs,proposal.expiresAtMonotonicMs),
       state:'reserved',tuple:null,
     };
     this.active=record;this.sceneAt=at;this.speakerAt.set(proposal.speakerCaptureRef,at);
@@ -114,6 +136,18 @@ export class DirectorSpeechReservations {
       priority:proposal.urgency==='urgent'?'director_urgent':'director_routine',
       expiresAtMonotonicMs:record.expiresAt,
     });
+  }
+  // Only an explicit native BUSY before source claim can restore local pacing.
+  // Attempt budget remains spent; no delivered/unsafe/stale ticket can retry.
+  deferNativeBusy(ticketId) {
+    const r=this.active;
+    if(!r || r.id!==ticketId || r.state!=='reserved')return false;
+    this.attemptedKeys.delete(r.proposal.decisionKey);
+    this.sceneAt=r.previousSceneAt;
+    if(r.previousSpeakerAt===undefined)this.speakerAt.delete(r.proposal.speakerCaptureRef);
+    else this.speakerAt.set(r.proposal.speakerCaptureRef,r.previousSpeakerAt);
+    this.active=null;
+    return true;
   }
   // Native must independently consume UUID exactly once and validate the same
   // original owner/world/player version before allocating an Essential tuple.
@@ -161,7 +195,7 @@ export class DirectorSpeechReservations {
       this.cancel(ticketId);return false;
     }
     let delivered=false;
-    try {delivered=this.acknowledge(r.proposal.decisionKey,'ps6_ticket','delivered')===true;}
+    try {delivered=this.acknowledge(r.proposal.decisionKey,'ps6_ticket','delivered',r.proposal)===true;}
     catch {delivered=false;}
     if(!delivered)this.lastFinishFailure='ps6_ack_rejected';
     this.active=null;return delivered;

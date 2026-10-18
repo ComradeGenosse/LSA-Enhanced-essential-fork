@@ -1,0 +1,59 @@
+name: ACT3–ACT5 unified activities — companion and native regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'lsa-essential-e1-candidate/src/activities/**'
+      - 'lsa-essential-e1-candidate/src/context/**'
+      - 'lsa-essential-e1-candidate/src/openai/**'
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/tests/activities-act*.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/activity-act4.test.mjs'
+      - 'native/activities/**'
+      - '.github/workflows/act5-luna-proposals.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  companion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax-check ACT3–ACT5 and connected Luna source
+        run: |
+          node --check lsa-essential-e1-candidate/src/activities/act5Dialogue.mjs
+          node --check lsa-essential-e1-candidate/src/activities/activityEngine.mjs
+          node --check lsa-essential-e1-candidate/src/activities/activityKnowledge.mjs
+          node --check lsa-essential-e1-candidate/src/activities/activityValidator.mjs
+          node --check lsa-essential-e1-candidate/src/activities/intentTemplates.mjs
+          node --check lsa-essential-e1-candidate/src/context/essentialDecision.mjs
+          node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
+          node --check lsa-essential-e1-candidate/src/openai/segmentDecoder.mjs
+          node --check lsa-essential-e1-candidate/src/openai/streamDecision.mjs
+      - name: ACT2–ACT5 integrated behavior, parser, streaming, requested-turn and configuration regression
+        run: |
+          node --test --test-concurrency=1 \
+            lsa-essential-e1-candidate/tests/activities-act5.test.mjs \
+            lsa-essential-e1-candidate/tests/activities-act2.test.mjs \
+            lsa-essential-e1-candidate/tests/activities-act3.test.mjs \
+            lsa-essential-e1-candidate/tests/activity-act4.test.mjs \
+            lsa-essential-e1-candidate/tests/activities-contract.test.mjs \
+            lsa-essential-e1-candidate/tests/decisions-and-requests.test.mjs \
+            lsa-essential-e1-candidate/tests/streaming-decision.test.mjs \
+            lsa-essential-e1-candidate/tests/activity-knowledge.test.mjs \
+            lsa-essential-e1-candidate/tests/tts-and-history.test.mjs
+  native-contract:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: ACT native owner/contract tests
+        shell: pwsh
+        run: |
+          dotnet run --project native/activities/tests/ActivityTests.csproj --configuration Release
+          dotnet run --project native/promoted-characters/runtime-tests/RuntimeTests.csproj --configuration Release

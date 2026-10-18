@@ -1,0 +1,39 @@
+name: M9 native proof and cue completion
+on:
+  push:
+    branches: [feature/memory-m9-completion-20261011]
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/events/m9*.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory-m9-completion.test.mjs'
+      - 'native/intelligence/m9/**'
+      - 'native/intelligence/m9-tests/**'
+      - '.github/workflows/memory-m9-completion.yml'
+  workflow_dispatch:
+jobs:
+  node:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax and event/witness/cue regressions
+        run: |
+          node --check lsa-shared-brain/src/events/m9EventProducers.mjs
+          node --check lsa-shared-brain/src/events/m9MemoryCues.mjs
+          node --test lsa-essential-e1-candidate/tests/memory-agent-b-events.test.mjs lsa-essential-e1-candidate/tests/memory-m9-completion.test.mjs
+  native:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: M9 native proof test (isolated, no GTA or RPH)
+        run: dotnet run --project native/intelligence/m9-tests/M9NativeTests.csproj --configuration Release

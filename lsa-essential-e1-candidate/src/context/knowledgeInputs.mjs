@@ -5,6 +5,14 @@ import { KNOWLEDGE_LIMITS,jsonBytes } from './knowledgeSelector.mjs';
 import { sameHostContext } from './hostContext.mjs';
 import { isUuid, actorClaim, sameAssociation } from '../identity/identityContract.mjs';
 
+// A bounded native owner-fiber stall (Essential text entry, pause menu) leaves
+// the companion holding exactly native's last publication on a live stream;
+// ShadowRuntime.channelFresh() owns that bound. Minimal test doubles without
+// the accessor keep the original 3 s receipt rule.
+function channelFresh(perception) {
+  if(typeof perception?.channelFresh==='function') return perception.channelFresh()===true;
+  return perception.now()-perception.lastReceipt<=3000;
+}
 const required=['version','hostRunId','worldEpoch','captureRef','sampledGameTick'];
 const optional=['encounterId','incarnationId'];
 export function validateActorCapture(value) {
@@ -26,7 +34,7 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
   // conflicting duplicate invalidates the direct captured block.
   const raw=actor.integrations?.raw?.turnKnowledge;
   if(raw!==undefined && (!validateActorCapture(raw) || JSON.stringify(raw)!==JSON.stringify(block))) return finish({});
-  if(!perception?.epoch || !perception.hostContext || perception.now()-perception.lastReceipt>3000) return finish({reason:'channel_unhealthy'});
+  if(!perception?.epoch || !perception.hostContext || !channelFresh(perception)) return finish({reason:'channel_unhealthy'});
   const fence={hostContextVersion:1,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch};
   if(!sameHostContext(fence,perception.hostContext)) return finish({reason:block.hostRunId!==perception.hostContext.hostRunId?'host_mismatch':'world_epoch_changed'});
   if(perception.observerIndexVersion!==1) return finish({reason:'unsupported_contract',anchorStatus:'contract_unavailable'});
@@ -47,16 +55,21 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
   } else if(block.encounterId!==undefined || block.incarnationId!==undefined || index.encounterId!==undefined) return finish({reason:'owner_unverified'});
   const liveReferences=Object.fromEntries([...perception.anchors].filter(([ref])=>perception.current(ref)).map(([ref,anchor])=>[ref,anchor.kind]));
   let poolBytes=0;const captureDiagnostics={participantRetired:0,budgetExcluded:0,retainedPairs:0,poolBytes:0};
-  const pairs=perception.salience.snapshotForObserver(block.captureRef,perception.observations,perception.now(),captureDiagnostics).filter(pair=>{const valid=pair.observation.claims.every(claim=>[claim.source,claim.target].every(ref=>!ref || liveReferences[ref.captureRef]===ref.kind) && (!claim.details?.vehicle || liveReferences[claim.details.vehicle]==='vehicle'));if(!valid)captureDiagnostics.participantRetired++;return valid;}).filter((pair,index)=>{
+  const pairs=(perception.salience?.snapshotForObserver(block.captureRef,perception.observations,perception.now(),captureDiagnostics)??[]).filter(pair=>{const valid=pair.observation.claims.every(claim=>[claim.source,claim.target].every(ref=>!ref || liveReferences[ref.captureRef]===ref.kind) && (!claim.details?.vehicle || liveReferences[claim.details.vehicle]==='vehicle'));if(!valid)captureDiagnostics.participantRetired++;return valid;}).filter((pair,index)=>{
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes){captureDiagnostics.budgetExcluded++;return false;}poolBytes+=bytes;return true;
   });
   captureDiagnostics.retainedPairs=pairs.length;captureDiagnostics.poolBytes=poolBytes;
-  return finish({reason:null,anchorStatus:'verified_observer',captureDiagnostics,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences});
+  // Freeze active radio episode IDs at P0. This is a playback-status hint,
+  // never source hearing proof: only the native-witnessed claims above qualify.
+  const inVehicle=['driving','passenger','in_vehicle'].includes(perception.observerSituations?.get?.(block.captureRef)?.activity);
+  const radioCurrentEpisodeIds=inVehicle && perception.correlator?.radioCurrent ? [...perception.correlator.radioCurrent.entries()]
+    .filter(([vehicle])=>perception.current(vehicle)).map(([,episodeId])=>episodeId) : [];
+  return finish({reason:null,anchorStatus:'verified_observer',captureDiagnostics,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences,radioCurrentEpisodeIds});
 }
 
 export function assertKnowledgeCurrent(inputs,perception) {
   if(!inputs?.association) return inputs?.reason??'no_actor_capture';
-  if(!perception?.epoch || perception.now()-perception.lastReceipt>3000) return 'channel_unhealthy';
+  if(!perception?.epoch || !channelFresh(perception)) return 'channel_unhealthy';
   if(inputs.hostRunId!==perception.hostContext?.hostRunId) return 'host_mismatch';
   if(inputs.worldEpoch!==perception.hostContext?.worldEpoch) return 'world_epoch_changed';
   if(inputs.psAdapterEpoch!==perception.epoch || inputs.psStreamId!==perception.stream) return 'channel_unhealthy';

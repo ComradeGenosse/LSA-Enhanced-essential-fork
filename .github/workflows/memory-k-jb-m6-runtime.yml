@@ -1,0 +1,56 @@
+name: Memory K J-B M6 runtime activation
+on:
+  pull_request:
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - 'lsa-essential-e1-candidate/src/memory/m6RuntimeRetention.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/capabilityPolicy.mjs'
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory-m6-runtime-retention.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/m3-ws5b-production.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/m3-production-harness.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/m3ProductionMemory.mjs'
+      - 'lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/m3Activation.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/sourceActivation.mjs'
+      - 'lsa-shared-brain/src/memory/m6*.mjs'
+      - 'docs/plans/memory-k-jb-m6-runtime-activation-20261016.md'
+      - '.github/workflows/memory-k-jb-m6-runtime.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: memory-k-jb-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  m6-runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: J-B M6 runtime activation (real bootstrap + SQLite, M7 disabled, offline)
+        shell: bash
+        run: node --test lsa-essential-e1-candidate/tests/memory-m6-runtime-retention.test.mjs
+      - name: Event-only M3 to M6 retention regression (authenticated mock native source)
+        shell: bash
+        run: node --test --test-name-pattern='M3-only event commit wakes M6 idle retention' lsa-essential-e1-candidate/tests/m3-ws5b-production.test.mjs
+      - name: Policy, composition and J-A engine regressions
+        if: always()
+        shell: bash
+        run: |
+          node --test lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs
+          node --test lsa-essential-e1-candidate/tests/memory-runtime-composition.test.mjs
+          node --test lsa-shared-brain/tests/memory-m6-independent-retention.test.mjs
+          node --test lsa-shared-brain/tests/memory-m6-cursor-lifecycle.test.mjs
+          node --test tools/memory-k-verification/tests/discovery.test.mjs

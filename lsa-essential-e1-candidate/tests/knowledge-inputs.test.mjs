@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
+import { ShadowRuntime, OWNER_STALL_BOUNDS } from '../src/perception/shadowRuntime.mjs';
 import { CAPABILITIES } from '../src/perception/contracts.mjs';
 import { captureKnowledgeInputs,assertKnowledgeCurrent,validateActorCapture,releaseOwnedKnowledge,assertOwnedKnowledgeCurrent,assertKnowledgeItemsCurrent } from '../src/context/knowledgeInputs.mjs';
 const fixture=({witness=false}={})=>{
@@ -52,7 +52,10 @@ test('host/world/stream and lease changes invalidate frozen knowledge',()=>{
   const f=fixture(),inputs=f.capture();f.block.hostRunId=randomUUID();assert.equal(f.capture().reason,'host_mismatch');f.block.hostRunId=f.hello.hostRunId;
   f.block.worldEpoch=2;assert.equal(f.capture().reason,'world_epoch_changed');f.block.worldEpoch=1;
   f.send('world_epoch',{epoch:2,reason:'timeline_change'});assert.equal(assertKnowledgeCurrent(inputs,f.perception),'world_epoch_changed');
-  const other=fixture(),frozen=other.capture();other.setNow(3002);assert.equal(assertKnowledgeCurrent(frozen,other.perception),'channel_unhealthy');
+  // A bounded owner-fiber stall keeps native's last publication current;
+  // silence past the reset bound is channel loss.
+  const other=fixture(),frozen=other.capture();other.setNow(3002);assert.equal(assertKnowledgeCurrent(frozen,other.perception),null);
+  other.setNow(OWNER_STALL_BOUNDS.resetMs+2);assert.equal(assertKnowledgeCurrent(frozen,other.perception),'channel_unhealthy');
 });
 test('observer observations and matching salience revisions freeze before later arrivals',()=>{
   const f=fixture();const fire=()=>f.send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:f.perception.producers.get('shooting')+1||1,kind:'firing',target:null,source:f.captureRef,gameTick:10,ageMs:0,facts:{}});

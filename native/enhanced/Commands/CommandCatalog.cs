@@ -18,11 +18,11 @@ namespace LSA.Enhanced.Commands
     public sealed class CommandCatalog
     {
         public const string ResourceName = "LSA.Enhanced.commands.v2.json";
-        public const string ContractSha256 = "07e0ad837bcbce8b6ff088a0b57ae6aad94e23cdbb5ac4a6bc4668a20b15d754";
+        public const string ContractSha256 = "88d87f1d47fc06c4cdb497d9d9be8813447d7ad41466ba7a5f33d70498e71899";
         public const string EssentialMark = "essential.mark", EssentialText = "essential.text", CurrentFollow = "current.follow", CurrentWait = "current.wait",
             CurrentDismiss = "current.dismiss", CurrentPromote = "current.promote", NpcAsk = "npc.ask", UiMainMenu = "ui.mainMenu", UiQuickMenu = "ui.quickMenu",
             ActivityStatus = "activity.status", ActivityPause = "activity.pause", ActivityResume = "activity.resume", ActivityCancel = "activity.cancel",
-            ActivityAssign = "activity.assign", ActivityHistory = "activity.history",
+            ActivityAssign = "activity.assign", ActivityHistory = "activity.history", DirectorSocialManual = "director.socialManual",
             CharacterSummon = "character.summon", CharacterFollow = "character.follow", CharacterWait = "character.wait", CharacterDismiss = "character.dismiss",
             CharacterDespawn = "character.despawn", CharacterRename = "character.rename", CharacterRelationship = "character.relationship",
             CharacterAvailability = "character.availability", CharacterMemorySelect = "character.memorySelect", CharacterMemoryAdd = "character.memoryAdd";

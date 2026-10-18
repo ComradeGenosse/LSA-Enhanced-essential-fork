@@ -1,6 +1,6 @@
 const TRANSIENT_CODES = new Set([
   'connection_reset', 'connection_closed', 'temporary_network_failure', 'timeout_before_effect', 'network_error', 'timeout',
-  'attempt_timeout', 'request_timeout', 'econnreset', 'ecconnreset', 'epipe', 'econnclosed', 'etimedout', 'und_err_socket',
+  'attempt_timeout', 'request_timeout', 'decision_format_error', 'econnreset', 'ecconnreset', 'epipe', 'econnclosed', 'etimedout', 'und_err_socket',
   'und_err_connect_timeout', 'und_err_headers_timeout',
 ]);
 const PERMANENT_CODES = new Set([

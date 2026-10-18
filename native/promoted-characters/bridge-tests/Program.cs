@@ -268,6 +268,8 @@ static class Program
         int prompts = driver.PromptCount;
         var first = TalkRun(host,driver,"talk.select_first",TalkLimits());
         Check((bool)first["present"] && (string)first["pedId"] == "20" && (int)Convert.ToInt32(first["cycleIndex"]) == 1 && Convert.ToInt32(first["cycleCount"]) == 3 && driver.MicStarts == 0 && driver.ConversationSets == 0 && driver.ConversationHandle == 10,"first tap selects the on-screen center NPC and does not start the microphone or retarget Essential");
+        Check((string)first["recipientKind"] == "ambient" && (string)first["recipientEvidence"] == "unowned","a preview classifies an unowned ped as ambient from the exact selected ped");
+        Check(!first.TryGetValue("recipientAlias",out var previewAlias) || previewAlias == null,"an ambient ped exposes no owner alias");
         string selectionB = (string)first["selectionId"], encounterB = (string)first["encounterId"];
         driver.Nearby(20,8,0,0,-100,-100); driver.Nearby(30,3,0,0,960,540); driver.PublishSnapshot();
         var second = TalkRun(host,driver,"talk.select_next",TalkLimits());
@@ -315,6 +317,7 @@ static class Program
         driver.Clock(clock + 3501); driver.Tick();
         var fadedPreview = TalkRun(host,driver,"talk.inspect",Empty);
         Check((bool)fadedPreview["present"] && (string)fadedPreview["indicator"] == "off","the bracket fades after about one second while the explicit target remains selected");
+        Check(!fadedPreview.TryGetValue("recipientKind",out var inspectedKind) || inspectedKind == null,"the snapshot path carries no recipient class");
 
         driver.Clock(clock + 4000); driver.Nearby(20,8,0,0,960,540); driver.Nearby(10,5,0,0,1800,900); driver.PublishSnapshot(); driver.Select(10,0); driver.ResetTalkCounters();
         var chosen = TalkRun(host,driver,"talk.select_first",TalkLimits());
@@ -330,6 +333,8 @@ static class Program
         var startTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",chosenId},{"encounterId",chosenEncounter}}}};
         var started = TalkRun(host,driver,"talk.ptt_start",startArgs,startTarget);
         Check((bool)started["started"] && (string)started["pedId"] == "20" && (string)started["indicator"] == "off" && driver.MicStarts == 1 && driver.LastMicHandle == 20 && driver.ConversationHandle == 20 && driver.ConversationSets == 1,"explicit hold commits the exact ped and hides the selector while talking");
+        Check((string)started["recipientKind"] == "ambient" && (string)started["recipientEvidence"] == "unowned","an explicit commit classifies the exact committed ped, and an unowned ped is never reported as promoted");
+        Check(!started.TryGetValue("recipientAlias",out var startedAlias) || startedAlias == null,"an ambient commit exposes no owner alias");
         driver.Select(99,0);
         var stopped = TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",3}});
         Check((bool)stopped["stopped"] && driver.MicStops == 1 && driver.ConversationHandle == 99 && driver.ConversationClears == 0,"stop ends only the UX4 mic and does not clear a newer conversation ped");
@@ -385,6 +390,8 @@ static class Program
         driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot(); driver.ResetTalkCounters();
         var holding = TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",9},{"selectFirst",true}});
         Check((bool)holding["started"] && !(bool)holding["present"] && (string)holding["indicator"] == "off" && driver.LastMicHandle == 20 && driver.MicIsCurrent(20),"normal hold starts the best NPC microphone without exposing selector UI/state");
+        Check((string)holding["recipientKind"] == "ambient" && (string)holding["recipientEvidence"] == "unowned","a direct hold also classifies the exact committed ped");
+        Check(!holding.TryGetValue("recipientAlias",out var holdingAlias) || holdingAlias == null,"an ambient direct hold exposes no owner alias");
         driver.Kill(20); driver.Tick();
         var lostView = TalkRun(host,driver,"talk.inspect",Empty);
         Check(driver.MicStops == 1 && !(bool)lostView["present"],"target loss while talking stops the UX4 microphone once");
@@ -410,6 +417,137 @@ static class Program
         TalkRun(host,driver,"talk.clear",Empty);
         driver.ClearClock(); driver.ClearNearby(); driver.Select(505,0);
     }
+    // October 18: verified Nathan drove, player changed speed/camera, a nearby
+    // ambient actor won a subsequent direct hold. Exercise the real UX4 bridge
+    // and P1 registration so the candidate ranking cannot silently steal him.
+    static void CommittedConversationContinuity(DomainHost host,Driver driver)
+    {
+        long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        driver.Clock(start);
+        driver.PlayerAt(0,0,0); driver.ClearNearby(); driver.ResetTalkCounters();
+        driver.Nearby(20,8,0,0,960,540); driver.Nearby(30,3,0,0,1500,700);
+        driver.GameTime = 4000; driver.PublishSnapshot();
+        var picked = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        Check((string)picked["pedId"] == "20","Nathan is deliberately selected first");
+        string promoted = driver.PromoteCurrent();
+        Check(promoted != null && !promoted.StartsWith("error:"),"P1 owner registration succeeds: " + promoted);
+        var selection = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",(string)picked["selectionId"]},{"encounterId",(string)picked["encounterId"]}}}};
+        var explicitArgs = new Dictionary<string,object>(TalkLimits()) {{"generation",200},{"selectFirst",false}};
+        var firstTurn = TalkRun(host,driver,"talk.ptt_start",explicitArgs,selection);
+        Check((bool)firstTurn["started"] && (string)firstTurn["recipientKind"] == "promoted" &&
+            (string)firstTurn["recipientEvidence"] == "owner_verified" && driver.LastMicHandle == 20,
+            "committed Nathan turn uses exact P1 owner proof");
+        TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",200}});
+
+        // Reproduce three free-drive commands then DriveEvasively, a car transition,
+        // camera now aimed away from Nathan and a closer ambient occupant.
+        driver.ShareVehicle(20); driver.MovePlayer(50,0,0);
+        driver.Nearby(20,8,0,0,-100,-100); driver.Nearby(30,51,0,0,960,540); driver.PublishSnapshot();
+        for (int step = 0; step < 5; step++) {
+            int generation = 201 + step;
+            driver.Clock(start + 4000 + 5000 * step); driver.Tick();
+            var args = new Dictionary<string,object>(TalkLimits()) {{"generation",generation},{"selectFirst",true}};
+            var bound = TalkRun(host,driver,"talk.ptt_start",args);
+            Check((bool)bound["started"] && (string)bound["pedId"] == "20" &&
+                (string)bound["reason"] == "verified_continuity" && (string)bound["recipientKind"] == "promoted" &&
+                driver.LastMicHandle == 20 && driver.ConversationHandle == 20,
+                "Oct 18 repeat driving/DriveEvasively and camera-shift holds stay on Nathan");
+            TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",generation}});
+        }
+        Check(driver.Logs.Any(x => x.Contains("reason=verified_continuity")),"continuity reuse is observable in native logs");
+        // A newer stock/MarkedTalk microphone can intentionally take over;
+        // its release must retire the previous UX4 continuity identity.
+        var takeover = TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",206},{"selectFirst",true}});
+        Check((string)takeover["pedId"] == "20","Nathan is active before newer stock mic takes over");
+        driver.ReplaceMic(30);
+        var taken = TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",206}});
+        Check((string)taken["reason"] == "ownership_lost" && driver.LastMicHandle == 30,
+            "UX4 cannot stop the newer ambient MarkedTalk microphone");
+        driver.ReplaceMic(0);
+        var afterTakeover = TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",207},{"selectFirst",true}});
+        Check((string)afterTakeover["recipientKind"] == "ambient" && driver.LastMicHandle == 30,
+            "newer explicit stock conversation ends promoted continuity without a permanent lock");
+        TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",207}});
+        // A deliberate tap, not a camera change, may redirect to ambient.
+        driver.MovePlayer(0,0,0); driver.LeaveVehicle(20);
+        driver.Nearby(20,8,0,0,-100,-100); driver.Nearby(30,3,0,0,960,540); driver.PublishSnapshot();
+        var change = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        Check((string)change["pedId"] == "30","player can intentionally tap ambient NPC");
+        var changedArgs = new Dictionary<string,object>(TalkLimits()) {{"generation",210},{"selectFirst",false}};
+        var changedTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",(string)change["selectionId"]}}}};
+        var changed = TalkRun(host,driver,"talk.ptt_start",changedArgs,changedTarget);
+        Check((string)changed["recipientKind"] == "ambient" && driver.LastMicHandle == 30,"intentional ambient switch still works");
+        TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",210}});
+
+        // Re-establish Nathan and verify proof suspension fails closed, even
+        // though a perfectly usable ambient NPC remains under the camera.
+        driver.Nearby(20,8,0,0,960,540); driver.Nearby(30,3,0,0,-100,-100); driver.PublishSnapshot();
+        var again = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        var againTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",(string)again["selectionId"]}}}};
+        TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",211},{"selectFirst",false}},againTarget);
+        TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",211}});
+        driver.OwnerSuspended(20,true); driver.Clock(start + 35000); driver.Tick();
+        driver.Nearby(20,8,0,0,-100,-100); driver.Nearby(30,3,0,0,960,540); driver.PublishSnapshot();
+        Check(RunReason(host,driver,TalkCommand("talk.ptt_start",TalkKind,new Dictionary<string,object>(TalkLimits()) {{"generation",212},{"selectFirst",true}})) == "target_lost" &&
+            driver.LastMicHandle != 30,"unverified owner fails closed without ambient fallback");
+        driver.OwnerSuspended(20,false);
+        Check(RunReason(host,driver,TalkCommand("talk.ptt_start",TalkKind,new Dictionary<string,object>(TalkLimits()) {{"generation",213},{"selectFirst",true}})) == "target_lost",
+            "restoring proof does not resurrect invalidated relationship without player selection");
+
+        // Tap to reselect Nathan, then retire his P1 claim (dismiss/release).
+        driver.Nearby(20,8,0,0,960,540); driver.Nearby(30,3,0,0,-100,-100); driver.PublishSnapshot();
+        var reselected = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        var resTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",(string)reselected["selectionId"]}}}};
+        TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",214},{"selectFirst",false}},resTarget);
+        TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",214}});
+        driver.SwitchPlayer(); driver.Tick();
+        Check(RunReason(host,driver,TalkCommand("talk.ptt_start",TalkKind,new Dictionary<string,object>(TalkLimits()) {{"generation",215},{"selectFirst",true}})) == "target_lost",
+            "changing protagonists invalidates prior player's committed relationship");
+        driver.PlayerAt(0,0,0);
+        driver.Nearby(20,8,0,0,960,540); driver.Nearby(30,3,0,0,-100,-100); driver.PublishSnapshot();
+        var newPlayerPick = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        var newPlayerTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",(string)newPlayerPick["selectionId"]}}}};
+        TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",216},{"selectFirst",false}},newPlayerTarget);
+        TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",216}});
+        Check(!driver.RetirePromoted().StartsWith("error:"),"P1 owner can be retired");
+        driver.Tick();
+        Check(RunReason(host,driver,TalkCommand("talk.ptt_start",TalkKind,new Dictionary<string,object>(TalkLimits()) {{"generation",217},{"selectFirst",true}})) == "target_lost",
+            "dismissed owner may not become ambient on the next direct hold");
+        TalkRun(host,driver,"talk.clear",Empty);
+        driver.ClearClock(); driver.ClearNearby(); driver.Select(505,0);
+    }
+
+    static void ContinuityProofPolicy()
+    {
+        const string alias = "promoted.11111111-1111-4111-8111-111111111111";
+        var lease = new TalkRecipientContinuity();
+        var ownerA = TalkRecipientFeedback.Promoted("owner_verified",alias,"incarnation-A","token-A");
+        var ownerB = TalkRecipientFeedback.Promoted("owner_verified",alias,"incarnation-B","token-B");
+        var tokenChanged = TalkRecipientFeedback.Promoted("owner_verified",alias,"incarnation-A","token-B");
+        lease.Remember("20",320,ownerA,1000);
+        Check(lease.Problem("20",320,ownerA,true,false,12f,20f,1500) == null,
+            "valid promoted identity survives mic release and next press");
+        Check(lease.Problem("20",320,ownerA,true,true,200f,20f,1600) == null,
+            "same vehicle preserves continuity through position/camera changes");
+        Check(lease.Problem("20",320,ownerB,true,true,0f,20f,1600) == "owner_unverified",
+            "same alias with a different native incarnation is rejected");
+        Check(lease.Problem("20",320,tokenChanged,true,true,0f,20f,1600) == "owner_unverified",
+            "changed P2 ownership token is rejected even if the P1 incarnation is unchanged");
+        Check(lease.Problem("20",321,ownerA,true,true,0f,20f,1600) == "ped_lifetime_changed",
+            "reused ped handle cannot substitute a changed native address");
+        Check(lease.Problem("20",320,TalkRecipientFeedback.Unknown("owner_suspended"),true,true,0f,20f,1600) == "owner_unverified",
+            "suspended/unknown proof is never ambient authority");
+        Check(lease.Problem("20",320,ownerA,true,false,25f,20f,1600) == "out_of_range",
+            "different vehicle and distance end valid reuse");
+        Check(lease.Problem("20",320,ownerA,true,false,5f,20f,181001) == "conversation_idle",
+            "on-foot continuity expires without a new turn");
+        Check(lease.Problem("20",320,ownerA,true,true,5f,20f,901001) == "conversation_idle",
+            "in-vehicle continuity also expires, not a permanent lock");
+        Check(lease.Problem("20",320,ownerA,false,true,0f,20f,1600) == "ped_lifetime_changed",
+            "death/despawn invalidates relationship");
+        lease.Clear(); Check(!lease.HasRecipient,"explicit reset clears committed identity");
+    }
+
     static void EndToEnd(string corePath,string temp)
     {
         string addon = Path.Combine(temp,"Plugins","LSA.PromotedCharacters"),harness = AppDomain.CurrentDomain.BaseDirectory,empty = Path.Combine(temp,"essential-domain");
@@ -563,6 +701,8 @@ static class Program
         Check(renewed != second && RunReason(host,driver,Ask(Id(),second,"Hi.",Now)) == "target_changed","a world reset invalidates old expectations");
 
         TalkTargetBridge(host,driver);
+        ContinuityProofPolicy();
+        CommittedConversationContinuity(host,driver);
         ConsoleBridge(host,driver);
 
         string atShutdown = Id();

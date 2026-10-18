@@ -1,0 +1,51 @@
+name: Memory K modular source verification (not release acceptance)
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - 'lsa-essential-e1-candidate/**'
+      - 'lsa-shared-brain/**'
+      - 'tools/memory-k-verification/**'
+      - 'tools/memory-sim/**'
+      - '.github/workflows/memory-k-modular-verification.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-profiles:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: ${{ matrix.profile == 'all' && 'Full-product source gates (NO-GO until green)' || 'Scoped verification' }} / ${{ matrix.profile }} / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        profile: [infrastructure, policy, storage, source, all]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        if: runner.os == 'Windows' && matrix.profile == 'all'
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build existing Windows C05 offline helper
+        if: runner.os == 'Windows' && matrix.profile == 'all'
+        run: dotnet build native/activities/tests/ActivityTests.csproj --configuration Debug
+      - name: Recursive inventory and isolated offline profile
+        shell: bash
+        run: node tools/memory-k-verification/run.mjs --profile "${{ matrix.profile }}" --output "$RUNNER_TEMP/memory-k-${{ matrix.profile }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: memory-k-${{ matrix.os }}-${{ matrix.profile }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/memory-k-${{ matrix.profile }}

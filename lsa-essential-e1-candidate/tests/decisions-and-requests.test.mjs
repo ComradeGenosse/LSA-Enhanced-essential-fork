@@ -17,7 +17,8 @@ test('config preserves Luna, the transcription alias, fixed TTS and bounded PTT 
   assert.equal(config.maxMicPcmBytes, 960_000);
   assert.equal(config.providerWorkDeadlineMs, 45_000);
   assert.equal(config.turnDeadlineMs, 45_000);
-  assert.equal(config.playbackCompletionMinMs, 60_000);
+  // Playback recovery intentionally reduced the default minimum to 10s; no receipt is forged.
+  assert.equal(config.playbackCompletionMinMs, 10_000);
   assert.equal(config.structuredStreamingEnabled, false);
   assert.equal(config.earlyTtsEnabled, false);
   assert.equal(config.streamingMaxPcmBytes, 6_291_456);
@@ -31,6 +32,20 @@ test('config preserves Luna, the transcription alias, fixed TTS and bounded PTT 
   assert.throws(() => normalizeConfig({ reasoningEffort: 'minimal' }, {}), /reasoningEffort/);
   assert.throws(() => normalizeConfig({ reasoningBaseUrl: 'file:///private' }, {}), /HTTP/);
   assert.throws(() => normalizeConfig({ maxMicDurationMs: 30_001 }, {}), /maxMicDurationMs/);
+});
+
+test('October 18 malformed faster command is repaired but still structurally validated',()=>{
+  assert.deepEqual(parseDecisionJson(JSON.stringify({
+    dialogue:'You got it, man.',command:'DriveEvasively',
+  })),{dialogue:'You got it, man.',command:'DO DriveEvasively'});
+  assert.deepEqual(parseDecisionJson(JSON.stringify({
+    dialogue:'Okay.',command:'DriveNormally',
+  })),{dialogue:'Okay.',command:'DO DriveNormally'});
+  for(const command of ['DriveEvasively V001','DriveTo V001','DO DriveEvasively\nDO WaitHere',
+    'DO DriveEvasively | DO WaitHere', 'BeginDriving']) {
+    assert.throws(()=>parseDecisionJson(JSON.stringify({dialogue:'Okay.',command})),
+      /one complete DO command/,command);
+  }
 });
 
 test('strict decisions reject refusals, extra keys, multiple commands and command text in dialogue', () => {
@@ -159,4 +174,29 @@ test('vehicle parameters must be verified references, not arbitrary names', () =
     parseActions:()=>[{actionName:'enterdriverseatoftargetvehicle',target:'',parameter}],
     allowedActionNames:new Set(['enterdriverseatoftargetvehicle']),resolvePerson:()=>true,resolveVehicle:()=>false,
   }),/vehicle/);
+});
+
+
+test('October 18 invalid <vehicle> placeholder is never an executable Essential command', () => {
+  const references={persons:{},vehicles:{V001:'abc123'}};
+  const base={
+    identity:{pedId:'72',turnId:'seat-1',generationId:1,sessionNonce:3},
+    actor:{nearbyVehicleReferences:{V001:'abc123'}},referenceSnapshot:references,
+    allowedActionNames:new Set(['enterdriverseatoftargetvehicle']),
+    parseActions: command => {
+      const match=/^DO EnterDriverSeat(?:OfTargetVehicle)?\s+(\S+)$/i.exec(command);
+      return match?[{actionName:'enterdriverseatoftargetvehicle',parameter:match[1]}]:[];
+    },
+    resolveVehicle: reference => reference==='V001'?'abc123':null,
+  };
+  for(const ref of ['<vehicle>','{vehicle}','VXXX','V999'])
+    assert.throws(()=>validateStockDecision({dialogue:'Okay.',command:'DO EnterDriverSeat '+ref},base),
+      /vehicle reference was not present/,ref);
+  const valid=validateStockDecision({dialogue:'Okay.',command:'DO EnterDriverSeat V001'},base);
+  assert.equal(valid.actionCount,1);
+  assert.equal(valid.referenceBindings.vehicles.V001,'abc123');
+  assert.throws(()=>validateStockDecision({dialogue:'Okay.',command:'DO EnterDriverSeat V001'},
+    {...base,resolveVehicle:()=> 'abc124'}),/reference changed/);
+  assert.throws(()=>validateStockDecision({dialogue:'Okay.',command:'DO EnterDriverSeat V001'},
+    {...base,resolveVehicle:()=> null}),/no longer available/);
 });

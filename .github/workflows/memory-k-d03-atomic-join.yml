@@ -1,0 +1,36 @@
+name: Memory K D03 atomic join (synthetic contract ONLY, A10 BLOCKED)
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'lsa-essential-e1-candidate/src/memory/d03OriginalDialogueJoin.mjs'
+      - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/originalBackendAcceptedInput.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/d03OriginalDialogueJoin.test.mjs'
+      - '.github/workflows/memory-k-d03-atomic-join.yml'
+  workflow_dispatch:
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  d03-contract:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: D03 real P2 SQLite + mocked D01/D02 contract (NOT live acceptance)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: D03 source-join denial and SQLite contract tests
+        run: node --test lsa-essential-e1-candidate/tests/memory/d03OriginalDialogueJoin.test.mjs
+      - name: D01 original source denial tests
+        run: node --test lsa-essential-e1-candidate/tests/memory/originalBackendAcceptedInput.test.mjs lsa-essential-e1-candidate/tests/memory/originalBackendSourceTransitions.test.mjs
+      - name: D03 declaration remains incapable of S01/S09 production acceptance
+        run: node -e "import('./lsa-essential-e1-candidate/src/memory/originalBackendAcceptedInput.mjs').then(m=>{if(m.ORIGINAL_BACKEND_PIN.acceptedSourceHookAvailable!==false)process.exit(1);})"

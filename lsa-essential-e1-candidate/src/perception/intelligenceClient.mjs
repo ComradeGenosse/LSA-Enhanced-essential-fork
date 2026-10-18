@@ -1,7 +1,9 @@
 import { captureKnowledgeInputs, assertKnowledgeCurrent } from '../context/knowledgeInputs.mjs';
+import {immutableSnapshot} from '../context/turnSnapshot.mjs';
 import net from 'node:net';
 import { BOUNDS } from './contracts.mjs';
 import { ShadowRuntime } from './shadowRuntime.mjs';
+import {createProtagonistAuthority} from './protagonistAuthority.mjs';
 import {DirectorPlaybackRegistry} from './directorPlayback.mjs';
 import {serializeDirectorRequest,serializeDirectorPs3Receipt,serializeDirectorOriginalOwnerReceipt,serializeDirectorStockIntake,serializeDirectorOriginalTurnBinding} from './directorWire.mjs';
 
@@ -15,11 +17,19 @@ export function createCompanionShadowTelemetry(summary = {}) {
   const ps2 = summary?.ps2 && typeof summary.ps2 === 'object' ? summary.ps2 : {};
   const ps3 = summary?.ps3 && typeof summary.ps3 === 'object' ? summary.ps3 : {};
   const reasons = ps3?.reasons && typeof ps3.reasons === 'object' ? ps3.reasons : {};
+  const ownedReasons=ps3?.ownedReasons??{};
+  const ownedEvents=ps3?.ownedByEvent??{};
   const history = summary?.history && typeof summary.history === 'object' ? summary.history : {};
   const resets = summary?.resetReasons && typeof summary.resetReasons === 'object' ? summary.resetReasons : {};
   const drops = summary?.dropReasons && typeof summary.dropReasons === 'object' ? summary.dropReasons : {};
   const damage = summary?.damageCallbacks && typeof summary.damageCallbacks === 'object' ? summary.damageCallbacks : {};
   const native = summary?.nativeDiagnostics && typeof summary.nativeDiagnostics === 'object' ? summary.nativeDiagnostics : {};
+  const radioCatalog = summary?.radioCatalog && typeof summary.radioCatalog === 'object' ? summary.radioCatalog : {};
+  const ps2Drops = ps2?.dropReasons && typeof ps2.dropReasons === 'object' ? ps2.dropReasons : {};
+  const radio = summary?.radio && typeof summary.radio === 'object' ? summary.radio : {};
+  const stall = summary?.ownerStall && typeof summary.ownerStall === 'object' ? summary.ownerStall : {};
+  const trace = summary?.trace && typeof summary.trace === 'object' ? summary.trace : {};
+  const nativeRadio = native?.radio && typeof native.radio === 'object' ? native.radio : {};
   return Object.freeze({
     anchors: counter(summary.anchors),
     retainedSignals: counter(summary.retainedSignals),
@@ -51,12 +61,37 @@ export function createCompanionShadowTelemetry(summary = {}) {
     ps2Witnessed: counter(ps2.witnessed),
     ps2Duplicates: counter(ps2.duplicates),
     ps2Dropped: counter(ps2.dropped),
+    ps2OwnedWitnessed: counter(ps2.ownedWitnessed),
+    ps2DedupeEvicted: counter(ps2.dedupeEvicted),
+    ps2DropInvalidInput: counter(ps2Drops.invalid_input),
+    ps2DropRadioIdentityMismatch: counter(ps2Drops.radio_derived_identity_mismatch),
+    ps2DropUnsupportedEvent: counter(ps2Drops.unsupported_event),
+    ps2DropEpisodeClaimCapacity: counter(ps2Drops.episode_claim_capacity),
+    ps2DropEpisodeRejected: counter(ps2Drops.episode_rejected),
+    ps2DropObservationClaimCapacity: counter(ps2Drops.observation_claim_capacity),
+    ps2DropObservationRejected: counter(ps2Drops.observation_rejected),
     ps3Decisions: counter(ps3.decisions),
     ps3Urgent: counter(ps3.urgent),
     ps3Eligible: counter(ps3.eligible),
     ps3Staged: counter(ps3.staged),
     ps3Suppressed: counter(ps3.suppressed),
     ps3Faults: counter(ps3.faults),
+    ps3OwnedDecisions: counter(ps3.ownedDecisions),
+    ps3OwnedEligible: counter(ps3.ownedEligible),
+    ps3OwnedUrgent: counter(ps3.ownedUrgent),
+    // Fixed source-event/rejection counters in E4 JSONL (not only console
+    // summary). No arbitrary keys or event payloads cross persistence.
+    ps3OwnedAmbientWitness:counter(ownedReasons.ambient_direct_witness),
+    ps3OwnedLowRelevance:counter(ownedReasons.routine_low_relevance),
+    ps3OwnedRepetitionSuppressed:counter(ownedReasons.repetition_suppressed),
+    ps3OwnedCharacterPresent:counter(ownedEvents.character_present?.decisions),
+    ps3OwnedCharacterPresentEligible:counter(ownedEvents.character_present?.eligible),
+    ps3OwnedLocationChanged:counter(ownedEvents.location_changed?.decisions),
+    ps3OwnedLocationChangedEligible:counter(ownedEvents.location_changed?.eligible),
+    ps3OwnedActivityChanged:counter(ownedEvents.activity_changed?.decisions),
+    ps3OwnedActivityChangedEligible:counter(ownedEvents.activity_changed?.eligible),
+    ps3OwnedVehicleTransition:counter(ownedEvents.vehicle_transition?.decisions),
+    ps3OwnedVehicleTransitionEligible:counter(ownedEvents.vehicle_transition?.eligible),
     ps3ReasonSafetySelfDanger: counter(reasons.safetySelfDanger),
     ps3ReasonSafetyPlayerHarm: counter(reasons.safetyPlayerHarm),
     ps3ReasonSafetyNearbyThreat: counter(reasons.safetyNearbyThreat),
@@ -64,12 +99,136 @@ export function createCompanionShadowTelemetry(summary = {}) {
     ps3ReasonRevisionStale: counter(reasons.revisionStale),
     ps3ReasonNoveltyEscalation: counter(reasons.noveltyEscalation),
     ps3ReasonSuppressionCapacity: counter(reasons.suppressionCapacity),
+    radioUnknownTextIds: counter(radioCatalog.unknownTextIds),
+    radioCatalogMismatches: counter(radioCatalog.catalogMismatches),
+    radioChanged: counter(radio.changed),
+    radioStopped: counter(radio.stopped),
+    radioKnown: counter(radio.known),
+    radioUnknown: counter(radio.unknown),
+    radioMismatch: counter(radio.mismatch),
+    radioOff: counter(radio.off),
+    radioObservations: counter(radio.observations),
+    radioOwnedObservations: counter(radio.ownedObservations),
+    nativeRadioSamples: counter(nativeRadio.samples),
+    nativeRadioEdges: counter(nativeRadio.edges),
+    nativeRadioFailures: counter(nativeRadio.nativeFailures),
+    nativeRadioWitnessed: counter(nativeRadio.witnessed),
+    nativeRadioWitnessUnknown: counter(nativeRadio.witnessUnknown),
+    nativeWitnessDeferred: counter(native.witnessDeferred),
+    nativeWitnessUnknown: counter(native.witnessUnknown),
+    nativeWitnessRejected: counter(native.witnessRejected),
+    ownerStalls: counter(stall.stalls),
+    ownerStallMaxMs: counter(stall.maxMs),
+    traceEmitted: counter(trace.emitted),
+    traceSuppressed: counter(trace.suppressed),
     finalSnapshot: summary.finalSnapshot === true,
   });
 }
 
 // Fixed same-user native factual endpoint; no actor integration blocks or commands.
 export class IntelligenceClient {
+  #nativeAuthority;
+  #nativeSessionToken=null;
+  #lastAdmittedSequence=0;
+  // Exact native socket/host proof only. No JSON/model hint can grant authority.
+  getNativeStream() {
+    const source=this.runtime,context=source.hostContext;
+    const now=source.now(),age=now-source.lastReceipt;
+    const authenticated=this.config.mode==='shadow'&&!this.closed&&
+      this.#nativeSessionToken!==null&&!!this.socket&&!this.socket.destroyed&&
+      Number.isFinite(age)&&age>=0&&age<=3000&&!!source.epoch&&
+      !!source.stream&&!!context;
+    return Object.freeze({connected:authenticated,authenticated,
+      sessionToken:authenticated?this.#nativeSessionToken:null,
+      adapterEpoch:authenticated?source.epoch:null,
+      streamId:authenticated?source.stream:null,
+      hostRunId:authenticated?context.hostRunId:null,
+      worldEpoch:authenticated?context.worldEpoch:null,
+      lastSequence:authenticated?this.#lastAdmittedSequence:0});
+  }
+  #announceProtagonistSupport() {
+    const h=this.runtime.hostContext;
+    if(this.closed||this.config.mode!=='shadow'||
+       this.runtime.directorRequestVersion!==1||!this.#nativeSessionToken||
+       !this.socket||this.socket.destroyed||!this.socket.writable||
+       this.socket.writableLength>BOUNDS.frameBytes||!h||
+       !this.runtime.epoch||!this.runtime.stream)return false;
+    const message={version:1,type:'protagonist_capability',supportedVersion:1,
+      adapterEpoch:this.runtime.epoch,streamId:this.runtime.stream,
+      hostRunId:h.hostRunId,worldEpoch:h.worldEpoch};
+    try{const line=JSON.stringify(message)+'\n';
+      if(Buffer.byteLength(line)>512)return false;
+      this.socket.write(line);return true;
+    }catch{return false}
+  }
+  #revokeNative() {
+    this.#nativeSessionToken=null;this.#lastAdmittedSequence=0;
+    this.#nativeAuthority?.revoke();
+  }
+  // C-13: accepted, authenticated native epoch changes only. Subscribing does
+  // not authorize any native effect, memory fact or timeline switch.
+  subscribeVerifiedHostContext(listener) {
+    if (typeof listener !== 'function' || this.hostContextListeners.size >= 16)
+      throw new Error('host_context_listener_capacity');
+    this.hostContextListeners.add(listener);
+    return () => this.hostContextListeners.delete(listener);
+  }
+  publishHostContext(context) {
+    for (const listener of [...this.hostContextListeners])
+      try { listener(context); } catch {}
+  }
+  // Privileged in-process listener, receiving ONLY post-authentication source frames.
+  subscribeAuthenticatedNativeMemoryAuthority(listener,onRetire=()=>{}) {
+    if(typeof listener!=='function'||typeof onRetire!=='function'||
+       this.memoryAuthoritySubscriptions.size>=8||[...this.memoryAuthoritySubscriptions].some(sub=>sub.listener===listener))throw new TypeError('memory_source_subscriber_invalid');
+    const subscription=Object.freeze({listener,onRetire});
+    this.memoryAuthoritySubscriptions.add(subscription);
+    return ()=>this.memoryAuthoritySubscriptions.delete(subscription);
+  }
+  retireAuthenticatedNativeMemoryAuthority() {
+    for(const sub of [...this.memoryAuthoritySubscriptions])try{sub.onRetire();}catch{}
+  }
+  // W07: source-authenticated partial native diagnostic, NOT an M7 idle permit.
+  subscribeAuthenticatedNativeM7Diagnostic(listener,onRetire=()=>{}) {
+    if(typeof listener!=='function'||typeof onRetire!=='function'||
+       this.m7DiagnosticSubscriptions.size>=8)
+      throw new TypeError('m7_diagnostic_subscriber_invalid');
+    const item=Object.freeze({listener,onRetire});
+    this.m7DiagnosticSubscriptions.add(item);
+    return ()=>this.m7DiagnosticSubscriptions.delete(item);
+  }
+  retireAuthenticatedNativeM7Diagnostic() {
+    this.m7LastDiagnostic=null;
+    for(const item of [...this.m7DiagnosticSubscriptions])
+      try{item.onRetire();}catch{}
+  }
+  m7NativeIdleDiagnostics() {
+    const age=this.m7LastDiagnostic?
+      this.runtime.now()-this.m7LastDiagnostic.receivedAt:null;
+    return Object.freeze({state:age!==null&&age>=0&&age<=3000?
+      'partial_native_evidence':'native_evidence_unavailable',
+      verifiedIdleAvailable:false,missingGlobalTurnFields:4});
+  }
+  // D02 subscription is read-only and is invoked only after successful
+  // authenticated socket intake. It never accepts caller-supplied frames.
+  subscribeAuthenticatedNativeOwnerPlayer(listener,onRetire=()=>{}) {
+    if(typeof listener!=='function'||typeof onRetire!=='function'||
+       this.currentOwnerPlayerSubscriptions.size>=8||[...this.currentOwnerPlayerSubscriptions].some(sub=>sub.listener===listener))
+      throw new TypeError('native_current_owner_subscriber_invalid');
+    const item=Object.freeze({listener,onRetire});
+    this.currentOwnerPlayerSubscriptions.add(item);
+    return ()=>this.currentOwnerPlayerSubscriptions.delete(item);
+  }
+  retireAuthenticatedNativeOwnerPlayer(reason='terminal',retiredRefs=[]) {
+    for(const item of [...this.currentOwnerPlayerSubscriptions])
+      try{item.onRetire(reason,retiredRefs);}catch{}
+  }
+  subscribeWorldBoundary(listener) {
+    if (typeof listener !== 'function' || this.worldBoundaryListeners.size >= 16)
+      throw new Error('world_boundary_listener_capacity');
+    this.worldBoundaryListeners.add(listener);
+    return () => this.worldBoundaryListeners.delete(listener);
+  }
   subscribeKnowledgeInvalidation(listener) {
     if(typeof listener!=='function' || this.knowledgeListeners.size>=32)throw new Error('knowledge_listener_capacity');
     this.knowledgeListeners.add(listener);return ()=>this.knowledgeListeners.delete(listener);
@@ -82,6 +241,19 @@ export class IntelligenceClient {
   // Preview-only in v1.0's unaccepted native stage: no PS6 decisions are
   // selected here and the native preview endpoint cannot admit Essential turns.
   // Future admitted requests MUST use the same closed v1 encoder.
+  // Debug-only editor initiation: the native owner fiber resolves Essential's
+  // actual selected promoted NPC and creates an ordinary verified scene.
+  // A successful write only queues an invitation; it is not a speech receipt.
+  requestDirectorSocialManual() {
+    if(this.closed || this.config.mode!=='shadow' ||
+       this.runtime.directorRequestVersion!==1 ||
+       !this.getNativeStream().authenticated ||
+       !this.runtime.directorPriority?.experimentalEnabled ||
+       !this.socket || this.socket.destroyed || !this.socket.writable ||
+       this.socket.writableLength>BOUNDS.frameBytes)return false;
+    const line=JSON.stringify({version:1,type:'director.social_manual',operation:'start'})+'\n';
+    try {this.socket.write(line);return true;}catch{return false;}
+  }
   sendDirectorPreview(args) {
     if(this.closed || this.runtime.directorRequestVersion!==1 ||
         !this.socket || this.socket.destroyed || !this.socket.writable ||
@@ -97,12 +269,52 @@ export class IntelligenceClient {
   // coordinator. Never trust entitlementCurrent or a request's copied
   // observation/grant IDs as proof. Channel, epoch and negotiated native
   // Director protocol must be current; this is NOT native authorization.
-  directorOriginalEntitlement(proposal,stamp) {
+  directorOriginalEntitlement(proposal,stamp,ticketId=null) {
     if(this.closed || this.config.mode!=='shadow' ||
        !this.socket || this.socket.destroyed || !this.socket.writable ||
        this.runtime.directorRequestVersion!==1 || !this.runtime.epoch)return null;
-    try{return this.runtime.directorOriginalEntitlementFor(proposal,stamp);}
-    catch{return null;}
+    try {
+      if(proposal?.source!=='native_director_social')
+        return this.runtime.directorOriginalEntitlementFor(proposal,stamp);
+      const current=this.runtime.directorSocialEntitlementFor(proposal,stamp);
+      if(current)return current;
+      // Expiry is the end of the window for initiating NEW speech, not
+      // permission to terminate a native-reserved, identity-pinned stock turn.
+      // Only an authenticated 'reserved' receipt for this exact ticket can
+      // retain the originally captured source for bounded generation time.
+      const record=typeof ticketId==='string'?this.directorOwnerReservations.get(ticketId):null;
+      const source=record?.source,at=this.runtime.now();
+      const owner=this.runtime.directorOwnerProofFor(proposal.speakerCaptureRef);
+      const priority=this.runtime.directorPriority;
+      if(!source || record.proposal.source!=='native_director_social' ||
+         !this.directorNativeReserved.has(ticketId) ||
+         !Number.isSafeInteger(at) || at<record.nativeReservedAt ||
+         at-record.nativeReservedAt>110000 ||
+         !owner || owner.hostRunId!==stamp.hostRunId ||
+         owner.worldEpoch!==stamp.worldEpoch ||
+         owner.ownerIncarnationId!==stamp.ownerIncarnationId ||
+         owner.proofRevision!==stamp.proofRevision ||
+         !priority || !priority.experimentalEnabled ||
+         priority.hostRunId!==stamp.hostRunId ||
+         priority.worldEpoch!==stamp.worldEpoch ||
+         priority.playerTurnVersion!==stamp.playerTurnVersion ||
+         !Number.isSafeInteger(priority.receivedAt) ||
+         at<priority.receivedAt || at-priority.receivedAt>1500 ||
+         !this.runtime.current(proposal.speakerCaptureRef) ||
+         !this.runtime.current(proposal.playerCaptureRef) ||
+         this.runtime.socialScenes.get(proposal.speakerCaptureRef)?.sceneId!==proposal.observationId ||
+         record.stamp.hostRunId!==stamp.hostRunId ||
+         record.stamp.worldEpoch!==stamp.worldEpoch ||
+         record.stamp.ownerIncarnationId!==stamp.ownerIncarnationId ||
+         record.stamp.proofRevision!==stamp.proofRevision ||
+         record.stamp.playerTurnVersion!==stamp.playerTurnVersion ||
+         record.proposal.decisionKey!==proposal.decisionKey ||
+         record.proposal.observationId!==proposal.observationId ||
+         source.decisionKey!==proposal.decisionKey ||
+         source.expiresAtMonotonicMs!==proposal.expiresAtMonotonicMs)
+         return null;
+      return source;
+    }catch{return null;}
   }
 
   // A genuine PS3-ledger read produces this sideband only on the negotiated
@@ -159,6 +371,7 @@ export class IntelligenceClient {
     if(args?.operation==='cancel' && typeof ticketId==='string') {
       this.directorOwnerReservations.delete(ticketId);
       this.directorNativeSubmitted.delete(ticketId);
+      this.directorNativeReserved.delete(ticketId);
       this.directorStockDispatched.delete(ticketId);
       this.directorStockContexts.delete(ticketId);
       this.directorStockClaims.delete(ticketId);
@@ -183,8 +396,10 @@ export class IntelligenceClient {
         owner=this.originalBackendEvidence(originalLease);
       }catch{owner=null;}
     }
-    if(args?.operation!=='cancel' && (!original || !owner))
+    if(args?.operation!=='cancel' && (!original || !owner)) {
+      this.handoff('native_request','rejected',!original?'source_grant_unavailable':'original_owner_unavailable');
       return Promise.resolve(null);
+    }
     // The coordinator's ageMs starts at Director selection, not at the
     // witnessed event. Native PS3 admission compares against the original
     // PS2 observation age sealed in the one-use producer receipt. Reuse
@@ -198,8 +413,10 @@ export class IntelligenceClient {
     // takeover, even if its final state is quiet again. It cannot be
     // silently rebased at submit.
     if(args?.operation==='submit' &&
-       (!prior || prior.run!==owner.sourceRun || prior.revision!==owner.revision))
+       (!prior || prior.run!==owner.sourceRun || prior.revision!==owner.revision)) {
+      this.handoff('native_request','rejected','original_owner_revision_changed');
       return Promise.resolve(null);
+    }
     if(typeof ticketId!=='string' || !Number.isSafeInteger(timeoutMs) ||
        timeoutMs<1 || timeoutMs>1500 || this.directorPending.size>=32 ||
        this.directorPending.has(ticketId)) return Promise.resolve(null);
@@ -211,7 +428,10 @@ export class IntelligenceClient {
         clearTimeout(entry.timeout);
         resolve(value);
       };
-      const timeout=setTimeout(()=>finish(null),timeoutMs);
+      const timeout=setTimeout(()=>{
+        this.handoff('native_request','timeout','native_receipt_missing');
+        finish(null);
+      },timeoutMs);
       timeout.unref?.();
       this.directorPending.set(ticketId,{resolve:finish,timeout,operation:args.operation});
       // Native consumes these FIFO on its owner fiber: a source-backed PS3
@@ -219,15 +439,22 @@ export class IntelligenceClient {
       // If the original native source proof is missing, nothing is sent.
       if(args.operation!=='cancel' &&
          !this.sendDirectorOwnerReceipt(args.ticket,args.stamp,owner)) {
+        this.handoff('native_request','rejected','owner_receipt_write_unavailable');
         finish(null);return;
       }
-      if(args.operation==='reserve' && !this.sendDirectorPs3Receipt(args.ticket,original)) {
+      if(args.operation==='reserve' && original.source!=='native_director_social' &&
+         !this.sendDirectorPs3Receipt(args.ticket,original)) {
+        this.handoff('native_request','rejected','ps3_receipt_write_unavailable');
         finish(null);return;
       }
-      if(!this.sendDirectorPreview(nativeArgs)) {finish(null);return;}
+      if(!this.sendDirectorPreview(nativeArgs)) {
+        this.handoff('native_request','rejected','director_request_write_unavailable');
+        finish(null);return;
+      }
       if(args.operation==='reserve')this.directorOwnerReservations.set(ticketId,
         {run:owner.sourceRun,revision:owner.revision,stamp:args.stamp,
-         proposal:args.proposal,priority:args.ticket.priority});
+         source:Object.freeze({...original}),proposal:args.proposal,
+         priority:args.ticket.priority,nativeReservedAt:null});
     });
   }
   // Bounded 3A intake for a *previously native-submitted* ticket only.
@@ -239,7 +466,7 @@ export class IntelligenceClient {
        this.runtime.directorRequestVersion!==1 || !this.runtime.epoch ||
        !this.directorNativeSubmitted.has(id) || !record ||
        ticket.dedupeKey!==`ps:${id}` ||
-       !this.directorOriginalEntitlement(record.proposal,record.stamp)) {
+       !this.directorOriginalEntitlement(record.proposal,record.stamp,id)) {
       this.handoff('stock_intake','rejected','missing_source_or_submission');
       return false;
     }
@@ -290,7 +517,7 @@ export class IntelligenceClient {
        this.directorStockContexts.get(id)!==input.content ||
        !this.runtime.current(record.proposal.speakerCaptureRef) ||
        !this.runtime.current(record.proposal.playerCaptureRef) ||
-       !this.directorOriginalEntitlement(record.proposal,record.stamp))return null;
+       !this.directorOriginalEntitlement(record.proposal,record.stamp,id))return null;
     let proof;
     try {proof=this.originalBackendEvidence(this.originalTurnCurrent(id));}
     catch{return null;}
@@ -332,7 +559,7 @@ export class IntelligenceClient {
        String(hydrated?.targetContext?.pedId||'')!==claim.playerId) {
       this.handoff('post_hydration','rejected','hydrated_ped_mismatch');return false;
     }
-    if(!this.directorOriginalEntitlement(claim.record.proposal,claim.record.stamp)) {
+    if(!this.directorOriginalEntitlement(claim.record.proposal,claim.record.stamp,ticket.ticketId)) {
       this.handoff('post_hydration','rejected','original_grant_expired');return false;
     }
     let current;
@@ -399,7 +626,7 @@ export class IntelligenceClient {
        !this.runtime.epoch || claimed?.ticket!==ticket ||
        this.originalTurnPhase(id)!=='generation' ||
        !record || ticket.dedupeKey!==`ps:${id}` ||
-       !this.directorOriginalEntitlement(record.proposal,record.stamp) ||
+       !this.directorOriginalEntitlement(record.proposal,record.stamp,id) ||
        !this.socket || this.socket.destroyed || !this.socket.writable ||
        this.socket.writableLength>BOUNDS.frameBytes) {
       this.handoff('binding_emit','rejected','source_phase_or_pipe_denied');return false;
@@ -480,6 +707,13 @@ export class IntelligenceClient {
       submit:['submitted','busy','invalid','unsafe','stale'],
       cancel:['cancelled','not_found','invalid','unsafe','stale'],
     }[pending.operation];
+    if(pending.operation==='reserve' && payload.status==='reserved') {
+      const record=this.directorOwnerReservations.get(payload.ticketId);
+      if(record) {
+        record.nativeReservedAt=this.runtime.now();
+        this.directorNativeReserved.add(payload.ticketId);
+      }
+    }
     if(pending.operation==='submit' && payload.status==='submitted')
       this.directorNativeSubmitted.add(payload.ticketId);
     pending.resolve(allowed?.includes(payload.status) ?
@@ -493,20 +727,34 @@ export class IntelligenceClient {
     this.directorBindingPending.clear();
     for(const ticketId of this.directorOwnerReservations.keys())
       try {this.originalTurnRelease(ticketId);}catch{}
-    this.directorOwnerReservations.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
+    this.directorOwnerReservations.clear();this.directorNativeReserved.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
   }
 
-  constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
+  constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,ambientSpeech=false,now,situationFor,radioCatalog,consumers=null,acceptedObservationTap=null,m9Events=null,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
+    this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.memoryAuthoritySubscriptions=new Set();this.currentOwnerPlayerSubscriptions=new Set();this.m7DiagnosticSubscriptions=new Set();this.m7LastDiagnostic=null;this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,acceptedObservationTap,consumers,m9Events,ambientSpeech,
+      // Bounded fixed-vocabulary diagnostics only (see ShadowRuntime.emitTrace).
+      trace:(event,record)=>this.persist(event,record),
+      stall:info=>this.persist('intelligence_status',{
+        stage:info.stage==='stalled'?'owner_stalled':'owner_resumed',
+        durationMs:info.stallMs,reason:'unverified',
+        hostRunId:this.runtime?.hostContext?.hostRunId??null,
+        worldEpoch:this.runtime?.hostContext?.worldEpoch??null
+      })});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
     this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
     this.originalTurnPhase=typeof originalTurnPhase==='function'?originalTurnPhase:()=>null;
+    this.#nativeAuthority=createProtagonistAuthority({
+      getNativeStream:()=>this.getNativeStream(),
+      clock:()=>this.runtime.now()});
+    this.protagonistAuthority=Object.freeze({
+      readVerified:()=>this.#nativeAuthority.readVerified(),
+      isCurrent:record=>this.#nativeAuthority.isCurrent(record)});
     this.directorProductionRequired=directorProductionRequired===true;
     this.directorPlaybacks=new DirectorPlaybackRegistry({
       onTimeout:code=>this.handoff('binding_wait','timeout',code),
     });
-    this.closed=false;this.socket=null;this.lastReport=0;this.frameRejections=new Map();this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
+    this.closed=false;this.socket=null;this.emptyHelloStreak=0;this.lastReport=0;this.frameRejections=new Map();this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeReserved=new Set();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   handoff(stage,status,code) {
@@ -523,13 +771,38 @@ export class IntelligenceClient {
       history:{...this.runtime.historyDiagnostics},
       dropReasons:{...this.runtime.dropDiagnostics},
       resetReasons:{...this.runtime.resetDiagnostics},
-      nativeDiagnostics:{dropped:diagnostics?.dropped??0,staleRejected:diagnostics?.staleRejected??0},
+      nativeDiagnostics:{dropped:diagnostics?.dropped??0,staleRejected:diagnostics?.staleRejected??0,
+        witnessDeferred:diagnostics?.witnessDeferred??0,witnessUnknown:diagnostics?.witnessUnknown??0,
+        witnessRejected:diagnostics?.witnessRejected??0,radio:diagnostics?.radio?{...diagnostics.radio}:{}},
       capabilities:this.runtime.capabilities,
       damageCallbacks:diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0},
-      ps2:{...this.runtime.ps2Diagnostics,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts.diagnostics},
-      ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons}},
+      ps2:{...this.runtime.ps2Diagnostics,dropReasons:{...(this.runtime.correlator?.dropReasons??{})},dedupeEvicted:this.runtime.correlator?.dedupeEvicted??0,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts?.diagnostics??null},
+      ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons},
+        ownedReasons:{...this.runtime.ps3Diagnostics.ownedReasons},
+        ownedByEvent:Object.fromEntries(Object.entries(this.runtime.ps3Diagnostics.ownedByEvent).map(([event,counts])=>[event,{...counts}]))},
+      radioCatalog:{unknownTextIds:counter(this.runtime.radioCatalog?.unknownTextIds),catalogMismatches:counter(this.runtime.radioCatalog?.catalogMismatches)},
+      radio:{...this.runtime.radioDiagnostics},
+      ownerStall:{...this.runtime.stallDiagnostics},
+      trace:{...this.runtime.traceDiagnostics},
       finalSnapshot,
+      operation:this.operationalStates(),
     };
+  }
+  operationalStates() {
+    const source=this.runtime,age=source.now()-source.lastReceipt;
+    const fresh=!this.closed&&!!this.socket&&!this.socket.destroyed&&!!source.epoch&&age>=0&&age<=3000;
+    const state=this.closed?'stopped':fresh?'operational':this.socket?'waiting':'disconnected';
+    const row=(requestedMode,initialized,reason=null)=>Object.freeze({requestedMode,
+      state:reason==='dependency_blocked'?'blocked':!initialized?'stopped':state,
+      effectiveMode:!initialized||this.closed?'off':fresh?requestedMode:null,
+      operationalState:!initialized?'stopped':state,reason:reason??(fresh||this.closed?null:'authenticated_source_unavailable')});
+    const consumers=source.consumerActivation;
+    return Object.freeze({
+      'source.core':fresh&&!source.hostContext?Object.freeze({requestedMode:'on',state:'unavailable',
+        effectiveMode:null,operationalState:'unavailable',reason:'authenticated_host_context_unavailable'}):row('on',true),
+      'ps2.observations':row(consumers?.ps2.requestedMode??'shadow',!!source.correlator,consumers?.ps2.reason),
+      'ps3.salience':row(consumers?.ps3.requestedMode??'shadow',!!source.salience,consumers?.ps3.reason),
+    });
   }
   emitReport(finalSnapshot=false) {
     const summary=this.summary(finalSnapshot);
@@ -538,27 +811,34 @@ export class IntelligenceClient {
   }
   start() {
     if(this.config.mode!=='shadow' || this.closed || this.socket) return;
+    clearTimeout(this.retry);this.retry=null;
     this.persist('intelligence_status',{stage:'connecting'});
+    this.#revokeNative();
     const socket=this.connect({path:`\\\\.\\pipe\\${this.config.pipeName}`});this.socket=socket;
-    let buffer=Buffer.alloc(0),frames=[],hello=false;
-    const fail=()=>socket.destroy();
+    let buffer=Buffer.alloc(0),frames=[],hello=false,sawLiveFrame=false;
+    // Diagnostic-only reason: a closed pipe must still retire all authority.
+    // Never treat the reason as permission to retain an expired owner.
+    let closeReason='unverified';
+    const fail=(reason='unverified')=>{closeReason=reason;socket.destroy();};
     const processFrames=()=>{
       this.work=null;
+      if(this.closed){frames=[];return;}
       for(let n=0;n<32 && frames.length;n++) {
         let v;try {v=JSON.parse(frames.shift());} catch {
-          this.persist('intelligence_frame_rejected',{frameType:'other',reason:'invalid_json',count:1});fail();return;
+          this.persist('intelligence_frame_rejected',{frameType:'other',reason:'invalid_json',count:1});fail('invalid_json');return;
         }
         if(!hello && v?.type!=='hello' || hello && v?.type==='hello') {
-          this.persist('intelligence_frame_rejected',{frameType:'hello',reason:'invalid_order',count:1});fail();return;
+          this.persist('intelligence_frame_rejected',{frameType:'hello',reason:'invalid_order',count:1});fail('invalid_order');return;
         }
         const before={malformed:this.runtime.counters.malformed,gaps:this.runtime.counters.gaps,faults:this.runtime.resetDiagnostics.faults};
+        const beforeHost=this.runtime.hostContext;
         const accepted=this.runtime.ingest(v,{authenticated:true});
         if(!accepted) {
           // Never include source payloads, NPC identities or raw frames in
           // persistent diagnostics. A strict invalid frame stays invalid.
           const allowed=['hello','anchors','retire','retire_batch','observer_index',
             'observer_situation','world_epoch','director_priority','director_response',
-            'signal','diagnostics'];
+            'memory_authority','memory_current_owner_player','memory_m7_idle_diagnostic','protagonist_model','m9_sample','signal','diagnostics'];
           const frameType=allowed.includes(v?.type)?v.type:'other';
           const reason=this.runtime.counters.malformed>before.malformed?'invalid_contract':
             this.runtime.counters.gaps>before.gaps?'sequence_gap':
@@ -569,45 +849,139 @@ export class IntelligenceClient {
             this.persist('intelligence_frame_rejected',{
               frameType,reason,count,frameBytes:Buffer.byteLength(JSON.stringify(v),'utf8')});
         }
-        if(accepted && v?.type==='world_epoch')this.cancelDirectorRequests();
+        if(!accepted&&v?.type==='protagonist_model'){
+          this.#revokeNative();fail('invalid_contract');return;
+        }
+        if(accepted&&v?.type!=='hello') {
+          this.#lastAdmittedSequence=v.sequence;
+          sawLiveFrame=true;this.emptyHelloStreak=0;
+        }
+        if(accepted&&(v?.type==='hello'||v?.type==='world_epoch'))this.retireAuthenticatedNativeMemoryAuthority();
+        // anchors/observer_index are periodic roster re-sends, so they must not retire a
+        // still-valid sample: the M7 source re-verifies the exact observer on every frame.
+        if(!accepted||['hello','world_epoch','retire','retire_batch'].includes(v?.type))
+          this.retireAuthenticatedNativeM7Diagnostic();
+        // Any source/protocol fault, anchor/owner change or epoch boundary
+        // invalidates in-flight leases, not merely the next TTL refresh.
+        if(!accepted || v?.type==='hello')
+          this.retireAuthenticatedNativeOwnerPlayer('terminal');
+        else if(v?.type==='world_epoch'&&beforeHost&&
+          this.runtime.hostContext?.worldEpoch===beforeHost.worldEpoch+1)
+          this.retireAuthenticatedNativeOwnerPlayer('world');
+        else if(['anchors','observer_index','retire','retire_batch'].includes(v?.type))
+          this.retireAuthenticatedNativeOwnerPlayer('roster',
+            v.type==='retire'?[v.payload.captureRef]:
+            v.type==='retire_batch'?v.payload:[]);
+        const sourceReceipt=accepted&&['memory_authority','memory_current_owner_player','memory_m7_idle_diagnostic'].includes(v?.type)
+          ?Object.freeze({frame:immutableSnapshot(v)}):null;
+        if(accepted&&v?.type==='memory_authority')for(const sub of [...this.memoryAuthoritySubscriptions]){
+          try{sub.listener(sourceReceipt);}catch{try{sub.onRetire();}catch{}}
+        }
+        if(accepted&&v?.type==='memory_m7_idle_diagnostic'){
+          this.m7LastDiagnostic=Object.freeze({receivedAt:this.runtime.now(),receipt:sourceReceipt});
+          for(const item of [...this.m7DiagnosticSubscriptions])
+            try{item.listener(sourceReceipt);}catch{try{item.onRetire();}catch{}}
+        }
+        if(accepted&&v?.type==='memory_current_owner_player')
+          for(const item of [...this.currentOwnerPlayerSubscriptions])
+            try{item.listener(sourceReceipt);}
+            catch{try{item.onRetire();}catch{}}
+        if(accepted&&v?.type==='hello'){
+          this.#nativeSessionToken=Object.freeze({});
+          this.#lastAdmittedSequence=0;
+          this.publishHostContext(this.runtime.hostContext);
+          this.#announceProtagonistSupport();
+        }
+        if(accepted&&v?.type==='world_epoch'){
+          this.#nativeAuthority.revoke(); // before listeners
+          this.cancelDirectorRequests();
+          // Ignore a duplicate epoch receipt. No callback on an invalid
+          // frame/sequence, mismatched host, or legacy peer without C-13.
+          const next=this.runtime.hostContext;
+          if(beforeHost && next &&
+              next.hostRunId===beforeHost.hostRunId &&
+              next.worldEpoch===beforeHost.worldEpoch+1 &&
+              v.payload.epoch===next.worldEpoch) {
+            this.publishHostContext(next);
+            const boundary=Object.freeze({
+              reason:v.payload.reason,hostRunId:next.hostRunId,
+              previousEpoch:beforeHost.worldEpoch,worldEpoch:next.worldEpoch
+            });
+            for(const listener of [...this.worldBoundaryListeners])
+              try {listener(boundary);}catch{}
+          }
+        }
+        if(accepted&&v?.type==='world_epoch')this.#announceProtagonistSupport();
+        if(accepted&&v?.type==='protagonist_model'&&
+           !this.#nativeAuthority.acceptAuthenticatedFrame(v)){
+          this.#revokeNative();fail();return;
+        }
         if(accepted && v?.type==='director_response')this.acceptDirectorResponse(v.payload);
+        if(!this.runtime.epoch)this.#revokeNative();
         this.notifyKnowledgeInvalidation();
-        if(!hello && !accepted || !this.runtime.epoch) {fail();return;}
-        if(!hello) { hello=true;this.persist('intelligence_status',{stage:'initialized'}); }
+        if(!hello && !accepted || !this.runtime.epoch) {fail('invalid_contract');return;}
+        if(!hello) { hello=true;this.persist('intelligence_status',{stage:'initialized',
+          hostRunId:this.runtime.hostContext?.hostRunId??null,
+          worldEpoch:this.runtime.hostContext?.worldEpoch??null}); }
       }
       if(frames.length) this.work=setImmediate(processFrames);
     };
     socket.once('connect',()=>this.persist('intelligence_status',{stage:'connected'}));
     socket.on('data',chunk=>{
+      if(this.closed)return;
       // Slice before allocation: an arbitrary socket chunk cannot grow retained RAM.
       for(let offset=0;offset<chunk.length;) {
         const end=chunk.indexOf(10,offset),limit=end<0?chunk.length:end;
-        if(buffer.length+limit-offset>BOUNDS.frameBytes) {fail();return;}
+        if(buffer.length+limit-offset>BOUNDS.frameBytes) {fail('invalid_contract');return;}
         buffer=Buffer.concat([buffer,chunk.subarray(offset,limit)]);
         if(end<0) break;
-        if(frames.length>=BOUNDS.companionFrames) {fail();return;}
+        if(frames.length>=BOUNDS.companionFrames) {fail('invalid_contract');return;}
         frames.push(buffer.toString('utf8'));buffer=Buffer.alloc(0);offset=end+1;
       }
       if(!this.work) this.work=setImmediate(processFrames);
     });
-    socket.on('error',()=>{});
+    socket.on('error',error=>{
+      // Error codes are allowlisted; never log pipe names or error messages.
+      closeReason=['ECONNRESET','EPIPE','ETIMEDOUT'].includes(error?.code)
+        ?error.code.toLowerCase():'transport_error';
+    });
     socket.on('close',()=>{
       if(hello) this.emitReport(true);
-      this.persist('intelligence_status',{stage:'disconnected'});
-      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();if(!this.closed) this.retry=setTimeout(()=>this.start(),1000).unref();
+      this.persist('intelligence_status',{stage:'disconnected',
+        reason:this.closed?'session_closed':closeReason,
+        hostRunId:this.runtime.hostContext?.hostRunId??null,
+        worldEpoch:this.runtime.hostContext?.worldEpoch??null});
+      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.#revokeNative();this.retireAuthenticatedNativeMemoryAuthority();this.retireAuthenticatedNativeOwnerPlayer();this.retireAuthenticatedNativeM7Diagnostic();this.publishHostContext(null);this.notifyKnowledgeInvalidation();
+      // While GTA is paused, hello may succeed but no owner-fiber data arrive.
+      // The runtime tolerates a bounded owner stall (OWNER_STALL_BOUNDS) and
+      // resets beyond it; only bound empty-handshake retry churn here.
+      this.emptyHelloStreak=hello&&!sawLiveFrame
+        ?Math.min(3,this.emptyHelloStreak+1):0;
+      const retryMs=1000*Math.min(4,2**Math.max(0,this.emptyHelloStreak-1));
+      if(!this.closed)this.retry=setTimeout(()=>this.start(),retryMs).unref();
     });
     this.watch=setInterval(()=>{
-      this.runtime.expire();this.runtime.refreshSalience();this.notifyKnowledgeInvalidation();if(!this.runtime.epoch && hello) fail();
+      const silence=this.runtime.epoch?this.runtime.now()-this.runtime.lastReceipt:0;
+      if(this.runtime.epoch && silence>this.runtime.sourceSilenceMs())
+        this.persist('intelligence_status',{stage:'owner_timeout',
+          reason:'source_silence',durationMs:silence,
+          hostRunId:this.runtime.hostContext?.hostRunId??null,
+          worldEpoch:this.runtime.hostContext?.worldEpoch??null});
+      this.runtime.expire();if (!this.runtime.epoch) this.publishHostContext(null);this.runtime.refreshSalience();this.notifyKnowledgeInvalidation();
+      if(!this.runtime.epoch && hello) fail('source_silence');
       if(this.runtime.epoch && this.runtime.now()-this.lastReport>=10000) {
         this.lastReport=this.runtime.now();
         this.emitReport(false);
       }
     },500).unref();
     socket.once('close',()=>clearInterval(this.watch));
-    this.helloDeadline=setTimeout(()=>{if(!hello) fail();},3000).unref();socket.once('close',()=>clearTimeout(this.helloDeadline));
+    this.helloDeadline=setTimeout(()=>{if(!hello) fail('hello_timeout');},3000).unref();socket.once('close',()=>clearTimeout(this.helloDeadline));
   }
   stop() {
+    if(this.closed&&!this.socket)return;
+    this.#revokeNative();
+    this.retireAuthenticatedNativeMemoryAuthority();this.retireAuthenticatedNativeOwnerPlayer();this.retireAuthenticatedNativeM7Diagnostic();
     this.cancelDirectorRequests();this.closed=true;clearTimeout(this.retry);clearInterval(this.watch);clearTimeout(this.helloDeadline);if(this.work) clearImmediate(this.work);
-    if(this.socket) this.socket.destroy(); else if(this.runtime.epoch) {this.emitReport(true);this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();}
+    if(this.socket) this.socket.destroy(); else if(this.runtime.epoch) {this.emitReport(true);this.runtime.reset('disconnect');this.#revokeNative();this.retireAuthenticatedNativeMemoryAuthority();this.retireAuthenticatedNativeOwnerPlayer();this.publishHostContext(null);this.notifyKnowledgeInvalidation();}
   }
 }

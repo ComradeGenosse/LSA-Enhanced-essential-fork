@@ -1,0 +1,26 @@
+name: Memory M5 Completion
+on:
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/memory/explicitCommands.mjs'
+      - 'lsa-shared-brain/src/memory/m5SqlitePrivacy.mjs'
+      - 'lsa-shared-brain/tests/memory-m5-completion.test.mjs'
+      - '.github/workflows/memory-m5-completion.yml'
+  workflow_dispatch:
+jobs:
+  sqlite:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [22, 24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: M5 original and real SQLite completion suites
+        run: node --test lsa-essential-e1-candidate/tests/m5-explicit-memory-commands.test.mjs lsa-shared-brain/tests/memory-m5-completion.test.mjs
+      - name: Shared SQLite integration regression suite
+        run: node --test lsa-shared-brain/tests/memory-integrated-storage.test.mjs

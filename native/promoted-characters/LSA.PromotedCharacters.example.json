@@ -7,11 +7,28 @@
   "intelligence": {
     "mode": "off",
     "pipeName": "LSA.Intelligence.v1",
-    "directorMode": "off"
+    "directorMode": "off",
+    "radio": "off",
+    "directorAttemptPreset": "normal",
+    "protagonistEvidence": "off"
   },
   "activities": {
     "mode": "off",
     "pipeName": "LSA.Activities.v1",
     "dialogueReceipts": false
+  },
+  "reactions": {
+    "mode": "off",
+    "pipeName": "LSA.Reactions.v1",
+    "disabled": [],
+    "enabled": [],
+    "allowDuringOwnedBehavior": false,
+    "diagnostics": false
+  },
+  "npcVoicePresence": {
+    "mode": "off",
+    "mouthEnabled": false,
+    "mouthOpenLevel": 0.015,
+    "levelLog": false
   }
 }

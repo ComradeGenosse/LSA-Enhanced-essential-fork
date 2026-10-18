@@ -1,0 +1,43 @@
+name: Memory K W08 isolated source gates (not GTA acceptance)
+on:
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/events/m9*.mjs'
+      - 'lsa-shared-brain/tests/m9-production-source-admission.test.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/m9DirectorCueAdmission.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory-m9-completion.test.mjs'
+      - 'native/intelligence/m9/**'
+      - 'native/intelligence/m9-tests/**'
+      - '.github/workflows/memory-k-w08-specialist.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  w08-node:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax and negative-gate unit/source fixture replay
+        run: |
+          node --check lsa-shared-brain/src/events/m9CommittedWitnessAuthority.mjs
+          node --check lsa-essential-e1-candidate/src/perception/m9DirectorCueAdmission.mjs
+          node --check lsa-shared-brain/src/events/m9EventProducers.mjs
+          node --check lsa-shared-brain/src/events/m9Ps2CandidateBridge.mjs
+          node --check lsa-shared-brain/src/events/m9MemoryCues.mjs
+          node --test lsa-shared-brain/tests/m9-production-source-admission.test.mjs lsa-essential-e1-candidate/tests/memory-m9-completion.test.mjs lsa-essential-e1-candidate/tests/memory-agent-b-events.test.mjs
+  w08-native-isolated:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build and run original callback object / native anchor policy harness (NO GTA)
+        run: dotnet run --project native/intelligence/m9-tests/M9NativeTests.csproj --configuration Release

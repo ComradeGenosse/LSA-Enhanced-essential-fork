@@ -108,11 +108,11 @@ test('PS4 witnessed firing identifies native-verified player and never promotes 
  const claim={claimId:randomUUID(),kind:'firing',certainty:'supported',
    evidence:{channel:'visual',basis:'sampled_state',sampledGameTick:100},
    source:{captureRef:player,kind:'player'}};
- assert.equal(projectKnowledgeClaim(claim,observation,observer,player).subject,'player');
- assert.equal(projectKnowledgeClaim(claim,observation,observer,other).subject,'anonymous person');
+ assert.equal(projectKnowledgeClaim(claim,observation,observer,true,player).subject,'player');
+ assert.equal(projectKnowledgeClaim(claim,observation,observer,true,other).subject,'anonymous person');
  assert.equal(projectKnowledgeClaim(claim,observation,observer).subject,'anonymous person');
  const heard={...claim,evidence:{...claim.evidence,channel:'auditory',basis:'audibility_model'}};
- assert.deepEqual(projectKnowledgeClaim(heard,observation,observer,player),{
+ assert.deepEqual(projectKnowledgeClaim(heard,observation,observer,true,player),{
    modality:'auditory',certainty:'supported',kind:'gunfire_sound',origin:'unidentified'
  });
 });
@@ -124,10 +124,10 @@ test('PS4 bullet injury keeps proven player causality and redacts unspecified sh
    source:{captureRef:player,kind:'player'},target:{captureRef:victim,kind:'ped'},
    details:{eventSignalId:randomUUID(),reason:'visual_clear',classification:'bullet'}};
  const o={eventType:'injury'};
- assert.deepEqual(projectKnowledgeClaim(injured,o,observer,player),{
+ assert.deepEqual(projectKnowledgeClaim(injured,o,observer,true,player),{
    modality:'visual',certainty:'supported',kind:'injured',subject:'anonymous person',
    cause:'gunshot',causedBy:'player'});
- const missing=projectKnowledgeClaim(injured,o,observer,null);
+ const missing=projectKnowledgeClaim(injured,o,observer,true,null);
  assert.equal('cause' in missing,false);
  assert.equal('causedBy' in missing,false);
 });

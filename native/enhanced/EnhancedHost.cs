@@ -112,6 +112,10 @@ namespace LSA.Enhanced
             UiBridge ui = null;
             var talk = new TalkTargetInput(keys,gameState,bridge,clock,hud,Game.LogTrivial,() => router.Snapshot(clock.Utc),() => ui != null && ui.AnyMenuOpen);
             activeTalk = talk;
+            talk.AttachCompanion(companion);
+            talk.AttachVoiceStatus(companion);
+            var feedbackOverlay = new TalkFeedbackOverlay(() => talk.Feedback);
+            try { feedbackOverlay.Hook(); } catch { Game.LogTrivial("[UX4] talk_feedback state=unavailable reason=hook_failed"); }
             EnhancedSettings settings = EnhancedSettings.Defaults(catalog);
             EssentialBindings essential = EssentialBindings.Unavailable();
             dispatcher.Settings = () => settings; dispatcher.Essential = () => essential;
@@ -172,6 +176,7 @@ namespace LSA.Enhanced
             finally {
                 running = false; uiStatus = "off";
                 try { talk.Stop(); } catch { }
+                try { feedbackOverlay.Unhook(); } catch { }
                 try { router.Stop(); } catch { }
                 try { ui.Close(); } catch { }
                 activeTalk = null;

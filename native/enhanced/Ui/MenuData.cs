@@ -19,8 +19,8 @@ namespace LSA.Enhanced.Ui
         readonly IClock clock;
         readonly Action<Action> worker;
         readonly ConcurrentQueue<Action> applied = new ConcurrentQueue<Action>();
-        bool listInFlight, describeInFlight, probeInFlight;
-        string describeKey, pendingKey;
+        bool listInFlight, listRefreshPending, describeInFlight, probeInFlight, readinessInFlight, directorInFlight, bindingInFlight, bindingRefreshPending;
+        string describeKey, pendingKey, desiredBindingId;
         long describeAt;
         // worker runs JSON parsing off the game fiber (the thread pool by default).
         public MenuData(ICompanion companion,IClock clock,Action<Action> worker = null)
@@ -32,11 +32,17 @@ namespace LSA.Enhanced.Ui
         public string CharactersError {get;private set;}
         public bool CompanionReachable {get;private set;} = true;
         public Describe Describe {get;private set;}
+        public GameplayMenuReadiness ActivityReadiness {get;private set;}
+        public DirectorSocialStatus DirectorStatus {get;private set;}
+        public CharacterActivityBinding CharacterBinding {get;private set;}
+        public long BindingVerifiedAt {get;private set;} = -1;
         public string DescribeKey => describeKey;
         public int Version {get;private set;}
-        public void RequestCharacters()
+        public void RequestCharacters(bool refreshAfterInFlight = false)
         {
-            if (listInFlight) return;
+            // Only explicit post-mutation invalidations require a second read.
+            // Ordinary menu opens/polls must keep the original in-flight dedupe.
+            if (listInFlight) { if (refreshAfterInFlight) listRefreshPending = true; return; }
             listInFlight = true;
             companion.Post("{\"action\":\"list\"}",ListBodyBytes,RequestTimeoutMs,reply => {
                 List<CharacterRow> rows = reply != null && reply.Ok ? CharacterList.Parse(reply.Body) : null;
@@ -45,6 +51,7 @@ namespace LSA.Enhanced.Ui
                     listInFlight = false; CompanionReachable = reply != null && (reply.Ok || reply.Status != 0);
                     if (rows != null) Characters = rows;
                     CharactersError = error; Version++;
+                    if (listRefreshPending) { listRefreshPending = false; RequestCharacters(); }
                 });
             });
         }
@@ -67,6 +74,67 @@ namespace LSA.Enhanced.Ui
         }
         // The describe entry for this exact NPC, or null while it is loading or stale.
         public Describe DescribeFor(string encounterId,string ownerAlias) => describeKey == (encounterId ?? "") + "|" + (ownerAlias ?? "") ? Describe : null;
+        public void RequestActivityReadiness()
+        {
+            if (readinessInFlight) return;
+            readinessInFlight = true;
+            companion.Post("{\"action\":\"activity_menu_readiness\"}",DescribeBodyBytes,RequestTimeoutMs,reply => {
+                var result = reply != null && reply.Ok ? GameplayMenuReadiness.Parse(reply.Body) : null;
+                applied.Enqueue(() => {
+                    readinessInFlight = false;
+                    ActivityReadiness = result; // fail closed when the companion disconnects
+                    Version++;
+                });
+            });
+        }
+        public void RequestDirectorStatus()
+        {
+            if (directorInFlight) return;
+            directorInFlight = true;
+            companion.Post("{\"action\":\"director_social_status\"}",DescribeBodyBytes,RequestTimeoutMs,reply => {
+                var result = reply != null && reply.Ok ? DirectorSocialStatus.Parse(reply.Body) : null;
+                applied.Enqueue(() => {
+                    directorInFlight = false;
+                    DirectorStatus = result; // unknown means no admission claim
+                    Version++;
+                });
+            });
+        }
+        public void InvalidateCharacterBinding()
+        {
+            // After a native character operation the previous incarnation cannot
+            // be used to claim the actor is still present.
+            CharacterBinding = null; BindingVerifiedAt = -1; Version++;
+        }
+        public void RequestCharacterBinding(string id)
+        {
+            if (desiredBindingId != id) {
+                desiredBindingId = id; bindingRefreshPending = false;
+                InvalidateCharacterBinding();
+            }
+            if (id == null) return;
+            if (bindingInFlight) { bindingRefreshPending = true; return; }
+            bindingInFlight = true;
+            string requested = id;
+            string body = new JavaScriptSerializer().Serialize(new Dictionary<string,object> {
+                {"action","character_activity_binding"},{"characterId",id}
+            });
+            companion.Post(body,DescribeBodyBytes,RequestTimeoutMs,reply => {
+                var parsed = reply != null && reply.Ok ? CharacterActivityBinding.Parse(reply.Body) : null;
+                applied.Enqueue(() => {
+                    bindingInFlight = false;
+                    if (desiredBindingId == requested) {
+                        CharacterBinding = parsed;
+                        BindingVerifiedAt = parsed == null ? -1 : clock.Monotonic;
+                        Version++;
+                    }
+                    if (bindingRefreshPending || desiredBindingId != requested) {
+                        bindingRefreshPending = false;
+                        RequestCharacterBinding(desiredBindingId);
+                    }
+                });
+            });
+        }
         // Cheap reachability check: an id-less describe answers {"kind":"unknown"}.
         // Older companions answer 400 invalid_editor_action, which is reachable too.
         public void Probe()

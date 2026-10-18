@@ -37,7 +37,55 @@ namespace LSA.Intelligence
             public long SpecialTurnVersion=-1;
             public bool EssentialTurnKnown,EssentialTurnIdle,PlaybackKnown,PlaybackIdle;
             public bool ScriptStateKnown,ScriptSafe,ActorReflexKnown,ActorReflexIdle;
+            // Closed native veto classification, never a script/mission title.
+            public string ScriptUnsafeReason;
             public bool ObservationReceiptCurrent,ResponseGrantCurrent;
+        }
+
+        // Speech is a read-only side effect, not a physical-task takeover.
+        // Only exact P2 modes and source-verified live ACT capabilities may
+        // coexist with a Director turn. Unknown/residual/transitioning work
+        // remains blocked; separate C-06 mic, playback, script and reflex
+        // gates still apply at every admission boundary.
+        internal static bool SpeechCompatibleOwner(string owner,string mode,bool suspended,string activityCapability)
+        {
+            if(suspended)return false;
+            if(owner=="none")return mode=="idle";
+            if(owner=="p2")return mode=="follow" || mode=="wait" || mode=="sit";
+            if(owner!="act" || mode!="activity")return false;
+            switch(activityCapability) {
+                case "hold_position":
+                case "follow_person":
+                case "sit_on_ground":
+                case "resume_ambient":
+                case "stop_and_face":
+                case "begin_driving":
+                case "approach_person":
+                case "walk_away_from":
+                    return true;
+                default: return false;
+            }
+        }
+
+        // The pinned Essential Core aliases current-speaker to its selected
+        // conversation target. Keeping the same target selected after a turn
+        // must not indefinitely veto Director, but selection cannot grant
+        // authority either. Permit it ONLY with a stable exact speaker and
+        // independently authenticated current quiet/backend and native idle
+        // proofs. A new player turn or unreadable signal stays a hard veto.
+        internal static bool RetainedTargetIdle(Snapshot s,bool exactSpeaker,bool stableSelection)
+        {
+            return s!=null && exactSpeaker && stableSelection &&
+                s.ConversationStateKnown &&
+                s.PlayerTurnSourceCurrent && s.PlayerTurnIdle &&
+                s.EssentialTurnKnown && s.EssentialTurnIdle &&
+                s.MicStateKnown && s.MicIdle &&
+                s.TextInputKnown && s.TextInputIdle &&
+                s.ControlsInputKnown && s.ControlsInputIdle &&
+                s.PlaybackKnown && s.PlaybackIdle &&
+                s.OwnerProofCurrent && s.OwnerIdle &&
+                s.ActorReflexKnown && s.ActorReflexIdle &&
+                s.ScriptStateKnown && s.ScriptSafe;
         }
 
         // Read-only diagnosis of the FIRST already-enforced C-06 veto.
@@ -67,7 +115,7 @@ namespace LSA.Intelligence
             if(!s.ControlsInputKnown)return "controls_input_unknown";
             if(!s.ControlsInputIdle)return "controls_input_busy";
             if(!s.ScriptStateKnown)return "script_state_unknown";
-            if(!s.ScriptSafe)return "script_state_unsafe";
+            if(!s.ScriptSafe)return s.ScriptUnsafeReason??"script_state_unsafe";
             if(!s.ActorReflexKnown)return "actor_reflex_unknown";
             if(!s.ActorReflexIdle)return "actor_reflex_busy";
             if(occupied)return "occupied_playback_unclassified";

@@ -1,9 +1,9 @@
 # Contextual Ballistics Perception — R0 branch and implementation sequence
 
-Branch: `feature/contextual-ballistics-perception-r0`, based on `main@c5da20a`.
+Branch: `feature/contextual-ballistics-perception-r0`, reconciled with latest `main` on October 18, 2026.
 Status: **R1 and bounded R2 bullet-callback attribution wired in code; other ballistics inputs still planned; not deployed or GTA-accepted**.
 
-## Current implementation update — October 10
+## Current implementation update — October 18
 
 **Implemented on this branch, not deployed:** R1 player attribution now flows from the original PS2 visually witnessed source and the current single native player anchor through PS4 and the existing bounded PS6 Director context. Audio-only witnesses never gain source identity. A native damage callback is now checked for *near-time visual target visibility* on the GTA owner fiber (at most 150ms after receipt), without granting attacker knowledge. PS2 also retains at most 64 same-observer visually witnessed source proofs for 750ms and may join an exact bullet-class ped-damage callback to an already witnessed firing source. The frozen PS4 knowledge and existing PS6 context can then say the player shot and injured someone, subject to all other unchanged gates.
 
@@ -60,3 +60,11 @@ This pure code **cannot authenticate input data**. Tags like `proof: native_impa
 R0: ten isolated Node tests covering visual player attribution, auditory redaction, no fake misses, wall/ground proof, trajectory ambiguity, verified body region, source and player spoofing, timing/receipt limits and uint game-tick wrap. Syntax checked, no full suite or native build in this branch. Exact branch and test status should be revalidated after further edits.
 
 R2/R3 must undergo controlled GTA tests: wall, ground, sky, vehicle, NPC miss, NPC injury/head/leg, automatic fire, gunfire behind Nathan, occlusion, different shooter, multiple hits, player switch, delayed callback and world reset. Confirm correct source-time proof, no hallucinated recognition, native callback availability, unchanged ordinary conversation, and rate/ownership/full-playback safety. Record exact companion/native build and deployment hashes separately. Until then, **this branch is only the initial implementation plan and testable pure projection**.
+
+## October 18 integration status
+
+- Preserved the current PS2 bounded replay eviction and diagnostics, M9 incident path, radio perception, PS4 radio selection and Director social scene routing.
+- Current native owner-fiber `FreshCallbackWindow` uses a 100 ms bound, superseding this branch's older 150 ms fallback; no duplicate callback sampler was introduced.
+- Current WitnessPolicy already supports damage visibility without granting shooter sight. Native LOS, source anchoring and current observability remain as-is.
+- Bounded visual-source shooter proofs are joined to bullet-class native damage and separately visible victim receipt in PS2, with PS4/Director conditional player attribution.
+- Still require green Node/native/CI checks and controlled GTA physical acceptance for callback availability, single/multiple gunshots, occlusion, delayed callbacks, player identity reset, precise bone/surface/direction claims and speech delivery. None are claimed verified by this merge alone.

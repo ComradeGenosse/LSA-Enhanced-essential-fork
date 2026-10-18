@@ -12,6 +12,7 @@ export class Telemetry {
   #terminalTurns = new Map();
   #reportedDropped = 0;
   #closed = false;
+  #observers = new Set();
 
   constructor({ sink = null, clock = () => performance.now(), utc = () => new Date().toISOString(), runId, run = {} } = {}) {
     this.#sink = sink; this.#clock = clock; this.#utc = utc; this.#origin = clock(); this.#runId = runId || sink?.runId || randomUUID();
@@ -19,10 +20,24 @@ export class Telemetry {
   }
   get runId() { return this.#runId; }
   get droppedCount() { return this.#sink?.droppedCount || 0; }
-  emit(event, identity = null, source = null, data = {}, provider = 'openai') {
+  subscribe(listener) { if (typeof listener !== 'function') throw new TypeError('telemetry_observer_required'); this.#observers.add(listener); return () => this.#observers.delete(listener); }
+  emit(event, identity = null, source = null, data = {}, provider = 'openai', metadata = null) {
     if (!this.#sink) return false;
-    const record = createTelemetryRecord({ sequence: ++this.#sequence, runId: this.#runId, originMs: this.#origin, event, identity, source, provider, data, now: this.#clock(), utc: this.#utc() });
-    return this.#sink.emit(record);
+    // Observability is best-effort. An unregistered event or a broken sink must
+    // never abort STT, Luna reasoning, or NPC speech. Keep the schema strict
+    // (unknown names/data are not logged), but contain telemetry errors here.
+    try {
+      const record = createTelemetryRecord({ sequence: ++this.#sequence, runId: this.#runId, originMs: this.#origin, event, identity, source, provider, data, component: metadata?.component, severity: metadata?.severity, now: this.#clock(), utc: this.#utc() });
+      const persisted = this.#sink.emit(record);
+      // Observe only validated records accepted by the queue. No payload
+      // transformation or async gameplay work in this passive callback.
+      if (persisted && event !== 'system_health') for (const listener of this.#observers) {
+        try { listener(record); } catch { /* health must never affect a turn */ }
+      }
+      return persisted;
+    } catch {
+      return false;
+    }
   }
   beginTurn(identity, source, initial = {}) {
     const key = [identity.pedId, identity.turnId, identity.generationId, identity.sessionNonce].join('\0');
@@ -44,7 +59,7 @@ export class Telemetry {
     if (dropped > this.#reportedDropped) { this.#reportedDropped = dropped; this.emit('telemetry_records_dropped', null, null, { dropped }); }
     await this.#sink?.flush?.();
   }
-  async close() { if (this.#closed) return; this.emit('run_shutdown', null, null, { dropped: this.droppedCount }); this.#closed = true; await this.flush(); await this.#sink?.close?.(); }
+  async close() { if (this.#closed) return; this.emit('run_shutdown', null, null, { dropped: this.droppedCount }); this.#closed = true; await this.flush(); await this.#sink?.close?.(); this.#observers.clear(); }
 }
 
 export class TurnMetrics {
@@ -62,7 +77,7 @@ export class TurnMetrics {
       this.#inputReadyAt = this.clock();
       data = { durationMs: Math.max(0, this.#inputReadyAt - this.#start), ...data };
     }
-    return this.#telemetry.emit(name, this.#identity, this.#source, data);
+    return this.#telemetry.emit(name, this.#identity, this.#source, data, 'openai', { component: 'speech' });
   }
   stage(stage) { this.event('turn_stage', { stage }); }
   startSpan(name, data = {}) {

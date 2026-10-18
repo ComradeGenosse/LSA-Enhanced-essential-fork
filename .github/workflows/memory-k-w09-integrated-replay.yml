@@ -1,0 +1,171 @@
+name: Memory K W09 independent integrated replay (offline NO-GO gate)
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'lsa-essential-e1-candidate/**'
+      - 'lsa-shared-brain/**'
+      - 'native/**'
+      - 'contracts/**'
+      - 'tools/memory-sim/**'
+      - '.github/workflows/memory-k-w09-integrated-replay.yml'
+      - 'docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W09-PACKAGE-REPAIR.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-simulation:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: Node24 fixture simulation + packaging policy / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check real P2 stress test and replay orchestrator syntax
+        run: |
+          node --check lsa-shared-brain/tests/memory-k-integrated-replay.test.mjs
+          node --check tools/memory-sim/closure-acceptance-replay.mjs
+          node --check tools/memory-sim/verify-pinned-production.mjs
+          node --check tools/memory-sim/verify-native-policy.mjs
+          node --test tools/memory-sim/tests/w09-packaging-policy.test.mjs
+      - name: Run SQLite source simulation (fixture evidence is NOT original-native proof)
+        run: node tools/memory-sim/closure-acceptance-replay.mjs --source-sim
+      - name: Upload exact-head source-simulation receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w09-source-simulation-${{ matrix.os }}
+          path: artifacts/memory-k/w09-receipt.json
+          if-no-files-found: warn
+
+  pinned-production:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: Pinned Essential AST package and native production compile (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Strict shared contract and original accepted input tests
+        run: |
+          node --test lsa-essential-e1-candidate/tests/memory-contract-v1.test.mjs
+          node --test lsa-essential-e1-candidate/tests/m2-journal.test.mjs
+      - name: Build original pinned Essential AST candidate (no GTA install)
+        working-directory: lsa-essential-e1-candidate
+        run: npm run build
+        continue-on-error: true
+      - name: Fingerprint official NuGet reference bytes (discovery only; no compile approval)
+        shell: pwsh
+        run: ./tools/memory-sim/discover-official-native-sdk.ps1
+      - name: Upload only SDK discovery hashes, never binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w09-sdk-discovery-windows
+          path: artifacts/memory-k/w09-sdk-discovery.json
+          if-no-files-found: warn
+      - name: Prepare approved official NuGet compile-only references (if independently hash-pinned)
+        shell: pwsh
+        env:
+          W09_RPH_PACKAGE_SHA256: ${{ secrets.W09_RPH_PACKAGE_SHA256 }}
+          W09_RPH_DLL_SHA256: ${{ secrets.W09_RPH_DLL_SHA256 }}
+          W09_DAMAGE_PACKAGE_SHA256: ${{ secrets.W09_DAMAGE_PACKAGE_SHA256 }}
+          W09_DAMAGE_DLL_SHA256: ${{ secrets.W09_DAMAGE_DLL_SHA256 }}
+        run: ./tools/memory-sim/prepare-approved-native-sdk.ps1
+        continue-on-error: true
+      - name: Independently verify build hashes, staged runtime and actual native compiled sources
+        if: always()
+        # Use the approved hashes that prepare-approved-native-sdk.ps1 writes to GITHUB_ENV
+        # after separately validating BOTH NuGet package and DLL bytes.
+        run: node tools/memory-sim/verify-pinned-production.mjs
+      - name: Upload pinned source/ABI and compilation receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w09-pinned-windows
+          path: |
+            artifacts/memory-k/w09-pinned-package-receipt.json
+            artifacts/memory-k/w09-sdk-preparation.json
+          if-no-files-found: warn
+
+  native-policy:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: Windows original standalone native policy harnesses (NOT GTA)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Independent original ABI/owner/M9/PS6 source harness and failure logs
+        run: node tools/memory-sim/verify-native-policy.mjs
+      - name: Preserve independent native policy receipt even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w09-native-policy-windows
+          path: artifacts/memory-k/w09-native-policy-receipt.json
+          if-no-files-found: warn
+
+  original-m0-a10:
+    name: HARD A10 original runner S01-S10 / ${{ matrix.os }}
+    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
+    needs: [source-simulation, pinned-production, native-policy]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Retrieve pinned original build receipt, if produced
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: w09-pinned-windows
+          path: artifacts/memory-k
+      - name: Verify exact-head original Essential runner and all ten integrated replays
+        run: node tools/memory-sim/closure-acceptance-replay.mjs
+      - name: Preserve all blocked/missing-source gates for K, never auto-GO
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w09-original-a10-${{ matrix.os }}
+          path: artifacts/memory-k/w09-receipt.json
+          if-no-files-found: warn

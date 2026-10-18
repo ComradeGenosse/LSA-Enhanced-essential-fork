@@ -19,7 +19,8 @@ class Program
     {
         string name = "LSA.P2.offline." + Guid.NewGuid().ToString("N"),epoch = Guid.NewGuid().ToString("D"),world = Guid.NewGuid().ToString("D");
         var json = new JavaScriptSerializer();
-        using (var channel = new ControlChannel(name,epoch,world)) {
+        var diagnostics = new List<string>();
+        using (var channel = new ControlChannel(name,epoch,world,diagnostic: message => { lock(diagnostics) diagnostics.Add(message); })) {
             channel.Start();
             string requestId = Guid.NewGuid().ToString("D");
             var client = Task.Run(() => {
@@ -55,6 +56,7 @@ class Program
                     writer.WriteLine(json.Serialize(new {version = 1,requestId = Guid.NewGuid().ToString("D"),worldProfileId = world,ownerEpoch = epoch,operation = "audio",args = new {},expiresAtUtc = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 2500}));Check(reader.ReadLine() == null);
                 }
             });bad.GetAwaiter().GetResult();Check(!channel.TryTake(out _));
+            lock(diagnostics) Check(diagnostics.Exists(line => line.Contains("control_channel_failure code=admission_denied")),"OBS1 records admission refusal without payload");
             string spawnId = Guid.NewGuid().ToString("D");
             var delayedSpawn = Task.Run(() => {
                 using (var pipe = new NamedPipeClientStream(".",name,PipeDirection.InOut)) {

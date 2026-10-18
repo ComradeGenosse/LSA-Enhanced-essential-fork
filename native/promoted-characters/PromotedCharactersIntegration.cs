@@ -80,6 +80,15 @@ namespace LSA.PromotedCharacters
         long lastGameTime;
         bool prepared,shutdown;
         volatile bool shutdownRequested;
+        NpcVoicePresenceObserver voicePresence;
+        internal void ConfigureVoicePresence(string mode,bool mouthEnabled=false,float openLevel=0.015f,bool levelLog=false) {
+            if(mode!="off"&&mode!="shadow"&&mode!="on") {
+                Game.LogTrivial("[VP] invalid_mode_disabled");return;
+            }
+            if(mode=="off")return;
+            try {voicePresence=new NpcVoicePresenceObserver(mode,mouthEnabled,openLevel,levelLog);voicePresence.Attach();}
+            catch {try {voicePresence?.Dispose();}catch{}voicePresence=null;Game.LogTrivial("[VP] unavailable");}
+        }
         string shutdownReason="none";
         public event Action<string> OwnerRetired;
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster() => encounters.Values.Where(e=>e.Registration!=null && Alive(e)).Select(e=> {
@@ -87,9 +96,29 @@ namespace LSA.PromotedCharacters
             // Read-only lifetime validity includes the terminal dead state until Retire;
             // no identity proof or action authority is inferred from this roster.
             return new LSA.Intelligence.OwnedParticipant {Ped=e.Ped,Lifetime=registration.IncarnationId,EncounterId=e.Id,PrimaryOwner=()=>e.Owner,
-                DirectorOwner=()=>ReferenceEquals(e.Registration,registration) && e.Owner!=null
-                    ? new LSA.Intelligence.DirectorOwnerSample {Owner=e.Owner.owner,Mode=e.Owner.mode,Suspended=e.Suspended,Revision=e.DirectorProofRevision}
-                    : null,
+                DirectorOwner=()=> {
+                    if(!ReferenceEquals(e.Registration,registration) || e.Owner==null)return null;
+                    string speechCapability=null;
+                    if(e.Owner.owner=="act" && e.Owner.mode=="activity") {
+                        // Read the actual current native runner, not an ACT
+                        // intent, cached dialogue fact or companion assertion.
+                        // Only established modes or physically progressing
+                        // movement can qualify. Transitions cannot borrow a
+                        // previous task's compatible state.
+                        var step=activityRunner?.Active(e.Id);
+                        if(step!=null && !step.Terminal &&
+                           step.EncounterId==e.Id &&
+                           step.IncarnationId==registration.IncarnationId &&
+                           ((step.State=="MODE_ESTABLISHED" && step.LostSince<0 && step.ModeHealth!="lost") ||
+                            (step.State=="HANDLER_ACCEPTED" && step.ProgressSeen &&
+                             (step.Capability=="approach_person" || step.Capability=="walk_away_from"))))
+                            speechCapability=step.Capability;
+                    }
+                    return new LSA.Intelligence.DirectorOwnerSample {
+                        Owner=e.Owner.owner,Mode=e.Owner.mode,Suspended=e.Suspended,
+                        Revision=e.DirectorProofRevision,SpeechActivityCapability=speechCapability
+                    };
+                },
                 Current=()=>ReferenceEquals(e.Registration,registration) && e.Ped.Exists() && e.Ped.MemoryAddress==e.Address && (e.Ped.IsDead || identity?.Owner?.TryResolveCurrent(e.Ped,out var claim)==true && claim.incarnationId==registration.IncarnationId)};
         }).ToArray();
         public string Id => "characterProfile";
@@ -107,7 +136,7 @@ namespace LSA.PromotedCharacters
             world = worldProfileId; this.pipeName = pipeName; this.identityPipeName = identityPipeName;
             Host = host ?? new HostContext();
             Host.WorldChanged+=OnHostWorldChanged;
-            talkTargets = new TalkTargetSelector(ped => EncounterFor(ped).Id);
+            talkTargets = new TalkTargetSelector(ped => EncounterFor(ped).Id,ResolveTalkRecipient);
         }
         public void Prepare()
         {
@@ -121,16 +150,32 @@ namespace LSA.PromotedCharacters
             if (!prepared || channel != null || shutdown) return;
             identity.Initialize();
             if (!identity.IsAvailable) { shutdown = true; Game.LogTrivial("[P2] identity_initialization_failed"); return; }
-            channel = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world,Host.HostRunId,Host.WorldEpoch); channel.Start(); lastGameTime = Game.GameTime;
+            channel = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world,Host.HostRunId,Host.WorldEpoch,message=>Game.LogTrivial(message)); channel.Start(); lastGameTime = Game.GameTime;
             Host.ObserveGameTick(unchecked((uint)lastGameTime));
         }
         static bool Alive(Encounter encounter) => encounter?.Ped != null && encounter.Ped.Exists() && !encounter.Ped.IsDead && encounter.Ped.MemoryAddress == encounter.Address;
+        bool SameRegisteredActor(Encounter existing,Ped candidate)
+        {
+            // RPH may expose a new CLR wrapper for the same native pool entity.
+            // Keep the ORIGINAL retained Ped; never rebase its lifetime to the
+            // caller's wrapper or infer ownership from a handle alone.
+            if(existing.Registration==null || existing.OwnerAlias==null ||
+               !existing.Ped.Equals(candidate)) return false;
+            var anchor=Host.Anchors.Resolve(existing.CaptureRef);
+            return anchor!=null && ReferenceEquals(anchor.Entity,existing.Ped) &&
+                anchor.Handle==existing.Handle && anchor.Address==existing.Address &&
+                anchor.OwnerLifetime==existing.Registration.IncarnationId &&
+                identity.Owner.TryResolveCurrent(existing.Ped,out var claim) &&
+                claim.incarnationId==existing.Registration.IncarnationId &&
+                claim.sourceKey==existing.OwnerAlias && claim.worldProfileId==world;
+        }
         Encounter EncounterFor(Ped ped)
         {
             if (ped == null || !ped.Exists() || ped.IsDead || ped == Game.LocalPlayer.Character) throw new InvalidOperationException("invalid_target");
             string handle = ped.Handle.ToString();
             if (encounters.TryGetValue(handle,out var existing)) {
-                if (Alive(existing) && ReferenceEquals(existing.Ped,ped) && existing.Handle==Convert.ToUInt64(ped.Handle) && existing.Address==ped.MemoryAddress && Host.Anchors.Resolve(existing.CaptureRef)!=null) {
+                if (Alive(existing) && existing.Handle==Convert.ToUInt64(ped.Handle) && existing.Address==ped.MemoryAddress && Host.Anchors.Resolve(existing.CaptureRef)!=null &&
+                    (ReferenceEquals(existing.Ped,ped) || SameRegisteredActor(existing,ped))) {
                     RetainEncounter(existing); return existing;
                 }
                 Retire(existing); encounters.Remove(handle);
@@ -198,7 +243,7 @@ namespace LSA.PromotedCharacters
             // P1 may already have reset its owner store, or may do so later in
             // this Core update. Retiring an old-epoch token never clears a new
             // claim. No capture/control work is admitted during this reset tick.
-            var replacement = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world,Host.HostRunId,Host.WorldEpoch);
+            var replacement = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world,Host.HostRunId,Host.WorldEpoch,message=>Game.LogTrivial(message));
             replacement.Start(); channel = replacement; lastGameTime = now;
             ActivityClockReset(reason);
             // Pending loader commands carried the old world's expectations. The
@@ -242,6 +287,8 @@ namespace LSA.PromotedCharacters
                 }
                 ServeLocal(4 - handled);
                 try { ActivityTick(now); } catch { DisableActivity(); }
+                 try {voicePresence?.Update(Host.WorldEpoch,Host.MonotonicMs);}
+                 catch {try {voicePresence?.Dispose();}catch{}voicePresence=null;Game.LogTrivial("[VP] observer_disabled");}
             } catch { LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] optional_update_failed"); Shutdown("update_failed"); }
         }
         static void Fields(Dictionary<string,object> args,params string[] fields) { if (args.Count != fields.Length || fields.Any(field => !args.ContainsKey(field))) throw new InvalidOperationException("invalid_owner_arguments"); }
@@ -253,6 +300,79 @@ namespace LSA.PromotedCharacters
             if (!identity.Owner.TryResolveCurrent(encounter.Ped,out var claim)) throw new InvalidOperationException("ownership_conflict");
             return new {pedId = encounter.Ped.Handle.ToString(),encounterId = encounter.Id,ownerAlias = encounter.OwnerAlias,ownershipToken = encounter.OwnershipToken,claim,alreadyOwned};
         }
+        // ACT5 availability is a fresh, read-only GTA snapshot. It carries no
+        // handles or task authority across the pipe; C-02 still resolves and
+        // preflights every selected anchor after explicit player consent.
+        object ActivityOfferSnapshot(Encounter encounter)
+        {
+            bool inVehicle=false, actorIsDriver=false, safe=false, scenarioReady=false, nearby=false;
+            int actorSeatIndex=-2;
+            bool vehicleAvailable=false, vehicleStopped=false, driverFree=false, frontFree=false, rearFree=false, waypointAvailable=false, actorVehicleIsPlayerVehicle=false;
+            try
+            {
+                safe=Safe(encounter) && !encounter.Suspended;
+                inVehicle=NativeFunction.CallByName<bool>("IS_PED_IN_ANY_VEHICLE",encounter.Ped,false);
+                if(inVehicle)actorSeatIndex=encounter.Ped.SeatIndex;
+                actorIsDriver=inVehicle && actorSeatIndex==-1;
+                // Advisory only. ACT6 still resolves and validates the live blip
+                // on the native execution fiber after an authorized commit.
+                if(safe) try {
+                    var blip=NativeFunction.CallByName<int>("GET_FIRST_BLIP_INFO_ID",8);
+                    waypointAvailable=blip!=0 && NativeFunction.CallByName<bool>("DOES_BLIP_EXIST",blip);
+                } catch { waypointAvailable=false; }
+                var player=Game.LocalPlayer.Character;
+                if(safe && player!=null && player.Exists() && !player.IsDead)
+                {
+                    var dx=encounter.Ped.Position.X-player.Position.X;
+                    var dy=encounter.Ped.Position.Y-player.Position.Y;
+                    var dz=encounter.Ped.Position.Z-player.Position.Z;
+                    nearby=dx*dx+dy*dy+dz*dz<=10000f;
+                    Vehicle vehicle=null;
+                    try { vehicle=player.IsInAnyVehicle(false)?player.CurrentVehicle:player.LastVehicle; } catch {}
+                    if(vehicle!=null && vehicle.Exists() && vehicle.IsAlive && vehicle.MemoryAddress!=IntPtr.Zero)
+                    {
+                        dx=encounter.Ped.Position.X-vehicle.Position.X;
+                        dy=encounter.Ped.Position.Y-vehicle.Position.Y;
+                        dz=encounter.Ped.Position.Z-vehicle.Position.Z;
+                        // Suggestions should be practical, not for a distant last car.
+                        vehicleAvailable=dx*dx+dy*dy+dz*dz<=2500f;
+                        if(vehicleAvailable)
+                        {
+                            if(inVehicle) try {
+                                var current=encounter.Ped.CurrentVehicle;
+                                actorVehicleIsPlayerVehicle=current!=null && current.Exists() &&
+                                    current.MemoryAddress==vehicle.MemoryAddress &&
+                                    Convert.ToUInt64(current.Handle)==Convert.ToUInt64(vehicle.Handle);
+                            } catch { actorVehicleIsPlayerVehicle=false; }
+                            vehicleStopped=vehicle.Speed<1.0f;
+                            driverFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,-1,false);
+                            frontFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,0,false);
+                            rearFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,1,false) ||
+                                NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,2,false);
+                        }
+                    }
+                    if(!inVehicle)
+                    {
+                        var state=NpcStateStore.TryGetState(encounter.Ped);
+                        scenarioReady=state!=null && !state.TakeCoverMode &&
+                            !state.EnterDriverSeatWhenPlayerVehicleNearby &&
+                            !state.EnterPassengerSeatWhenPlayerVehicleNearby &&
+                            !state.EnterBackPassengerSeatWhenPlayerVehicleNearby &&
+                            !state.DriveToXWhenBothSeated && !state.AssignedVehicleSeatEntryActive;
+                    }
+                }
+            }
+            catch
+            {
+                // Uncertain native state is never advertised as available.
+                return new {version=1,safe=false,actorInVehicle=false,actorOnFoot=false,actorIsDriver=false,
+                    playerNearby=false,vehicleAvailable=false,vehicleStopped=false,
+                    passengerFree=false,driverFree=false,frontFree=false,rearFree=false,actorSeatIndex=-2,actorVehicleIsPlayerVehicle=false,scenarioReady=false,waypointAvailable=false};
+            }
+            return new {version=1,safe,actorInVehicle=inVehicle,actorOnFoot=!inVehicle,actorIsDriver,
+                playerNearby=nearby,vehicleAvailable,vehicleStopped,
+                passengerFree=frontFree||rearFree,driverFree,frontFree,rearFree,actorSeatIndex,actorVehicleIsPlayerVehicle,scenarioReady,waypointAvailable};
+        }
         object Handle(ControlRequest request)
         {
             var args = request.Args;
@@ -261,7 +381,13 @@ namespace LSA.PromotedCharacters
             if (request.Operation == "roster") {
                 Fields(args); return new {owned = encounters.Values.Where(item => item.Registration != null && Alive(item)).Select(item => new {ownerAlias = item.OwnerAlias,status = item.Suspended ? "suspended" : "spawned"}).ToArray(),encounters = encounters.Values.Where(Alive).Select(item => item.Id).ToArray()};
             }
-            if (request.Operation == "inspect") { Fields(args,"ownerAlias"); var item = Owned(Text(args,"ownerAlias")); return item == null ? null : Binding(item,true); }
+            if (request.Operation == "inspect") {
+                Fields(args,"ownerAlias"); var item=Owned(Text(args,"ownerAlias"));
+                if(item==null)return null;
+                if (!identity.Owner.TryResolveCurrent(item.Ped,out var claim)) throw new InvalidOperationException("ownership_conflict");
+                return new {pedId=item.Ped.Handle.ToString(),encounterId=item.Id,ownerAlias=item.OwnerAlias,
+                    ownershipToken=item.OwnershipToken,claim,alreadyOwned=true,activityOffer=ActivityOfferSnapshot(item)};
+            }
             if (request.Operation == "capture") {
                 Fields(args); var ped = CurrentPed();
                 var encounter = EncounterFor(ped);
@@ -383,12 +509,19 @@ namespace LSA.PromotedCharacters
         public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded) { PushActivity(ped, actionName, "executed", succeeded); }
         // A loader/lifetime fiber can request cleanup, but Core's own callback
         // must retire evidence and perform any native cleanup on its owner fiber.
-        public void RequestShutdown() => shutdownRequested = true;
+        public void RequestShutdown() {
+            shutdownRequested=true;
+            // The Core callback may never run again after host failure.
+            // Event unsubscription is CLR-only and safe on the lifetime fiber.
+            try {voicePresence?.Unsubscribe();} catch {}
+        }
         public void Shutdown()
         {Shutdown("integration_shutdown");}
         internal void Shutdown(string reason)
         {
             if (shutdown) return; shutdownReason=reason; shutdown = true;
+            try { voicePresence?.Dispose(); } catch { }
+            voicePresence=null;
             Host.WorldChanged-=OnHostWorldChanged;
             ActivityShutdown();
             LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] shutdown reason="+shutdownReason);

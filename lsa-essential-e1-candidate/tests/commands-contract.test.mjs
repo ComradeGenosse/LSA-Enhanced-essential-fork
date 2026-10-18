@@ -25,7 +25,9 @@ test('the command catalog keeps gestures to read, control and ui commands with o
   assert.equal(contract.version,2);
   assert.deepEqual(Object.keys(contract.classes).sort(),['control','destructive','lifecycle','profile','read','ui']);
   const ids = contract.commands.map(command => command.id);
-  for (const id of ['activity.status','activity.pause','activity.resume','activity.cancel','activity.assign','activity.history']) assert.ok(ids.includes(id),id);
+  for (const id of ['activity.status','activity.pause','activity.resume','activity.cancel','activity.assign','activity.history','director.socialManual']) assert.ok(ids.includes(id),id);
+  assert.deepEqual(contract.commands.find(command=>command.id==='director.socialManual'),
+    {id:'director.socialManual',class:'control',target:'none',gesture:false,executor:'companion',hud:'Social request queued'});
   assert.equal(contract.commands.find(command => command.id === 'activity.assign').class,'lifecycle');
   assert.equal(contract.commands.find(command => command.id === 'activity.pause').gesture,true);
   assert.equal(contract.commands.find(command => command.id === 'activity.cancel').gesture,true);
