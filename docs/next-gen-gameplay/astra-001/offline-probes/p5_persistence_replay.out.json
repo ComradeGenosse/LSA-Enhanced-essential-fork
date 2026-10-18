@@ -1,0 +1,24 @@
+{
+ "1000": {
+  "replay_s": 0.049,
+  "identical_replay": true,
+  "reordered_identical": false,
+  "reordered_float_max_abs_diff_cm": 1.9073486328125e-06,
+  "int_fixed_point_reordered_identical": true,
+  "log_bytes": 20000,
+  "snapshot_bytes": 28476,
+  "snapshot_load_s": 0.0006,
+  "snapshot_max_abs_err_mm": 0.4999847412109304
+ },
+ "10000": {
+  "replay_s": 0.501,
+  "identical_replay": true,
+  "reordered_identical": false,
+  "reordered_float_max_abs_diff_cm": 3.814697265625e-06,
+  "int_fixed_point_reordered_identical": true,
+  "log_bytes": 200000,
+  "snapshot_bytes": 216068,
+  "snapshot_load_s": 0.0021,
+  "snapshot_max_abs_err_mm": 0.5000000000000071
+ }
+}
