@@ -20,11 +20,26 @@ on:
 permissions:
   contents: read
 
+# A pull_request workflow checks out refs/pull/*/merge by default.
+# Every asserted build, checksum and artifact must instead correspond to
+# the exact standalone integration branch head, never a synthetic merge SHA.
+env:
+  STANDALONE_BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
 jobs:
   node-audio:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.STANDALONE_BUILD_SHA }}
+      - name: Require exact standalone PR head
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$STANDALONE_BUILD_SHA" || {
+            echo "::error::Wrong checkout SHA: $actual"; exit 1;
+          }
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -37,6 +52,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.STANDALONE_BUILD_SHA }}
+      - name: Require exact standalone PR head
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$STANDALONE_BUILD_SHA" || {
+            echo "::error::Wrong checkout SHA: $actual"; exit 1;
+          }
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -120,6 +144,10 @@ jobs:
           Copy-Item 'lsa-standalone-companion/package.json' "$root/companion/"
           Copy-Item 'tools/standalone-gta-smoke/*.ps1' "$root/"
           Copy-Item 'tools/standalone-gta-smoke/README.md' "$root/"
+          if ((git rev-parse HEAD).Trim() -ne $env:STANDALONE_BUILD_SHA) {
+            throw 'Artifact not built from the exact standalone branch head'
+          }
+          Set-Content -LiteralPath "$root/BUILD_SHA.txt" -Value $env:STANDALONE_BUILD_SHA -Encoding ascii
           Copy-Item 'docs/standalone-replacement/modular-activation-testing.md' "$root/"
           if (-not (Test-Path "$root/companion/src/conversation/typedRuntime.mjs")) {
             throw 'Node companion source tree absent from bundle'
@@ -309,7 +337,7 @@ jobs:
           }
       - uses: actions/upload-artifact@v4
         with:
-          name: standalone-gta-smoke-${{ github.sha }}
+          name: standalone-gta-smoke-${{ env.STANDALONE_BUILD_SHA }}
           path: out/lsa-standalone-gta-smoke.zip
           if-no-files-found: error
           retention-days: 7
