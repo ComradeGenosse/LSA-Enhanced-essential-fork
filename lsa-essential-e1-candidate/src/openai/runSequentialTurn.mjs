@@ -95,6 +95,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   let nativePlaybackStartedAt = null;
   let playbackCommitted = false;
   let outputTranscriptPublished = false;
+  let outputTranscriptAttempted = false;
   let stockActionPublished = false;
   let providerTimer = null;
   const metrics = host.telemetry?.beginTurn(identity, source, { inputChars: String(input || '').length, bytes: pcm?.byteLength || 0, sampleRate: sampleRate || 0 }) || null;
@@ -263,7 +264,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const failureReason = terminalForError(error,failedStage);
     const eligible = ['stt_error','model_error','invalid_decision','model_refusal','tts_error','provider_timeout'].includes(failureReason) &&
       !controller.signal.aborted && !retired && !endSent &&
-      !authorizationRequested && !nativeHandoffStarted && host.isCurrent(identity);
+      !authorizationRequested && !nativeHandoffStarted &&
+      (!outputTranscriptAttempted || outputTranscriptPublished) && host.isCurrent(identity);
     if(!eligible)return null;
     const actionState=stockActionPublished||turn.act5Reply?.kind==='approval_pending'
       ?'unverified':turn.act5Reply?.kind==='unavailable'?'failed':null;
@@ -284,6 +286,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if(!outputTranscriptPublished){
       const validated=await host.validateDecision({dialogue:asset.text,command:''},context,identity);
       if(validated.identityValid!==true||!validated.internalTranscript)throw new Error('fallback_decision_rejected');
+      outputTranscriptAttempted=true;
       await emit({type:'output_transcript',text:validated.internalTranscript});
       outputTranscriptPublished=true;
     }
@@ -845,6 +848,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if(hasAction && services.recordDialogueActionPublication){
       try {const result=services.recordDialogueActionPublication({turn,validated,publishedAtMs:Date.now()});result?.catch?.(()=>{});}catch{}
     }
+    outputTranscriptAttempted = true;
     await emit({ type: 'output_transcript', text: validated.internalTranscript });
     outputTranscriptPublished = true;
     stockActionPublished = hasAction;
