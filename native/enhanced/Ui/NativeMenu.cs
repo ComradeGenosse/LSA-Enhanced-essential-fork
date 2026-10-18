@@ -42,7 +42,7 @@ namespace LSA.Enhanced.Ui
         string selectedCharacterId, currentTitle, activityTargetEncounterId, activityTargetOwnerAlias;
         Page armedPage; UIMenuItem armedItem; MenuLine armedLine; string armedTarget; long armedUntil;
         List<MenuLine> aiLines;
-        long nextRender, nextInterest, nextRoster, aiReadAt = -1;
+        long nextRender, nextInterest, nextRoster, nextReadiness, aiReadAt = -1;
         int dataVersion = -1;
         bool rendering, yielded;
         string aiConfig; bool aiCredential;
@@ -147,6 +147,7 @@ namespace LSA.Enhanced.Ui
                 if (data.Version != dataVersion) { dataVersion = data.Version; nextRender = 0; }
                 if (now >= nextRender) { Render(page); nextRender = now + RenderIntervalMs; }
                 if ((menu == roster || menu == character) && now >= nextRoster) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
+                if (menu == navigation && now >= nextReadiness) { data.RequestActivityReadiness(); nextReadiness = now + AiReadIntervalMs; }
             }
             pool.ProcessMenus();
         }
@@ -184,6 +185,7 @@ namespace LSA.Enhanced.Ui
             if (!pages.TryGetValue(menu,out var page)) return;
             Invalidate(page);
             if (menu == roster || menu == character || ((menu == current || menu == navigation) && data.Characters == null)) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
+            if (menu == navigation) { data.RequestActivityReadiness(); nextReadiness = now + AiReadIntervalMs; }
             if (menu == ai) aiReadAt = -1;
         }
         void Selected(UIMenu sender,UIMenuItem item,int index)
@@ -236,6 +238,9 @@ namespace LSA.Enhanced.Ui
         {
             switch (line.Command ?? line.Key) {
                 case LocalOpenCharacter: OpenCharacter(line.Value,page.Menu); break;
+                case "local.openNavigation":
+                    navigation.ParentMenu = page.Menu; Invalidate(pages[navigation]);
+                    page.Menu.Visible = false; navigation.Visible = true; break;
                 case "local.openActivities":
                     activityTargetEncounterId = line.ExpectedEncounterId;
                     activityTargetOwnerAlias = line.ExpectedOwnerAlias;
@@ -443,7 +448,7 @@ namespace LSA.Enhanced.Ui
             }
             if (page.Menu == current) {
                 var model = LiveNpcModel(utc,settings);
-                var describe = model.Owned ? data.DescribeFor(model.EncounterId,model.OwnerAlias) : null;
+                var describe = model.Owned ? data.DescribeFor(model.EncounterId,model.OwnerAlias) ?? CharacterList.ForOwnedAlias(data.Characters,model.OwnerAlias) : null;
                 currentTitle = model.Present ? model.Title : null;
                 if (model.Owned && describe != null && describe.Kind == "promoted" && describe.CharacterId != null)
                     model.Lines.Add(new MenuLine {Key = "details",Text = "Character details",Command = LocalOpenCharacter,Value = describe.CharacterId,Description = "Rename, relationship, availability and memories."});
@@ -453,7 +458,7 @@ namespace LSA.Enhanced.Ui
             if (page.Menu == navigation) {
                 var model = LiveNpcModel(utc,settings);
                 subtitle = "Activities & Navigation";
-                return GameplayNavigationView.Build(model);
+                return GameplayNavigationView.Build(model,data.ActivityReadiness);
             }
             if (page.Menu == director) {
                 subtitle = "Director & Social";
@@ -482,7 +487,7 @@ namespace LSA.Enhanced.Ui
                 var snapshot = Snapshot(utc);
                 var npc = snapshot != null && snapshot.Fresh(utc,InputGates.SnapshotMaxAgeMs) ? snapshot.Current : null;
                 if (row.OwnerAlias != null && npc != null && npc.Present && npc.Owned && npc.OwnerAlias == row.OwnerAlias) {
-                    var action = MenuLine.Action("characterActivity","Activities for this NPC...","local.openActivities","Act on this exact in-world incarnation, not another current NPC.",data.CompanionReachable && npc.Safe);
+                    var action = MenuLine.Action("characterActivity","Activities for this NPC...","local.openNavigation","Act on this exact in-world incarnation, not another current NPC.",data.CompanionReachable && npc.Safe);
                     action.ExpectedEncounterId = npc.EncounterId; action.ExpectedOwnerAlias = npc.OwnerAlias;
                     lines.Insert(1,action);
                 } else lines.Insert(1,MenuLine.Fact("activitySelection","Activity actions","Select in world","To assign an activity, first select this same promoted NPC with UX4."));

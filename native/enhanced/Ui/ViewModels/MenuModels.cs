@@ -170,21 +170,74 @@ namespace LSA.Enhanced.Ui
         }
     }
     // Page content is pure; unavailable ACT6/Director features must never pretend to execute.
+
+    // Read-only preflight is advisory and fails closed; the native actor-fiber
+    // still performs the authoritative owner, seat, vehicle and place checks.
+    public sealed class GameplayMenuReadiness
+    {
+        readonly Dictionary<string,string> reasons = new Dictionary<string,string>(StringComparer.Ordinal);
+        readonly HashSet<string> eligible = new HashSet<string>(StringComparer.Ordinal);
+        static readonly string[] Act3 = {"approach_and_face","board_vehicle","ride_along","exit_vehicle_and_hold","leave_scene","take_cover_and_hold","scenario_here"};
+        public bool Allows(string key) => key != null && eligible.Contains(key);
+        public string Reason(string key) => key != null && reasons.TryGetValue(key,out var reason) ? reason : "readiness_unavailable";
+        public static GameplayMenuReadiness Parse(string body)
+        {
+            try {
+                var root = new JavaScriptSerializer {MaxJsonLength = 16384,RecursionLimit = 6}.DeserializeObject(body ?? "") as Dictionary<string,object>;
+                if (root == null || !(root.TryGetValue("act3",out var acts) && acts is Dictionary<string,object> act3)) return null;
+                var result = new GameplayMenuReadiness();
+                void Add(string name,object value) {
+                    if (!(value is Dictionary<string,object> item) || !(item.TryGetValue("eligibleForPreflight",out var allowed) && allowed is bool enabled)) return;
+                    if (enabled) result.eligible.Add(name);
+                    var reason = item.TryGetValue("reason",out var v) ? v as string : null;
+                    result.reasons[name] = enabled ? "eligible_for_preflight" : reason != null && Regex.IsMatch(reason,"^[a-z][a-z0-9_]{0,47}$") ? reason : "capability_unavailable";
+                }
+                foreach (var id in Act3) if (act3.TryGetValue(id,out var value)) Add(id,value);
+                if (root.TryGetValue("drive",out var drive)) Add("vehicle_trip",drive);
+                if (root.TryGetValue("walk",out var walk)) Add("go_to_place",walk);
+                return result;
+            } catch { return null; }
+        }
+    }
+
     public static class GameplayNavigationView
     {
-        public static List<MenuLine> Build(CurrentNpcModel model)
+        static MenuLine Offer(CurrentNpcModel model,GameplayMenuReadiness readiness,string key,string title,string intent,string description,string gate = null)
+        {
+            bool enabled = model?.Owned == true && readiness?.Allows(gate ?? intent) == true;
+            var line = MenuLine.Action(key,title,CommandCatalog.ActivityAssign,
+                description + (enabled ? " Native preflight will recheck this actor." : " Unavailable: " + (readiness?.Reason(gate ?? intent) ?? "readiness_unavailable").Replace('_',' ') + "."),
+                enabled,true);
+            line.Value = intent;
+            line.Right = enabled ? "Preflight" : "Unavailable";
+            line.ExpectedEncounterId = model?.EncounterId;
+            line.ExpectedOwnerAlias = model?.OwnerAlias;
+            return line;
+        }
+        public static List<MenuLine> Build(CurrentNpcModel model,GameplayMenuReadiness readiness = null)
         {
             var lines = new List<MenuLine> { MenuLine.Fact("actor","Selected NPC",model?.Title ?? "None") };
             if (model == null || !model.Owned) {
                 lines.Add(MenuLine.Fact("prerequisite","Activity control","Select a promoted NPC","Use Current NPC or summon a character first."));
-            } else {
-                foreach (var line in model.Lines.Where(item => new[] {"activity","assign","activityPause","activityResume","activityCancel","activityStatus","activityHistory"}.Contains(item.Key)))
-                    lines.Add(line);
-            }
-            lines.Add(MenuLine.Fact("act6","Waypoint navigation","Unavailable here","Requires a verified ACT6 readiness gate before exposing a driving or walking command."));
+            } else foreach (var line in model.Lines.Where(item => new[] {"activity","assign","activityPause","activityResume","activityCancel","activityStatus","activityHistory"}.Contains(item.Key)))
+                lines.Add(line);
+            lines.Add(MenuLine.Fact("act3","ACT3 interactions","Native capability gated","Only explicit, owner-verified actions are sent."));
+            lines.Add(Offer(model,readiness,"approach","Approach and face player","approach_and_face","Walk toward you and turn to face you."));
+            lines.Add(Offer(model,readiness,"board","Enter passenger seat","board_vehicle","Use a passenger seat in the player's vehicle."));
+            lines.Add(Offer(model,readiness,"ride","Ride along","ride_along","Ride as a passenger; driver seating is not implied."));
+            lines.Add(Offer(model,readiness,"exit","Exit vehicle and wait","exit_vehicle_and_hold","Exit the vehicle then hold position."));
+            lines.Add(Offer(model,readiness,"leave","Leave the scene","leave_scene","Walk away and return to ambient behavior."));
+            lines.Add(Offer(model,readiness,"cover","Take cover","take_cover_and_hold","Attempt native supported cover behavior."));
+            lines.Add(Offer(model,readiness,"coffee","Drink coffee","scenario_here","Start the vetted coffee scenario."));
+            lines.Add(MenuLine.Fact("act6","ACT6 navigation","Physical travel unverified","Accepted requests may fail driver, place, task or arrival checks. Check Activity Status."));
+            lines.Add(Offer(model,readiness,"walkWaypoint","Walk to waypoint","go_to_place","Use the active GTA map waypoint; no guessed destination."));
+            lines.Add(Offer(model,readiness,"driveWaypoint","Drive to waypoint","vehicle_trip","Requires the NPC to be the verified driver and a valid road node."));
+            lines.Add(Offer(model,readiness,"driveAirport","Drive to airport","vehicle_trip:airport","Use ACT6's allowlisted airport destination.","vehicle_trip"));
+            lines.Add(MenuLine.Fact("freeDrive","Start driving without destination","Not available via ACT","No verified ACT activity intent maps to unrestricted free driving; voice/legacy actions remain separate."));
             return lines;
         }
     }
+
     public static class DirectorSocialView
     {
         public static List<MenuLine> Build() => new List<MenuLine> {

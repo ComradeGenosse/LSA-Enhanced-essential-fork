@@ -179,8 +179,29 @@ namespace LSA.Enhanced.Commands
             if (!npc.Owned) return Reject(info.Id,"actor_not_owned",args,true);
             var body = new Dictionary<string,object> {{"action","activity"},{"operation",info.Id.Substring("activity.".Length)},{"expectedEncounterId",npc.EncounterId}};
             if (info.Id == CommandCatalog.ActivityAssign) {
-                if (args?.Value != "accompany" && args?.Value != "hold_position" && args?.Value != "sit_here" && args?.Value != "resume_previous") return Reject(info.Id,"capability_unavailable",args,true);
-                body["intent"] = args.Value;
+                // Closed menu template table. Never take arbitrary model/user-provided
+                // coordinates, vehicle handles, targets or free-form activity slots.
+                string selection = args?.Value;
+                string intent = selection == "vehicle_trip:airport" ? "vehicle_trip" : selection;
+                var supported = new[] {"accompany","hold_position","sit_here","resume_previous",
+                    "approach_and_face","board_vehicle","ride_along","exit_vehicle_and_hold",
+                    "leave_scene","take_cover_and_hold","scenario_here","go_to_place","vehicle_trip"};
+                if (!supported.Contains(intent)) return Reject(info.Id,"capability_unavailable",args,true);
+                body["intent"] = intent;
+                var slots = new Dictionary<string,object>();
+                switch (intent) {
+                    case "go_to_place":
+                    case "vehicle_trip":
+                        slots["place"] = selection == "vehicle_trip:airport"
+                            ? new Dictionary<string,object> {{"kind","named"},{"query","airport"}}
+                            : new Dictionary<string,object> {{"kind","waypoint"}};
+                        break;
+                    case "approach_and_face": slots["person"] = new Dictionary<string,object> {{"kind","player"}}; break;
+                    case "board_vehicle": slots["vehicle"] = new Dictionary<string,object> {{"kind","player_vehicle"}}; slots["seat"] = "passenger"; break;
+                    case "ride_along": slots["seat"] = "any_passenger"; break;
+                    case "scenario_here": slots["scenario"] = "drink_coffee"; break;
+                }
+                body["slots"] = slots;
             }
             var responseBytes = info.Id == CommandCatalog.ActivityStatus || info.Id == CommandCatalog.ActivityHistory ? 16384 : 0;
             return StartCompanion(info,Json(body),CompanionTimeoutMs,responseBytes,info.Hud,args);
