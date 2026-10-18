@@ -43,7 +43,7 @@ namespace LSA.Enhanced.Ui
         CharacterActivityBinding navigationBinding, activityTargetBinding;
         Page armedPage; UIMenuItem armedItem; MenuLine armedLine; string armedTarget; long armedUntil;
         List<MenuLine> aiLines;
-        long nextRender, nextInterest, nextRoster, nextReadiness, nextDirectorPoll, aiReadAt = -1;
+        long nextRender, nextInterest, nextRoster, nextReadiness, nextDirectorPoll, nextBinding, aiReadAt = -1;
         long directorBefore = -1;
         bool directorPending;
         int dataVersion = -1;
@@ -152,9 +152,9 @@ namespace LSA.Enhanced.Ui
                 if ((menu == roster || menu == character) && now >= nextRoster) {
                     data.RequestCharacters(); nextRoster = now + RosterRefreshMs;
                 }
-                if ((menu == character || menu == navigation && navigationBinding != null) && now >= nextRoster - RosterRefreshMs + AiReadIntervalMs) {
+                if ((menu == character || menu == navigation && navigationBinding != null) && now >= nextBinding) {
                     data.RequestCharacterBinding(menu == character ? selectedCharacterId : navigationBinding.CharacterId);
-                    nextRoster = now + RosterRefreshMs;
+                    nextBinding = now + AiReadIntervalMs;
                 }
                 if (menu == navigation && now >= nextReadiness) { data.RequestActivityReadiness(); nextReadiness = now + AiReadIntervalMs; }
                 if (menu == director && now >= nextDirectorPoll) { data.RequestDirectorStatus(); nextDirectorPoll = now + 1500; }
@@ -195,8 +195,8 @@ namespace LSA.Enhanced.Ui
             if (!pages.TryGetValue(menu,out var page)) return;
             Invalidate(page);
             if (menu == roster || menu == character || ((menu == current || menu == navigation) && data.Characters == null)) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
-            if (menu == character && selectedCharacterId != null) data.RequestCharacterBinding(selectedCharacterId);
-            if (menu == navigation && navigationBinding != null) data.RequestCharacterBinding(navigationBinding.CharacterId);
+            if (menu == character && selectedCharacterId != null) { data.RequestCharacterBinding(selectedCharacterId); nextBinding = now + AiReadIntervalMs; }
+            if (menu == navigation && navigationBinding != null) { data.RequestCharacterBinding(navigationBinding.CharacterId); nextBinding = now + AiReadIntervalMs; }
             if (menu == navigation) { data.RequestActivityReadiness(); nextReadiness = now + AiReadIntervalMs; }
             if (menu == director) { data.RequestDirectorStatus(); nextDirectorPoll = now + 1500; }
             if (menu == ai) aiReadAt = -1;
