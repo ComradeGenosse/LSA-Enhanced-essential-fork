@@ -26,7 +26,7 @@ test('seat events are registered, bounded and do not leak raw dialogue or refere
 });
 
 test('native ACT3 seat trace distinguishes queued from same-anchor occupied and is transition-limited',()=>{
-  const source=readFileSync(fileURLToPath(new URL('../../../native/promoted-characters/ActivityDispatch.cs',import.meta.url)),'utf8');
+  const source=readFileSync(fileURLToPath(new URL('../../native/promoted-characters/ActivityDispatch.cs',import.meta.url)),'utf8');
   assert.match(source,/\[LSA ACT3 SEAT\]/);
   assert.match(source,/if\(state==item.LastState\)return/);
   assert.match(source,/sample\.VehicleIsAnchor && SeatMatches\(sample,item\.Seat\)/);
