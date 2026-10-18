@@ -16,8 +16,13 @@ $ErrorActionPreference = 'Stop'
 $reference = (Resolve-Path -LiteralPath $RphReferencePath -ErrorAction Stop).Path
 $hostBinary = (Resolve-Path -LiteralPath $HostDll -ErrorAction Stop).Path
 $coreBinary = (Resolve-Path -LiteralPath $CoreDll -ErrorAction Stop).Path
-if ([IO.Path]::GetFileName($reference) -cne 'RagePluginHook.dll') {
-  throw 'RPH reference must be the real SDK/RagePluginHook.dll; RAGEPluginHook.exe is the launcher, not the API.'
+# RPH's official 1.131 Discord distribution names the same 1.124 SDK
+# payload SDK/RagePluginHookSDK.dll (identical bytes / assembly identity).
+# Accept both official packaging names; the metadata validator independently
+# checks that the CLR assembly identity is RagePluginHook and validates its API.
+$allowedReferenceNames = @('RagePluginHook.dll', 'RagePluginHookSDK.dll')
+if ($allowedReferenceNames -cnotcontains [IO.Path]::GetFileName($reference)) {
+  throw 'Supply an official SDK/RagePluginHookSDK.dll or SDK/RagePluginHook.dll. RAGEPluginHook.exe is the launcher, not the API.'
 }
 if ([IO.Path]::GetFileName($hostBinary) -cne 'LSA.Standalone.RageHost.dll' -or
     [IO.Path]::GetFileName($coreBinary) -cne 'LSA.Standalone.Core.dll') {
