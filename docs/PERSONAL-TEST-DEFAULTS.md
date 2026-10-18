@@ -5,7 +5,7 @@ when a config is loaded from disk, including on older existing JSONs. Existing a
 ownership, C-06 player priority, original native proof, receipt/availability,
 cancellation, ACT passed-probe requirements and privacy checks are **not** bypassed.
 
-* Companion: `loadConfig` applies `personalTestDefaults.mjs` before validation.
+* Companion: disk-loaded `e1.config.json` applies `personalTestDefaults.mjs` before validation. Other filenames only opt in with `"personalTestMode": true`.
   PS6 spontaneous speech, PS4 knowledge, ACT3/5/6 request switches, M2–M9
   supported Memory K modes, reactions (including nod/shrug), and ElevenLabs
   emotional delivery are requested on. It never manufactures ACT probe results.
@@ -16,10 +16,18 @@ cancellation, ACT passed-probe requirements and privacy checks are **not** bypas
 * To return to your exact manually configured modes, set
   `"personalTestMode": false` in **both** JSON configs and restart.
   This is a per-file opt-out; absent means test defaults **on**.
-* **M7 paid processing still requires independently recorded P2 cloud approval,
-  valid price evidence, verified native idle, a current writable timeline and
-  its configured budget.** Setting a mode never authorizes cloud upload or
-  billable usage. The existing inspector's one-time approval and budgets apply.
+* **M7 personal-test cloud approval is automatic:** The mod's owner explicitly
+  authorized off-turn Luna review of stored experience summaries with a
+  **$5/day, $50/month and $1/batch** spending ceiling. An eligible personal
+  `e1.config.json` bundles the official GPT-6 Luna long-context conservative
+  pricing attestation (verified October 18, 2026), and the next writable
+  timeline durably records the owner's approval in the original P2 SQLite
+  ledger. No editor/login click is needed. Restart does **not** reapprove.
+  An explicitly **withdrawn** approval stays withdrawn, and setting
+  `"personalTestMode": false` disables automatic provisioning.
+  Native-verified idle, provider credentials, valid (not stale) pricing,
+  privacy, current timeline and atomic spending ceilings still apply. No
+  source-proof, authorization or expenditure checks are bypassed.
 * `passedProbes` remains an unforgeable *operator assertion*, **not** a
   runtime PASS. Capabilities without required probes stay unavailable, and
   none of the new features are claimed GTA-accepted without a real game run.

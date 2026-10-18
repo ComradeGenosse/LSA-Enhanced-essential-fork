@@ -72,7 +72,7 @@ const PRICING_KEYS = ['model','source','verifiedAtUtc','officialPricingUrl','pri
 function normalizeCloudCuration(value) {
   if (value === undefined) return null;
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
-      Object.keys(value).some(key => !['pricing','maxOutputTokens'].includes(key)))
+      Object.keys(value).some(key => !['pricing','maxOutputTokens','personalApproval'].includes(key)))
     throw new TypeError('memoryK.cloudCuration supports only pricing and maxOutputTokens.');
   const out = {};
   if (value.pricing !== undefined) {
@@ -88,6 +88,18 @@ function normalizeCloudCuration(value) {
     if (!Number.isSafeInteger(value.maxOutputTokens) || value.maxOutputTokens < 128 || value.maxOutputTokens > 1600)
       throw new TypeError('memoryK.cloudCuration.maxOutputTokens is invalid.');
     out.maxOutputTokens = value.maxOutputTokens;
+  }
+  if (value.personalApproval !== undefined) {
+    const caps = value.personalApproval;
+    if (!caps || typeof caps !== 'object' || Array.isArray(caps) ||
+        Object.keys(caps).some(k => !['dailyUsd','monthlyUsd','maxBatchUsd'].includes(k)) ||
+        !['dailyUsd','monthlyUsd','maxBatchUsd'].every(k => Number.isFinite(caps[k]) && caps[k] > 0) ||
+        caps.dailyUsd > 100 || caps.monthlyUsd > 1000 ||
+        caps.maxBatchUsd > caps.dailyUsd || caps.maxBatchUsd > caps.monthlyUsd)
+      throw new TypeError('memoryK.cloudCuration.personalApproval invalid budget caps.');
+    out.personalApproval = Object.freeze({
+      dailyUsd:caps.dailyUsd,monthlyUsd:caps.monthlyUsd,maxBatchUsd:caps.maxBatchUsd
+    });
   }
   return Object.freeze(out);
 }

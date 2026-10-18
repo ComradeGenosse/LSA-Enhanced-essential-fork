@@ -2,7 +2,7 @@ import path from 'node:path';
 import {readFile,open,rename,rm,lstat} from 'node:fs/promises';
 import {randomUUID,createHash} from 'node:crypto';
 import {MEMORY_K_CAPABILITIES} from './capabilityPolicy.mjs';
-import {applyPersonalTestDefaults} from '../config/personalTestDefaults.mjs';
+import {applyPersonalTestDefaults,shouldApplyPersonalTestDefaults} from '../config/personalTestDefaults.mjs';
 import {normalizeConfig,defaultConfigPath} from '../config/e1Config.mjs';
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const optional=id=>id.startsWith('memory.')&&id!=='memory.inspector'||id.startsWith('events.');
@@ -48,7 +48,7 @@ export function createInspectorControls({runtime,configPath=process.env.LSA_E1_C
       runtime:runtime.services.memoryCloudCurationDiagnostics?.()??null};
   }
   async function snapshot(){
-    const stored=await read(),pending=normalizeConfig(applyPersonalTestDefaults(stored.data),env).memoryK;
+    const stored=await read(),pending=normalizeConfig(shouldApplyPersonalTestDefaults(file,stored.data)?applyPersonalTestDefaults(stored.data):stored.data,env).memoryK;
     const diagnostics=runtime.services.memoryKRuntimeDiagnostics();
     const rows=descriptors.map(d=>{
       const policy=diagnostics.policy[d.id],actual=diagnostics.capabilities[d.id];

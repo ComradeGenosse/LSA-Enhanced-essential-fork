@@ -1,5 +1,5 @@
 import {normalizeDialogueKnowledge} from './dialogueKnowledge.mjs';
-import {applyPersonalTestDefaults} from './personalTestDefaults.mjs';
+import {applyPersonalTestDefaults,shouldApplyPersonalTestDefaults} from './personalTestDefaults.mjs';
 import { normalizeExpressiveDeliveryConfig } from '../voice/emotion/deliveryContract.mjs';
 import { normalizeReactionConfig } from '../reactions/reactionConfig.mjs';
 import { normalizeMemoryKConfig } from '../memory/capabilityPolicy.mjs';
@@ -275,5 +275,5 @@ export async function loadConfig({ configPath = process.env.LSA_E1_CONFIG || def
   } catch (error) {
     if (error?.code !== 'ENOENT') throw new Error(`Unable to read E1 configuration (${error.code || 'invalid JSON'}).`);
   }
-  return normalizeConfig(applyPersonalTestDefaults(file), env);
+  return normalizeConfig(shouldApplyPersonalTestDefaults(configPath,file)?applyPersonalTestDefaults(file):file, env);
 }

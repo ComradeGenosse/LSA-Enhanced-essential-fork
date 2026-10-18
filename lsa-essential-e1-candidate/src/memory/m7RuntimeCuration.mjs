@@ -50,6 +50,29 @@ export function m7PolicyFromPersisted(record,{model}={}){
   }catch{return {reason:'consent_invalid'};}
 }
 
+/**
+ * Personal test setup: the player already authorized the $5/$50/$1 limits.
+ * Save this approval in the original P2 SQLite consent ledger, rather than
+ * requiring a second editor confirmation or inventing in-memory consent.
+ * An explicit withdrawal is respected across every subsequent restart.
+ */
+export async function ensurePersonalM7Approval({cloud,store,worldProfileId,timelineId,model}={}) {
+  let record=await store.readM7Consent({worldProfileId,timelineId});
+  const approved=cloud?.personalApproval;
+  if (!approved || record?.mode==='off') return record;
+  if (record?.mode==='experimental'&&record.cloudOptIn===true&&
+      record.model===model&&
+      record.dailyUsd===approved.dailyUsd&&record.monthlyUsd===approved.monthlyUsd&&
+      record.maxBatchUsd===approved.maxBatchUsd) return record;
+  if (store.timelineWritable!==true || typeof store.grantM7Consent!=='function')
+    return record;
+  // A prior active lower limit is adjusted once to the player's explicitly
+  // chosen personal-test caps. No extra approval on every tick or restart.
+  await store.grantM7Consent({...approved,offTurnEvidenceUploadAccepted:true,model});
+  record=await store.readM7Consent({worldProfileId,timelineId});
+  return record;
+}
+
 export function createM7RuntimeCuration({config,store,isPaused=()=>false,subscribePause=()=>()=>{},
   nativeIdleSource=()=>null,fetchImpl=globalThis.fetch,now=Date.now,ownerId=randomUUID(),
   setIntervalFn=setInterval,clearIntervalFn=clearInterval,
@@ -149,7 +172,9 @@ export function createM7RuntimeCuration({config,store,isPaused=()=>false,subscri
       await dropScheduler();set('blocked','timeline_confirmation_required');return false;
     }
     let record;
-    try{record=await store.readM7Consent({worldProfileId,timelineId});}
+    try{record=await ensurePersonalM7Approval({
+      cloud,store,worldProfileId,timelineId,model:lunaConfig.reasoningModel
+    });}
     catch(error){await dropScheduler();set('blocked',codeOf(error,'m7_consent_unreadable'));return false;}
     const {policy,reason}=m7PolicyFromPersisted(record,{model:lunaConfig.reasoningModel});
     if(!policy){
