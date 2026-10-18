@@ -170,7 +170,8 @@ const safeTokens = new Set([
   'profile_store_unavailable','promotion_failed','owner_unavailable','scripted_state','ownership_conflict','native_operation_failed','identity_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model','profile_projection_failed',
 
   'native_authorization_rejected','chunk_after_end','stale_or_cancelled','provider_attempt_inactive','streaming_pcm_limit','unclassified_pcm_forward_error',
-  'native_owner_stalled','deferred_ticket_already_active','deferred_rate_limited','deferred_scene_or_speaker_cooldown','deferred_ambient_cadence','adaptive','complete-utterance','streaming', // Main/EA allowed vocab preserved alongside Memory K
+  'native_owner_stalled','deferred_ticket_already_active','deferred_rate_limited','deferred_scene_or_speaker_cooldown','deferred_ambient_cadence','adaptive','complete-utterance','streaming',
+  'inventory_build_failed','inventory_write_failed','health_monitor_attach_failed', // OBS2 bounded failure stages; never serialize exception strings.
 ]);
 
 // Closed PS6 reason vocabulary: preserve diagnostics without arbitrary text.

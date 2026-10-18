@@ -81,12 +81,12 @@ export function buildSystemInventory(config = {}, registry) {
   // or prevent LSA startup. Registry IDs still come from the compiled contract.
   if (registry === undefined) try { registry=loadCapabilityRegistry(); } catch { registry=null; }
   const rows = new Map();
-  const add = (id, family, configuredMode, implemented = true, dependencies = []) => {
+  const add = (id, family, configuredMode, implemented = true, dependencies = [], source = 'code_registry') => {
     if (!idSafe(id) || rows.has(id)) throw new Error('obs2_inventory_duplicate_or_invalid_id');
     rows.set(id, Object.freeze({id,family,configuredMode:modeSafe(configuredMode),
       implemented:implemented === true ? true : implemented === false ? false : 'unknown',
       installed:'unknown',initialization:'unknown',
-      dependencies:Object.freeze([...dependencies]),source:'code_registry'}));
+      dependencies:Object.freeze([...dependencies]),source}));
   };
   for (const id of CORE_SYSTEMS) add(id,id.split('.')[0],coreMode(id,config));
   for (const name of BOOTSTRAP_RESOURCES) add('resource.' + name,'resource',resourceMode(name,config));
@@ -99,14 +99,19 @@ export function buildSystemInventory(config = {}, registry) {
       descriptor.dependencies.map(id => 'mk.' + id));
   }
   for (const id of CAPABILITY_IDS) {
-    const row = registry.get(id);
+    // The compiled CAPABILITY_IDS remain available in production bundles
+    // whose repo-root source contract JSON is absent. Previously the loader
+    // caught ENOENT but then dereferenced null.get(), aborting OBS2 for ALL
+    // implemented systems. Unknown ACT implementation is not "disabled".
+    const row = registry?.get?.(id) ?? null;
     const phase = row?.phase ?? (ACT6_CAPABILITY_IDS.includes(id) ? 'ACT6'
       : ACT3_CAPABILITY_IDS.includes(id) ? 'ACT3' : 'ACT2');
     const mode = config.activities?.mode !== 'on' ? (config.activities?.mode ?? 'off') :
       phase === 'ACT3' && !config.activities?.act3Capabilities?.includes(id) ? 'off' :
       phase === 'ACT6' && !config.activities?.act6Capabilities?.includes(id) ? 'off' : 'on';
     const implemented = row ? row.phase !== 'never' && row.execution.path !== 'none' : 'unknown';
-    add('act.' + id,'activity_capability',mode,implemented);
+    add('act.' + id,'activity_capability',mode,implemented,[],
+      row ? 'code_registry' : 'compiled_contract_fallback');
   }
   for (const id of REACTION_NAMES) {
     const optedOut = OPT_IN_REACTION_NAMES.includes(id) && !config.reactions?.enabled?.includes(id);

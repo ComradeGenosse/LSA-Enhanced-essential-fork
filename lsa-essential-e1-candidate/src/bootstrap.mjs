@@ -116,22 +116,31 @@ export async function createRuntimeForBundle(options = {}) {
   // JSONL manifest. Off/experimental capabilities remain in it even if no
   // session operation ever touches them. Only actual persistent E1 runs write.
   if (persistentTelemetry && telemetry?.runId) {
+    let obs2Stage = 'inventory_build_failed';
     try {
       const inventory=buildSystemInventory(config);
+      // A missing source-only ACT registry is permitted: the compiled
+      // capability IDs still give a complete enumeration, and ACT proof
+      // remains unknown until a real registry/operation establishes it.
+      obs2Stage = 'inventory_write_failed';
+      const persisted=await persistSystemInventory({directory:options.telemetryDirectory||path.resolve(process.cwd(),'logs'),
+        runId:telemetry.runId,inventory});
+      obs2Stage = 'health_monitor_attach_failed';
       health=createSystemHealthMonitor({config,telemetry,inventory});
       const detachEvents=telemetry.subscribe(record=>health.onEvent(record));
       const detachResources=owner.subscribe(record=>health.onResource(record));
       owner.own('obs2.health',{close:()=>{health.close();detachEvents();detachResources();}},
         value=>value.close());
-      const persisted=await persistSystemInventory({directory:options.telemetryDirectory||path.resolve(process.cwd(),'logs'),
-        runId:telemetry.runId,inventory});
       telemetry.emit('system_health_manifest',null,'internal',{count:persisted.count,
         manifestHash:persisted.sha256},'internal',{component:'observability'});
       health.note('companion.telemetry','initialized',{proof:'resource_lifecycle'});
       health.note('resource.telemetry','initialized',{proof:'resource_lifecycle'});
     } catch {
-      try{telemetry.emit('system_health_gap',null,'internal',{code:'inventory_unavailable'},'internal',{component:'observability',severity:'warn'});}catch{}
-      try{console.warn('[OBS2] inventory_persistence_unavailable');}catch{}
+      // Never log exception messages, paths or configuration. The exact safe
+      // stage survives in JSONL and stdout to diagnose future OBS2 gaps.
+      try{telemetry.emit('system_health_gap',null,'internal',{code:obs2Stage},'internal',
+        {component:'observability',severity:'warn'});}catch{}
+      try{console.warn('[OBS2] ' + obs2Stage);}catch{}
     }
   }
   let dialogueTrace = options.dialogueTrace || createNoopDialogueTrace();
