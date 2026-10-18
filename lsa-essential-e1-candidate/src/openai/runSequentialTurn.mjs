@@ -261,14 +261,17 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   // queue-drain proof; the ordinary failTurn retirement is mandatory instead.
   const tryLocalFallback = async (error, failedStage) => {
     const failureReason = terminalForError(error,failedStage);
-    const eligible = ['stt_error','model_error','invalid_decision','model_refusal','tts_error'].includes(failureReason) &&
+    const eligible = ['stt_error','model_error','invalid_decision','model_refusal','tts_error','provider_timeout'].includes(failureReason) &&
       !controller.signal.aborted && !retired && !endSent &&
       !authorizationRequested && !nativeHandoffStarted && host.isCurrent(identity);
     if(!eligible)return null;
     const actionState=stockActionPublished||turn.act5Reply?.kind==='approval_pending'
       ?'unverified':turn.act5Reply?.kind==='unavailable'?'failed':null;
-    const category=fallbackCategory({terminalReason:failureReason,actionState});
+    const category=fallbackCategory({terminalReason:failedStage==='transcribing'?'stt_error':failureReason,actionState});
     metrics?.event('voice_fallback_requested',{stage:failedStage,failureReason,category,turnId:identity.turnId});
+    // Release the original provider watchdog; local selection has its own
+    // deadline and native receipt completion owns the later watchdog.
+    clearTimeout(providerTimer);providerTimer=null;
     const asset=await selectLocalFallback({config:services.config,turn,category,signal:controller.signal});
     if(asset.status!=='selected'){
       metrics?.event('voice_fallback_playback_failed',{reason:asset.status,category});
@@ -714,7 +717,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         speechTask.catch(error => {
           if (!modelFailed && !controller.signal.aborted && !retired && host.isCurrent(identity)) {
             chooseTerminal('tts_error');
-            controller.abort(error);
+            if(nativeHandoffStarted||authorizationRequested)controller.abort(error);
           }
         });
         const modelTask = performProvider('model', services.providerStack.reasoning.id,
@@ -750,7 +753,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         } catch (error) {
           modelFailed = true;
           chooseTerminal(terminalForError(error, 'model_running'));
-          if (!controller.signal.aborted) controller.abort(error);
+          if ((nativeHandoffStarted||authorizationRequested) && !controller.signal.aborted) controller.abort(error);
           cancelQueue(error);
           await Promise.allSettled([speechTask]);
           throw error;
