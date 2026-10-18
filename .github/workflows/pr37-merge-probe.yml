@@ -185,23 +185,23 @@ jobs:
           ai=ai.replace('\\r\\n','\\n')
           old='    return Promise.resolve(this.#launch({ input: this.#turn.inputText || String(text || \'\').trim() }));'
           new="""    const input = this.#turn.inputText || String(text || '').trim();
-    const launched = this.#launch({input});
-    if(launched && this.#turn.source==='player_text' && input.trim()) {
-      try {this.#runtime.intelligence?.recordTypedUtterance?.(this.#turn.identity);} catch {}
-    }
-    return Promise.resolve(launched);"""
+              const launched = this.#launch({input});
+              if(launched && this.#turn.source==='player_text' && input.trim()) {
+                try {this.#runtime.intelligence?.recordTypedUtterance?.(this.#turn.identity);} catch {}
+              }
+              return Promise.resolve(launched);"""
           if ai.count(old)!=1: raise RuntimeError('OpenAI typed input anchor changed')
           ai=ai.replace(old,new,1)
           old='    this.#micOverflow = false;'+chr(10)+"    this.#voice('captureStarted'"
           new="""    this.#micOverflow = false;
-    try {this.#runtime.intelligence?.reserveMicUtterance?.({
-      identity:this.#turn.identity,
-      actorRef:this.#turn.knowledgeInputs?.association?.captureRef,
-      utteranceId:this.#turn.knowledgeInputs?.micUtteranceId,
-      hostRunId:this.#turn.knowledgeInputs?.hostRunId,
-      worldEpoch:this.#turn.knowledgeInputs?.worldEpoch
-    });} catch {}
-    this.#voice('captureStarted'"""
+              try {this.#runtime.intelligence?.reserveMicUtterance?.({
+                identity:this.#turn.identity,
+                actorRef:this.#turn.knowledgeInputs?.association?.captureRef,
+                utteranceId:this.#turn.knowledgeInputs?.micUtteranceId,
+                hostRunId:this.#turn.knowledgeInputs?.hostRunId,
+                worldEpoch:this.#turn.knowledgeInputs?.worldEpoch
+              });} catch {}
+              this.#voice('captureStarted'"""
           if ai.count(old)!=1: raise RuntimeError('OpenAI mic start anchor changed')
           ai=ai.replace(old,new,1)
           old="    this.#voice('captureEnded', this.#turn.identity, { submitted: true });"
