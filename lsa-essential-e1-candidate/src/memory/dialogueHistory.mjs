@@ -70,6 +70,13 @@ export class DialogueHistory {
     if (item && sameIdentity(item.identity, identity)) item.ttsSucceeded = true;
   }
 
+  // A local recording is actual speech but not a successful model response.
+  // It may be admitted only after the original pending text has been replaced.
+  markFallbackAudioReady(identity) {
+    const item = this.#sessions.get(this.#key(identity.pedId,identity.sessionNonce))?.pending.get(identity.turnId);
+    if(item && sameIdentity(item.identity,identity)) item.ttsSucceeded = true;
+  }
+
   acceptPlaybackResult(result) {
     const session = this.#sessions.get(this.#key(result.pedId, result.sessionNonce));
     const item = session?.pending.get(result.turnId);

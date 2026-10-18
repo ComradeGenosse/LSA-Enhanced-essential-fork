@@ -81,6 +81,16 @@ export function createNpcSpeechDeliverySource({now=()=>new Date(),maxTurns=64}={
     const mark=()=>{e.terminalAt??=stamp();};
 
     return Object.freeze({
+      // Replace a completely undelivered failed TTS attempt. The runner must
+      // independently prove no native PCM handoff before calling this.
+      // Failed candidate text must never be recorded as if it was spoken.
+      replaceUndeliveredWithFallback(text){
+        if(!live()||e.streamEnded||e.native.accepted||e.native.started||
+           e.native.terminal||!validText(text)||
+           e.segments.some(s=>s.forwardedBytes>0))return false;
+        e.segments=[];e.poisoned=false;e.planned=text;
+        return true;
+      },
       // Called when the runner starts synthesising one segment (early streaming)
       // or the whole reply (buffered). Sequential and gap-free by construction.
       beginSegment({sequence,text}={}){

@@ -1,0 +1,19 @@
+{
+  "characters": [
+    {
+      "characterId": "REPLACE_WITH_VERIFIED_CHARACTER_UUID",
+      "voice": "REPLACE_WITH_CONFIGURED_ELEVENLABS_ALIAS",
+      "clips": [
+        {"id":"misheard_1","category":"misheard","text":"Ah shit, man, what'd you say?"},
+        {"id":"misheard_2","category":"misheard","text":"My bad, bro, say that again."},
+        {"id":"thought_1","category":"lost_thought","text":"Shit, I lost my train of thought."},
+        {"id":"thought_2","category":"lost_thought","text":"Sorry dude, got distracted for a second."},
+        {"id":"speech_1","category":"speech_lost","text":"Hold up, man, where was I?"},
+        {"id":"speech_2","category":"speech_lost","text":"Shit, anyway, where were we?"},
+        {"id":"unconfirmed_1","category":"action_unconfirmed","text":"Hold up, man, let me check that."},
+        {"id":"failed_1","category":"action_failed","text":"Shit, something ain't working."},
+        {"id":"succeeded_1","category":"action_succeeded","text":"Alright, I got you."}
+      ]
+    }
+  ]
+}

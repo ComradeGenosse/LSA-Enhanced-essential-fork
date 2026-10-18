@@ -420,6 +420,11 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   await mkdir(target, { recursive: true });
   await writeFile(entry, patched.output, 'utf8');
   await copyDirectory(src, stagedE1);
+  // Include optional user-recorded offline assets when present. Missing audio
+  // must remain an observable capability gap, never silently synthesized.
+  const fallbackSource=path.join(root,'VoiceFallback');
+  try{await readdir(fallbackSource);await copyDirectory(fallbackSource,path.join(target,'VoiceFallback'));}
+  catch(error){if(error?.code!=='ENOENT')throw error;}
   // Copy the canonical host-neutral memory modules into the distributable E1 tree.
   // Runtime imports must not rely on the source repository layout.
   await stageSharedMemory({ projectRoot:root, stagedE1 });

@@ -79,6 +79,21 @@ function boundedInteger(value, fallback, min, max, name) {
   return number;
 }
 
+function normalizeLocalVoiceFallback(value = {}) {
+  if(!value || typeof value!=='object' || Array.isArray(value) ||
+     Object.keys(value).some(key=>!['enabled','assetDirectory','maxRecoveryDelayMs'].includes(key)))
+    throw new TypeError('localVoiceFallback has unknown or invalid fields.');
+  const enabled=value.enabled ?? true;
+  const assetDirectory=value.assetDirectory ?? 'VoiceFallback';
+  if(typeof enabled!=='boolean'||typeof assetDirectory!=='string'||
+     !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(assetDirectory))
+    throw new TypeError('localVoiceFallback requires a safe asset directory name.');
+  return Object.freeze({
+    enabled, assetDirectory,
+    maxRecoveryDelayMs:boundedInteger(value.maxRecoveryDelayMs,1500,250,5000,'localVoiceFallback.maxRecoveryDelayMs'),
+  });
+}
+
 function baseUrl(value, fallback, name) {
   const raw = String(value ?? fallback).trim();
   let parsed;
@@ -225,6 +240,7 @@ export function normalizeConfig(input = {}, env = process.env) {
 
   return Object.freeze({
     provider: selectedProvider,
+    localVoiceFallback: normalizeLocalVoiceFallback(input.localVoiceFallback),
     speechProvider, elevenLabs,
     expressiveDelivery: normalizeExpressiveDeliveryConfig(input.expressiveDelivery, { speechProvider }),
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),

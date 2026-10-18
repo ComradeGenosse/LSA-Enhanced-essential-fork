@@ -74,6 +74,11 @@
     "minAttemptBudgetMs": 1000,
     "attemptTimeoutMs": null
   },
+  "localVoiceFallback": {
+    "enabled": true,
+    "assetDirectory": "VoiceFallback",
+    "maxRecoveryDelayMs": 1500
+  },
   "playbackCompletionGraceMs": 30000,
   "playbackCompletionMinMs": 60000,
   "playbackCompletionMaxMs": 600000,
