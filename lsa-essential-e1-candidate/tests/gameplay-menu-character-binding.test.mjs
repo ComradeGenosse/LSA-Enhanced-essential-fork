@@ -83,5 +83,6 @@ test('invalid native roster cannot masquerade as an empty roster',async()=>{
   setRoster({owned:[{ownerAlias:owner,status:'invented'}]});
   assert.equal((await service.list())[0].runtimeStatus,'unverified');
   setRoster({owned:[]});
-  assert.notEqual((await service.list())[0].runtimeStatus,'unverified');
+  assert.equal((await service.list())[0].runtimeStatus,'absent',
+    'persisted profile state cannot impersonate a currently spawned native owner');
 });

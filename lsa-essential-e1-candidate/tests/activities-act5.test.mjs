@@ -832,7 +832,8 @@ test('ACT6-owned navigation is not superseded by driver-seat orders',async()=>{
 
 test('already-seated advisory never becomes an unverified completion claim',async()=>{
   const offer={version:1,safe:true,actorInVehicle:true,actorOnFoot:false,
-    vehicleAvailable:true,vehicleStopped:false,actorSeatIndex:-1,actorIsDriver:true,driverFree:false};
+    vehicleAvailable:true,vehicleStopped:false,actorSeatIndex:-1,actorIsDriver:true,driverFree:false,
+    actorVehicleIsPlayerVehicle:true};
   assert.equal(act5WorldAvailable('board_vehicle',
     {vehicle:{kind:'player_vehicle'},seat:'driver'},offer),true,
     'native ACT3 preflight must still verify the exact anchored vehicle');
@@ -843,4 +844,29 @@ test('already-seated advisory never becomes an unverified completion claim',asyn
   assert.equal((await h.dialogue.onPlayerInput(t,'You drive',ctx,()=>true)).kind,'approval_pending');
   assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,true);
   assert.equal(h.engine.activities.at(-1).steps[0].capability,'enter_vehicle_seat');
+});
+
+
+test('issue 275: same-car front passenger can request driver seat, never a different car or occupied seat',async()=>{
+  const slots={vehicle:{kind:'player_vehicle'},seat:'driver'};
+  const offer={version:1,safe:true,actorInVehicle:true,actorOnFoot:false,
+    actorVehicleIsPlayerVehicle:true,actorSeatIndex:0,actorIsDriver:false,
+    vehicleAvailable:true,vehicleStopped:true,driverFree:true,frontFree:false};
+  assert.equal(act5WorldAvailable('board_vehicle',slots,offer),true);
+  for(const bad of [
+    {...offer,actorVehicleIsPlayerVehicle:false},
+    {...offer,actorSeatIndex:1},
+    {...offer,vehicleStopped:false},
+    {...offer,driverFree:false},
+  ])assert.equal(act5WorldAvailable('board_vehicle',slots,bad),false);
+  const h=nativeHarness();h.setOffer({...offer});
+  const t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(t,'Get in the driver seat',ctx,()=>true)).kind,'approval_pending');
+  assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,true);
+  assert.equal(h.engine.activities.at(-1).steps[0].args.seat,'driver');
+  const mismatch=nativeHarness();mismatch.setOffer({...offer,actorVehicleIsPlayerVehicle:false});
+  const tt=turn(),cc=await mismatch.dialogue.prepare(tt,'player_text');
+  const refused=await mismatch.dialogue.onPlayerInput(tt,'You drive',cc,()=>true);
+  assert.equal(refused.reason,'vehicle_mismatch');
+  assert.equal(mismatch.engine.activities.length,0);
 });

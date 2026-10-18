@@ -189,7 +189,7 @@ export class CharacterService {
     return this.store.list().map(profile => ({
       ...profile,
       runtimeStatus:roster === null ? 'unverified'
-        : roster.find(item => item.ownerAlias === profile.promotion.ownerAlias)?.status ?? profile.status
+        : roster.find(item => item.ownerAlias === profile.promotion.ownerAlias)?.status ?? 'absent'
     }));
   }
   async edit(characterId,patch,revision) { return this.#serial(async () => { await this.#requireReady(); const profile = await this.store.edit(characterId,patch,revision); this.sessions.reservePersistent(this.store.list()); this.emit('character_profile_edited',{profileRevision:profile.revision}); return profile; }); }
