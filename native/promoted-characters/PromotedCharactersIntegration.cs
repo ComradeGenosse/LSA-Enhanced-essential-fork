@@ -306,7 +306,7 @@ namespace LSA.PromotedCharacters
         object ActivityOfferSnapshot(Encounter encounter)
         {
             bool inVehicle=false, actorIsDriver=false, safe=false, scenarioReady=false, nearby=false;
-            bool vehicleAvailable=false, vehicleStopped=false, frontFree=false, rearFree=false, waypointAvailable=false;
+            bool vehicleAvailable=false, vehicleStopped=false, driverFree=false, frontFree=false, rearFree=false, waypointAvailable=false;
             try
             {
                 safe=Safe(encounter) && !encounter.Suspended;
@@ -337,6 +337,7 @@ namespace LSA.PromotedCharacters
                         if(vehicleAvailable)
                         {
                             vehicleStopped=vehicle.Speed<1.0f;
+                            driverFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,-1,false);
                             frontFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,0,false);
                             rearFree=NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,1,false) ||
                                 NativeFunction.CallByName<bool>("IS_VEHICLE_SEAT_FREE",vehicle,2,false);
@@ -358,11 +359,11 @@ namespace LSA.PromotedCharacters
                 // Uncertain native state is never advertised as available.
                 return new {version=1,safe=false,actorInVehicle=false,actorOnFoot=false,actorIsDriver=false,
                     playerNearby=false,vehicleAvailable=false,vehicleStopped=false,
-                    passengerFree=false,frontFree=false,rearFree=false,scenarioReady=false,waypointAvailable=false};
+                    passengerFree=false,driverFree=false,frontFree=false,rearFree=false,scenarioReady=false,waypointAvailable=false};
             }
             return new {version=1,safe,actorInVehicle=inVehicle,actorOnFoot=!inVehicle,actorIsDriver,
                 playerNearby=nearby,vehicleAvailable,vehicleStopped,
-                passengerFree=frontFree||rearFree,frontFree,rearFree,scenarioReady,waypointAvailable};
+                passengerFree=frontFree||rearFree,driverFree,frontFree,rearFree,scenarioReady,waypointAvailable};
         }
         object Handle(ControlRequest request)
         {
