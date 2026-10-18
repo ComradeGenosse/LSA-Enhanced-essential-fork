@@ -45,7 +45,7 @@ jobs:
           main="import {readProtagonistFrame,PROTAGONIST_EVENT} from './protagonistProtocol.mjs';"
           pr="import { readProtagonistFrame, PROTAGONIST_EVENT } from './protagonistProtocol.mjs';"
           if main in s and pr in s:
-              s=s.replace(pr+'\\n','')
+              s=s.replace(pr,'')
               p.write_text(s)
           PY
           sed -n '1,18p' lsa-essential-e1-candidate/src/perception/contracts.mjs
