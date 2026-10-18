@@ -93,6 +93,10 @@ static partial class Program
         var pausedDescribe = Describe.Parse("{\"kind\":\"promoted\",\"name\":\"Lamar Davis\",\"characterId\":\"" + CharacterA + "\",\"activity\":{\"present\":true,\"intent\":\"hold_position\",\"step\":\"hold_position\",\"status\":\"paused\",\"reason\":null,\"phrase\":\"Wait here: Paused\"}}");
         var paused = CurrentNpcView.Build(SnapshotOf(now,FakeBridge.Owned()),now,pausedDescribe,true,true,settings);
         Check(Line(paused.Lines,"activity").Right == "Wait here · Paused" && Line(paused.Lines,"activityResume").Enabled && !Line(paused.Lines,"activityPause").Enabled && Line(paused.Lines,"activityCancel").Enabled,"companion lifecycle keeps a detached paused activity resumable in F11");
+        var navigation = GameplayNavigationView.Build(owned);
+        Check(Line(navigation,"assign").Command == "local.openActivities" && Line(navigation,"assign").ExpectedEncounterId == FakeBridge.Encounter && Line(navigation,"activityStatus").Command == CommandCatalog.ActivityStatus,"ACT2 navigation page reuses the current owned NPC and frozen identity");
+        Check(Line(GameplayNavigationView.Build(CurrentNpcView.Build(SnapshotOf(now,FakeBridge.Ordinary()),now,null,true,true,settings)),"prerequisite").Right == "Select a promoted NPC" && Line(navigation,"act6").Info,"navigation disables unknown ownership and ACT6 without readiness");
+        Check(Line(DirectorSocialView.Build(),"admission").Info,"Director remains read-only until it shares the native admission path");
         var assign = CurrentNpcView.Assign(true);
         Check(assign.Lines.Count == 4 && Line(assign.Lines,"followMe").Value == "accompany" && Line(assign.Lines,"followMe").Confirm && Line(assign.Lines,"waitHere").Value == "hold_position" && Line(assign.Lines,"sitHere").Value == "sit_here" && Line(assign.Lines,"resumePrevious").Value == "resume_previous","assign page offers only the four ACT2 activities");
         var mismatch = CurrentNpcView.Build(SnapshotOf(now,FakeBridge.Owned()),now,Describe.Parse("{\"kind\":\"encounter\",\"name\":\"Old name\"}"),true,true,settings);
