@@ -1,7 +1,7 @@
 import {KNOWLEDGE_LIMITS,jsonBytes} from '../context/knowledgeSelector.mjs';
 import { ProviderRequestError, endpoint, responseFailure, safeRequestId } from './request.mjs';
 import { createSegmentDecoder } from './segmentDecoder.mjs';
-import { LUNA_SEGMENT_DELIVERY_V1 } from '../context/essentialDecision.mjs';
+import { LUNA_SEGMENT_DELIVERY_V1, isRetryableDecisionFormatError } from '../context/essentialDecision.mjs';
 
 const MAX_EVENT_BYTES = 64 * 1024;
 const MAX_RESPONSE_BYTES = 256 * 1024;
@@ -187,11 +187,13 @@ export async function streamDecision({
     let result;
     try { result = decoder.finish(); }
     catch (error) {
-      const code = /^segment_[a-z_]+$/.test(error?.code || '') ? error.code : 'invalid_response';
+      const code = isRetryableDecisionFormatError(error) ? 'decision_format_error' :
+        /^segment_[a-z_]+$/.test(error?.code || '') ? error.code : 'invalid_response';
       telemetry?.event('model_decision_validation_failure', {stage:'final', code,
         responseChars: decoder.responseChars, maxSegmentChars, maxDialogueChars});
       throw new ProviderRequestError('OpenAI completed an invalid structured decision.', { code });
     }
+    if (result.commandNormalized) telemetry?.event('model_command_normalized',{code:'bare_drive_action'});
     if (result.reflowedSegments) telemetry?.event('stream_segments_reflowed', {
       reflowedSegments: result.reflowedSegments, segmentCount: result.segments.length,
       maxSegmentChars, maxDialogueChars,
