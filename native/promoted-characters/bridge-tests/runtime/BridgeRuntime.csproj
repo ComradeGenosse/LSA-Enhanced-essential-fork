@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="Driver.cs" />
     <Compile Include="../../RuntimeEntry.cs" Link="RuntimeEntry.cs" />
+    <Compile Include="../../HostInterruptionEvidence.cs" Link="HostInterruptionEvidence.cs" />
     <Compile Include="../../PromotedCharactersIntegration.cs" Link="PromotedCharactersIntegration.cs" />
     <Compile Include="../../lifecycle-tests/VoicePresenceHarnessStub.cs" Link="VoicePresenceHarnessStub.cs" />
     <Compile Include="../../ActivityCommands.cs" Link="ActivityCommands.cs" />
