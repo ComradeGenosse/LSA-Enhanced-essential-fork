@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { sameHostContext } from '../context/hostContext.mjs';
 import { planSpec } from './intentTemplates.mjs';
 import { validateSlots } from './contracts.mjs';
+import { inspectNavigationReadiness } from './navigationReadiness.mjs';
 
 // ACT5 does not plan or execute steps. It retains one short-lived, spoken
 // invitation until the PLAYER explicitly accepts; ActivityEngine owns dispatch.
@@ -298,18 +299,8 @@ export class Act5Dialogue {
   // Read-only readiness diagnostic. This never grants native capabilities or
   // overrides the authoritative Engine admission and native preflight.
   navigationReadiness(intent) {
-    const engine = this.activities?.engine;
-    const config = engine?.config;
-    const capability = intent === 'vehicle_trip' ? 'drive_to' : 'walk_to';
-    if (config?.mode !== 'on' || !config?.act6Capabilities?.includes(capability)) return 'capability_disabled';
-    const row = engine.registry?.get(capability);
-    if (!row || row.phase !== 'ACT6' || row.execution.path === 'none' ||
-        !row.allowedSources.includes('player_dialogue') || !row.allowedPriority.includes('player_direct'))
-      return 'capability_unavailable';
-    if (!this.#ready()) return 'native_unavailable';
-    if (engine.hello?.capabilities?.[capability] !== true) return 'native_capability_missing';
-    if (row.probes.some(probe => !config.passedProbes?.includes(probe))) return 'native_probes_missing';
-    return null;
+    const state=inspectNavigationReadiness(this.activities);
+    return (intent === 'vehicle_trip' ? state.drive : state.walk).reason;
   }
 
   async #owner(turn) {
