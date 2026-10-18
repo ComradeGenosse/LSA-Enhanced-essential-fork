@@ -1021,6 +1021,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         observe: (identity, signal, onTerminal, onObserved) => observeNative(bridge, identity, signal, onTerminal, onObserved),
         authorize: identity => bridge.authorize(identity),
         failTurn: (identity, error, details) => bridge.failMatchingTurn(identity, error, details),
+        inspectNativePlayback: identity => bridge.inspectNativePlayback?.(identity) ?? null,
         failDirectorTurn: (ticket,identity) => runtime.intelligence?.failDirectorOriginalTurn?.(ticket,identity) === true,
         log: (identity, event, details) => bridge.log?.(identity, event, details),
         telemetry,
