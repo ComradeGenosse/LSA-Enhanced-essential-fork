@@ -87,6 +87,7 @@ static partial class Program
 
         var owned = CurrentNpcView.Build(SnapshotOf(now,FakeBridge.Owned()),now,Describe.Parse("{\"kind\":\"promoted\",\"name\":\"Lamar Davis\",\"characterId\":\"" + CharacterA + "\",\"relationship\":\"friend\",\"status\":\"available\",\"voice\":\"ash\",\"facts\":[]}"),true,true,settings);
         Check(owned.Owned && owned.Title == "Lamar Davis" && Line(owned.Lines,"mode").Right == "Waiting" && Line(owned.Lines,"relationship").Right == "Friend","promoted name, mode and relationship");
+        Check(Line(owned.Lines,"follow").ExpectedEncounterId == FakeBridge.Encounter && Line(owned.Lines,"follow").ExpectedOwnerAlias == FakeBridge.Alias,"current menu retains the rendered actor identity, not the next NPC");
         Check(Line(owned.Lines,"follow").Command == CommandCatalog.CurrentFollow && Line(owned.Lines,"wait").Command == CommandCatalog.CurrentWait && Line(owned.Lines,"dismiss").Confirm && Line(owned.Lines,"promote") == null,"promoted NPCs get Follow, Wait and a confirmed Dismiss");
         Check(Line(owned.Lines,"activity").Right == "No activity" && Line(owned.Lines,"assign").Command == "local.openActivities" && Line(owned.Lines,"activityPause").Command == CommandCatalog.ActivityPause && Line(owned.Lines,"activityResume").Command == CommandCatalog.ActivityResume && Line(owned.Lines,"activityCancel").Command == CommandCatalog.ActivityCancel && Line(owned.Lines,"activityStatus").Command == CommandCatalog.ActivityStatus && Line(owned.Lines,"activityHistory").Command == CommandCatalog.ActivityHistory,"owned page shows ACT2 activity controls");
         var pausedDescribe = Describe.Parse("{\"kind\":\"promoted\",\"name\":\"Lamar Davis\",\"characterId\":\"" + CharacterA + "\",\"activity\":{\"present\":true,\"intent\":\"hold_position\",\"step\":\"hold_position\",\"status\":\"paused\",\"reason\":null,\"phrase\":\"Wait here: Paused\"}}");
@@ -258,9 +259,11 @@ static partial class Program
         Check(ControlsView.Build(null,essential,"ready",null,false,120,new GestureBinding[0]).Count == 0,"no settings: no lines");
 
         var empty = DiagnosticsView.Build(new DiagnosticsInput {HostStatus = "host=none",RouterState = "disabled",SettingsRevision = "defaults",CatalogSha = catalog.Sha256});
+        Check(Line(empty,"outcomes").Right == "None","empty command outcomes appear explicitly");
         Check(Line(empty,"snapshot").Right == "None" && Line(empty,"reasons").Right == "None" && Line(empty,"settings").Right == "Defaults" && Line(empty,"catalog").Right == catalog.Sha256.Substring(0,8) && Line(empty,"companion").Right == "Not reachable","empty diagnostics");
         Check(Line(empty,"refresh").Command == null && Line(empty,"log").Command == null && !Line(empty,"refresh").Info,"diagnostics actions are local");
-        var busy = DiagnosticsView.Build(new DiagnosticsInput {HostStatus = "status=ready",BridgeAvailable = true,CompanionReachable = true,SnapshotAgeMs = 120,Outstanding = 1,SettingsRevision = new string('a',64),RecentReasons = new[] {"first: a","second: b"}});
+        var busy = DiagnosticsView.Build(new DiagnosticsInput {HostStatus = "status=ready",BridgeAvailable = true,CompanionReachable = true,SnapshotAgeMs = 120,Outstanding = 1,SettingsRevision = new string('a',64),RecentReasons = new[] {"first: a","second: b"},RecentOutcomes = new[] {"activity.assign: queued","activity.assign: accepted"}});
+        Check(busy.Where(line => line.Text == "Action").Select(line => line.Right).SequenceEqual(new[] {"activity.assign: accepted","activity.assign: queued"}),"typed outcomes newest first");
         Check(Line(busy,"snapshot").Right == "120 ms" && Line(busy,"bridge").Right == "Available" && Line(busy,"settings").Right == "aaaaaaaa" && busy.Where(line => line.Text == "Recent").Select(line => line.Right).SequenceEqual(new[] {"second: b","first: a"}),"recent failures newest first");
     }
 

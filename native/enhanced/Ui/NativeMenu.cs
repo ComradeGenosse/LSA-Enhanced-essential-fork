@@ -38,7 +38,7 @@ namespace LSA.Enhanced.Ui
         readonly HashSet<string> busy = new HashSet<string>(StringComparer.Ordinal);
         readonly UIMenuItem editorItem;
         UIMenu hiddenForKeyboard;
-        string selectedCharacterId, currentTitle;
+        string selectedCharacterId, currentTitle, activityTargetEncounterId, activityTargetOwnerAlias;
         Page armedPage; UIMenuItem armedItem; MenuLine armedLine; string armedTarget; long armedUntil;
         List<MenuLine> aiLines;
         long nextRender, nextInterest, nextRoster, aiReadAt = -1;
@@ -228,6 +228,9 @@ namespace LSA.Enhanced.Ui
             switch (line.Command ?? line.Key) {
                 case LocalOpenCharacter: OpenCharacter(line.Value,page.Menu); break;
                 case "local.openActivities":
+                    activityTargetEncounterId = line.ExpectedEncounterId;
+                    activityTargetOwnerAlias = line.ExpectedOwnerAlias;
+                    if (activityTargetEncounterId == null) { context.Hud.Show(context.Catalog.Describe("target_changed")); break; }
                     activities.ParentMenu = page.Menu; Invalidate(pages[activities]);
                     page.Menu.Visible = false; activities.Visible = true; break;
                 case LocalRefresh: case "refresh":
@@ -266,6 +269,8 @@ namespace LSA.Enhanced.Ui
         }
         void Run(Page page,MenuLine line,CommandArgs args)
         {
+            args.ExpectedEncounterId = line.ExpectedEncounterId;
+            args.ExpectedOwnerAlias = line.ExpectedOwnerAlias;
             if (page.Menu == character) {
                 var row = Row();
                 if (row == null) return;
@@ -349,6 +354,7 @@ namespace LSA.Enhanced.Ui
         string Target(Page page)
         {
             if (page.Menu == character) return "character:" + selectedCharacterId;
+            if (page.Menu == activities) return "npc:" + activityTargetEncounterId + "|" + activityTargetOwnerAlias;
             long utc = context.Clock.Utc;
             var snapshot = Snapshot(utc);
             var npc = snapshot != null && snapshot.Fresh(utc,InputGates.SnapshotMaxAgeMs) ? snapshot.Current : null;
@@ -410,7 +416,12 @@ namespace LSA.Enhanced.Ui
         {
             var settings = context.Settings();
             long utc = context.Clock.Utc;
-            if (page.Menu == activities) { subtitle = "Assign Activity"; return CurrentNpcView.Assign(data.CompanionReachable).Lines; }
+            if (page.Menu == activities) {
+                subtitle = "Assign Activity";
+                var lines = CurrentNpcView.Assign(data.CompanionReachable && activityTargetEncounterId != null).Lines;
+                foreach (var line in lines) { line.ExpectedEncounterId = activityTargetEncounterId; line.ExpectedOwnerAlias = activityTargetOwnerAlias; }
+                return lines;
+            }
             if (page.Menu == current) {
                 var snapshot = Snapshot(utc);
                 var npc = snapshot != null && snapshot.Fresh(utc,InputGates.SnapshotMaxAgeMs) ? snapshot.Current : null;
@@ -467,7 +478,7 @@ namespace LSA.Enhanced.Ui
             return DiagnosticsView.Build(new DiagnosticsInput {
                 HostStatus = context.HostStatus(),RouterState = router?.State,Conflict = router?.Conflict,SettingsRevision = context.Settings()?.Revision,
                 EndpointState = context.EndpointState(),CatalogSha = context.Catalog.Sha256,BridgeAvailable = context.Bridge.Available,CompanionReachable = data.CompanionReachable,
-                SnapshotAgeMs = snapshot == null ? -1 : Math.Max(0,utc - snapshot.BuiltAtUtc),Outstanding = context.Dispatcher.Outstanding,RecentReasons = context.Dispatcher.RecentReasons,
+                SnapshotAgeMs = snapshot == null ? -1 : Math.Max(0,utc - snapshot.BuiltAtUtc),Outstanding = context.Dispatcher.Outstanding,RecentReasons = context.Dispatcher.RecentReasons,RecentOutcomes = context.Dispatcher.RecentOutcomes,
                 TalkState = context.TalkStatus(),TalkConflict = context.TalkConflict(),IndicatorState = snapshot?.TalkTarget?.Indicator});
         }
         // Public companion settings only; the credential file is checked for

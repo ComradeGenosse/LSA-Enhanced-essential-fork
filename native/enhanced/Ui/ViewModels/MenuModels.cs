@@ -17,11 +17,13 @@ namespace LSA.Enhanced.Ui
     public sealed class MenuLine
     {
         public string Key, Text, Right, Description, Command, Value;
+        // Frozen at render time for current-NPC actions: never silently retarget to a replacement actor.
+        public string ExpectedEncounterId, ExpectedOwnerAlias;
         public bool Enabled = true, Info, Confirm, Toggle;   // Toggle: an on/off checkbox; Value is "on" or "off"
         public string[] Options, OptionLabels;              // a left/right choice; Value is one of Options
         public static MenuLine Fact(string key,string text,string right,string description = null) => new MenuLine {Key = key,Text = text,Right = right,Description = description,Info = true,Enabled = true};
         public static MenuLine Action(string key,string text,string command,string description,bool enabled = true,bool confirm = false) => new MenuLine {Key = key,Text = text,Command = command,Description = description,Enabled = enabled,Confirm = confirm};
-        public string Signature => Key + "|" + Text + "|" + Right + "|" + Enabled + "|" + Command + "|" + Value + "|" + Toggle + "|" + (Options == null ? "" : string.Join(",",Options)) + "|" + Description;
+        public string Signature => Key + "|" + Text + "|" + Right + "|" + Enabled + "|" + Command + "|" + Value + "|" + Toggle + "|" + (Options == null ? "" : string.Join(",",Options)) + "|" + Description + "|" + ExpectedEncounterId + "|" + ExpectedOwnerAlias;
         public static MenuLine Choice(string key,string text,string command,string value,string[] options,string[] labels,string description,bool enabled = true) =>
             new MenuLine {Key = key,Text = text,Command = command,Value = value,Options = options,OptionLabels = labels ?? options,Description = description,Enabled = enabled};
         public static MenuLine Switch(string key,string text,string command,bool on,string description,bool enabled = true) =>
@@ -123,6 +125,10 @@ namespace LSA.Enhanced.Ui
                 }
             }
             if (snapshot.TalkTarget != null && snapshot.TalkTarget.Present) AddTalk(model,snapshot.TalkTarget);
+            foreach (var line in model.Lines) if (line.Command != null) {
+                line.ExpectedEncounterId = npc.EncounterId;
+                line.ExpectedOwnerAlias = npc.OwnerAlias;
+            }
             return model;
         }
         static void AddTalk(CurrentNpcModel model,TalkTargetInfo talk)
@@ -316,6 +322,7 @@ namespace LSA.Enhanced.Ui
         public int Outstanding;
         public string TalkState, TalkConflict, IndicatorState;
         public IReadOnlyList<string> RecentReasons = new string[0];
+        public IReadOnlyList<string> RecentOutcomes = new string[0];
     }
     public static class DiagnosticsView
     {
@@ -333,6 +340,8 @@ namespace LSA.Enhanced.Ui
                 MenuLine.Fact("talk","Talk target",input.TalkState ?? "Off",input.TalkConflict),
                 MenuLine.Fact("indicator","Talk indicator",input.IndicatorState ?? "Off"),
             };
+            if (input.RecentOutcomes.Count == 0) lines.Add(MenuLine.Fact("outcomes","Action results","None"));
+            else foreach (var result in input.RecentOutcomes.Reverse().Take(5)) lines.Add(MenuLine.Fact("outcome:" + lines.Count,"Action",result));
             if (input.RecentReasons.Count == 0) lines.Add(MenuLine.Fact("reasons","Recent failures","None"));
             else foreach (var reason in input.RecentReasons.Reverse().Take(10)) lines.Add(MenuLine.Fact("reason:" + lines.Count,"Recent",reason));
             lines.Add(MenuLine.Action("refresh","Re-check",null,"Refresh this page."));
