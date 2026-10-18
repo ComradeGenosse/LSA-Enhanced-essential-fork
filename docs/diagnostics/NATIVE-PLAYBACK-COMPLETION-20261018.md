@@ -34,6 +34,15 @@ obfuscated methods, not reconstructed source identifiers):
   `StreamEnded`, `PlaybackStarted`, `EstimatedPlaybackEndAt`,
   `LastChunkAt`, and timing guards present in IL (350 ms, 450 ms,
   15,000 ms). Their exact higher-level branching is obfuscated.
+- A specific IL path is now proven: after the exact-turn
+  `HasBufferedAudioForTurn` call, `m5132` branches around the completion
+  evaluation when it returns true (`IL_0226` falls through to an obfuscated
+  switch with index 7, which returns at `IL_037A`). The completion worker
+  has **no independent bounded recovery on that buffered=true branch**.
+  If the mixer continues reporting buffered forever, the coordinator can
+  leave a turn pending forever despite stream-end and game-clock progress.
+  This is a native recovery gap, **not proof** that the October 18 mixer was
+  stuck; the new runtime audit will test that hypothesis.
 - Its completion checks are invoked by `m5131`, via a dedicated thread
   loop `m5194` created by the coordinator during Initialize.
 - Native clock helper `m5153` → `Rage.Game.get_GameTime`.
