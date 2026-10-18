@@ -524,7 +524,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           }
         }
       } catch {
-        if (navigationIntent) metrics?.event('act6_player_direct_context_failed', {intent:navigationIntent,reason:'context_exception'});
+        if (navigationIntent) metrics?.event('act6_player_direct_context_failed', {intent:navigationIntent,code:'context_exception'});
         act5Context = null;
       }
     }
@@ -539,7 +539,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         services.act5 ? (services.act5.navigationReadiness(navigationIntent) || 'owner_unavailable') :
           'native_unavailable';
       turn.act5Reply=Object.freeze({kind:'unavailable',intent:navigationIntent,reason});
-      metrics?.event('act6_player_direct_unavailable',{intent:navigationIntent,reason});
+      metrics?.event('act6_player_direct_unavailable',{intent:navigationIntent,code:reason});
       if (act5Context) act5Context=Object.freeze({...act5Context,intents:Object.freeze([]),pendingIntent:null});
     }
     let decision;
