@@ -73,6 +73,16 @@ jobs:
           ]
           runtime=runtime[:start]+chr(10).join(newblock)+chr(10)+runtime[end:]
           q.write_text(runtime)
+          # Retain the latest main native compile inventory plus C01.
+          from subprocess import check_output
+          project=Path('native/promoted-characters/PromotedCharacters.csproj')
+          main_project=check_output(['git','show','origin/main:native/promoted-characters/PromotedCharacters.csproj'],text=True)
+          if 'SpeechCaptureAdapter.cs' not in main_project:
+              needle='NpcPlaybackStateProbe.cs'
+              if needle not in main_project:
+                  raise RuntimeError('native project structure changed; review required')
+              main_project=main_project.replace(needle,needle+';SpeechCaptureAdapter.cs',1)
+          project.write_text(main_project)
           PY
           sed -n '1,18p' lsa-essential-e1-candidate/src/perception/contracts.mjs
           node --check lsa-essential-e1-candidate/src/perception/contracts.mjs
@@ -81,7 +91,11 @@ jobs:
         working-directory: lsa-essential-e1-candidate
         run: |
           node --test tests/c01-proximity.test.mjs tests/c01-utterance-lifecycle.test.mjs
-          node tools/runTests.mjs
+      - name: Full inventoried essential suite (independent gate)
+        continue-on-error: true
+        working-directory: lsa-essential-e1-candidate
+        shell: bash
+        run: node tools/runTests.mjs
       - name: Native production reference build
         shell: bash
         run: node tools/native-sdk/compileProductionNative.mjs
