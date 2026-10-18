@@ -354,7 +354,7 @@ namespace LSA.Enhanced.Ui
         public bool Spawned => RuntimeStatus == "spawned";
         public bool Suspended => RuntimeStatus == "suspended";
         public string IdSuffix => CharacterId.Substring(CharacterId.Length - 4);
-        public string StatusLabel => RuntimeStatus == "spawned" ? "In world" : RuntimeStatus == "suspended" ? "Suspended" : Status == "dead" ? "Dead" : Status == "retired" ? "Retired" : "Absent";
+        public string StatusLabel => RuntimeStatus == "spawned" ? "In world" : RuntimeStatus == "suspended" ? "Suspended" : RuntimeStatus == "unverified" ? "Checking native roster" : Status == "dead" ? "Dead" : Status == "retired" ? "Retired" : "Absent";
     }
     public static class CharacterList
     {
@@ -411,16 +411,19 @@ namespace LSA.Enhanced.Ui
         }
         public static readonly string[] Relationships = {"associate","friend","trusted","strained","neutral"};
         public static readonly string[] Availability = {"available","dead","retired"};
-        public static List<MenuLine> Actions(CharacterRow row,bool companionAvailable,bool hostAvailable)
+        public static List<MenuLine> Actions(CharacterRow row,bool companionAvailable,bool hostAvailable,bool nativeBindingVerified = false)
         {
             bool live = companionAvailable && hostAvailable;
+            bool present = row.Spawned || row.Suspended || nativeBindingVerified;
+            // Unknown roster status is not evidence that summoning again is safe.
+            bool knownAbsent = !present && row.RuntimeStatus != "unverified";
             var lines = new List<MenuLine> {
-                MenuLine.Fact("status","Status",row.StatusLabel),
-                MenuLine.Action("summon","Summon",CommandCatalog.CharacterSummon,"Recreate this character near you in a safe outdoor spot.",live && !row.Spawned && row.Status != "retired"),
-                MenuLine.Action("follow","Follow",CommandCatalog.CharacterFollow,"Follow you.",live && (row.Spawned || row.Suspended)),
-                MenuLine.Action("wait","Wait here",CommandCatalog.CharacterWait,"Wait at their spot.",live && (row.Spawned || row.Suspended)),
-                MenuLine.Action("dismiss","Dismiss / Release",CommandCatalog.CharacterDismiss,"Release this incarnation from addon control. Saved profile remains; adopted ambient peds are not deleted.",live && (row.Spawned || row.Suspended),true),
-                MenuLine.Action("despawn","Banish addon-created NPC",CommandCatalog.CharacterDespawn,"Remove the addon-created ped from the scene, keeping the character profile (" + row.Name + ", …" + row.IdSuffix + "). Adopted peds are refused.",live && (row.Spawned || row.Suspended),true),
+                MenuLine.Fact("status","Status",nativeBindingVerified && !row.Spawned && !row.Suspended ? "In world (native verified)" : row.StatusLabel),
+                MenuLine.Action("summon","Summon",CommandCatalog.CharacterSummon,"Recreate this character near you in a safe outdoor spot.",live && knownAbsent && row.Status != "retired"),
+                MenuLine.Action("follow","Follow",CommandCatalog.CharacterFollow,"Follow you.",live && present),
+                MenuLine.Action("wait","Wait here",CommandCatalog.CharacterWait,"Wait at their spot.",live && present),
+                MenuLine.Action("dismiss","Dismiss / Release",CommandCatalog.CharacterDismiss,"Release this incarnation from addon control. Saved profile remains; adopted ambient peds are not deleted.",live && present,true),
+                MenuLine.Action("despawn","Banish addon-created NPC",CommandCatalog.CharacterDespawn,"Remove the addon-created ped from the scene, keeping the character profile (" + row.Name + ", …" + row.IdSuffix + "). Adopted peds are refused.",live && present,true),
                 MenuLine.Action("rename","Rename",CommandCatalog.CharacterRename,"Change the name with the on-screen keyboard.",companionAvailable),
                 MenuLine.Choice("relationship","Relationship",CommandCatalog.CharacterRelationship,Choose(row.RelationshipState,Relationships),Relationships,Relationships.Select(CurrentNpcView.Capitalize).ToArray(),"Choose with left/right, then select to save. Associate, friend, trusted, strained or neutral.",companionAvailable),
                 MenuLine.Choice("availability","Availability",CommandCatalog.CharacterAvailability,Choose(row.Status,Availability),Availability,Availability.Select(CurrentNpcView.Capitalize).ToArray(),"Choose with left/right, then select to save. Retired characters cannot be summoned.",companionAvailable),
