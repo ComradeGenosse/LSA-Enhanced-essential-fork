@@ -199,7 +199,7 @@ namespace LSA.Enhanced.Ui
     }
     public sealed class CharacterRow
     {
-        public string CharacterId, Name, RuntimeStatus, Status, RelationshipState, RelationshipDescription, Voice;
+        public string CharacterId, Name, OwnerAlias, RuntimeStatus, Status, RelationshipState, RelationshipDescription, Voice;
         public long Revision;
         public readonly List<MemoryRow> Memories = new List<MemoryRow>();
         public bool Spawned => RuntimeStatus == "spawned";
@@ -230,6 +230,10 @@ namespace LSA.Enhanced.Ui
         {
             if (value == null || !(value.TryGetValue("characterId",out var id) && id is string characterId && Uuid.IsMatch(characterId))) return null;
             var row = new CharacterRow {CharacterId = characterId,Name = Text(value,"name",80) ?? "Unnamed",Status = Text(value,"status",16) ?? "available",RuntimeStatus = Text(value,"runtimeStatus",16) ?? Text(value,"status",16) ?? "available"};
+            if (value.TryGetValue("promotion",out var promotion) && promotion is Dictionary<string,object> original) {
+                var alias = Text(original,"ownerAlias",46);
+                if (alias == "promoted." + row.CharacterId) row.OwnerAlias = alias;
+            }
             row.Revision = value.TryGetValue("revision",out var revision) ? Convert.ToInt64(revision,CultureInfo.InvariantCulture) : 0;
             if (value.TryGetValue("relationship",out var relationship) && relationship is Dictionary<string,object> details) { row.RelationshipState = Text(details,"state",16) ?? "associate"; row.RelationshipDescription = details.TryGetValue("description",out var text) && text is string description && description.Length <= 600 ? description : ""; }
             if (value.TryGetValue("voiceReference",out var voice) && voice is Dictionary<string,object> reference) row.Voice = Text(reference,"voice",40);
@@ -249,6 +253,13 @@ namespace LSA.Enhanced.Ui
             return flat.Length <= MemoryPreviewChars ? flat : flat.Substring(0,MemoryPreviewChars - 1) + "…";
         }
         static string Text(Dictionary<string,object> value,string key,int max) => value.TryGetValue(key,out var item) && item is string text && text.Length <= max && !text.Any(char.IsControl) ? text : null;
+        // A native ownership alias is authenticated by the current snapshot; the profile
+        // supplies its label only after exact alias-to-CharacterId agreement.
+        public static Describe ForOwnedAlias(IEnumerable<CharacterRow> rows,string alias)
+        {
+            var row = rows?.FirstOrDefault(item => item.OwnerAlias != null && item.OwnerAlias == alias);
+            return row == null ? null : new Describe {Kind = "promoted",Name = row.Name,CharacterId = row.CharacterId};
+        }
         public static readonly string[] Relationships = {"associate","friend","trusted","strained","neutral"};
         public static readonly string[] Availability = {"available","dead","retired"};
         public static List<MenuLine> Actions(CharacterRow row,bool companionAvailable,bool hostAvailable)
@@ -259,8 +270,8 @@ namespace LSA.Enhanced.Ui
                 MenuLine.Action("summon","Summon",CommandCatalog.CharacterSummon,"Recreate this character near you in a safe outdoor spot.",live && !row.Spawned && row.Status != "retired"),
                 MenuLine.Action("follow","Follow",CommandCatalog.CharacterFollow,"Follow you.",live && (row.Spawned || row.Suspended)),
                 MenuLine.Action("wait","Wait here",CommandCatalog.CharacterWait,"Wait at their spot.",live && (row.Spawned || row.Suspended)),
-                MenuLine.Action("dismiss","Dismiss",CommandCatalog.CharacterDismiss,"Release this incarnation. The saved character is kept.",live && (row.Spawned || row.Suspended),true),
-                MenuLine.Action("despawn","Despawn",CommandCatalog.CharacterDespawn,"Delete the ped this addon summoned (" + row.Name + ", …" + row.IdSuffix + "). Adopted peds are refused.",live && (row.Spawned || row.Suspended),true),
+                MenuLine.Action("dismiss","Dismiss / Release",CommandCatalog.CharacterDismiss,"Release this incarnation from addon control. Saved profile remains; adopted ambient peds are not deleted.",live && (row.Spawned || row.Suspended),true),
+                MenuLine.Action("despawn","Banish addon-created NPC",CommandCatalog.CharacterDespawn,"Remove the addon-created ped from the scene, keeping the character profile (" + row.Name + ", …" + row.IdSuffix + "). Adopted peds are refused.",live && (row.Spawned || row.Suspended),true),
                 MenuLine.Action("rename","Rename",CommandCatalog.CharacterRename,"Change the name with the on-screen keyboard.",companionAvailable),
                 MenuLine.Choice("relationship","Relationship",CommandCatalog.CharacterRelationship,Choose(row.RelationshipState,Relationships),Relationships,Relationships.Select(CurrentNpcView.Capitalize).ToArray(),"Choose with left/right, then select to save. Associate, friend, trusted, strained or neutral.",companionAvailable),
                 MenuLine.Choice("availability","Availability",CommandCatalog.CharacterAvailability,Choose(row.Status,Availability),Availability,Availability.Select(CurrentNpcView.Capitalize).ToArray(),"Choose with left/right, then select to save. Retired characters cannot be summoned.",companionAvailable),
