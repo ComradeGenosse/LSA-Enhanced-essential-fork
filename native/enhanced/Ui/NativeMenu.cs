@@ -486,7 +486,7 @@ namespace LSA.Enhanced.Ui
                 var snapshot = Snapshot(utc);
                 var npc = snapshot != null && snapshot.Fresh(utc,InputGates.SnapshotMaxAgeMs) ? snapshot.Current : null;
                 if (row.OwnerAlias != null && npc != null && npc.Present && npc.Owned && npc.OwnerAlias == row.OwnerAlias) {
-                    var action = MenuLine.Action("characterActivity","Activities for this NPC...","local.openActivities","Act on this exact in-world incarnation, not another current NPC.",data.CompanionReachable && npc.Safe);
+                    var action = MenuLine.Action("characterActivity","Activities for this NPC...","local.openNavigation","Act on this exact in-world incarnation, not another current NPC.",data.CompanionReachable && npc.Safe);
                     action.ExpectedEncounterId = npc.EncounterId; action.ExpectedOwnerAlias = npc.OwnerAlias;
                     lines.Insert(1,action);
                 } else lines.Insert(1,MenuLine.Fact("activitySelection","Activity actions","Select in world","To assign an activity, first select this same promoted NPC with UX4."));
