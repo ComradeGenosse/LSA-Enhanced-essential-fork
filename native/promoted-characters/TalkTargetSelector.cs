@@ -196,7 +196,10 @@ namespace LSA.PromotedCharacters
             ptt.CompleteStop(generation);
             // Stock/MarkedTalk taking the microphone is a newer conversation
             // authority. Do not drag a previous promoted relationship over it.
-            if (outcome == "ownership_lost") ClearContinuity("mic_ownership_lost");
+            if (outcome == "ownership_lost") {
+                ClearContinuity("mic_ownership_lost");
+                Drop("mic_ownership_lost"); // invalidate any explicit selector too
+            }
             if (directPtt) {
                 directPtt = false;
                 policy.Clear("direct_release");
