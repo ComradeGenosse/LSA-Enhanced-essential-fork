@@ -76,7 +76,11 @@ namespace LSA.PromotedCharacters
             // Remoting only schedules; native work executes in a game fiber.
             GameFiber.StartNew(()=>{
                 string exitReason="host_unavailable";
+                HostInterruptionEvidence focusEvidence=null;
                 try {
+                    // Background sampler uses OS window state only, never GTA
+                    // natives. Evidence is logged on this owner fiber after resume.
+                    focusEvidence=new HostInterruptionEvidence(HostInterruptionEvidence.ReadProcessForeground);
                     GameFiber.Yield();
                     if(stopping) return;
                     host=new HostContext();
@@ -116,8 +120,21 @@ namespace LSA.PromotedCharacters
                         } catch {Game.LogTrivial("[RX] optional_host_unavailable");}
                     }
                     Game.LogTrivial(integration.IsAvailable?"[P2] integrations_installed":"[P2] integration_unavailable");
-                    var statusClock=Stopwatch.StartNew();long nextStatus=0;
+                    var statusClock=Stopwatch.StartNew();long nextStatus=0,lastWake=-1;
                     while(!stopping && integration.IsAvailable) {
+                        var wake=statusClock.ElapsedMilliseconds;
+                        HostInterruptionEvidence.FocusTransition transition;
+                        while(focusEvidence!=null && focusEvidence.TryRead(out transition))
+                            LSA.Intelligence.IntelligenceIntegration.LogStatus(
+                                "[P2] focus_changed observed_utc="+transition.Utc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")+
+                                " foreground="+(transition.Foreground==1?"yes":transition.Foreground==0?"no":"unknown")+
+                                " host_run="+host.HostRunId+" world_epoch="+host.WorldEpoch);
+                        if(HostInterruptionEvidence.OwnerFiberGap(lastWake,wake))
+                            LSA.Intelligence.IntelligenceIntegration.LogStatus(
+                                "[P2] owner_fiber_gap observed_utc="+DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")+
+                                " gap_ms="+(wake-lastWake)+" host_run="+host.HostRunId+
+                                " world_epoch="+host.WorldEpoch+" cause=unverified");
+                        lastWake=wake;
                         if(intelligence!=null && statusClock.ElapsedMilliseconds>=nextStatus) {
                             nextStatus=statusClock.ElapsedMilliseconds+10000;
                             ReportStatus();
@@ -126,6 +143,7 @@ namespace LSA.PromotedCharacters
                     }
                 } catch {exitReason="host_failed";LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] host_initialization_failed");}
                 finally {
+                    try {focusEvidence?.Dispose();}catch{}
                     EssentialInputInterception.ReleaseAll();
                     if(stopping) exitReason="host_stop_requested";
                     LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] host_exit reason="+exitReason+" p2_reason="+(integration?.UnavailabilityReason??"not_initialized"));
