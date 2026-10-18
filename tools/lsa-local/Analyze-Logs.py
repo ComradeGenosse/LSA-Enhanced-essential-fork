@@ -118,6 +118,70 @@ def collector_metadata(files, gaps):
     return result
 
 
+def build_evidence(files, issues):
+    """Only curated SHA256 evidence emitted by the collector is safe to report."""
+    candidates = [(p, x) for p, x in files.items() if PurePosixPath(p).name == "build-evidence.json"]
+    result = {"file": None, "build_manifests": [], "installed_files": []}
+    if len(candidates) != 1:
+        issues.append("build_evidence_missing_or_ambiguous")
+        return result
+    name, body = candidates[0]
+    result["file"] = name
+    try:
+        obj = json.loads(body.decode("utf-8-sig"))
+        if obj.get("SchemaVersion") != 1:
+            raise ValueError()
+        for row in obj.get("BuildManifests", [])[:50]:
+            if not isinstance(row, dict) or row.get("Origin") not in ("game", "package"):
+                continue
+            hashes = {key: value.lower() for key in ("ManifestSHA256", "builtBundleSha256",
+                       "e1SourceTreeSha256", "releasePayloadSha256", "upstreamBundleSha256",
+                       "stockDllReferenceSha256") if isinstance(value := row.get(key), str)
+                       and re.fullmatch(r"[a-fA-F0-9]{64}", value)}
+            result["build_manifests"].append({"origin": row["Origin"], "hashes": hashes,
+                "evidence": evidence(name)})
+        allowed = {"RagePluginHook.exe":"native.rph",
+                   "Plugins/LosSantosAlive.dll":"native.p2",
+                   "Plugins/LSA.Standalone.RageHost.dll":"native.rph",
+                   "Plugins/LSA.Enhanced.dll":"native.enhanced",
+                   "Plugins/LSA.PromotedCharacters.dll":"native.p2"}
+        for row in obj.get("DeployedDllCandidates", [])[:50]:
+            if not isinstance(row, dict):
+                continue
+            path, digest = row.get("RelativePath"), row.get("SHA256")
+            if (path in allowed and isinstance(digest, str) and
+                    re.fullmatch(r"[a-fA-F0-9]{64}", digest) and
+                    row.get("Evidence") == "file_present_not_loaded"):
+                result["installed_files"].append({"id": allowed[path], "file": path,
+                    "sha256": digest.lower(), "load_state": "unverified",
+                    "evidence": evidence(name)})
+    except (ValueError, UnicodeError, TypeError, AttributeError):
+        issues.append("build_evidence_invalid")
+    return result
+
+
+def native_diagnostics(files):
+    """Bounded safe P2 reason codes. Never echo raw native log lines."""
+    found = []
+    pattern = re.compile(r"\[P2 OBS1\] control_channel_failure code=([A-Za-z_]{1,64})" +
+        r".*?host_run=(" + UUID + r"|unavailable) world_epoch=(\d{1,9})")
+    for name, data in files.items():
+        if not name.lower().endswith((".log", ".txt")):
+            continue
+        if "rph" not in name.lower() and "rage" not in name.lower():
+            continue
+        if len(found) >= 300:
+            break
+        for lineno, line in enumerate(data.splitlines()[:100000], 1):
+            match = pattern.search(line.decode("utf-8", errors="replace"))
+            if match:
+                found.append({"reason": match.group(1), "host_run": match.group(2),
+                    "world_epoch": int(match.group(3)), "evidence": evidence(name, lineno)})
+            if len(found) >= 300:
+                break
+    return found
+
+
 def parse_inputs(files, issues):
     manifests, events, malformed = collections.defaultdict(list), collections.defaultdict(list), collections.Counter()
     for filename, contents in files.items():
@@ -195,7 +259,7 @@ def session_gaps(rows, manifest, malformed, archive_gaps):
     return list(dict.fromkeys(gap))
 
 
-def health_row(raw, transitions, gaps):
+def health_row(raw, transitions, gaps, install=None):
     mode = raw.get("configuredMode", "unknown")
     if not isinstance(mode, str):
         mode = "unknown"
@@ -276,9 +340,12 @@ def health_row(raw, transitions, gaps):
         label, reason = "unknown", "incomplete_evidence_cannot_establish_current_health"
     if mode == "shadow" and label == "operational":
         reason = "shadow_operation_only_not_production_activation"
+    if installed == "unknown" and install:
+        installed = "file_present_load_unverified"
     return {
-        "id": raw["id"], "family": raw.get("family"), "implemented": implemented,
-        "installed": installed, "configured_mode": mode, "initialization": initialization,
+        "id": raw["id"], "family": raw.get("family") if SYSTEM_ID.fullmatch(str(raw.get("family", ""))) else "unknown",
+        "implemented": implemented, "installed": installed,
+        "deployment_evidence": install or [], "configured_mode": mode, "initialization": initialization,
         "health": label, "reason": reason, "dependencies": [x for x in raw.get("dependencies", [])
              if isinstance(x, str) and SYSTEM_ID.fullmatch(x)][:40],
         "last_successful_operation": last_success, "recent_failures": failures,
@@ -341,9 +408,15 @@ def failure_summary(events):
 def build_report(files, source_issues=()):
     issues = list(source_issues)
     collection = collector_metadata(files, issues)
+    build = build_evidence(files, issues)
+    native = native_diagnostics(files)
+    installs = collections.defaultdict(list)
+    for installed in build["installed_files"]:
+        installs[installed["id"]].append(installed)
     manifests, event_groups, malformed = parse_inputs(files, issues)
     report = {"schema_version": 1, "tool": "lsa_obs3_zip_analyzer",
         "scope": "ZIP-only evidence, no live queries", "collection": collection,
+        "build_evidence": build, "unassigned_native_diagnostics": [],
         "archive_issues": [], "sessions": []}
     for run_id in sorted(set(manifests) | set(event_groups)):
         options = manifests.get(run_id, [])
@@ -357,11 +430,25 @@ def build_report(files, source_issues=()):
         for x in events:
             if x["event"] == "system_health" and SYSTEM_ID.fullmatch(x["data"].get("systemId", "")):
                 by_id[x["data"]["systemId"]].append(x)
-        matrix = ([health_row(row, by_id[row["id"]], gaps) for row in manifest["doc"]["systems"]]
-                  if manifest else [])
+        matrix = ([health_row(row, by_id[row["id"]], gaps, installs.get(row["id"]))
+                   for row in manifest["doc"]["systems"]] if manifest else [])
         counts = collections.Counter(row["health"] for row in matrix)
+        host_scopes = {(d.get("hostRunId"), d.get("worldEpoch"))
+                       for e in events for d in [e["data"]]
+                       if isinstance(d.get("hostRunId"), str) and type(d.get("worldEpoch")) is int}
+        native_for_run = [n for n in native if (n["host_run"], n["world_epoch"]) in host_scopes]
+        if native_for_run:
+            # Native failures do not certify a running system state; they are
+            # independently correlated by exact verified host/world identity.
+            for row in matrix:
+                if row["id"] == "native.p2":
+                    for n in native_for_run[-8:]:
+                        row["recent_failures"].append({"state": "observed_native_failure",
+                            "reason": n["reason"], "evidence": n["evidence"]})
+                        row["evidence"].append(n["evidence"])
         report["sessions"].append({
             "run_id": run_id,
+            "native_diagnostics": native_for_run,
             "inventory": ({"file": manifest["source"], "sha256": manifest["sha256"],
                            "schema": manifest["doc"]["schemaVersion"], "systems": len(matrix)}
                           if manifest else None),
@@ -372,6 +459,10 @@ def build_report(files, source_issues=()):
             "health_matrix": matrix, "operations": gameplay_operations(events),
             "failures": failure_summary(events),
         })
+    scoped = {(n["host_run"], n["world_epoch"])
+              for session in report["sessions"] for n in session.get("native_diagnostics", [])}
+    report["unassigned_native_diagnostics"] = [n for n in native
+        if (n["host_run"], n["world_epoch"]) not in scoped]
     if not report["sessions"]:
         issues.append("no_structured_sessions")
     report["archive_issues"] = sorted(set(issues))
@@ -387,6 +478,13 @@ def render_md(report):
            "Evidence only. Readiness is not successful gameplay; missing evidence is not failure or success.", ""]
     if report["archive_issues"]:
         out += ["Archive limitations: " + ", ".join(report["archive_issues"]), ""]
+    build = report.get("build_evidence", {})
+    if build.get("installed_files"):
+        out += ["Hashed installed-file evidence (presence only, never loaded/executed): " +
+                ", ".join(x["file"] for x in build["installed_files"]), ""]
+    if report.get("unassigned_native_diagnostics"):
+        out += ["Unassigned native P2 failures (no exact host/world match): " +
+                str(len(report["unassigned_native_diagnostics"])), ""]
     for session in report["sessions"]:
         out += ["## Session " + session["run_id"], "",
                 "Period: " + str(session["first_event"]) + " to " + str(session["last_event"]), "",
@@ -414,6 +512,10 @@ def render_md(report):
         if len(session["operations"]) > 160:
             out.append(str(len(session["operations"]) - 160) + " more operations in JSON report.")
         out += ["", "### Recent failure evidence", ""]
+        for native in session.get("native_diagnostics", [])[-12:]:
+            src = native["evidence"]
+            out.append("- P2 native: " + native["reason"] + " : " + src["file"] + ":" +
+                       str(src["line"]))
         if not session["failures"]["recent"]:
             out.append("No explicit failures observed. This is not proof of error-free operation.")
         for f in session["failures"]["recent"][-35:]:
