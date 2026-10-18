@@ -109,6 +109,20 @@ static partial class Program
         social.Companion.Reply(true,null,"invalid");
         social.Dispatcher.Update();
         Check(social.Dispatcher.Outstanding == 0 && social.Dispatcher.RecentOutcomes.Last().Contains("failed"),"malformed Director response fails closed and releases busy state");
+        var rosterDriver = new Rig();
+        var exactCharacter = new CommandArgs {CharacterId = "11111111-1111-4111-8111-111111111111",
+            ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnershipToken = "33333333-3333-4333-8333-333333333333",
+            Value = "board_vehicle:driver"};
+        Check(rosterDriver.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",exactCharacter) == null &&
+            rosterDriver.Companion.Last["characterId"] as string == exactCharacter.CharacterId &&
+            rosterDriver.Companion.Last["expectedOwnershipToken"] as string == exactCharacter.ExpectedOwnershipToken &&
+            rosterDriver.Companion.Last["expectedEncounterId"] as string == FakeBridge.Encounter,"ACT commands for a roster character bypass mutable UX4 selection but require original ownership token");
+        Check(((Dictionary<string,object>)rosterDriver.Companion.Last["slots"])["seat"] as string == "driver","driver seat uses explicit closed ACT3 slot");
+        rosterDriver.Companion.Reply(true); rosterDriver.Dispatcher.Update(); rosterDriver.Clock.Advance(1000);
+        var invalidCharacter = new CommandArgs {CharacterId = exactCharacter.CharacterId,ExpectedEncounterId = FakeBridge.Encounter,Value = "vehicle_trip"};
+        int boundPosts = rosterDriver.Companion.Bodies.Count;
+        Check(rosterDriver.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",invalidCharacter) == "native_stale" &&
+            rosterDriver.Companion.Bodies.Count == boundPosts,"no ownership token never falls back to current NPC");
         var menuActivity = new Rig(); menuActivity.Fresh(FakeBridge.Owned());
         Check(menuActivity.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",new CommandArgs {Value = "vehicle_trip",ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnerAlias = FakeBridge.Alias}) == null && menuActivity.Companion.Last["intent"] as string == "vehicle_trip","F11 waypoint travel uses existing owned ACT companion path");
         var waypointSlots = (Dictionary<string,object>)menuActivity.Companion.Last["slots"];
