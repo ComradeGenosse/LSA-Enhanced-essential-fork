@@ -232,17 +232,27 @@ namespace LSA.Standalone.RageHost
                 return;
             }
 
+            // An auto-smoke PIN never falls back to a different nearby NPC.
+            // RPH's handle resolver may throw when the target despawns;
+            // validate type/existence and contain that failure locally.
             Ped target = entry.PinnedHandle != 0
-                ? World.GetEntityByHandle<Ped>(new PoolHandle(unchecked((uint)entry.PinnedHandle)))
+                ? RphPedValidity.ResolvePinned(entry.PinnedHandle)
                 : NearestPedAhead();
             if (entry.PinnedHandle != 0)
             {
-                Ped player = Game.LocalPlayer.Character;
-                // Even an automation PIN cannot follow a moving NPC or
-                // resurrect a previous handle outside the local test radius.
-                if (player == null || !RphPedValidity.Exists(player) || player.IsDead ||
-                    target == null || !RphPedValidity.Exists(target) || target.IsDead ||
-                    target == player || target.DistanceTo(player) >= 4.0f)
+                // Even a previously validated PIN cannot follow a moving NPC
+                // or resurrect a recycled handle outside the test radius.
+                bool stillEligible = false;
+                try
+                {
+                    Ped player = Game.LocalPlayer.Character;
+                    stillEligible = player != null && RphPedValidity.Exists(player) &&
+                        !player.IsDead && target != null && RphPedValidity.Exists(target) &&
+                        !target.IsDead && target != player &&
+                        target.DistanceTo(player) < 4.0f;
+                }
+                catch (Exception) { stillEligible = false; }
+                if (!stillEligible)
                 {
                     Game.LogTrivial("[LSA-AUTOSMOKE] pinned_actor_no_longer_eligible");
                     return;
@@ -254,7 +264,10 @@ namespace LSA.Standalone.RageHost
                 return;
             }
 
-            int handle = unchecked((int)target.Handle.Value);
+            // The pinned handle already passed exact-handle validation.
+            // Reusing it avoids another potentially throwing RPH getter.
+            int handle = entry.PinnedHandle != 0
+                ? entry.PinnedHandle : unchecked((int)target.Handle.Value);
             ActorObservation current;
             if (!resolver.TryAdoptVerifiedPed(handle) ||
                 !resolver.TryObserve(handle, out current))
