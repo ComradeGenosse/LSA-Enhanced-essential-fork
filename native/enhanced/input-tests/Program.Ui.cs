@@ -187,6 +187,22 @@ static partial class Program
 
     static void MenuDataTests()
     {
+        // A spawn completion that races a pre-spawn roster reply must request
+        // new native evidence. Routine duplicate reads still coalesce.
+        {
+            var racedCompanion = new FakeCompanion();
+            var raced = new MenuData(racedCompanion,new FakeClock(),work => work());
+            raced.RequestCharacters();
+            raced.RequestCharacters(refreshAfterInFlight:true);
+            Check(racedCompanion.Bodies.Count == 1,"post-spawn roster invalidation coalesces while in flight");
+            racedCompanion.Reply(true,body:Json.Serialize(new object[] {Profile(CharacterA,"Amy",1)}));
+            raced.Pump();
+            Check(racedCompanion.Bodies.Count == 2 && !raced.Characters[0].Spawned,
+                "pre-spawn result is followed by one native roster refresh");
+            racedCompanion.Reply(true,body:Json.Serialize(new object[] {Profile(CharacterA,"Amy",1,runtimeStatus:"spawned")}));
+            raced.Pump();
+            Check(raced.Characters[0].Spawned,"post-spawn refresh updates the displayed owner status");
+        }
         var companion = new FakeCompanion(); var clock = new FakeClock(); var data = new MenuData(companion,clock,work => work());
         data.RequestCharacters(); data.RequestCharacters();
         Check(companion.Bodies.Count == 1 && companion.Last["action"] as string == "list","one roster request in flight");
