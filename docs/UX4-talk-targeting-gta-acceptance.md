@@ -267,7 +267,7 @@ Do not merge if any of these occur:
 ## Direct-talk / explicit-selector split
 
 - Hold the Talk button without tapping first: microphone starts for the best candidate and **no selector bracket appears**.
-- Release, then hold again from a different camera aim: target choice is re-evaluated; the prior direct target is not retained as explicit selector state.
+- Release, then hold again from a different camera aim: ambient direct targets are re-evaluated. A previously committed P1-verified promoted recipient is instead reused while its bounded identity relationship remains valid, with no explicit selector bracket.
 - Tap once: selector bracket appears.
 - Wait about 1 second without talking: bracket fades, but the selected target remains available.
 - Hold after that fade but before the normal selection timeout: the previously tapped target receives the turn.
@@ -292,7 +292,7 @@ Applies only after a DLL built from the committed-recipient feedback change is i
 8. Named recipient (needs the companion running and the DLL with the `recipientAlias` change). Tap/cycle to promoted Nathan B, then hold.
    Pass: one notice, `Talking to: Nathan` (no preceding `Promoted NPC`); log has `recipient kind=promoted evidence=owner_verified` and `recipient_name outcome=shown` and no name/alias/CharacterId. Rename Nathan in the character editor and hold again: the new name shows.
 9. Name fallbacks. With the companion stopped (or `current_describe` failing), hold on Nathan: after about 0.4 s `Talking to: Promoted NPC`, mic and reply unaffected. Promote two characters, then hand-edit the store so both claim one `ownerAlias` (offline test only): expect `Promoted NPC`, never either name. A profile named with `~r~` or markup must show `Promoted NPC`.
-10. Ended/changed target. Hold on Nathan and release inside 0.4 s: no `Talking to` line at all. Hold on Nathan, release, immediately hold on ambient A: only `Nearby NPC`, never Nathan. Switch A/B repeatedly: each notice names the ped that actually received that turn.
+10. Ended/changed target. Hold on Nathan and release inside 0.4 s: no `Talking to` line at all. Hold on Nathan, release, **tap/cycle intentionally to ambient A**, then hold: `Nearby NPC`, never Nathan. Without a tap, a verified Nathan conversation should continue to target Nathan. Switch A/B deliberately: each notice names the ped that actually received that turn.
 11. Regression: Text, MarkedTalk, shared Essential Talk interception, `talkTargeting.enabled=false`, F11 Follow/Wait/Promote, no per-frame cost increase and no HUD spam.
 
 ## K. Verified conversation continuity — October 18 regression
