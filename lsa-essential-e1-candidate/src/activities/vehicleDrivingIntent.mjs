@@ -2,17 +2,21 @@
 // publication guard, not a second vehicle-task or player-intent executor.
 const normalize = value => String(value || '').toLowerCase().replace(/[’]/g, "'")
   .replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim()
-  .replace(/^(?:(?:all right|alright|okay|ok|hey|yo|nathan|dude|man|please) ){0,3}/, '')
-  .replace(/^(?:can you|could you|would you|will you|just) /, '')
-  .replace(/^please /, '');
+  // Discourse/polite address must be at the beginning; never scan a story for
+  // a command embedded somewhere in the sentence.
+  .replace(/^(?:(?:all right|alright|okay|ok|hey|yo|nathan|dude|man|bro|come on|c'mon|cmon|well|yeah|yep|please) ){0,5}/, '')
+  .replace(/^(?:(?:can you|could you|would you|will you|why don't you|just|please) ){0,3}/, '')
+  .replace(/^(?:(?:come on|c'mon|cmon|please) ){0,2}/, '')
+  .replace(/(?: man| dude| bro| nathan| please)$/,'')
+  .trim();
 
 const phrases = Object.freeze({
-  continue: /^(?:keep going|keep on going|keep driving|keep on driving|carry on driving|continue driving|just keep driving|keep rolling|keep moving|go on|carry on)$/,
-  speed_up: /^(?:drive faster|go faster|speed up|pick up the pace|drive a bit faster|hurry up|step on it|floor it)$/,
-  slow_down: /^(?:drive slower|go slower|slow down|slow down a bit|take it slower)$/,
+  continue: /^(?:keep going|keep on going|keep driving|keep on driving|carry on driving|continue driving|just keep driving|keep rolling|keep moving|go on|carry on|don't stop driving|do not stop driving|keep it going)(?: now)?$/,
+  speed_up: /^(?:drive faster|go faster|speed up|speed it up|pick up speed|pick up the speed|pick up the pace|drive a bit faster|drive a little faster|hurry up|step on it|floor it)(?: now)?$/,
+  slow_down: /^(?:drive slower|go slower|slow down|slow it down|slow down a bit|take it slower|take it easy)(?: now)?$/,
   evasive: /^(?:drive evasively|start driving evasively|drive recklessly|lose the cops|evade the cops)$/,
   normal: /^(?:drive normally|stop driving evasively|drive carefully|drive more carefully)$/,
-  start: /^(?:start driving|begin driving|just drive|drive around|let's drive|lets drive|let's go for a drive|lets go for a drive)$/,
+  start: /^(?:start driving|begin driving|just drive|drive around|let's drive|lets drive|let's go for a drive|lets go for a drive|get us moving|get moving)$/,
   stop: /^(?:stop driving|stop the car|pull over|stop the vehicle|stop driving now)$/,
 });
 export function drivingIntentKind(input) {
@@ -33,6 +37,21 @@ export function activeAct6Driving(state, binding = null) {
   return state?.stateVersion === 1 && state.intent === 'vehicle_trip' &&
     ['admitting','resolving','preflighting','running','holding','paused','resuming'].includes(state.status);
 }
+// ACT5 owner.binding intentionally omits the runtime hostContext. Restore the
+// separately authenticated context before calling the existing owner-fenced
+// activity-state API; never trust an unscoped/retired activity.
+export function liveAct6Driving(activities, owner) {
+  if (!owner?.binding || !owner?.hostContext || !activities?.stateForCharacter) return false;
+  const binding = { ...owner.binding, hostContext: owner.hostContext };
+  try {
+    const state = activities.stateForCharacter(binding);
+    return activeAct6Driving(state, binding) &&
+      state?.hostContext?.hostContextVersion === binding.hostContext.hostContextVersion &&
+      state?.hostContext?.hostRunId === binding.hostContext.hostRunId &&
+      state?.hostContext?.worldEpoch === binding.hostContext.worldEpoch;
+  } catch { return false; }
+}
+
 export function drivingModelGuidance(kind, act6OwnsDrive = false) {
   if (!kind && !act6OwnsDrive) return '';
   const rules = [
