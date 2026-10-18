@@ -3,7 +3,7 @@ export const EVENT_NAMES = new Set([
   'input_ready','capture_started','capture_stopped','mic_chunk','input_overflow','provider_request_started',
   'provider_headers','provider_first_byte','provider_request_finished','provider_request_failed','model_usage',
   'model_first_content_delta','stream_segment_validated','stream_segments_reflowed','model_decision_validation_failure','stream_tts_segment_started','stream_tts_segment_finished',
-  'decision_validated','decision_rejected','pcm_first_ready','pcm_delivery_summary','elevenlabs_tts_timing_summary','native_authorization_requested',
+  'decision_validated','decision_rejected','pcm_first_ready','pcm_delivery_summary','elevenlabs_tts_timing_summary','elevenlabs_stream_stage','native_authorization_requested',
   'native_authorization_accepted','native_authorization_rejected','native_playback_started','native_stream_end_handoff',
   'native_playback_ended','provider_deadline_fired','playback_watchdog_armed','playback_watchdog_fired','late_pcm_ignored',
   'provider_selected','provider_attempt_started','provider_attempt_succeeded','provider_retry_scheduled','provider_retry_skipped','provider_retry_exhausted','provider_retry_recovered',

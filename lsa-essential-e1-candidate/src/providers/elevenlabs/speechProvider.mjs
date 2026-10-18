@@ -15,7 +15,9 @@ const MAX_MESSAGE_CHARS = 1_500_000;
 const MAX_AUDIO_BYTES = 24_000_000;
 const CHUNK_BYTES = 24_000; // 500 ms native forwarding, matching Qwen.
 const VOICE_ID = /^[A-Za-z0-9]{20}$/;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==)?|[A-Za-z0-9+/]{3}=?)?$/;
+// Some base64 encoders omit optional padding. Accept only canonical bytes,
+// never arbitrary characters or silently truncated base64 groups.
 // Defense in depth: a vendor tag is never accepted as an input parameter.
 // The only acting-capable extension is EA0's injected trusted renderer.
 const ALLOWED_TAG = Object.freeze(Object.fromEntries(
@@ -129,11 +131,12 @@ function safeTime(clock) {
 }
 export function decodePcmAudio(encoded, maxBytes, {allowOddLength=false}={}) {
   if (typeof encoded !== 'string' || !encoded.length || encoded.length > Math.ceil(maxBytes * 4 / 3) + 4 ||
-      encoded.length % 4 !== 0 || !BASE64.test(encoded))
+      encoded.length % 4 === 1 || !BASE64.test(encoded))
     throw fault('elevenlabs_invalid_audio');
-  const pcm = Buffer.from(encoded, 'base64');
+  const padded = encoded.padEnd(Math.ceil(encoded.length / 4) * 4, '=');
+  const pcm = Buffer.from(padded, 'base64');
   if (!pcm.length || (!allowOddLength && pcm.length % 2) || pcm.length > maxBytes ||
-      pcm.toString('base64') !== encoded)
+      pcm.toString('base64') !== padded)
     throw fault('elevenlabs_invalid_audio');
   return pcm;
 }
@@ -178,6 +181,7 @@ export function createElevenLabsSpeechProvider({
       let completed = false, failed = null, closed = false, generatedBytes = 0;
       let chunks = 0, firstAudioAt = null, forwardedBytes = 0, forwardedChunks = 0;
       let queueBytes = 0, drained = false, wake = null;
+      let failureStage = 'none', emptyMarkers = 0, synthesized = false;
       // WS frames can split a PCM16 sample; only whole samples reach native.
       let pendingPcmByte = null;
       let resolveFinished, rejectFinished;
@@ -190,22 +194,24 @@ export function createElevenLabsSpeechProvider({
         closed = true;
         try { socket.close(1000); } catch {}
       };
-      const fail = error => {
+      const fail = (error, stage = 'provider_stream') => {
         if (failed || (completed && drained)) return;
         failed = error;
+        failureStage = stage;
         signalWake();
         rejectFinished(error);
         close();
       };
-      const abort = () => fail(fault('cancelled'));
-      const timeout = setTimeout(() => fail(fault('timeout')), timeoutMs);
+      const abort = () => fail(fault('cancelled'), 'interruption');
+      const timeout = setTimeout(() => fail(fault('timeout'), 'provider_timeout'), timeoutMs);
       signal?.addEventListener('abort', abort, { once:true });
       const record = (name, data) => telemetry?.event(name, {
         provider:'elevenlabs', modelId:config.elevenLabs.modelId, ...data,
       });
+      record('elevenlabs_stream_stage', {stage:'format_selected',sampleRate:24000,channels:1});
       const enqueue = pcm => {
         if (generatedBytes + pcm.length > maxBytes || queueBytes + pcm.length > maxBytes)
-          return fail(fault('elevenlabs_pcm_limit'));
+          return fail(fault('elevenlabs_pcm_limit'), 'pcm_limit');
         generatedBytes += pcm.length;
         queueBytes += pcm.length;
         queue.push(pcm);
@@ -234,12 +240,20 @@ export function createElevenLabsSpeechProvider({
             if (failed) throw failed;
             const part = pcm.subarray(at, Math.min(at+CHUNK_BYTES, pcm.length));
             if (signal?.aborted) throw fault('cancelled');
-            await onPcm(new Uint8Array(part));
+            try { await onPcm(new Uint8Array(part)); }
+            catch (error) {
+              // Native ownership/cancellation failures are not provider audio corruption.
+              fail(error, 'native_pcm');
+              throw error;
+            }
             // A final WebSocket frame does NOT authorize forwarding audio after
             // a native turn has been interrupted during the asynchronous callback.
             if (failed || signal?.aborted) throw failed || fault('cancelled');
             forwardedBytes += part.byteLength;
             forwardedChunks++;
+            if (forwardedChunks === 1) record('elevenlabs_stream_stage', {
+              stage:'pcm_forwarded',pcmBytes:part.byteLength,
+            });
           }
         }
         drained = true;
@@ -247,16 +261,18 @@ export function createElevenLabsSpeechProvider({
       const eventData = event => typeof event?.data === 'string' ? event.data : null;
       const onOpen = () => {
         if (failed || signal?.aborted) return abort();
+        record('elevenlabs_stream_stage', {stage:'socket_open'});
         try {
           // Dedicated per-turn connection. Key is only sent inside authenticated
           // TLS socket, never as a URL or telemetry field.
           socket.send(JSON.stringify({voices:[voiceId],xi_api_key:key}));
           socket.send(JSON.stringify({inputs:[{text:speechPayload.text,voice_id:voiceId,new_turn:false}]}));
           socket.send(JSON.stringify({close_socket:true}));
-        } catch { fail(fault('elevenlabs_send_failed')); }
+        } catch { fail(fault('elevenlabs_send_failed'), 'request_send'); }
       };
       const onMessage = event => {
         if (failed || completed) return;
+        let stage = 'message_decode';
         try {
           const raw=eventData(event);
           if (raw === null || raw.length > MAX_MESSAGE_CHARS)
@@ -264,14 +280,18 @@ export function createElevenLabsSpeechProvider({
           const message = JSON.parse(raw);
           if (!message || typeof message !== 'object' || Array.isArray(message))
             throw fault('elevenlabs_invalid_message');
-          if (message.error || message.detail?.status === 'error' || message.type === 'error')
+          if (message.error || message.detail?.status === 'error' || message.type === 'error') {
+            stage = 'provider_rejected';
             throw fault(classifyElevenLabsError(message));
+          }
           if (message.audio !== undefined && message.audio !== null) {
-            // An empty final audio value is a control marker; malformed or
-            // empty nonfinal frames still fail closed.
-            if (message.audio === '' && message.is_final !== true)
-              throw fault('elevenlabs_invalid_audio');
-            if (message.audio !== '') {
+            // Empty audio data conveys no PCM. It may accompany control frames:
+            // do not fail an otherwise healthy stream on a zero-byte marker.
+            // A complete stream with zero total PCM still fails below.
+            if (message.audio === '') {
+              if (emptyMarkers++ === 0) record('elevenlabs_stream_stage', {stage:'empty_audio_marker'});
+            } else {
+              stage = 'audio_decode';
               const pcm = decodePcmAudio(message.audio,
                 Math.min(maxBytes - generatedBytes - (pendingPcmByte === null ? 0 : 1), MAX_AUDIO_BYTES),
                 {allowOddLength:true});
@@ -286,17 +306,19 @@ export function createElevenLabsSpeechProvider({
             }
           }
           if (message.is_final === true) {
+            stage = 'pcm_alignment';
             if (pendingPcmByte !== null) throw fault('elevenlabs_invalid_audio');
             if (failed) return;
             completed = true;
+            record('elevenlabs_stream_stage', {stage:'provider_final',generatedChunks:chunks});
             signalWake();
             resolveFinished();
           }
         } catch (error) {
-          fail(error?.code?.startsWith?.('elevenlabs_') ? error : fault('elevenlabs_invalid_message'));
+          fail(error?.code?.startsWith?.('elevenlabs_') ? error : fault('elevenlabs_invalid_message'), stage);
         }
       };
-      const onError = () => fail(fault('elevenlabs_connection_error'));
+      const onError = () => fail(fault('elevenlabs_connection_error'), 'socket_error');
       const onClose = (event) => {
         if (!completed && !failed) {
           // The numeric WebSocket close code is protocol metadata, not
@@ -306,7 +328,7 @@ export function createElevenLabsSpeechProvider({
             ? (code === 1008 ? 'elevenlabs_policy_closed' :
               code === 1013 ? 'elevenlabs_rate_limited' : 'elevenlabs_connection_closed')
             : 'elevenlabs_connection_closed';
-          fail(fault(closeCategory));
+          fail(fault(closeCategory), 'socket_closed');
         }
       };
       socket.addEventListener('open', onOpen);
@@ -317,8 +339,10 @@ export function createElevenLabsSpeechProvider({
         const [_, __] = await Promise.all([pump(), finished]);
         if (failed) throw failed;
         if (signal?.aborted) throw fault('cancelled');
-        if (!drained || !forwardedBytes || forwardedBytes !== generatedBytes)
+        if (!drained || !forwardedBytes || forwardedBytes !== generatedBytes) {
+          failureStage = !forwardedBytes ? 'empty_stream' : 'pcm_accounting';
           throw fault('elevenlabs_invalid_audio');
+        }
         if (actingMode !== 'off') telemetry?.event('acting_tts_delivery', {
           mode: actingMode, tagged: speechPayload.tagged,
           selected: validDelivery(input.delivery) ? input.delivery.value : 'neutral',
@@ -354,12 +378,13 @@ export function createElevenLabsSpeechProvider({
             tag:speechPayload.tag,
           });
         }
+        synthesized = true;
         return result;
       } catch(error) {
         fail(error);
         record('elevenlabs_tts_timing_summary', {
           outcome:'failed', code:failed?.code || error?.code || 'elevenlabs_audio_delivery_failed',
-          generatedChunks:chunks, forwardedChunks, pcmBytes:forwardedBytes,
+          stage:failureStage, generatedChunks:chunks, forwardedChunks, pcmBytes:forwardedBytes,
           wallMs:safeTime(clock)-started,
         });
         throw failed || error;
@@ -367,6 +392,10 @@ export function createElevenLabsSpeechProvider({
         clearTimeout(timeout);
         signal?.removeEventListener('abort', abort);
         close();
+        record('elevenlabs_stream_stage', {
+          stage:'socket_cleanup', outcome:synthesized ? 'finished' : 'failed',
+          forwardedBytes,forwardedChunks,
+        });
       }
     },
   });
