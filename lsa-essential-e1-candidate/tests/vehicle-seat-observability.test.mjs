@@ -7,13 +7,14 @@ import {fileURLToPath} from 'node:url';
 test('seat events are registered, bounded and do not leak raw dialogue or reference tokens',()=>{
   for(const event of ['vehicle_seat_requested','vehicle_seat_reconciled','vehicle_seat_admission']) {
     const record=createTelemetryRecord({sequence:1,runId:'audit',originMs:0,event,
-      data:{seat:'driver',accepted:true,stage:'classified',code:'seat_occupied',
+      data:{seat:'driver',accepted:true,stage:'classified',code:'seat_occupied',modelCommandKind:'placeholder',
         command:'DO EnterDriverSeat <vehicle>',transcript:'private player words',
         vehicleReference:'V001',unapprovedSeat:'roof'},now:1,utc:'2026-10-18T14:00:00.000Z'});
     assert.equal(record.event,event);
     assert.equal(record.data.seat,'driver');
     assert.equal(record.data.accepted,true);
     assert.equal(record.data.code,'seat_occupied');
+    assert.equal(record.data.modelCommandKind,'placeholder');
     assert.equal('command' in record.data,false);
     assert.equal('transcript' in record.data,false);
     assert.equal('vehicleReference' in record.data,false);
