@@ -41,7 +41,9 @@ namespace LSA.Enhanced.Ui
         string selectedCharacterId, currentTitle, activityTargetEncounterId, activityTargetOwnerAlias;
         Page armedPage; UIMenuItem armedItem; MenuLine armedLine; string armedTarget; long armedUntil;
         List<MenuLine> aiLines;
-        long nextRender, nextInterest, nextRoster, nextReadiness, aiReadAt = -1;
+        long nextRender, nextInterest, nextRoster, nextReadiness, nextDirectorPoll, aiReadAt = -1;
+        long directorBefore = -1;
+        bool directorPending;
         int dataVersion = -1;
         bool rendering, yielded;
         string aiConfig; bool aiCredential;
@@ -147,6 +149,7 @@ namespace LSA.Enhanced.Ui
                 if (now >= nextRender) { Render(page); nextRender = now + RenderIntervalMs; }
                 if ((menu == roster || menu == character) && now >= nextRoster) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
                 if (menu == navigation && now >= nextReadiness) { data.RequestActivityReadiness(); nextReadiness = now + AiReadIntervalMs; }
+                if (menu == director && now >= nextDirectorPoll) { data.RequestDirectorStatus(); nextDirectorPoll = now + 1500; }
             }
             pool.ProcessMenus();
         }
@@ -185,6 +188,7 @@ namespace LSA.Enhanced.Ui
             Invalidate(page);
             if (menu == roster || menu == character || ((menu == current || menu == navigation) && data.Characters == null)) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
             if (menu == navigation) { data.RequestActivityReadiness(); nextReadiness = now + AiReadIntervalMs; }
+            if (menu == director) { data.RequestDirectorStatus(); nextDirectorPoll = now + 1500; }
             if (menu == ai) aiReadAt = -1;
         }
         void Selected(UIMenu sender,UIMenuItem item,int index)
@@ -193,6 +197,10 @@ namespace LSA.Enhanced.Ui
             if (line.Options != null) { SaveChoice(page,item,line); return; }
             if (line.Command == null || line.Command.StartsWith("local.",StringComparison.Ordinal)) { Local(page,line); return; }
             if (line.Command == CommandCatalog.CharacterRename || line.Command == CommandCatalog.CharacterMemoryAdd) { TypeText(page,line); return; }
+            if (line.Command == CommandCatalog.DirectorSocialManual) {
+                directorBefore = data.DirectorStatus?.ReceivedAt ?? -1;
+                directorPending = true;
+            }
             if (line.Confirm && !(armedItem == item && context.Clock.Monotonic <= armedUntil)) { Arm(page,item,line); return; }
             // The second select must still mean the same NPC or character.
             if (line.Confirm && armedTarget != Target(page)) { Disarm(); context.Hud.Show(context.Catalog.Describe("target_changed")); return; }
@@ -237,6 +245,9 @@ namespace LSA.Enhanced.Ui
         {
             switch (line.Command ?? line.Key) {
                 case LocalOpenCharacter: OpenCharacter(line.Value,page.Menu); break;
+                case "local.openDirector":
+                    director.ParentMenu = page.Menu; Invalidate(pages[director]);
+                    page.Menu.Visible = false; director.Visible = true; break;
                 case "local.openNavigation":
                     navigation.ParentMenu = page.Menu; Invalidate(pages[navigation]);
                     page.Menu.Visible = false; navigation.Visible = true; break;
@@ -248,6 +259,8 @@ namespace LSA.Enhanced.Ui
                     page.Menu.Visible = false; activities.Visible = true; break;
                 case LocalRefresh: case "refresh":
                     if (page.Menu == roster || page.Menu == character) data.RequestCharacters();
+                    if (page.Menu == director) data.RequestDirectorStatus();
+                    if (page.Menu == navigation) data.RequestActivityReadiness();
                     data.Probe(); aiReadAt = -1; Invalidate(page); break;
                 case "log": context.Log("[UX] diagnostics " + string.Join("; ",DiagnosticsLines().Where(item => item.Info).Select(item => item.Text + "=" + item.Right))); context.Hud.Show("Diagnostics written to RagePluginHook.log"); break;
                 case CurrentNpcView.ClearTalkCommand: context.ClearTalkTarget(); Invalidate(page); break;
@@ -297,6 +310,10 @@ namespace LSA.Enhanced.Ui
         void Completed(MenuLine line,string reason,string body)
         {
             switch (line.Command) {
+                case CommandCatalog.DirectorSocialManual:
+                    if (reason != null) directorPending = false;
+                    else data.RequestDirectorStatus();
+                    break;
                 case CommandCatalog.CharacterRename: case CommandCatalog.CharacterRelationship: case CommandCatalog.CharacterAvailability:
                 case CommandCatalog.CharacterMemorySelect: case CommandCatalog.CharacterMemoryAdd:
                     // The reply carries the new revision; anything else reloads the roster.
@@ -461,7 +478,9 @@ namespace LSA.Enhanced.Ui
             }
             if (page.Menu == director) {
                 subtitle = "Director & Social";
-                return DirectorSocialView.Build();
+                if (directorPending && data.DirectorStatus != null && data.DirectorStatus.ReceivedAt > directorBefore)
+                    directorPending = false;
+                return DirectorSocialView.Build(data.DirectorStatus,data.CompanionReachable,directorPending,directorBefore);
             }
             if (page.Menu == roster) {
                 subtitle = "My Characters";
