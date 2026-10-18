@@ -56,7 +56,7 @@ namespace LSA.PromotedCharacters
             } catch { indicator.Clear(); }
         }
         public object AsResult(TalkTargetView view) => view != null && view.Present ? Payload(view,EncounterOf(Bound()),0,view.PttCommitted,RecipientOf(Bound(),view.Address)) : new {present = false,reason = view?.Reason,indicator = indicator.State};
-        public TalkTargetView SelectFirst(long now,TalkTargetOptions next) { clock = now; ClearContinuity("player_select"); return Select(now,Sanitize(next),true); }
+        public TalkTargetView SelectFirst(long now,TalkTargetOptions next) { clock = now; if (ptt.IsLive) return Current(now,"ptt_busy"); ClearContinuity("player_select"); return Select(now,Sanitize(next),true); }
         public TalkTargetView SelectNext(long now,TalkTargetOptions next)
         {
             clock = now;
@@ -131,14 +131,15 @@ namespace LSA.PromotedCharacters
                 try {
                     NpcTargeting.SetPlayerConversationPed(ped);
                     essentialPed = ped; essentialAddress = address; essentialSet = true;
-                    if (NpcTargeting.GetPlayerConversationPed() != ped) { TryRevert(ped); ptt.Fence(generation); throw new InvalidOperationException("recipient_mismatch"); }
+                    if (NpcTargeting.GetPlayerConversationPed() != ped) { Trace("[UX4] talk_ptt rejected reason=recipient_mismatch intended_actual=different"); TryRevert(ped); ptt.Fence(generation); throw new InvalidOperationException("recipient_mismatch"); }
                     InputController.SendMicStart(ped);
                     if (!mic.Owns(ped,address)) { TryRevert(ped); ptt.Fence(generation); throw new InvalidOperationException("mic_ownership_lost"); }
 
                     var committedRecipient = RecipientOf(ped,address);
                     if (retainedForThisHold && (committedRecipient.Kind != TalkRecipientKind.Promoted ||
                         committedRecipient.Evidence != "owner_verified" ||
-                        committedRecipient.Alias != continuity.Alias || committedRecipient.IncarnationId != continuity.IncarnationId)) {
+                        committedRecipient.Alias != continuity.Alias || committedRecipient.IncarnationId != continuity.IncarnationId ||
+                        committedRecipient.OwnershipToken != continuity.OwnershipToken)) {
                         string aborted = mic.StopOwned(ped,address);
                         if (aborted == "native_operation_failed" || aborted == "mic_state_unavailable") throw new InvalidOperationException(aborted);
                         TryRevert(ped); ptt.Fence(generation);
@@ -367,7 +368,7 @@ namespace LSA.PromotedCharacters
         void RememberRecipient(Ped ped,long address,TalkRecipientFeedback feedback,long now)
         {
             if (feedback.Kind == TalkRecipientKind.Promoted && feedback.Evidence == "owner_verified" &&
-                feedback.Alias != null && feedback.IncarnationId != null) {
+                feedback.Alias != null && feedback.IncarnationId != null && feedback.OwnershipToken != null) {
                 continuity.Remember(ped.Handle.ToString(),address,feedback,now);
                 continuityPed = ped;
                 try {
