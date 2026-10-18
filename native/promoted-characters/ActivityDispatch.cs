@@ -282,13 +282,14 @@ namespace LSA.PromotedCharacters
                     if (state.FollowPlayerOnFoot) { NpcActions.ClearFollowFlags(state); FollowBehavior.StopFollowTarget(state); }
                     if (state.SitOnGroundMode) ComplianceBehavior.StopSitOnGround(state);
                     if (capability == "drive_to") {
-                        // Essential's free-drive mode is persistent: simply issuing the
-                        // GTA route task leaves its background reissuer alive, which can
-                        // overwrite ACT6 navigation every few seconds. Clear that stock
-                        // vehicle mode using Essential's own registered stop API BEFORE
-                        // installing our single owner-scoped navigation task. This is a
-                        // transfer of task ownership, not a repeated per-tick reset.
+                        // The pinned Essential DLL's StopAllVehicleCommands omits
+                        // DriveToXWhenBothSeated. Its UpdateStartDriving loop will
+                        // otherwise reissue TASK_VEHICLE_DRIVE_WANDER every 3000 ms,
+                        // overwriting the ACT6 destination task. Stop stock modes first
+                        // and retire that *same actor's* persistent free-drive flag
+                        // before issuing the one owned route task.
                         VehicleBehavior.StopAllVehicleCommands(ped,state);
+                        state.DriveToXWhenBothSeated = false;
                         state.StayUnderLsaControl = true;
                     }
                     var dest = new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z);
