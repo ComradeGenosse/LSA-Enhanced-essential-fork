@@ -89,9 +89,9 @@ jobs:
         run: |
           dotnet build native/standalone-host/tests/FakeRphSdk.csproj -c Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $stub = (Resolve-Path 'native/standalone-host/tests/bin/Release/net481/RagePluginHook.dll').Path
-          dotnet build native/standalone-host/LSA.Standalone.RageHost.csproj -c Release "-p:RphReferencePath=$stub"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The fake SDK is for unit fixtures ONLY. Never compile the deployable
+          # host against the fake assembly in this job: a second MSBuild pass
+          # can resolve a cached reference even with -t:Rebuild.
           dotnet build native/standalone-host/tests/Phase2PipeHarness.csproj -c Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet restore native/standalone-host/tests/RealRphReference.csproj
@@ -99,9 +99,8 @@ jobs:
           $sdk = Get-ChildItem -Path (Join-Path $env:USERPROFILE '.nuget/packages/ragepluginhook/1.124.0') -Filter RagePluginHook.dll -Recurse -File |
             Select-Object -First 1 -ExpandProperty FullName
           if (-not $sdk) { throw 'Official RPH reference unavailable' }
-          # CRITICAL: MSBuild may consider the prior fake-SDK build up-to-date
-          # even though RphReferencePath changed. Force a clean real-SDK compile
-          # so ONLY this binary, not the fake-SDK output, is packaged for GTA.
+          # The release host is compiled EXACTLY ONCE, against the official SDK.
+          # It must not inherit a cached fake-SDK ResolveAssemblyReference result.
           dotnet build native/standalone-host/LSA.Standalone.RageHost.csproj -c Release -t:Rebuild "-p:RphReferencePath=$sdk"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # Scan every imported RPH type/member against the REAL SDK reference,
