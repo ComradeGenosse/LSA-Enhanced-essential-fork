@@ -38,12 +38,15 @@ public sealed class Scenario:MarshalByRefObject
         Check(PromotedCharactersIntegration.Submissions==0 && PromotedCharactersIntegration.SnapshotRequests==0,"The bridge reached an integration before the owner existed.");
         Check(GameFiber.Scheduled==1 && PromotedCharactersIntegration.ShutdownRequests==0 && PromotedCharactersIntegration.Shutdowns==0,"A rejected pending duplicate changed the owner.");
         bool pendingWaited=false,wasReady=false,wasAlive=false,rejected=false,ownerPreserved=false,bridged=false;
+        string ownerSnapshot="not sampled";
         GameFiber.OnSleep=()=>{
             pendingWaited=!RuntimeEntry.Ready && PromotedCharactersIntegration.Prepared==1 && PromotedCharactersIntegration.Initialized==0;
             IntegrationManager.InitializeFromCore();
             wasReady=RuntimeEntry.Ready;wasAlive=RuntimeEntry.Alive;
             rejected=!RuntimeEntry.Start(Config);
             ownerPreserved=RuntimeEntry.Ready && PromotedCharactersIntegration.ShutdownRequests==0 && PromotedCharactersIntegration.Shutdowns==0 && IntegrationManager.Registered==1 && GameFiber.Scheduled==1;
+            ownerSnapshot="ready="+RuntimeEntry.Ready+" shutdown_requests="+PromotedCharactersIntegration.ShutdownRequests+
+                " shutdowns="+PromotedCharactersIntegration.Shutdowns+" registered="+IntegrationManager.Registered+" scheduled="+GameFiber.Scheduled;
             RuntimeEntry.RequestSnapshots(1000);
             bridged=RuntimeEntry.Submit("{}")=="accepted" && RuntimeEntry.TryTakeResult(ResultId)=="{\"v\":1}" && RuntimeEntry.Snapshot()=="{\"v\":1,\"seq\":1}" && PromotedCharactersIntegration.SnapshotRequests==1;
             RuntimeEntry.Stop();
@@ -52,7 +55,7 @@ public sealed class Scenario:MarshalByRefObject
         Check(pendingWaited,"The lifetime fiber did not wait for Core initialization while remaining unavailable to live commands.");
         Check(wasReady && wasAlive,"The accepted fiber did not initialize a ready owner.");
         Check(rejected,"A duplicate start while the owner was active was accepted.");
-        Check(ownerPreserved,"A rejected active duplicate stopped or replaced the owner. ready="+RuntimeEntry.Ready+" shutdown_requests="+PromotedCharactersIntegration.ShutdownRequests+" shutdowns="+PromotedCharactersIntegration.Shutdowns+" registered="+IntegrationManager.Registered+" scheduled="+GameFiber.Scheduled);
+        Check(ownerPreserved,"A rejected active duplicate stopped or replaced the owner. "+ownerSnapshot);
         Check(bridged,"The ready owner did not receive bridge submissions, results and snapshots.");
         Check(RuntimeEntry.Submit("{}")=="native_unavailable" && RuntimeEntry.Snapshot()==null && PromotedCharactersIntegration.Submissions==1,"A stopping owner accepted bridge work.");
         RuntimeEntry.RequestSnapshots(1000);
