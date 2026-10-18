@@ -447,7 +447,7 @@ namespace LSA.Enhanced.Ui
             }
             if (page.Menu == current) {
                 var model = LiveNpcModel(utc,settings);
-                var describe = model.Owned ? data.DescribeFor(model.EncounterId,model.OwnerAlias) : null;
+                var describe = model.Owned ? data.DescribeFor(model.EncounterId,model.OwnerAlias) ?? CharacterList.ForOwnedAlias(data.Characters,model.OwnerAlias) : null;
                 currentTitle = model.Present ? model.Title : null;
                 if (model.Owned && describe != null && describe.Kind == "promoted" && describe.CharacterId != null)
                     model.Lines.Add(new MenuLine {Key = "details",Text = "Character details",Command = LocalOpenCharacter,Value = describe.CharacterId,Description = "Rename, relationship, availability and memories."});
