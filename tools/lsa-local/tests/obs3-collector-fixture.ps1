@@ -45,6 +45,10 @@ try {
     if($text.Contains('NEVER_INCLUDE_THIS_SECRET')){throw 'Sensitive build metadata leaked'}
     $deployment=$text|ConvertFrom-Json
     if(@($deployment.DeployedDllCandidates).Count -lt 1){throw 'Present plugin not identified'}
+    $inventory=Import-Csv -LiteralPath (Join-Path $folder 'inventory.csv')
+    if(@($inventory|Where-Object {$_.Source -notmatch '^source-[0-9]+$'}).Count -gt 0){
+      throw 'Collector leaked a local absolute source directory'
+    }
     $collection=Get-Content -LiteralPath (Join-Path $folder 'collection.json') -Raw|ConvertFrom-Json
     if(@($collection.MissingRoots).Count -ne 1){throw 'Missing root not accounted for'}
     if(@($collection.DetectedRuns) -notcontains $run){throw 'Session correlation IDs not collected'}
