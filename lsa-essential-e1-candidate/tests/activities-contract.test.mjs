@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { ACTIVITY_CAPABILITIES_SHA256, loadCapabilityRegistry, validateCapabilityDocument } from '../src/activities/capabilityRegistry.mjs';
-import { CAPABILITY_IDS, LIMITS, normalizeActivityConfig, validateActivity, validateFact, validateFrame, validateGoal, validateProposal, validateReceipt, validateResumeToken, validateStep } from '../src/activities/contracts.mjs';
+import { CAPABILITY_IDS, LIMITS, MAX_ACTIVITY_CONFIG_PROBES, normalizeActivityConfig, validateActivity, validateFact, validateFrame, validateGoal, validateProposal, validateReceipt, validateResumeToken, validateStep } from '../src/activities/contracts.mjs';
 import { verifyActivitiesContract } from '../tools/verifyActivitiesContract.mjs';
 
 const ids = ['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333','44444444-4444-4444-8444-444444444444','55555555-5555-4555-8555-555555555555','66666666-6666-4666-8666-666666666666'];
@@ -29,6 +29,42 @@ test('activity config defaults off and keeps ACT2 execution opt-in', () => {
   for (const mode of ['execute', 'context']) assert.equal(normalizeActivityConfig({ mode }).mode, 'off');
   assert.equal(normalizeActivityConfig({ mode: 'shadow', pipeName: '../bad' }).pipeName, 'LSA.Activities.v1');
 });
+test('ACT3 and ACT6 probe declarations coexist without silent truncation or bypass', () => {
+  // This is the personal-mod configuration: twelve existing ACT2/ACT3 proofs
+  // followed by every additional walking and driving proof (19 unique IDs).
+  const existing = ['Q1','FR1','F1','K1','R1','A1','V1','V2','V3','V4','SVE1','S1'];
+  const navigation = ['NV1','NV2','Q2','L1','D1','D2','D3'];
+  const all = [...existing,...navigation];
+  assert.equal(all.length,19);
+  const act3 = ['stop_and_face','approach_person','walk_away_from','exit_vehicle','enter_vehicle_seat','scenario_here'];
+  const act6 = ['walk_to','drive_to'];
+  const config = normalizeActivityConfig({
+    mode:'on',act5:true,act3Capabilities:act3,act6Capabilities:act6,
+    passedProbes:[...all,'NV1','D3',null,'bad-probe'],
+  });
+  assert.deepEqual(config.passedProbes,all);
+  assert.deepEqual(config.act3Capabilities,act3);
+  assert.deepEqual(config.act6Capabilities,act6);
+  const registry = loadCapabilityRegistry();
+  for (const capability of [...act3,...act6]) {
+    assert.equal(registry.enabled(capability,{
+      mode:config.mode,hello:{[capability]:true},requested:[capability],
+      passedProbes:config.passedProbes,source:'player_dialogue',priority:'player_direct',
+    }),true,capability+' must remain available with its own proofs');
+  }
+  assert.equal(registry.enabled('drive_to',{
+    mode:'on',hello:{drive_to:true},requested:['drive_to'],
+    passedProbes:config.passedProbes.filter(probe=>probe!=='D3'),
+    source:'player_dialogue',priority:'player_direct',
+  }),false,'increasing the cap must not bypass a missing native probe');
+
+  const extra = Array.from({length:MAX_ACTIVITY_CONFIG_PROBES+4},(_,index)=>'T'+String(index).padStart(2,'0'));
+  const bounded = normalizeActivityConfig({mode:'on',passedProbes:[...extra,'T00','invalid-value']});
+  assert.equal(MAX_ACTIVITY_CONFIG_PROBES,32);
+  assert.deepEqual(bounded.passedProbes,extra.slice(0,MAX_ACTIVITY_CONFIG_PROBES),
+    'deduplication, validation, order and the new upper bound remain deterministic');
+});
+
 test('capability registry is SHA pinned and excluded or never rows cannot be enabled', async () => {
   const bytes = await readFile(new URL('../../contracts/activity-capabilities.v1.json', import.meta.url));
   const registry = loadCapabilityRegistry(bytes);
