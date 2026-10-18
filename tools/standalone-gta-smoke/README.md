@@ -120,14 +120,17 @@ eligible ped means an explicit `no_eligible_target` result, **not a PASS**.
 
 Run from the extracted bundle folder:
 
-```powershell
+\`\`\`powershell
 $game = 'C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced'
 $env:OPENAI_API_KEY = '<your key - do not log>'
-.\Start-Standalone-Test.ps1 -GamePath $game -Stage streaming `
+.\Run-Standalone-AutoSmoke.ps1 -GamePath $game `
   -Model '<verified Responses API model>' -TtsModel '<PCM TTS model>' `
-  -EnableCapability physical_audio,lip_sync `
-  -ConfirmPhysicalEffects -AutoSmoke -ConfirmAutomatedActorAdoption
+  -ConfirmPhysicalEffects -ConfirmAutomatedActorAdoption
 ```
+
+This is a wrapper around the existing launcher, not another deployment system.
+If RPH does not autoload `LSA.Standalone.RageHost.dll`, configure it
+to load the standalone plugin first; merely installing the DLL is insufficient.
 
 That **single combined session** exercises host/IPC, the stable NPC probe,
 exact-actor manual-equivalent arm, canned typed model call, streamed speech

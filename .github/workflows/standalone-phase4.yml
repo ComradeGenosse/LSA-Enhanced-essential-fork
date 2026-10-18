@@ -230,6 +230,17 @@ jobs:
           $env:OPENAI_API_KEY='ci-fixture-only'
           & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage typed -Model ci-test -PreflightOnly
           Assert-CleanPreflight
+          $automationDenied = $false
+          try {
+            & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage typed -Model ci-test -AutoSmoke -PreflightOnly
+          } catch { $automationDenied = $_.Exception.Message -like '*ConfirmAutomatedActorAdoption*' }
+          if (-not $automationDenied) { throw 'Automated actor adoption did not require opt-in' }
+          Assert-CleanPreflight
+          & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage typed -Model ci-test -AutoSmoke -AutoDelaySeconds 30 -ConfirmAutomatedActorAdoption -PreflightOnly
+          Assert-CleanPreflight
+          if (Test-Path "$game/.LSAStandaloneSmoke/native-activation.json") {
+            throw 'Automated smoke dry-run unexpectedly created native configuration'
+          }
           & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage streaming -Model ci-test -TtsModel ci-tts -PreflightOnly
           Assert-CleanPreflight
           # Inherited voice/assignment/instruction flags must not poison OpenAI
@@ -245,6 +256,10 @@ jobs:
           if (-not $rejected) { throw 'Experimental output accepted without explicit consent' }
           Assert-CleanPreflight
           & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage audio -Model ci-test -TtsModel ci-tts -ConfirmPhysicalEffects -PreflightOnly
+          Assert-CleanPreflight
+          & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage streaming -Model ci-test -TtsModel ci-tts -EnableCapability physical_audio,lip_sync -ConfirmPhysicalEffects -AutoSmoke -ConfirmAutomatedActorAdoption -PreflightOnly
+          Assert-CleanPreflight
+          & "$root/Run-Standalone-AutoSmoke.ps1" -GamePath $game -Model ci-test -TtsModel ci-tts -ConfirmPhysicalEffects -ConfirmAutomatedActorAdoption -PreflightOnly
           Assert-CleanPreflight
           Remove-Item Env:OPENAI_API_KEY
       - name: Prove create-only deploy, legacy exclusion and exact rollback offline
