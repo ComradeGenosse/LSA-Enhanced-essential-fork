@@ -1,5 +1,5 @@
 import {combineDirectorSocialMemory} from '../memory/h1ConversationHistory.mjs';
-import { drivingIntentKind, activeAct6Driving, drivingModelGuidance, reconcileDrivingDecision, stockDrivingCommand } from '../activities/vehicleDrivingIntent.mjs';
+import { drivingIntentKind, activeAct6Driving, liveAct6Driving, drivingModelGuidance, reconcileDrivingDecision, stockDrivingCommand } from '../activities/vehicleDrivingIntent.mjs';
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 import {scalePcm16} from '../voice/pcmVolume.mjs';
 import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
@@ -516,11 +516,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     // ACT5's live owner inspection is another read-only, owner-fenced signal.
     // Never trust a stale ACT4 state for a different actor/incarnation.
-    if (isPlayer && !act6OwnsDrive && act5Context?.owner?.binding) {
-      try {
-        const ownerState=services.act5?.activities?.stateForCharacter?.(act5Context.owner.binding);
-        act6OwnsDrive=activeAct6Driving(ownerState,act5Context.owner.binding);
-      } catch { /* no proof: native ACT ownership still guards execution */ }
+    if (isPlayer && !act6OwnsDrive && act5Context?.owner) {
+      act6OwnsDrive=liveAct6Driving(services.act5?.activities,act5Context.owner);
     }
     // When ACT5 is off, native is disconnected, or owner inspection failed,
     // still recognize an explicit navigation order so Luna does not invent
