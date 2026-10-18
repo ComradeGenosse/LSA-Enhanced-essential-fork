@@ -31,7 +31,9 @@ namespace LSA.Standalone.RageHost
         private static int autoSmokeDelay = 30;
         internal static string ActivationSummary { get; private set; } = "native_runtime_not_started";
 
-        public static void Shutdown()
+        // RPH's documented ExitPoint contract is static void Method(bool isTerminating).
+        // Preserve the existing fail-closed, game-thread-independent cleanup.
+        public static void Shutdown(bool isTerminating)
         {
             // ExitPoint may run on a different fiber: never touch the game here.
             stopping = true;
