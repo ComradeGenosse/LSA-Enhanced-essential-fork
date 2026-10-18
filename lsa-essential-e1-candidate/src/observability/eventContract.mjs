@@ -23,7 +23,7 @@ export const EVENT_NAMES = new Set([
   'vehicle_seat_requested','vehicle_seat_reconciled','vehicle_seat_admission',
   'act6_player_direct_recognized','act6_player_direct_readiness','act6_player_direct_staged',
   'act6_player_direct_rejected','act6_player_direct_unavailable','act6_player_direct_context_failed',
-  'act6_player_direct_admitted',
+  'act6_player_direct_admitted','act6_player_direct_model_conflict',
 
   'stream_segments_reflowed','model_decision_validation_failure','elevenlabs_tts_timing_summary','perception_trace','radio_trace','native_pcm_forward_failed', // Main/EA allowed vocab preserved alongside Memory K
 ]);
