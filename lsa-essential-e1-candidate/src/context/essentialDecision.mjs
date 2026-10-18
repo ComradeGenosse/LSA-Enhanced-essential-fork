@@ -74,8 +74,15 @@ export function isRetryableDecisionFormatError(error) {
     error.message === 'Luna command must be empty or one complete DO command.';
 }
 
-export function validateDecisionShape(decision) {
-  return parseDecisionJson(JSON.stringify(decision));
+// PS4 delivery validates the same closed ACT5 decision that Luna produced.
+// The legacy shape remains the default and rejects unsolicited activity fields.
+export function validateDecisionShape(decision, { act5Intents = null, act5Choices = ACT5_CHOICES } = {}) {
+  const parsed = parseDecisionJson(JSON.stringify(decision), { act5Intents });
+  // Runtime offers can be narrower than the global ACT5 schema. Do not let a
+  // successfully parsed, but unavailable, proposal acknowledge PS4 knowledge.
+  if (Array.isArray(act5Intents) && !validateAct5Choice(parsed.activity, act5Intents, act5Choices))
+    throw new TypeError('Luna ACT5 activity is malformed or unavailable.');
+  return parsed;
 }
 
 export function act5ActivitySchema(intents, allowedChoices = ACT5_CHOICES) {
