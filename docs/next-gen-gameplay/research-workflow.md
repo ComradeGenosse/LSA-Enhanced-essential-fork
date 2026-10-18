@@ -52,6 +52,9 @@
 | Astra threshold | Unsolved after credible research/experiments; high potential payoff |
 | Stage/owner/status | Design-only, researched, prototype, verified, blocked, parked |
 
+## Ready-to-run Astra investigation prompt
+See [ASTRA-001 — Ballistics and Structural Destruction Research](ASTRA-001-BALLISTICS-DESTRUCTION-RESEARCH-PROMPT.md). This is an **investigative bootstrap**, not a claim Phases 2–5 are complete: Astra is instructed to perform source and external research, contrast architectures, and design falsifiable experiments **before** any implementation. It must label limits rather than asserting established physics integration. The user-defined target remains physically meaningful, persistent destruction across Los Santos.
+
 ## First Astra candidate research direction
 The [ballistics-destruction vision](ballistics-destruction-vision-20261018.md) is sufficiently defined as a **research question**, but there has not yet been a source/engine audit or proof-of-concept. Next actions for this candidate: map current GTA Enhanced/LSA ballistic, collision, geometry and persistence affordances; survey existing mods and source/libraries; identify competing physics/structural architectures and decisive experiments. **Do not require broad AI NPC, generalized sandbox, or #95 fire features.**
 

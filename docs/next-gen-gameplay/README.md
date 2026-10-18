@@ -10,6 +10,9 @@ Preserve the complete 100-idea brainstorming catalog, the player's **28 explicit
 ## 2026-10-18 first vision interview — confirmed direction
 **The player has now specified a focused first Astra candidate:** [Realistic Ballistics & Structural Destruction Vision](ballistics-destruction-vision-20261018.md). The dream is pervasive material-aware wall penetration, bullets removing real chunks, explosive breaches, realistic structural collapse (up to buildings and bridges), persistent changes and Max Payne-style responsive gunplay. **Fire #95 was removed from this project; NPC physics integration is not a prerequisite; BeamNG-like vehicle damage is secondary.** The seven original programs and all original favorites are retained as historical design material, not compulsory scope for this first investigation.
 
+## Astra research handoff
+[**ASTRA-001 — Breakthrough Research: Persistent Ballistic & Structural Destruction**](ASTRA-001-BALLISTICS-DESTRUCTION-RESEARCH-PROMPT.md) is the ready-to-use, source-grounded first research assignment. It references the player-confirmed vision; this is a *prompt and research charter*, **not** completed feasibility research or permission to alter gameplay code. PR #35 contextual-ballistics perception is explicitly distinguished from physical projectile/destructible-world mechanics.
+
 ## Reading order
 1. [First Astra candidate: player-approved ballistics and destruction vision](ballistics-destruction-vision-20261018.md): nine answered questions, active scope, non-goals and staged research targets.
 2. [Selected 28 — player-experience definitions](28-favorite-experiences.md): individually numbered gameplay fantasies, first genuinely fun playable slices, unique flair, and experiential pass questions. All are **draft proposals awaiting player review**.
