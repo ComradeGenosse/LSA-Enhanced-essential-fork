@@ -2,15 +2,21 @@
 
 ## What is implemented
 
-- The companion classifies only bounded, **whole player utterances**. A continuation
-  (“keep going”) cannot turn into `DriveEvasively` or a new `BeginDriving` publication.
+- The companion classifies only bounded, **whole player utterances**. Common
+  conversational forms (“come on, keep going”, “can you pick up speed?”, “go
+  faster, man”) are recognized, but story-like remarks or requests containing a
+  waypoint remain outside the free-drive classifier. A continuation (“keep
+  going”) cannot turn into `DriveEvasively` or a new `BeginDriving` publication.
   “Drive faster,” “speed up,” and “floor it” retain Essential's supported
   `DriveEvasively` faster-driving alias, subject to Essential's current action
   allowlist and verified driver preconditions. This changes the driving style,
   not a numeric speed setting. Slowing down is handled independently.
 - A source-qualified ACT6 `vehicle_trip` blocks competing stock driving-mode DO
-  publication for that player turn. ACT6's independent owner, lease, capability
-  probes, and native task evidence still govern actual driving.
+  publication for that player turn. The original P0 state is checked, followed
+  by an ACT5 live activity read under the verified owner **and** its separately
+  authenticated host context; `owner.binding` alone omits the host context and
+  cannot query the activity-state API. Native owner, lease, capability probes,
+  and task evidence still govern actual driving.
 - At native ACT6 `drive_to` handoff, the ACT-owned actor uses Essential's existing
   `VehicleBehavior.StopAllVehicleCommands` once **before** the route task is
   dispatched. The ACT6 runner never issues the destination-driving native on
@@ -63,4 +69,11 @@ task-family-level and cannot establish full per-invocation GTA task ownership.
    ACT6 involvement, fix that behavior at Essential's pinned vehicle-controller
    source/runtime seam; do not invent a second LSA task scheduler.
 
-CI source/build tests are necessary but are not physical GTA acceptance.
+The prior ACT6 CI run failed one new companion test because the expected
+wording disagreed with the guidance's actual wording. The regression assertion
+now matches the functional promise instead, and the live owner read is tested
+with a scoped host context, a changed epoch, actor mismatch, terminal activity
+and detached native state. CI source/build tests are necessary but are not
+physical GTA acceptance. The stock Essential DLL remains external; fixing a
+proven native free-drive reissue bug requires its exact source/runtime, which
+this PR cannot modify safely.
