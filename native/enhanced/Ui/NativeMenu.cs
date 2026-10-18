@@ -6,6 +6,7 @@ using System.Linq;
 using System.Web.Script.Serialization;
 using LSA.Enhanced.Commands;
 using LSA.Enhanced.Input;
+using LSA.Enhanced.Settings;
 using RAGENativeUI;
 using RAGENativeUI.Elements;
 
