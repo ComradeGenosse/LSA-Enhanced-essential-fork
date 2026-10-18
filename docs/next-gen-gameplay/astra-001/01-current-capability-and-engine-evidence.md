@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 13342)
-Total output lines: 330
-
 # ASTRA-001 · 01 — Current capability and engine evidence
 
 > **Dossier:** ASTRA-001 persistent ballistic & structural destruction for GTA V Enhanced.
@@ -143,7 +140,79 @@ PR #35 (@`9b1e37d`) implements *observer-qualified player firing attribution* an
 
 ### 3.5 Weapons, bullets, impacts — what the engine exposes
 
-- **Fire types in build 1158 gen9:** `INSTANT_HIT`(2), `DELAY…3342 tokens truncated…t Blast release 5.0.6 (2024-05) → maintenance mode; Windows build tooling. |
+- **Fire types in build 1158 gen9:** `INSTANT_HIT`(2), `DELAYED_HIT`(3), `PROJECTILE`(4), `VOLUMETRIC_PARTICLE`(5), `MELEE`(1) (S-09). **PRIMARY.** Ordinary guns are hitscan traces.
+- `CWeaponInfo` has a FLOAT **`Penetration`**, `BulletsInBatch`, `BatchSpread`, `Speed`, `WeaponRange`, damage fall-off, and **bullet-bending (aim-assist) radii**; `WeaponFlags` enum contains **`PenetrateVehicles`, `ArmourPenetrating`, `ApplyBulletForce`** (S-09). **PRIMARY.** What `Penetration` does at runtime is **UNKNOWN**; observed vanilla behaviour (bullets stop at walls, pass only through shoot-through materials) suggests it does not implement thickness-aware wall penetration (**INFER**).
+- Bullet bending means **the fired path is not the camera ray**; only a native impact proves the actual path (supports PR #35 doctrine).
+- Natives (S-08, names and parameter lists from the DB, comments where available):
+  - `START_SHAPE_TEST_LOS_PROBE(x1,y1,z1,x2,y2,z2,flags,entity,p8)`, `START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(...)`, `START_SHAPE_TEST_CAPSULE`, `START_SHAPE_TEST_BOUND`;
+  - `GET_SHAPE_TEST_RESULT_INCLUDING_MATERIAL(handle, BOOL* hit, Vector3* end, Vector3* normal, Hash* materialHash, Entity* hit)` — **material per hit is exposed**; a third-party tool claims the hash is `joaat(name + "_" + index)` (S-42, unverified);
+  - `GET_PED_LAST_WEAPON_IMPACT_COORD(ped, Vector3*)` (last impact only), `HAS_BULLET_IMPACTED_IN_AREA(x,y,z,r,bIsPlayer,bIsEntry)`;
+  - `SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW(...)` with `damage`, `weaponHash`, `ownerPed`, `speed`, ignore entity, audible/invisible flags — **native bullets with native attribution can be (re-)emitted**;
+  - `GET_LAST_MATERIAL_HIT_BY_ENTITY`, `GET_COLLISION_NORMAL_OF_LAST_HIT_FOR_ENTITY`, `ADD_DECAL` (weapImpact_* types), `ADD_EXPLOSION`, `ADD_OWNED_EXPLOSION`, `IS_EXPLOSION_IN_SPHERE`, `GET_OWNER_OF_EXPLOSION_IN_SPHERE`.
+- RPH SDK 1.124 docs: `World.TraceLine(...)` → `HitResult{Hit, HitPosition, HitNormal, HitEntity}` (**no material**), `Entity.GetLastCollision(out pos, out normal, out materialName)`, events **`World.PedShot`/`Ped.Shot`** (event args carry a position and two peds), `Game.FindPattern`, `Game.AllocateMemory`, `Entity.MemoryAddress`, `Game.GetNativeAddress`, `NativeFunction.CallByAddress` (S-10). Availability in runtime 1.132 is **UNKNOWN per member** (only 6 proven, §2.6).
+
+### 3.6 AI navigation, cover and line of sight
+
+- Navmeshes are pre-baked streamed tiles; runtime levers are limited to `ADD_NAVMESH_BLOCKING_OBJECT`, `UPDATE/REMOVE_NAVMESH_BLOCKING_OBJECT`, `DISABLE_NAVMESH_IN_AREA`, required regions (S-08). **No native creates new walkable navmesh through a new opening.** CodeWalker contains an *offline* navmesh generator that raycasts collision on a 0.5 m grid (`CodeWalker/Project/Panels/GenerateNavMeshPanel.cs:82-215`). **PRIMARY.**
+- Cover: `ADD_COVER_POINT`, `REMOVE_COVER_POINT`, `ADD_COVER_BLOCKING_AREA(… blockMap …)` (S-08); map cover derives from `MAP_COVER`-flagged collision and `FLAG_NOT_COVER` polygons (§3.2). Destroyed walls leave stale map cover unless blocked.
+- LOS natives query physics: `HAS_ENTITY_CLEAR_LOS_TO_ENTITY` (trace type "always 17 in the scripts") and `HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT` ("one of the most CPU demanding BOOL natives in the game") (S-08). LSA already uses both (§2.2).
+
+### 3.7 Rendering and interiors
+
+- Interiors (MLOs) render through **portals**; without a portal, an opening shows "the void" (S-38, community tutorial). **A hole blasted through an MLO wall will not show the interior unless a portal exists there** — a hard rendering constraint for "shoot into a building". **MOD/INFER; verify in E7.**
+- Enhanced adds ray-traced GI/shadows/reflections (S-40). Custom renderer hooks would have to cooperate with DX12 + RT acceleration structures; **this dossier rejects renderer hooking as a primary path** (doc 02 C5) and keeps all visuals in engine entities.
+- `DRAW_POLY` / `DRAW_TEXTURED_POLY` immediate-mode triangles exist (S-08): debug-grade only (unlit, one-sided).
+
+### 3.8 Streaming, runtime registration, pools
+
+- **FiveM's own source shows how fragile runtime (un)registration of collision and navmesh is**: "navmeshstore won't remove from some internal 'name hash' and therefore re-registration crashes"; "staticboundsstore has a weird issue too at times (regarding interior proxies?)"; "Reloading custom collision causes it to break in RDR3"; a hook on `fwStaticBoundsStore::ModifyHierarchyStatus` (S-13, `LoadStreamingFile.cpp` on `master` as fetched 2026-10-18, lines ~1052, 1094-1140, 3034-3041, 3460-3500). FiveM is Take-Two-licensed (not reusable). **PRIMARY.** Conclusion: *runtime streaming registration of new collision is possible only with deep engine hooks and is crash-prone even for the team that now works for Rockstar* (**INFER**).
+- Single-player has no public API to register new streamed resources at runtime; add-on assets load from dlcpacks/mods at startup (S-03, S-06). **MOD/INFER.**
+- Pool sizes in FiveM's (raised, multiplayer) `gameconfig.xml`: `Building` 65,000; `Object` 3,300; `phInstGta` 16,384; `StaticBounds` 20,200; `FragmentStore` 60,700; `NavMeshes` 10,100 (S-13). **Vanilla Enhanced values are UNKNOWN**; treat ~10³ script-spawned objects as the working order of magnitude until E0 measures it.
+
+### 3.9 Persistence
+
+- No save hook (§2.4). Plugin-created entities belong to the creating plugin and are not written into GTA saves; anything persistent must be re-projected from a mod store when the area streams in or the game restarts. **INFER/CODE.**
+
+### 3.10 Legal and licensing boundaries
+
+- Rockstar's PC single-player mods page (updated 2026-09-15) now links **Mod Guidelines dated 2026-09-10** (S-12): multiplayer modding only via Rockstar's Creator Platform; no cheat menus/software interfering with online services; mods must be non-commercial; no combining assets from other Rockstar games (**so Max Payne 3 animations/assets must not be imported**); no third-party IP; guidelines are "not a license" and Rockstar may take mods down. Reverse engineering and asset conversion are not addressed in the quoted text.
+- RPH SDK licence: "Do not reverse engineer, modify, upload, or redistribute the package contents" (S-10). This dossier proposes no RPH reverse engineering.
+- FiveM code is under the Rockstar Games Creator Platform License (S-13) → cite only, never reuse.
+- **Any conversion of vanilla Los Santos assets must run locally on the owner's machine from their own installation; converted Rockstar assets must not be redistributed.** (**INFER** from S-12 + general copyright.)
+- Library licences: Blast/PhysX BSD-3 (S-28), Jolt MIT (S-29), Manifold Apache-2.0 (S-30), OpenVDB Apache-2.0 (S-31), Recast/Detour zlib (S-32), Embree Apache-2.0 (S-33), Bullet zlib (S-34), CodeWalker MIT-style (S-04). Avoid GPL/AGPL geometry kernels (CGAL GPL/commercial, TetGen AGPL) in anything distributed; Unreal Chaos is tied to the Unreal EULA; Havok is commercial.
+
+## 4. External GTA-mod evidence (what exists, what it proves)
+
+| Mod / tool | What it does | Proves | Does not prove |
+|---|---|---|---|
+| Realistic Bullet Penetration 1.5 (2025-06-29) — S-15 | Edits `materials.dat`; claims doors, wooden walls, cheap metal, **thin concrete**, tyres, plastic penetrable; "works with gta5 enhanced"; installed via CodeWalker into `mods/update/update.rpf/common/data/materials`. Author: "The bullet penetration isn't the best"; some doors still block. | Per-material shoot-through is data-tunable in Enhanced (**MOD**). | Thickness/energy/angle physics; geometry change; per-instance behaviour (all walls of one material behave alike). |
+| RBP 1.3 (2024-02-19) — S-15 | `materials.dat`; v1.2 *removed* penetration for "concrete, walls of buildings". | Same binary per-material lever. | Same. |
+| Replayable Rayfire Scenes (2024-01-16) — S-16 | Replays Rockstar's pre-animated destruction scenes. | Engine supports state-swapped destroyed map geometry. | Dynamic destruction. |
+| ShootDodge 1.3 (2018) — S-17 | Max Payne-style dive + time scale via SHV/SHVDN, Legacy era; "Forces in the game are inconsistent… among different game versions". | Shoot-dodge is buildable with natives. | Enhanced compatibility. |
+| ERO 1.9.4 — S-18 | Tunes `physicstasks.ymt` and NaturalMotion `behaviours.xml`. | Ragdoll feel is data-tunable. | Enhanced compatibility (unanswered). |
+| AddonProps / add-on DLC packs — S-06 | Custom props via dlcpacks; Enhanced needs gen9 conversion + OpenRPF. | Custom collidable props can be added at startup. | Runtime creation of new assets. |
+
+No public mod was found that gives GTA V physically destructible map geometry, structural collapse, or an external physics solver coupled to the world (searched 2026-10-18; absence is **UNKNOWN**, not proof).
+
+## 5. Comparable games — algorithms worth reusing
+
+| Game / system | Representation & algorithm (primary detail) | Lesson for LSA |
+|---|---|---|
+| **Teardown** (S-19) | Every object is a 3D volume texture, 1 byte/voxel → 256-entry material/colour palette; **10 cm voxels**; rendering raymarches each object's bounding box; disconnected chunks become new dynamic objects; **no load/stress simulation** ("No material is so strong to be able to hold up the house"); world-size limit "more than 4,000 voxels across" (≈400 m) from OpenGL texture limits; "hundreds of millions of voxels". | Connectivity alone feels great but is not causal structure; voxel rendering is impossible inside GTA's renderer; Teardown-scale worlds are ~1/25 of Los Santos linear size. |
+| **Red Faction: Guerrilla** (S-22, S-23) | Geo-Mod 2.0: pre-broken meshes, real-time stress calculation ("buckle and fall, like you fell a tree"); devs "had to start fudging it"; "literally stealing memory from other systems". | Stress-driven collapse is shippable at authored scale; budget is the enemy. |
+| **THE FINALS** (S-20, S-22) | Houdini pre-fracture; generated connections + ground supports; **Embark rigid-body solver + structural analysis via sparse direct Cholesky with incremental decomposition**; per-connection force split into tension/compression, shear, bending with material multipliers; **break if impulse > baseline + offset**; transform replication ~400 → ~175 kbit/s with quantisation/delta; GPU transform pool; physics/destruction server-side on UE5 systems. | The **baseline-relative failure rule** solves "unknown real strengths" for converted geometry; incremental Cholesky makes event-driven re-analysis cheap (confirmed offline, §8). |
+| **Rainbow Six Siege — RealBlast** (S-21) | Hierarchical decomposition + connection leaf graph; **surface procedural destruction: project wall to 2D, clip with cutter polygons (Weiler–Atherton), ear-clip triangulate, extrude**; collision rebuilt from simplified 2D convexes **while bullets use the actual surface geometry**; destruction event system updates AI navlinks, visibility and sound propagation; budgets: ~6 ms per wall, **0.33 ms per bullet hole, 1.4 ms per drywall explosion, 8.1 ms for 4 layers (PC 2015)**; RNG seeded from impact position; determinism = "exact same inputs, in the same order"; debris = recycled instanced replacements with box collision. | Two-tier collision (fine for bullets, coarse for movement) maps onto GTA's layered collision; event-log determinism is the persistence model; nav/cover/audio must subscribe to destruction events. |
+| **Battlefield (Frostbite)** (S-22, S-24) | Engine "designed with destructibility in mind"; destruction masking composites damage materials using volume distance fields; bandwidth "substantially higher". | Cosmetic masking is a complement, not a substitute, for geometry change. |
+| **Crackdown 3 Wrecking Zone** (S-25) | Destruction physics offloaded to Azure; chunk ownership handed between servers; results compressed and streamed; anything the player collides with "needs to be predicted on the client". | External solvers work when the world is authored for them and local contact is predicted — the same split an external solver for GTA would need. |
+| **BeamNG** (S-26) | Node (mass) + beam (spring, damping, deform, strength) soft bodies; broken beams destroy visual mesh. | Node–beam is a good *structural* abstraction for frames/bridges; vehicle soft-body is out of scope here. |
+| **Max Payne 3** (S-27) | RAGE + Euphoria ("running two systems"), bullet time built on RAGE physics, unique animation variety, last-kill cams. | The combat fantasy is native to the RAGE family; GTA V exposes the relevant levers (time scale, NM messages); MP3 assets may not be imported (S-12). |
+| **VACD fracture** (Müller, Chentanez, Kim, SIGGRAPH 2013; S-35) | Volumetric approximate convex decomposition + impact-located fracture patterns; island detection for support after partial destruction. | Runtime-generated fracture is possible in principle; GTA cannot create meshes at runtime, so pattern *libraries* must be authored offline. |
+
+## 6. Reusable libraries (licence, redistributability, fit)
+
+| Library | Licence | Fit | Risks |
+|---|---|---|---|
+| NVIDIA Blast (in PhysX repo) | BSD-3 | Offline authoring (Voronoi incl. clustered sites, slicing with noise, cutout), support graph with bond area/normal/centroid and **external bonds** (to world), **ExtStressSolver**: per-bond compression/tension/shear with elastic and fatal limits in pascals, iterative per frame. | Last Blast release 5.0.6 (2024-05) → maintenance mode; Windows build tooling. |
 | PhysX 5 | BSD-3 | Optional external rigid-body world. | Large dependency; GPU features not needed. |
 | Jolt Physics | MIT | Deterministic, multithreaded, background loading/unloading of bodies, compound/mesh shapes, double precision; shipped in Horizon Forbidden West and Death Stranding 2. | Destruction must be built on top. |
 | SuiteSparse CHOLMOD | Core LGPL-2.1+; **Modify (update/downdate) and Supernodal modules GPL-2.0** (`cholmod_modify.h` header) or commercial | Sparse Cholesky with up/downdates (validated offline §8). | GPL modules are unsuitable for anything redistributed under a non-GPL licence → research use only, or re-implement low-rank updates on an MPL/BSD solver (e.g. Eigen) as Embark did in-house. |
@@ -259,3 +328,4 @@ All scripts and raw outputs: [`offline-probes/`](offline-probes/).
 - **S-43** CHOLMOD Modify module licence header (GPL-2.0) — https://floodlight.ssec.wisc.edu/docs/abom/ancil/polar2grid_v_2_2/common/ShellB3/include/cholmod_modify.h
 - **S-44** FM 3-06.11 Ch. 7 HTML mirror (GlobalSecurity) — consulted first through a summarised fetch that collapsed Table 7-2's two-stage rows (superseded by S-36/S-45); the site licence-gates automated retrieval, so it was not re-read — https://www.globalsecurity.org/military/library/policy/army/fm/3-06-11/ch7.htm
 - **S-45** FM 3-06.11 Ch. 7 PDF (The Black Vault) — source of the table values in §7 — https://www.theblackvault.com/documents/fm/fm30611/ch7.pdf
+
