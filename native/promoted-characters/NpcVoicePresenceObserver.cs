@@ -6,6 +6,9 @@ namespace LSA.PromotedCharacters {
     // Essential owns playout. This is a passive subscriber, NOT another player.
     internal sealed class NpcVoicePresenceObserver : IDisposable {
         const int QueueLimit=32, GenerationHistoryLimit=256;
+        // Exact-turn, read-only stall triage; bounded even for truly long speech.
+        internal const long PlaybackAuditAfterMs=8000, PlaybackAuditCadenceMs=5000;
+        internal const int PlaybackAuditMaxSamples=12;
         readonly object gate=new object();
         readonly Queue<Fact> queue=new Queue<Fact>();
         // The last generation survives an END or speaker change. Without this,
@@ -17,7 +20,8 @@ namespace LSA.PromotedCharacters {
         readonly NpcVoiceMouthOverlay mouth;
         readonly IPlayoutLevelSource levels;
         readonly bool levelLog;
-        long lastLevelLogAt=-1;
+        long lastLevelLogAt=-1,activeSinceMs=-1,lastPlaybackAuditAt=-1;
+        int playbackAuditSamples;
         bool levelUnavailableLogged;
         bool attached,disposed,overflow;
         Ped ped; IntPtr address; uint handle; int epoch;
@@ -79,6 +83,7 @@ namespace LSA.PromotedCharacters {
             if(worldSafe) mouth?.Close(ped);
             else mouth?.Forget();
             state.Clear();ped=null;address=IntPtr.Zero;handle=0;
+            activeSinceMs=-1;lastPlaybackAuditAt=-1;playbackAuditSamples=0;
         }
         // Runs only on the Essential Core IIntegration.Update fiber. Callback
         // threads never read/write Rage.Ped state or issue native calls.
@@ -112,6 +117,7 @@ namespace LSA.PromotedCharacters {
                     if(state.Begin(f.Key,epoch,nowMs)) {
                         Remember(f.Key);
                         ped=f.Speaker;address=ped.MemoryAddress;handle=(uint)ped.Handle;
+                        activeSinceMs=nowMs;lastPlaybackAuditAt=-1;playbackAuditSamples=0;
                     }
                 } else if(state.End(f.Key,epoch)) Clear();
             }
@@ -122,10 +128,20 @@ namespace LSA.PromotedCharacters {
                 catch {valid=false;}
             }
             if(!state.Sweep(epoch,nowMs,valid))Clear();
-            else if(mouth!=null||levelLog) DrivePresence(nowMs);
+            else if(mouth!=null||levelLog||ShouldAuditPlayback(nowMs)) DrivePresence(nowMs);
             // Spatialization is Essential's (NpcSpatialAudio). This observer never
             // pans, attenuates or changes volume, so it can never apply it twice.
         }
+        static string SafeTraceId(string value) {
+            if(string.IsNullOrEmpty(value)||value.Length>100)return "invalid";
+            foreach(char c in value)if(!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||
+                (c>='0'&&c<='9')||c=='-'||c=='_'||c=='.'))return "invalid";
+            return value;
+        }
+        bool ShouldAuditPlayback(long nowMs) => state.Active && activeSinceMs>=0 &&
+            nowMs>=activeSinceMs && nowMs-activeSinceMs>=PlaybackAuditAfterMs &&
+            playbackAuditSamples<PlaybackAuditMaxSamples &&
+            (lastPlaybackAuditAt<0 || nowMs-lastPlaybackAuditAt>=PlaybackAuditCadenceMs);
         // Mouth state follows the level Essential reports for the exact active turn's
         // ped. If Essential is not speaking, or the reader is unavailable, the mouth
         // closes: there is deliberately no timing-based fallback.
@@ -134,7 +150,8 @@ namespace LSA.PromotedCharacters {
             bool speaking=false;
             try {speaking=NpcPlaybackCoordinator.IsPedCurrentlySpeaking(ped);} catch { }
             float level=0f;bool audible=false,buffered=false,have=false;
-            if(speaking) have=levels.TryRead(ped,key.PedId,key.TurnId,key.Generation,out level,out audible,out buffered);
+            bool audit=ShouldAuditPlayback(nowMs);
+            if(speaking||audit) have=levels.TryRead(ped,key.PedId,key.TurnId,key.Generation,out level,out audible,out buffered);
             // A missing/untrusted reading or explicitly inaudible playout is
             // evidence to CLOSE NOW. MinOpenMs only applies to valid short
             // quiet samples (natural pauses), never missing playback proof.
@@ -143,6 +160,20 @@ namespace LSA.PromotedCharacters {
             if(speaking&&!have&&!levels.Available&&!levelUnavailableLogged) {
                 levelUnavailableLogged=true;
                 Game.LogTrivial("[VP] level_source_unavailable mouth=closed no_estimate");
+            }
+            if(audit) {
+                playbackAuditSamples++;lastPlaybackAuditAt=nowMs;
+                var native=NpcPlaybackStateProbe.Read(key.PedId,key.TurnId,key.Generation);
+                // This is a *pending turn*, not proof of a stall: a long
+                // response can legitimately exceed eight seconds. Correlate
+                // with the companion's exact-turn EOS/PCM log before diagnosis.
+                Game.LogTrivial("[VP] playback_pending_audit ped_id="+SafeTraceId(key.PedId)+
+                    " turn_id="+SafeTraceId(key.TurnId)+" generation="+key.Generation+
+                    " age_ms="+(nowMs-activeSinceMs)+" speaking="+(speaking?1:0)+
+                    " read="+(have?1:0)+" turn_buffered="+(have?(buffered?1:0):-1)+
+                    " audible="+(have?(audible?1:0):-1)+
+                    " rms="+(have?level.ToString("0.0000",System.Globalization.CultureInfo.InvariantCulture):"na")+
+                    " end_event_observed=0 "+native.LogFields);
             }
             if(levelLog&&(lastLevelLogAt<0||nowMs<lastLevelLogAt||nowMs-lastLevelLogAt>=LevelLogMs)) {
                 lastLevelLogAt=nowMs;

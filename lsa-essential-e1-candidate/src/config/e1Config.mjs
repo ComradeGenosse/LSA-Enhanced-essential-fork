@@ -217,8 +217,8 @@ export function normalizeConfig(input = {}, env = process.env) {
       ? null : boundedInteger(retryInput.attemptTimeoutMs, null, 1_000, 120_000, 'retry.attemptTimeoutMs'),
   });
   if (typeof retry.enabled !== 'boolean' || typeof retry.honorRetryAfter !== 'boolean' || retry.jitter !== 'bounded' || retry.maxDelayMs < retry.baseDelayMs) throw new TypeError('retry configuration is invalid.');
-  const playbackCompletionGraceMs = boundedInteger(input.playbackCompletionGraceMs, 30_000, 5_000, 120_000, 'playbackCompletionGraceMs');
-  const playbackCompletionMinMs = boundedInteger(input.playbackCompletionMinMs, 60_000, 1_000, 600_000, 'playbackCompletionMinMs');
+  const playbackCompletionGraceMs = boundedInteger(input.playbackCompletionGraceMs, 12_000, 5_000, 120_000, 'playbackCompletionGraceMs');
+  const playbackCompletionMinMs = boundedInteger(input.playbackCompletionMinMs, 10_000, 1_000, 600_000, 'playbackCompletionMinMs');
   const playbackCompletionMaxMs = boundedInteger(input.playbackCompletionMaxMs, 600_000, 60_000, 1_800_000, 'playbackCompletionMaxMs');
   if (playbackCompletionMaxMs < playbackCompletionMinMs) throw new TypeError('playbackCompletionMaxMs must be greater than or equal to playbackCompletionMinMs.');
 

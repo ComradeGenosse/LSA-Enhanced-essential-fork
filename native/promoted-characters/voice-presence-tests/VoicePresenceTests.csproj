@@ -9,6 +9,7 @@
     <Compile Include="../NpcVoicePresenceObserver.cs" Link="NpcVoicePresenceObserver.cs" />
     <Compile Include="../NpcVoiceMouthOverlay.cs" Link="NpcVoiceMouthOverlay.cs" />
     <Compile Include="../NpcPlayoutLevelSource.cs" Link="NpcPlayoutLevelSource.cs" />
+    <Compile Include="../NpcPlaybackStateProbe.cs" Link="NpcPlaybackStateProbe.cs" />
     <Compile Include="VoicePresenceNativeStubs.cs" />
   </ItemGroup>
 </Project>

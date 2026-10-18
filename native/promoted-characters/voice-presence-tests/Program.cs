@@ -332,6 +332,82 @@ static class Program {
         var zero=new VoicePresenceTurnTracker(0f);Assert(zero.OpenLevel==VoicePresenceTurnTracker.OpenThreshold,"zero open level falls back");
     }
 
+    sealed class FakeNativeTurn {
+        internal string PedId, TurnId;
+        internal long GenerationId;
+        internal bool StreamEnded,PlaybackStarted,CompletionEmitted,Cancelled;
+        internal int CreatedAt,LastChunkAt,EstimatedPlaybackEndAt;
+    }
+    static void TestOriginalNativeStateProbe() {
+        var monitor=new object();
+        var fake=new FakeNativeTurn {
+            PedId="ped1",TurnId="t1",GenerationId=17,
+            StreamEnded=true,PlaybackStarted=true,CompletionEmitted=false,
+            Cancelled=false,CreatedAt=100,LastChunkAt=490,EstimatedPlaybackEndAt=3010,
+        };
+        System.Collections.IDictionary turns=new System.Collections.Generic.Dictionary<string,FakeNativeTurn> {
+            ["ped1:t1:17"]=fake,
+        };
+        var state=NpcPlaybackStateProbe.ReadMatching(monitor,turns,"ped1","t1",17);
+        Assert(state.Status=="matched"&&state.StreamEnded&&state.PlaybackStarted&&
+            !state.CompletionEmitted&&!state.Cancelled&&state.EstimatedPlaybackEndAt==3010,
+            "read-only native snapshot reports stream-end but not completion of matching turn");
+        Assert(state.LogFields.Contains("stream_ended=1")&&state.LogFields.Contains("completion_emitted=0"),
+            "native trace distinguishes accepted stream termination from completion emission");
+        Assert(NpcPlaybackStateProbe.ReadMatching(monitor,turns,"ped1","t1",18).Status=="not_found",
+            "old generation cannot be attributed to newer native playback");
+        Assert(NpcPlaybackStateProbe.ReadMatching(monitor,turns,"ped2","t1",17).Status=="not_found",
+            "wrong actor cannot consume or reveal another native turn");
+        Assert(NpcPlaybackStateProbe.ReadMatching(null,turns,"ped1","t1",17).Status=="unavailable",
+            "missing synchronization never implies empty native state");
+        Assert(fake.StreamEnded&&!fake.CompletionEmitted,"snapshot leaves original native state unchanged");
+    }
+
+    static void TestPendingPlaybackAudit() {
+        Reset();
+        var player=NewPed(82,8200);var npc=NewPed(83,8300);
+        Rage.Game.LocalPlayer.Character=player;
+        var levels=new FakeLevels();levels.Set(npc,0f,false);
+        var o=new NpcVoicePresenceObserver("shadow",false,0.015f,false,levels);
+        o.Attach();
+        Start(npc,"npc-83","stalled-1",22);
+        o.Update(1,100);
+        o.Update(1,8099);
+        Assert(levels.Requests.Count==0,"shadow observer does no early or per-frame audio polling");
+        Assert(!Rage.Game.Log.Exists(x=>x.Contains("playback_pending_audit")),"no premature playback concern before threshold");
+        o.Update(1,8100);
+        var reports=Rage.Game.Log.FindAll(x=>x.Contains("playback_pending_audit"));
+        Assert(reports.Count==1&&reports[0].Contains("generation=22")&&
+            reports[0].Contains("age_ms=8000")&&reports[0].Contains("turn_buffered=1")&&
+            reports[0].Contains("audible=0")&&reports[0].Contains("speaking=1"),
+            "stale buffered and inaudible report is sourced from the exact live Essential turn");
+        o.Update(1,12000);
+        Assert(Rage.Game.Log.Count(x=>x.Contains("playback_pending_audit"))==1,
+            "audit not emitted repeatedly within five-second cadence");
+        End(npc,"npc-83","stalled-1",22);o.Update(1,13000);
+        o.Update(1,19000);
+        Assert(Rage.Game.Log.Count(x=>x.Contains("playback_pending_audit"))==1,
+            "native completion closes the audit without bogus post-end reads");
+        levels.Requests.Clear();
+        Start(npc,"npc-83","stalled-2",23);o.Update(1,20000);
+        o.Update(1,28000);
+        Assert(Rage.Game.Log.Count(x=>x.Contains("playback_pending_audit"))==2,
+            "new generation is sampled only after its own elapsed time");
+        // Empty buffer with missing completion is diagnosed as distinct from
+        // stuck buffer; neither reading is ever a fabricated native callback.
+        levels.Fail=true;
+        o.Update(1,33000);
+        reports=Rage.Game.Log.FindAll(x=>x.Contains("playback_pending_audit"));
+        Assert(reports[2].Contains("read=0")&&reports[2].Contains("turn_buffered=-1"),
+            "unavailable native playout proof is explicitly unknown, not silently unbuffered");
+        levels.Fail=false;
+        o.Update(2,33020);
+        int before=levels.Requests.Count;
+        o.Update(2,45000);
+        Assert(levels.Requests.Count==before,"world epoch change retires old queued audio diagnostics");
+        o.Dispose();
+    }
+
     static void Main() {
         var s=new VoicePresenceTurnTracker();
         var a=new VoicePresenceTurnTracker.Key("ped1","turnA",1);
@@ -370,6 +446,8 @@ static class Program {
         TestStopsAndSpeakerChanges();
         TestFailSafeAndLifecycle();
         TestProvidersAndLog();
+        TestPendingPlaybackAudit();
+        TestOriginalNativeStateProbe();
         Console.WriteLine("NPC voice presence policy + native event observer: "+count+" checks passed.");
     }
 }
