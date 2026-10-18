@@ -16,7 +16,7 @@ export const EVENT_NAMES = new Set([
   'supersession_requested','late_event_ignored','turn_terminal_summary','telemetry_records_dropped','telemetry_sink_failed',
   'listener_cleared','listener_replaced','world_unavailable','snapshot_created','target_changed','target_missing','target_invalid','reference_map_revision_changed',
   'identity_resolved','identity_binding_created','identity_binding_retired','identity_conflict','identity_evidence_stale','identity_store_unavailable','persistent_voice_loaded',
-  'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
+  'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_roster_status','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
   'intelligence_status','companion_shadow','knowledge_frame_projected','knowledge_delivery','knowledge_request_stale',
   'intelligence_frame_rejected','director_gate','director_candidate','director_handoff',
   'memory_journal_committed','memory_journal_not_committed',
@@ -37,7 +37,7 @@ const safeKeys = new Set([
   'captureObservationCount','capturePairCount','capturePoolBytes','captureMissingSalience','captureRevisionMismatch','captureRetiredRefs','captureBudgetExcluded',
   'acknowledgedObservations','retiredAcknowledgements','knowledgeRequestHash','projectionHash',
   'knowledgeMode','preview','selectedObservations','frameBytes','frameHash',
-  'frameType','count','status','configuredMode','executionAvailable','nativeExperimental','diagnosticReason','captureMissingReason','captureResetReason',
+  'frameType','count','status','rosterState','configuredMode','executionAvailable','nativeExperimental','diagnosticReason','captureMissingReason','captureResetReason',
   'captureAnchorStatus','captureEventFiring','captureEventDeath','captureEventImpact','captureEventInjury','captureEventOther',
   'captureContextOmit','captureContextCandidate','captureContextMustInclude',
   'captureResponseEligible','captureResponseUrgent',
@@ -96,6 +96,7 @@ const safeKeys = new Set([
 // Per-key closed vocabularies for the correlation diagnostics. Anything else
 // is dropped by the sanitizer, so no actor, ref, transcript or content leaks.
 const closedValues = new Map([
+  ['rosterState', new Set(['active','empty','unavailable'])],
   ['signalKind', new Set(['firing','damage','death','injury_state','vehicle_damage','body_discovered',
     'presence_changed','location_changed','activity_changed','vehicle_transition','radio_changed','radio_stopped'])],
   ['producer', new Set(['shooting','ped_damage','player_damage','vehicle_damage','state','action','playback','radio'])],
