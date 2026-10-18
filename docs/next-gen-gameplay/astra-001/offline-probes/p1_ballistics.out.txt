@@ -1,0 +1,56 @@
+{
+  "assumptions": {
+    "beta": 0.5,
+    "v762_100m": 780.0
+  },
+  "fitted_sigma_MPa": {
+    "concrete": 868.86,
+    "pine": 69.89,
+    "dry_sand": 320.04,
+    "cinder_block": 116.48,
+    "brick": 521.32,
+    "gypsum_board": 5.0,
+    "plywood": 69.89
+  },
+  "informative": {
+    "9mm_after_2_gypsum_boards_mps": 332.6,
+    "5.56_concrete_depth_in": 1.89,
+    ".50_sand_depth_in": 7.4
+  },
+  "checks": [
+    {
+      "check": "5.56 stopped by 2in concrete (FM prose)",
+      "pass": true,
+      "detail": "predicted depth 1.89 in"
+    },
+    {
+      "check": ".50 ~14in sand @200m (FM prose; within +-35%)",
+      "pass": false,
+      "detail": "predicted 7.4 in"
+    },
+    {
+      "check": "5.56 perforates 3/8in mild steel (FM table 7-2)",
+      "pass": true,
+      "detail": "E=1378 J vs E_bl~292 J (k=3 assumption)"
+    },
+    {
+      "check": "5.56 passes >=4 gypsum boards (\"Sheetrock no protection\")",
+      "pass": true,
+      "detail": "20 boards before stop"
+    },
+    {
+      "check": "5.56 stopped by brick veneer ~9cm (FM prose)",
+      "pass": true,
+      "detail": "predicted depth 7.3 cm (brick sigma is an assumption)"
+    }
+  ],
+  "passed": 4,
+  "total": 5
+}
+{
+  "variant_B_same_range": {
+    "sand_sigma_MPa": 125.5,
+    ".50_sand_depth_in": 12.6,
+    "pass_within_35pct_of_14in": true
+  }
+}
