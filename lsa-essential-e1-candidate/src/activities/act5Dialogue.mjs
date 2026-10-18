@@ -29,6 +29,7 @@ const NAV_STOP = new Set(['stop driving','stop the car','stop the trip','cancel 
   'end the trip','stop walking','stop moving','stop navigation']);
 const DRIVE_STOP = new Set(['stop driving','stop the car','stop the trip','cancel the trip','end the trip']);
 const WALK_STOP = new Set(['stop walking','stop moving']);
+export const isAct6StopRequest = input => NAV_STOP.has(clean(input));
 const NAV_NAMES = Object.freeze(new Map([
   ['airport','airport'],['lsia','lsia'],['los santos international airport','los santos international airport'],
   ['del perro pier','del perro pier'],['vespucci beach','vespucci beach'],
@@ -286,9 +287,29 @@ export class Act5Dialogue {
   #ready() {
     const runtime = this.activities?.client?.runtime;
     const engine = this.activities?.engine;
-    return engine?.config?.act5 === true && engine.config.mode === 'on' &&
+    // ACT5 suggestions are optional; independently enabled ACT6 player orders
+    // still require the same live native connection and owner fences.
+    return (engine?.config?.act5 === true || (engine?.config?.act6Capabilities?.length || 0) > 0) &&
+      engine.config.mode === 'on' &&
       runtime?.ready === true && engine.hello?.nativeRun === runtime.nativeRun &&
       engine.hello?.adapterEpoch === runtime.adapterEpoch ? runtime : null;
+  }
+
+  // Read-only readiness diagnostic. This never grants native capabilities or
+  // overrides the authoritative Engine admission and native preflight.
+  navigationReadiness(intent) {
+    const engine = this.activities?.engine;
+    const config = engine?.config;
+    const capability = intent === 'vehicle_trip' ? 'drive_to' : 'walk_to';
+    if (config?.mode !== 'on' || !config?.act6Capabilities?.includes(capability)) return 'capability_disabled';
+    const row = engine.registry?.get(capability);
+    if (!row || row.phase !== 'ACT6' || row.execution.path === 'none' ||
+        !row.allowedSources.includes('player_dialogue') || !row.allowedPriority.includes('player_direct'))
+      return 'capability_unavailable';
+    if (!this.#ready()) return 'native_unavailable';
+    if (engine.hello?.capabilities?.[capability] !== true) return 'native_capability_missing';
+    if (row.probes.some(probe => !config.passedProbes?.includes(probe))) return 'native_probes_missing';
+    return null;
   }
 
   async #owner(turn) {
@@ -348,7 +369,8 @@ export class Act5Dialogue {
     const canOffer = !busy && !this.pending.has(characterId) &&
       (this.cooldown.get(characterId) || 0) <= this.now();
     const lastOffered = this.lastOffered.get(characterId);
-    const eligible = Object.fromEntries(Object.entries(ACT5_CHOICES).map(([intent, options]) => [
+    const eligible = this.activities.engine.config.act5 === true
+      ? Object.fromEntries(Object.entries(ACT5_CHOICES).map(([intent, options]) => [
       intent, !canOffer || lastOffered?.intent === intent && this.now() - lastOffered.at < REPEAT_INTENT_MS
         ? [] : options.filter(slots => {
         if (!act5WorldAvailable(intent,slots,owner.activityOffer)) return false;
@@ -371,7 +393,7 @@ export class Act5Dialogue {
             });
         });
       }),
-    ]));
+    ])) : {};
     const intents = Object.keys(eligible).filter(intent => eligible[intent].length);
     return Object.freeze({ owner, intents:Object.freeze(intents), activityStatus:activityStatus?.status || 'unknown',
       pendingIntent:this.pending.get(characterId)?.activity.intent || null,
@@ -380,6 +402,7 @@ export class Act5Dialogue {
   }
 
   async publish(turn, decision, context, isCurrent) {
+    if (this.activities?.engine?.config?.act5 !== true) return false;
     if (!decision?.activity || !context?.intents?.includes(decision.activity.intent) ||
         !validateAct5Choice(decision.activity, context.intents, context.availableChoices) ||
         !isCurrent?.()) return false;
@@ -516,20 +539,16 @@ export class Act5Dialogue {
       // output_transcript boundary; a native owner is inspected again at commit.
       if (navigationIntent) {
         const intent = request?.intent || navigationIntent;
-        if (!request) return Object.freeze({kind:'unavailable',intent,reason:'destination_unresolved'});
-        if (!TERMINAL.has(this.activities.status(characterId)?.status))
-          return Object.freeze({kind:'unavailable',intent,reason:'actor_busy'});
-        const needed = intent === 'vehicle_trip' ? 'drive_to' : 'walk_to';
-        const row = this.activities.engine.registry.get(needed);
-        if (!this.activities.engine.config.act6Capabilities?.includes(needed) ||
-            !row || row.phase !== 'ACT6' || !row.allowedSources.includes('player_dialogue') ||
-            !row.allowedPriority.includes('player_direct') || row.execution.path === 'none' ||
-            !this.activities.engine.registry.enabled(needed,{
-              mode:'on',hello:this.activities.engine.hello?.capabilities,
-              requested:[needed],passedProbes:this.activities.engine.config.passedProbes || [],
-              source:'player_dialogue',priority:'player_direct'
-            }))
-          return Object.freeze({kind:'unavailable',intent,reason:'capability_disabled'});
+        const deny = reason => {
+          this.report('act6_player_direct_rejected', {intent,reason});
+          return Object.freeze({kind:'unavailable',intent,reason});
+        };
+        this.report('act6_player_direct_recognized', {intent,destination:request?.slots?.place?.kind || 'unresolved',
+          act5Suggestions:this.activities.engine.config.act5 === true});
+        if (!request) return deny('destination_unresolved');
+        if (!TERMINAL.has(this.activities.status(characterId)?.status)) return deny('actor_busy');
+        const readiness = this.navigationReadiness(intent);
+        if (readiness) return deny(readiness);
         const owner=await this.#owner(turn);
         if (!owner || !isCurrent?.() ||
             owner.binding.characterId !== characterId ||
@@ -541,17 +560,18 @@ export class Act5Dialogue {
             owner.nativeClientRun !== context.owner.nativeClientRun ||
             owner.sessionKey !== context.owner.sessionKey ||
             !sameHostContext(owner.hostContext,context.owner.hostContext))
-          return Object.freeze({kind:'unavailable',intent,reason:'owner_unavailable'});
+          return deny('owner_unavailable');
+        if (request.slots.place?.kind === 'waypoint' && owner.activityOffer?.waypointAvailable === false)
+          return deny('place_unresolved');
         if (!act5WorldAvailable(intent,request.slots,owner.activityOffer))
-          return Object.freeze({kind:'unavailable',intent,reason:
-            intent === 'vehicle_trip' && owner.activityOffer?.safe === true &&
-            owner.activityOffer?.actorIsDriver !== true ? 'driver_required' : 'native_unavailable'});
+          return deny(intent === 'vehicle_trip' && owner.activityOffer?.safe === true &&
+            owner.activityOffer?.actorIsDriver !== true ? 'driver_required' : 'native_unavailable');
         // Deictic "there" never gains a guessed waypoint after a native change.
         const freshRequest=parseAct6PlayerRequest(response,owner.activityOffer);
         if (!freshRequest || JSON.stringify(freshRequest)!==JSON.stringify(request))
-          return Object.freeze({kind:'unavailable',intent,reason:'destination_unresolved'});
+          return deny('destination_unresolved');
         const turnKey=keyFor(turn.identity)+':'+turn.identity.turnId+':'+turn.identity.generationId;
-        if (this.seenTurns.has(turnKey) || this.approvals.has(turnKey)) return null;
+        if (this.seenTurns.has(turnKey) || this.approvals.has(turnKey)) return deny('duplicate_turn');
         const now=this.now();
         const proposed={
           proposalVersion:1,proposalId:this.id(),source:'player_dialogue',
@@ -564,7 +584,7 @@ export class Act5Dialogue {
         if (this.seenTurns.size>256) this.seenTurns.delete(this.seenTurns.values().next().value);
         this.approvals.set(turnKey,{owner,pending:{activity:request,proposal:proposed,expiresAt:now+OFFER_MS}});
         if (this.approvals.size>32) this.approvals.delete(this.approvals.keys().next().value);
-        this.report('act6_player_direct_staged',{intent:request.intent});
+        this.report('act6_player_direct_staged',{intent:request.intent,destination:request.slots.place.kind});
         return Object.freeze({kind:'approval_pending',intent:request.intent});
       }
       if (!CANCEL.has(response)) return null;
