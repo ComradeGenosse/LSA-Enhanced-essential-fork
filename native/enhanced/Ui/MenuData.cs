@@ -19,7 +19,7 @@ namespace LSA.Enhanced.Ui
         readonly IClock clock;
         readonly Action<Action> worker;
         readonly ConcurrentQueue<Action> applied = new ConcurrentQueue<Action>();
-        bool listInFlight, describeInFlight, probeInFlight;
+        bool listInFlight, describeInFlight, probeInFlight, readinessInFlight;
         string describeKey, pendingKey;
         long describeAt;
         // worker runs JSON parsing off the game fiber (the thread pool by default).
@@ -32,6 +32,7 @@ namespace LSA.Enhanced.Ui
         public string CharactersError {get;private set;}
         public bool CompanionReachable {get;private set;} = true;
         public Describe Describe {get;private set;}
+        public GameplayMenuReadiness ActivityReadiness {get;private set;}
         public string DescribeKey => describeKey;
         public int Version {get;private set;}
         public void RequestCharacters()
@@ -67,6 +68,19 @@ namespace LSA.Enhanced.Ui
         }
         // The describe entry for this exact NPC, or null while it is loading or stale.
         public Describe DescribeFor(string encounterId,string ownerAlias) => describeKey == (encounterId ?? "") + "|" + (ownerAlias ?? "") ? Describe : null;
+        public void RequestActivityReadiness()
+        {
+            if (readinessInFlight) return;
+            readinessInFlight = true;
+            companion.Post("{\"action\":\"activity_menu_readiness\"}",DescribeBodyBytes,RequestTimeoutMs,reply => {
+                var result = reply != null && reply.Ok ? GameplayMenuReadiness.Parse(reply.Body) : null;
+                applied.Enqueue(() => {
+                    readinessInFlight = false;
+                    ActivityReadiness = result; // fail closed when the companion disconnects
+                    Version++;
+                });
+            });
+        }
         // Cheap reachability check: an id-less describe answers {"kind":"unknown"}.
         // Older companions answer 400 invalid_editor_action, which is reachable too.
         public void Probe()
