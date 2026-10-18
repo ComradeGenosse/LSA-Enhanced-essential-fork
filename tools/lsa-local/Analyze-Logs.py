@@ -259,7 +259,7 @@ def session_gaps(rows, manifest, malformed, archive_gaps):
     return list(dict.fromkeys(gap))
 
 
-def health_row(raw, transitions, gaps, install=None):
+def health_row(raw, transitions, gaps, install=None, world_cutoff=None):
     mode = raw.get("configuredMode", "unknown")
     if not isinstance(mode, str):
         mode = "unknown"
@@ -271,7 +271,18 @@ def health_row(raw, transitions, gaps, install=None):
     previously_failed = False
     current_epoch = None
     current_verified = False
+    scoped_reset = False
+    reset_applied = False
+    # A verified earlier-world outcome cannot establish the latest world's health.
+    world_sensitive = raw["id"].startswith(("act.", "activity.", "reaction.",
+        "perception.", "scene.", "native.", "mk.", "character.")) or raw["id"] == "conversation.ux4"
     for item in transitions:
+        if world_sensitive and world_cutoff is not None and not reset_applied and item["sequence"] >= world_cutoff:
+            state, initialization, installed = None, "unknown", "unknown"
+            current_verified = False
+            previously_failed = False
+            reset_applied = True
+            scoped_reset = True
         d = item["data"]
         status = d.get("healthState")
         if not status:
@@ -294,9 +305,11 @@ def health_row(raw, transitions, gaps, install=None):
         if status in READY:
             if previously_failed:
                 recovered.append(item["evidence"])
-            current_verified = False if previously_failed else current_verified
+                current_verified = False
             previously_failed = False
-            state = "ready"
+            # A routine readiness confirmation does not cancel a real verified
+            # operation. Only failure/reset invalidates that success.
+            state = "verified" if current_verified else "ready"
         elif status == "initialized":
             state = "initialized"
         elif status == "verified":
@@ -323,6 +336,10 @@ def health_row(raw, transitions, gaps, install=None):
             current_verified = False
         # A graceful stopped resource is not a failure and does not erase the
         # completed-session evidence. No live/current-state inference is made.
+    if world_sensitive and world_cutoff is not None and not reset_applied:
+        # No health event in the new world/host scope, despite recorded reset.
+        state, installed, initialization, current_verified = None, "unknown", "unknown", False
+        scoped_reset = True
     if mode == "off":
         label = "disabled"
         reason = "effective_configuration_off"
@@ -336,6 +353,8 @@ def health_row(raw, transitions, gaps, install=None):
         label, reason = "ready but not exercised", "readiness_only"
     else:
         label, reason = "unknown", "insufficient evidence"
+    if scoped_reset and label == "unknown":
+        reason = "world_or_host_reset_without_new_operation_proof"
     if label in ("operational", "ready but not exercised") and SERIOUS.intersection(gaps):
         label, reason = "unknown", "incomplete_evidence_cannot_establish_current_health"
     if mode == "shadow" and label == "operational":
@@ -430,7 +449,19 @@ def build_report(files, source_issues=()):
         for x in events:
             if x["event"] == "system_health" and SYSTEM_ID.fullmatch(x["data"].get("systemId", "")):
                 by_id[x["data"]["systemId"]].append(x)
-        matrix = ([health_row(row, by_id[row["id"]], gaps, installs.get(row["id"]))
+        host_scopes_ordered = [(e["sequence"], e["data"].get("hostRunId"), e["data"].get("worldEpoch"))
+            for e in events if e["event"] == "system_health" and
+            isinstance(e["data"].get("hostRunId"), str) and
+            type(e["data"].get("worldEpoch")) is int]
+        world_cutoff = None
+        previous = None
+        for seq, host, epoch in host_scopes_ordered:
+            scope = (host, epoch)
+            if previous is not None and previous != scope:
+                world_cutoff = seq
+            previous = scope
+        matrix = ([health_row(row, by_id[row["id"]], gaps, installs.get(row["id"]),
+                             world_cutoff=world_cutoff)
                    for row in manifest["doc"]["systems"]] if manifest else [])
         counts = collections.Counter(row["health"] for row in matrix)
         host_scopes = {(d.get("hostRunId"), d.get("worldEpoch"))
