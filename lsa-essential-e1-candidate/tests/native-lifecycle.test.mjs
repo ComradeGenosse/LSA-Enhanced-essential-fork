@@ -92,6 +92,40 @@ test('missing completion expires only the playback watchdog and late completion 
   assert.equal(f.listeners.size, 0);
 });
 
+test('stalled native playback transitions to terminal, requests original cleanup, and leaves no committed assistant history', async () => {
+  const f=await fixture({playbackDeadline:30,emit:()=>true});
+  const result=await f.begin();
+  assert.equal(result.terminalReason,'playback_ack_timeout');
+  assert.equal(result.status,'ack_timeout');
+  assert.equal(f.failures.length,1);
+  assert.equal(f.failures[0].details.reason,'playback_ack_timeout');
+  assert.equal(f.listeners.size,0);
+  assert.deepEqual(f.runtime.history.readForSession('17',5),[{role:'user',content:'Hello'}]);
+  // Late native success from the retired identity cannot revive its history.
+  f.complete();
+  assert.equal(f.runtime.history.readForSession('17',5).length,1);
+});
+
+test('a new native turn can complete immediately after stale playback is retired', async () => {
+  const f=await fixture({playbackDeadline:30,emit:(event,complete)=>{
+    if(event.type==='turn_complete' && event.generationId===902)complete(event);
+    return true;
+  }});
+  const stalled=await f.begin();
+  assert.equal(stalled.terminalReason,'playback_ack_timeout');
+  const next={...id,turnId:'native-next',generationId:902};
+  const result=await f.begin(next);
+  assert.equal(result.terminalReason,'completed');
+  f.complete(id); // Old native receipt after new completion: no resurrection.
+  assert.equal(f.failures.length,1);
+  assert.equal(f.listeners.size,0);
+  assert.deepEqual(f.runtime.history.readForSession('17',5),[
+    {role:'user',content:'Hello'},
+    {role:'user',content:'Hello'},
+    {role:'assistant',content:'Hello.'},
+  ]);
+});
+
 test('duplicate completion and duplicate text submission each take effect once', async () => {
   const f = await fixture();
   const done = f.begin(); await tick();
