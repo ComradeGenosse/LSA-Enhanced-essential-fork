@@ -70,6 +70,60 @@ namespace LSA.BridgeTests
         }
         public void Select(int conversation,int speaker) { NpcTargeting.ConversationPed = Ped(conversation); NpcTargeting.SpeakerPed = Ped(speaker); }
         public void Kill(int handle) => Ped(handle).IsDead = true;
+        const string TestOwnerAlias = "promoted.11111111-1111-4111-8111-111111111111";
+        string promotedToken;
+        // Exercise the actual P2 capture/register/retire path, not a faked
+        // boolean ownership flag, so the UX4 proof uses P1 incarnation state.
+        public string PromoteCurrent()
+        {
+            var text = Capture();
+            if (text == null || text.StartsWith("error:")) return text;
+            var capture = new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(text);
+            var args = new Dictionary<string,object> {{"captureToken",capture["captureToken"]},{"ownerAlias",TestOwnerAlias}};
+            return OwnerCommand("register",args);
+        }
+        public string RetirePromoted()
+        {
+            if (promotedToken == null) return "error:no_owner_token";
+            return OwnerCommand("release",new Dictionary<string,object> {{"ownerAlias",TestOwnerAlias},{"ownershipToken",promotedToken}});
+        }
+        string OwnerCommand(string operation,Dictionary<string,object> args)
+        {
+            var req = new ControlRequest {RequestId = Guid.NewGuid().ToString("D"),Operation = operation,
+                ExpiresAtUtc = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 3000,Args = args};
+            var handle = typeof(PromotedCharactersIntegration).GetMethod("Handle",BindingFlags.Instance | BindingFlags.NonPublic);
+            try {
+                var result = new JavaScriptSerializer().Serialize(handle.Invoke(Integration,new object[] {req}));
+                if (operation == "register") {
+                    var saved = new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(result);
+                    promotedToken = (string)saved["ownershipToken"];
+                }
+                return result;
+            } catch (TargetInvocationException error) { return "error:" + error.InnerException?.Message; }
+        }
+        public void OwnerSuspended(int handle,bool suspended)
+        {
+            var encounters = typeof(PromotedCharactersIntegration).GetField("encounters",BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Integration);
+            var item = ((System.Collections.IDictionary)encounters)[handle.ToString()];
+            if (item == null) throw new InvalidOperationException("test encounter absent");
+            item.GetType().GetField("Suspended").SetValue(item,suspended);
+        }
+        public void ShareVehicle(int handle)
+        {
+            var car = new Vehicle {Handle=700,MemoryAddress=new IntPtr(700 * 16)};
+            Game.LocalPlayer.Character.CurrentVehicle = car;
+            Ped(handle).CurrentVehicle = car;
+        }
+        public void LeaveVehicle(int handle)
+        {
+            Game.LocalPlayer.Character.CurrentVehicle = null;
+            Ped(handle).CurrentVehicle = null;
+        }
+        public void MovePlayer(float x,float y,float z)
+        {
+            Game.LocalPlayer.Character.Position = new Vector3(x,y,z);
+        }
+
         public bool MicIsCurrent(int handle) => InputController.LastMic != null && peds.ContainsKey(handle) && ReferenceEquals(InputController.LastMic,peds[handle]);
         public void Gates(bool textInput,bool controlsMenu,bool loading) { TextInputService.IsOpen = textInput; LsaControlsMenu.BlocksLsaInput = controlsMenu; Game.IsLoading = loading; }
         public void Native(string name,bool value) { if (value) trueNatives.Add(name); else trueNatives.Remove(name); }
