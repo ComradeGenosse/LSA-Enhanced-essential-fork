@@ -565,6 +565,74 @@ test('ACT6 explicit stop can cancel owner-matched UX navigation without reopenin
   assert.equal(h.engine.activities[0].status,'cancelled');
 });
 
+// October 18 regression: ACT6 is a player command, NOT an optional ACT5 offer.
+test('ACT6 direct player navigation admits with ACT5 suggestions disabled and a live native owner',async()=>{
+  const h=harness({enabled:false,act6Capabilities:['drive_to'],
+    extraProbes:['NV2','Q2','L1','D1','D2','D3','SVE1']});
+  h.setOffer({actorOnFoot:false,actorInVehicle:true,actorIsDriver:true,waypointAvailable:true});
+  const t=turn(),ctx=await h.dialogue.prepare(t,'player_mic');
+  assert.ok(ctx,'direct navigation must acquire owner without ACT5');
+  assert.deepEqual(ctx.intents,[],'ACT5 suggestion menu must remain disabled');
+  assert.deepEqual(ctx.availableChoices,{});
+  const staged=await h.dialogue.onPlayerInput(t,'All right, drive to the waypoint',ctx,()=>true);
+  assert.deepEqual(staged,{kind:'approval_pending',intent:'vehicle_trip'});
+  assert.equal(h.commands.length,0,'native work is not issued until validated transcript publication');
+  const result=await h.dialogue.commitApproved(t,()=>true);
+  assert.equal(result.ok,true,result.reason);
+  assert.equal(h.engine.activities.at(-1).template,'vehicle_trip');
+  assert.equal(h.engine.activities.at(-1).steps[0].capability,'drive_to');
+  assert.deepEqual(h.commands.map(x=>x.type),['actor.acquire']);
+  assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,false,'one turn never dispatches twice');
+  assert.equal(await h.dialogue.publish(t,{activity:{intent:'hold_position',slots:{}}},ctx,()=>true),false,
+    'ACT5 offers stay disabled even though direct ACT6 navigation is enabled');
+});
+
+test('ACT6 independent path reports exact gates and does not impersonate stock driving',async()=>{
+  const opts={enabled:false,act6Capabilities:['drive_to']};
+  const testRequest=async(h,phrase='Drive to the waypoint')=>{
+    h.setOffer({actorOnFoot:false,actorInVehicle:true,actorIsDriver:true,waypointAvailable:true});
+    const t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+    assert.ok(ctx);
+    const outcome=await h.dialogue.onPlayerInput(t,phrase,ctx,()=>true);
+    assert.deepEqual(h.commands,[]);
+    return outcome;
+  };
+  const missingProbe=harness({...opts,extraProbes:[]});
+  assert.equal((await testRequest(missingProbe)).reason,'native_probes_missing');
+  const failedHello=harness({...opts,extraProbes:['NV2','Q2','L1','D1','D2','D3','SVE1']});
+  failedHello.engine.noteHello({type:'hello',...host,nativeRun,adapterEpoch,capabilities:{drive_to:false}});
+  assert.equal((await testRequest(failedHello)).reason,'native_capability_missing');
+  const wrongDriver=harness({...opts,extraProbes:['NV2','Q2','L1','D1','D2','D3','SVE1']});
+  wrongDriver.setOffer({actorIsDriver:false});
+  assert.equal((await testRequest(wrongDriver)).reason,'driver_required');
+  const missingWaypoint=harness({...opts,extraProbes:['NV2','Q2','L1','D1','D2','D3','SVE1']});
+  missingWaypoint.setOffer({waypointAvailable:false});
+  assert.equal((await testRequest(missingWaypoint)).reason,'place_unresolved');
+  const stale=harness({...opts,extraProbes:['NV2','Q2','L1','D1','D2','D3','SVE1']});
+  stale.setOffer({actorOnFoot:false,actorInVehicle:true,actorIsDriver:true});
+  const t=turn(),ctx=await stale.dialogue.prepare(t,'player_text');
+  assert.equal((await stale.dialogue.onPlayerInput(t,'Take us to my marker',ctx,()=>true)).kind,'approval_pending');
+  stale.retire();
+  assert.equal((await stale.dialogue.commitApproved(t,()=>true)).ok,false);
+  assert.deepEqual(stale.commands,[],'stale native owner must not dispatch');
+});
+
+test('ACT6 disabled does not enable unrelated ACT3 or ACT5 dialogue authority',async()=>{
+  const noAct6=harness({enabled:false});
+  assert.equal(await noAct6.dialogue.prepare(turn(),'player_mic'),null);
+  const wrongPhase=harness({enabled:false,act6Capabilities:['walk_to'],
+    act3Capabilities:['enter_vehicle_seat'],extraProbes:['NV1','Q2','L1','SVE1']});
+  const t=turn(),ctx=await wrongPhase.dialogue.prepare(t,'player_mic');
+  assert.ok(ctx);
+  assert.deepEqual(ctx.intents,[]);
+  const result=await wrongPhase.dialogue.onPlayerInput(t,'Get in the driver seat',ctx,()=>true);
+  assert.equal(result?.kind,'approval_pending');
+  const committed=await wrongPhase.dialogue.commitApproved(t,()=>true);
+  assert.equal(committed.ok,false,'ACT3 still requires the original ACT5 dialogue opt-in');
+  assert.equal(committed.reason,'policy_denied');
+  assert.equal(wrongPhase.commands.length,0);
+});
+
 // Registry includes FR1 in the baseline. Keep all D3/SVE1 driver proofs inside
 // normalizeActivityConfig's twelve-probe limit, as the existing ACT6 tests do.
 const act6Probes=['NV2','Q2','L1','D1','D2','D3','SVE1'];
