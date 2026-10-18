@@ -121,6 +121,8 @@ namespace LSA.Intelligence
         public void Initialize()=>IsAvailable=true;
         public void Update(){UpdateCalls++;}
         public void OwnerRetired(string lifetime){}
+        public void EnableCaptureShadow(){}
+        public void EnableCaptureExperimental(){}
         internal void Shutdown(string reason){ShutdownCalls++;ShutdownReason=reason;IsAvailable=false;}
         internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls;
         internal static void LogStatus(string text)=>Rage.Game.LogTrivial(text);
