@@ -322,8 +322,22 @@ jobs:
           # A renamed .NET Essential controller is still a competing owner.
           # Verify assembly metadata rather than trusting a changed filename.
           $disguised = Join-Path $game 'Plugins/OldPluginDisguised.dll'
-          Add-Type -TypeDefinition 'public sealed class OldLsaTestController {}' -OutputAssembly "$game/Plugins/LosSantosAlive.dll" -OutputType Library
-          Move-Item "$game/Plugins/LosSantosAlive.dll" $disguised
+          $fakeDir = Join-Path $env:RUNNER_TEMP 'lsa-managed-identity-fixture'
+          New-Item -ItemType Directory -Force $fakeDir | Out-Null
+          @'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <TargetFramework>net10.0</TargetFramework>
+              <AssemblyName>LosSantosAlive</AssemblyName>
+            </PropertyGroup>
+          </Project>
+          '@ | Set-Content (Join-Path $fakeDir 'Legacy.csproj')
+          'public sealed class OldLsaTestController {}' | Set-Content (Join-Path $fakeDir 'OldController.cs')
+          dotnet build (Join-Path $fakeDir 'Legacy.csproj') -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'Managed legacy fixture compilation failed' }
+          Copy-Item (Join-Path $fakeDir 'bin/Release/net10.0/LosSantosAlive.dll') $disguised
+          $internalName = [System.Reflection.AssemblyName]::GetAssemblyName($disguised).Name
+          if ($internalName -cne 'LosSantosAlive') { throw 'Wrong managed legacy fixture assembly identity' }
           $denied = $false
           try { & "$root/Install-Standalone.ps1" -GamePath $game -ExistingInstallation }
           catch { $denied = $_.Exception.Message -like '*Legacy LSA conflict*' }
