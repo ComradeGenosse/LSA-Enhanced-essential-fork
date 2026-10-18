@@ -8,6 +8,9 @@ on:
       - 'native/promoted-characters/**'
       - 'lsa-essential-e1-candidate/src/activities/**'
       - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
+      - 'lsa-essential-e1-candidate/src/observability/**'
+      - 'lsa-essential-e1-candidate/tests/observability.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/vehicle-*.test.mjs'
       - 'lsa-essential-e1-candidate/tests/activities-act*.test.mjs'
       - 'lsa-essential-e1-candidate/tests/activity-act4.test.mjs'
       - '.github/workflows/act6-native-navigation.yml'
@@ -18,6 +21,10 @@ on:
       - 'native/activities/**'
       - 'native/promoted-characters/**'
       - 'lsa-essential-e1-candidate/src/activities/**'
+      - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
+      - 'lsa-essential-e1-candidate/src/observability/**'
+      - 'lsa-essential-e1-candidate/tests/observability.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/vehicle-*.test.mjs'
       - 'lsa-essential-e1-candidate/tests/activities-act*.test.mjs'
       - '.github/workflows/act6-native-navigation.yml'
   workflow_dispatch:
@@ -39,6 +46,7 @@ jobs:
           node --check lsa-essential-e1-candidate/src/activities/activityEngine.mjs
           node --check lsa-essential-e1-candidate/src/activities/act5Dialogue.mjs
           node --check lsa-essential-e1-candidate/src/activities/vehicleDrivingIntent.mjs
+          node --check lsa-essential-e1-candidate/src/observability/eventContract.mjs
           node --check lsa-essential-e1-candidate/src/activities/activityKnowledge.mjs
           node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
       - name: ACT2–ACT6 focused regression
@@ -46,6 +54,7 @@ jobs:
           node --test --test-concurrency=1 \
             lsa-essential-e1-candidate/tests/vehicle-dll-handoff.test.mjs \
             lsa-essential-e1-candidate/tests/vehicle-driving-intent.test.mjs \
+            lsa-essential-e1-candidate/tests/observability.test.mjs \
             lsa-essential-e1-candidate/tests/activities-act6.test.mjs \
             lsa-essential-e1-candidate/tests/activities-act5.test.mjs \
             lsa-essential-e1-candidate/tests/activities-act3.test.mjs \
