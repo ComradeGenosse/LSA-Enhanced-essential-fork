@@ -120,6 +120,51 @@ jobs:
           # Verify CLR metadata without executing RPH or starting GTA.
           dotnet run --project native/standalone-host/tests/exitpoint/ExitPointSignature.Tests.csproj -c Release -- 'native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll'
           if ($LASTEXITCODE -ne 0) { throw 'G3 RPH ExitPoint signature mismatch in Release host' }
+      - name: Verify both official RPH SDK filenames and reject fake reference shadowing (G4)
+        shell: pwsh
+        run: |
+          $sdk = Get-ChildItem -Path (Join-Path $env:USERPROFILE '.nuget/packages/ragepluginhook/1.124.0') -Filter RagePluginHook.dll -Recurse -File |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $sdk) { throw 'Official RPH SDK unavailable for G4 fixture' }
+          $fake = 'native/standalone-host/tests/bin/Release/net481/RagePluginHook.dll'
+          if (-not (Test-Path -LiteralPath $fake)) { throw 'Fake reference shadow fixture missing' }
+          $officialHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $sdk).Hash
+          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $fake).Hash -eq $officialHash) {
+            throw 'Fake reference shadow fixture is not a different binary'
+          }
+          # The official 1.131 ZIP ships identical SDK bytes under this other name.
+          $fixture = Join-Path $env:RUNNER_TEMP 'lsa-g4-official-131-sdk'
+          New-Item -ItemType Directory -Force $fixture | Out-Null
+          $sdk131Name = Join-Path $fixture 'RagePluginHookSDK.dll'
+          Copy-Item -LiteralPath $sdk -Destination $sdk131Name -Force
+          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $sdk131Name).Hash -ne $officialHash) {
+            throw 'G4 1.131 filename fixture differs from official NuGet SDK'
+          }
+          $hostDll = 'native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll'
+          $hostHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $hostDll).Hash
+          foreach ($reference in @($sdk, $sdk131Name)) {
+            # ResolveReferences triggers the same fail-closed gate used by Rebuild,
+            # without recompiling or altering the release host being packaged.
+            $output = @(dotnet msbuild native/standalone-host/LSA.Standalone.RageHost.csproj `
+              -t:ResolveReferences -p:Configuration=Release "-p:RphReferencePath=$reference" -verbosity:minimal 2>&1)
+            $code = $LASTEXITCODE
+            $output | ForEach-Object { Write-Host $_ }
+            if ($code -ne 0) { throw "G4 SDK reference resolution failed: $reference" }
+            if (-not ($output -match 'RPH compile reference requested=')) {
+              throw 'G4 expected reference identity/path gate did not execute'
+            }
+          }
+          # The renamed official SDK must independently accept the real output.
+          & tools/standalone-gta-smoke/Test-RphCompatibility.ps1 `
+            -RphReferencePath $sdk131Name `
+            -HostDll $hostDll `
+            -CoreDll 'native/standalone/bin/Release/net481/LSA.Standalone.Core.dll' `
+            -ReportPath 'out/RphCompatibility.sdk131-name.json'
+          if ($LASTEXITCODE -ne 0) { throw 'G4 SDK alias ABI audit failed' }
+          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $hostDll).Hash -ne $hostHash) {
+            throw 'G4 reference fixture unexpectedly replaced the release host'
+          }
+          Write-Host 'RPH_SDK_G4_PASS official-nuget-name=ok official-131-name=ok fake-shadow-present=true host-unchanged=true'
       - name: Native typed replies and exact PCM escrow over real net481 IPC
         shell: pwsh
         run: |
