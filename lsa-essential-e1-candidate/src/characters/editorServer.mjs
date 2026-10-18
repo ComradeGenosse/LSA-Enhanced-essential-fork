@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { randomBytes,timingSafeEqual } from 'node:crypto';
 import { characterFailureReason } from './characterService.mjs';
-import { inspectNavigationReadiness } from '../activities/navigationReadiness.mjs';
+import { inspectNavigationReadiness,inspectGameplayMenuReadiness } from '../activities/navigationReadiness.mjs';
 import { publishControlEndpoint } from '../control/endpointFile.mjs';
 import { describeCurrent } from '../control/currentDescribe.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
@@ -152,6 +152,8 @@ export async function startCharacterEditor(service,{ port = service.config.promo
       switch (body.action) {
         case 'act6_readiness':
           result=inspectNavigationReadiness(service.activities,service.config?.activities);break;
+        case 'activity_menu_readiness':
+          result=inspectGameplayMenuReadiness(service.activities,service.config?.activities);break;
         case 'inspector_context': {
           const store=service.store,enabled=service.config.memoryK?.capabilities['memory.inspector']==='on';
           const supported=typeof store?.withP2SqliteRead==='function';
