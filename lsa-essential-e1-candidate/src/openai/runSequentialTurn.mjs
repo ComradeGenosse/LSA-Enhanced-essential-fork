@@ -3,6 +3,7 @@ import { drivingIntentKind, activeAct6Driving, liveAct6Driving, drivingModelGuid
 import { parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind, navigationRequestKind, isAct6StopRequest, reconcileAct6Decision } from '../activities/act5Dialogue.mjs';
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 import {scalePcm16} from '../voice/pcmVolume.mjs';
+import {selectLocalFallback,fallbackCategory} from '../voice/localFallback.mjs';
 import {playbackCompletionPolicy} from './playbackCompletionPolicy.mjs';
 import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
 const ELEVENLABS_MAX_NATIVE_LEAD_MS=900;
@@ -93,6 +94,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   let endSent = false;
   let nativePlaybackStartedAt = null;
   let playbackCommitted = false;
+  let outputTranscriptPublished = false;
+  let stockActionPublished = false;
   let providerTimer = null;
   const metrics = host.telemetry?.beginTurn(identity, source, { inputChars: String(input || '').length, bytes: pcm?.byteLength || 0, sampleRate: sampleRate || 0 }) || null;
 
@@ -165,7 +168,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         .then(result => { dialogueAttempt?.finish({ outcome: 'completed', complete: true }); return result; }, error => { dialogueAttempt?.finish({ outcome: controller.signal.aborted ? 'cancelled' : 'failed', code: error?.code || null, httpStatus: error?.status || null }); throw error; });
     }
     return services.executeProvider({
-      operation, provider, identity, signal: controller.signal, deadlineAt,
+      operation, provider, identity, signal: controller.signal,
+      deadlineAt: deadlineAt - (services.config.localVoiceFallback?.enabled === true ? services.config.localVoiceFallback.maxRecoveryDelayMs : 0),
       isCurrent: () => !retired && host.isCurrent(identity), canRetry, telemetry: metrics,
       dialogueTrace: dialogueTurn,
       run: ({ signal, timeoutMs, telemetry, isActive, attemptId, dialogueAttempt }) => {
@@ -250,6 +254,84 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         playbackStarted: nativePlaybackStartedAt !== null,
       });
       throw error;
+    }
+  };
+  // One-shot rescue on the SAME current native turn, strictly before first PCM.
+  // After any PCM was handed off, the native v3 contract has no safe replay or
+  // queue-drain proof; the ordinary failTurn retirement is mandatory instead.
+  const tryLocalFallback = async (error, failedStage) => {
+    const failureReason = terminalForError(error,failedStage);
+    const eligible = ['stt_error','model_error','invalid_decision','model_refusal','tts_error'].includes(failureReason) &&
+      !controller.signal.aborted && !retired && !endSent &&
+      !authorizationRequested && !nativeHandoffStarted && host.isCurrent(identity);
+    if(!eligible)return null;
+    const actionState=stockActionPublished||turn.act5Reply?.kind==='approval_pending'
+      ?'unverified':turn.act5Reply?.kind==='unavailable'?'failed':null;
+    const category=fallbackCategory({terminalReason:failureReason,actionState});
+    metrics?.event('voice_fallback_requested',{stage:failedStage,failureReason,category,turnId:identity.turnId});
+    const asset=await selectLocalFallback({config:services.config,turn,category,signal:controller.signal});
+    if(asset.status!=='selected'){
+      metrics?.event('voice_fallback_playback_failed',{reason:asset.status,category});
+      return null;
+    }
+    if(controller.signal.aborted||retired||!host.isCurrent(identity))return null;
+    metrics?.event('voice_fallback_selected',{category,assetId:asset.assetId,characterId:asset.characterId,audioPath:'native_pcm'});
+    // If Luna never published a transcript, publish one validated speech-only
+    // transcript. After stock action publication NEVER publish it again.
+    if(!outputTranscriptPublished){
+      const validated=await host.validateDecision({dialogue:asset.text,command:''},context,identity);
+      if(validated.identityValid!==true||!validated.internalTranscript)throw new Error('fallback_decision_rejected');
+      await emit({type:'output_transcript',text:validated.internalTranscript});
+      outputTranscriptPublished=true;
+    }
+    check();
+    history.discard(identity); // Remove the failed original, not the accepted user input.
+    history.stage({identity,spokenReply:asset.text});
+    const ledgerReady=!!speech?.replaceUndeliveredWithFallback?.(asset.text);
+    const ledgerSegment=ledgerReady?speech.beginSegment({sequence:0,text:asset.text}):null;
+    let copied=0;
+    try {
+      for(let offset=0;offset<asset.pcm.length;offset+=4096){
+        check();
+        const chunk=asset.pcm.subarray(offset,Math.min(offset+4096,asset.pcm.length));
+        await forwardPcm(chunk);
+        copied+=chunk.length;
+        try{ledgerSegment?.forwarded(chunk.byteLength);}catch{}
+      }
+      try{ledgerSegment?.completed(copied);}catch{}
+      history.markFallbackAudioReady(identity);
+      await emit({type:'generation_complete'});
+      endSent=true;
+      await emit({type:'turn_complete'});
+      try{speech?.finalized();}catch{}
+      clearTimeout(providerTimer);providerTimer=null;
+      providerWorkDone?.('failed',{code:failureReason});
+      transition('playback_completion');
+      metrics?.event('voice_fallback_playback_started',{category,assetId:asset.assetId,pcmBytes:copied});
+      const policy=playbackCompletionPolicy({
+        pcmBytes:copied,nativeStartedAt:nativePlaybackStartedAt,sealedAt:performance.now(),
+        minimumMs:services.config.playbackCompletionMinMs??10000,
+        maximumMs:services.config.playbackCompletionMaxMs??600000,
+        graceMs:services.config.playbackCompletionGraceMs??12000,
+      });
+      const receipt=await observation.completion(policy.watchdogMs);
+      if(!receipt.ok||controller.signal.aborted)throw new Error('fallback_native_completion_failed');
+      if(!history.acceptPlaybackResult({...receipt,playbackSucceeded:true}))
+        throw new Error('fallback_history_commit_rejected');
+      playbackCommitted=true;
+      try{speech?.historyAccepted(receipt);}catch{}
+      await recordNpcOutcome();
+      metrics?.event('voice_fallback_playback_completed',{category,assetId:asset.assetId,pcmBytes:copied});
+      metrics?.event('voice_fallback_recovery_completed',{category,outcome:'completed',originalFailure:failureReason});
+      metrics?.finish({reason:'completed',stage:'fallback_playback',pcmBytes:copied,assistantCommitted:true,originalFailure:failureReason});
+      dialogueTurn?.finish({reason:'completed',stage:'fallback_playback',assistantCommitted:true,assistantDiscarded:false});
+      notifyVoice('terminal',identity,'completed');
+      host.log?.(identity,'terminal',{source,reason:'completed',stage:'fallback_playback',cause:{code:failureReason}});
+      return {status:'completed',terminalReason:'completed',fallback:true,originalFailure:failureReason,audioBytes:copied};
+    }catch(fallbackError){
+      try{ledgerSegment?.failed();}catch{}
+      metrics?.event('voice_fallback_playback_failed',{category,assetId:asset.assetId,reason:'native_or_delivery_failure'});
+      throw fallbackError;
     }
   };
   try {
@@ -761,6 +843,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       try {const result=services.recordDialogueActionPublication({turn,validated,publishedAtMs:Date.now()});result?.catch?.(()=>{});}catch{}
     }
     await emit({ type: 'output_transcript', text: validated.internalTranscript });
+    outputTranscriptPublished = true;
+    stockActionPublished = hasAction;
     // Publication is not the Essential handler ACK and not evidence of motion.
     if (stockDrivingCommand(decision.command)) metrics?.event('vehicle_stock_command_published',{
       actionName:stockDrivingCommand(decision.command),verification:'unverified'});
@@ -886,9 +970,16 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     host.log?.(identity, 'terminal', { source, reason: 'completed', stage: state, cause: null });
     metrics?.finish({ reason: 'completed', stage: state, pcmBytes: pcmBytesTotal, audioDurationMs: expectedDurationMs, traceComplete: true, assistantCommitted: true });
     return { status: 'completed', terminalReason: 'completed', audioBytes: pcmBytesTotal, discardedTrailingByte: audio.discardedTrailingByte };
-  } catch (error) {
-    turn.knowledgeDelivery?.finish();
+  } catch (originalError) {
     const stageAtFailure = state;
+    let error=originalError;
+    // Never retry an already-played stream, reuse an occupied native turn, or
+    // resurrect an explicitly aborted/cancelled microphone conversation.
+    try {
+      const result=await tryLocalFallback(originalError,stageAtFailure);
+      if(result)return result;
+    }catch(fallbackError){error=fallbackError;}
+    turn.knowledgeDelivery?.finish();
     providerWorkDone?.('failed', { code: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'provider_work_failed' });
     if (!terminalReason) chooseTerminal(controller.signal.aborted ? terminalForAbort(controller.signal) : terminalForError(error, state));
     try { speech?.terminal(terminalReason); } catch { /* evidence only */ }
