@@ -111,6 +111,54 @@ jobs:
           for field in ['salience','observations','episodes','correlator','transcripts','utterances']:
               runtime=runtime.replace('this.'+field+'.','this.'+field+'?.')
           q.write_text(runtime)
+          # Preserve the actual current ShadowRuntime methods (Memory K, M3, M9,
+          # Director, Observability); port only C01's independent functionality.
+          native_path='lsa-essential-e1-candidate/src/perception/shadowRuntime.mjs'
+          src=check_output(['git','show','HEAD:'+native_path],text=True)
+          runtime=check_output(['git','show','origin/main:'+native_path],text=True)
+          def insert_once(needle,new):
+              global runtime
+              if runtime.count(needle)!=1: raise RuntimeError('C01 merge anchor unexpectedly changed: '+needle[:80])
+              runtime=runtime.replace(needle,new,1)
+          import_start="import { UtteranceLifecycle } from './utteranceLifecycle.mjs';"
+          import_end="import {publishSpeechObservations} from './speechEvents.mjs';"
+          imports=src[src.index(import_start):src.index(import_end)+len(import_end)]
+          insert_once("import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';",
+              "import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';"+chr(10)+imports)
+          insert_once('this.directorRequestVersion=null;this.directorPriority=null',
+              'this.directorRequestVersion=null;this.utteranceLifecycleVersion=null;this.directorPriority=null')
+          insert_once('    this.transcripts=ps2?new SharedTranscriptStore({now,current:ref=>this.current(ref)}):null;',
+              '    this.transcripts=ps2?new SharedTranscriptStore({now,current:ref=>this.current(ref)}):null;'+chr(10)+
+              '    this.utterances=ps2?new UtteranceLifecycle({now,current:ref=>this.current(ref)}):null;'+chr(10)+
+              '    this.speechRights=new Map();'+chr(10)+
+              '    this.speechDiagnostics={receipts:0,accepted:0,observations:0,rejected:0};')
+          insert_once('this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialManualResult=null',
+              'this.directorRequestVersion=null;this.utteranceLifecycleVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialManualResult=null')
+          insert_once('this.transcripts?.setActiveRun(null);this.epoch=null;',
+              'this.transcripts?.setActiveRun(null);this.utterances?.clear();this.speechRights.clear();this.epoch=null;')
+          insert_once('    this.observations?.expire();'+chr(10)+'    this.episodes?.expire();',
+              '    for(const [id,right] of this.speechRights)'+chr(10)+
+              '      if(right.expires<=this.now() || !this.current(right.observerRef)) this.speechRights.delete(id);'+chr(10)+
+              '    this.observations?.expire();'+chr(10)+'    this.episodes?.expire();')
+          insert_once('this.directorRequestVersion=v.directorRequestVersion??null;this.capabilities=',
+              'this.directorRequestVersion=v.directorRequestVersion??null;this.utteranceLifecycleVersion=v.utteranceLifecycleVersion??null;this.capabilities=')
+          insert_once('directorRequestVersion=this.directorRequestVersion;'+chr(10)+"      this.reset('manual');",
+              'directorRequestVersion=this.directorRequestVersion,utteranceLifecycleVersion=this.utteranceLifecycleVersion;'+chr(10)+"      this.reset('manual');")
+          insert_once('this.directorRequestVersion=directorRequestVersion;this.directorPriority=null',
+              'this.directorRequestVersion=directorRequestVersion;this.utteranceLifecycleVersion=utteranceLifecycleVersion;this.directorPriority=null')
+          start=src.index("    if(v.type==='utterance') {")
+          end=src.index("    if(v.type==='director_priority') {",start)
+          cases=src[start:end].replace('this.utterances.accept(', 'this.utterances?.accept(')
+          insert_once("    if(v.type==='director_priority') {",cases+"    if(v.type==='director_priority') {")
+          start=src.index('  commitQualifiedSpeech(utteranceId) {')
+          end=src.index('  acceptPlayerTranscript(',start)
+          methods=src[start:end]
+          methods=methods.replace('const entry=this.utterances.entries.get(utteranceId);',
+                 'const entry=this.utterances?.entries.get(utteranceId);')
+          methods=methods.replace('const right=this.speechRights.get(observationId);',
+                 'const right=this.speechRights.get(observationId);')
+          insert_once('  acceptPlayerTranscript({text,receipt=null}={}) {',methods+'  acceptPlayerTranscript({text,receipt=null}={}) {')
+          q.write_text(runtime)
           PY
           sed -n '1,18p' lsa-essential-e1-candidate/src/perception/contracts.mjs
           node --check lsa-essential-e1-candidate/src/perception/contracts.mjs
