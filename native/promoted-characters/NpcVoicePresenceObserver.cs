@@ -157,6 +157,7 @@ namespace LSA.PromotedCharacters {
             }
             if(audit) {
                 playbackAuditSamples++;lastPlaybackAuditAt=nowMs;
+                var native=NpcPlaybackStateProbe.Read(key.PedId,key.TurnId,key.Generation);
                 // This is a *pending turn*, not proof of a stall: a long
                 // response can legitimately exceed eight seconds. Correlate
                 // with the companion's exact-turn EOS/PCM log before diagnosis.
@@ -165,7 +166,7 @@ namespace LSA.PromotedCharacters {
                     " read="+(have?1:0)+" turn_buffered="+(have?(buffered?1:0):-1)+
                     " audible="+(have?(audible?1:0):-1)+
                     " rms="+(have?level.ToString("0.0000",System.Globalization.CultureInfo.InvariantCulture):"na")+
-                    " native_end_received=0");
+                    " end_event_observed=0 "+native.LogFields);
             }
             if(levelLog&&(lastLevelLogAt<0||nowMs<lastLevelLogAt||nowMs-lastLevelLogAt>=LevelLogMs)) {
                 lastLevelLogAt=nowMs;
