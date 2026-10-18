@@ -21,6 +21,9 @@ export const EVENT_NAMES = new Set([
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
   'vehicle_request_classified','vehicle_command_reconciled','vehicle_stock_command_published',
   'vehicle_seat_requested','vehicle_seat_reconciled','vehicle_seat_admission',
+  'act6_player_direct_recognized','act6_player_direct_readiness','act6_player_direct_staged',
+  'act6_player_direct_rejected','act6_player_direct_unavailable','act6_player_direct_context_failed',
+  'act6_player_direct_admitted',
 
   'stream_segments_reflowed','model_decision_validation_failure','elevenlabs_tts_timing_summary','perception_trace','radio_trace','native_pcm_forward_failed', // Main/EA allowed vocab preserved alongside Memory K
 ]);
@@ -61,6 +64,7 @@ const safeKeys = new Set([
   'traitsIncluded','memoryCount','biographyIncluded','relationshipIncluded','generatedPersonaPolicy',
   'truncatedFields','truncatedFieldCount','droppedMemoryCount',
   'activityId','intent','capability','receiptState','stepIndex','delivery',
+  'act5Suggestions','nativeAdvertised','missingProbeCount','destinationKind',
   'vehicleKind','vehicleReason','verification','seat','modelCommandKind',
 
   'reflowedSegments','originalSegments','firstPcmMs','wallMs','generatedChunks','forwardedChunks','modelId','maxSegmentChars','maxDialogueChars','responseChars','playbackBufferMode','receivedChunks','generationDurationMs','forwardDurationMs','maxChunkGapMs','p95ChunkGapMs','slowChunkCount','forwardWaitMaxMs','underRealtime','streamRate','bufferedBytes','underrunRiskCount','fallbackUsed','captureEventRadio','selectedRadio','radioQuestion','traceCode','signalKind','producer','catalog','receipts','selfReceipts','qualified','ownedQualified','ownedObservers','ps2','ps2Reason','observations','ownedObservations','ps3Owned','ps3Reason','urgency','ps2OwnedWitnessed','ps2DedupeEvicted','ps2DropInvalidInput','ps2DropRadioIdentityMismatch','ps2DropUnsupportedEvent','ps2DropEpisodeClaimCapacity','ps2DropEpisodeRejected','ps2DropObservationClaimCapacity','ps2DropObservationRejected','ps3OwnedDecisions','ps3OwnedEligible','ps3OwnedUrgent','radioChanged','radioStopped','radioKnown','radioUnknown','radioMismatch','radioOff','radioObservations','radioOwnedObservations','nativeRadioSamples','nativeRadioEdges','nativeRadioFailures','nativeRadioWitnessed','nativeRadioWitnessUnknown','nativeWitnessDeferred','nativeWitnessUnknown','nativeWitnessRejected','ownerStalls','ownerStallMaxMs','traceEmitted','traceSuppressed', // Main/EA allowed vocab preserved alongside Memory K
@@ -109,6 +113,7 @@ const closedValues = new Map([
     'stop_must_not_switch_driving_mode','start_must_not_be_evasive',
     'normal_must_not_be_evasive'])],
   ['verification', new Set(['unverified'])],
+  ['destinationKind', new Set(['waypoint','named','unresolved'])],
 ]);
 const safeTokens = new Set([
   'delivered','expired','ack_key_retired','observation_expired',
