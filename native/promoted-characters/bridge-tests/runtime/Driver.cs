@@ -106,7 +106,7 @@ namespace LSA.BridgeTests
             var encounters = typeof(PromotedCharactersIntegration).GetField("encounters",BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Integration);
             var item = ((System.Collections.IDictionary)encounters)[handle.ToString()];
             if (item == null) throw new InvalidOperationException("test encounter absent");
-            item.GetType().GetField("Suspended").SetValue(item,suspended);
+            item.GetType().GetProperty("Suspended").SetValue(item,suspended,null);
         }
         public void ShareVehicle(int handle)
         {
