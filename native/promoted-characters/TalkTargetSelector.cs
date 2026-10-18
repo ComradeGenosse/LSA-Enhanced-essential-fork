@@ -25,7 +25,8 @@ namespace LSA.PromotedCharacters
         readonly List<TalkCandidate> exported = new List<TalkCandidate>();
         TalkTargetOptions options = new TalkTargetOptions();
         Ped essentialPed, continuityPed;
-        long essentialAddress, clock, indicatorUntil, nextContinuityCheck;
+        long essentialAddress, clock, indicatorUntil, nextContinuityCheck, continuityPlayerAddress;
+        string continuityPlayerId;
         bool essentialSet, hooked, directPtt, continuityInvalidated;
         public TalkTargetSelector(Func<Ped,string> encounterId,Func<Ped,long,TalkRecipientFeedback> recipient = null) { this.encounterId = encounterId; this.recipient = recipient; }
         public string IndicatorState => indicator.State;
@@ -369,6 +370,9 @@ namespace LSA.PromotedCharacters
                 feedback.Alias != null && feedback.IncarnationId != null) {
                 continuity.Remember(ped.Handle.ToString(),address,feedback,now);
                 continuityPed = ped;
+                var player = Game.LocalPlayer.Character;
+                continuityPlayerId = player?.Handle.ToString();
+                continuityPlayerAddress = player == null ? 0 : player.MemoryAddress.ToInt64();
                 continuityInvalidated = false;
                 nextContinuityCheck = now + 500;
                 Game.LogTrivial("[UX4] conversation_continuity established kind=promoted evidence=owner_verified");
@@ -382,6 +386,8 @@ namespace LSA.PromotedCharacters
                 var player = Game.LocalPlayer.Character;
                 bool alive = ped.Exists() && !ped.IsDead && ped != player && NpcTargeting.IsValidHumanPed(ped) &&
                     player != null && player.Exists() && !player.IsDead;
+                if (player == null || player.Handle.ToString() != continuityPlayerId ||
+                    player.MemoryAddress.ToInt64() != continuityPlayerAddress) return "player_changed";
                 long address = alive ? ped.MemoryAddress.ToInt64() : 0;
                 string pedId = alive ? ped.Handle.ToString() : null;
                 bool sharedVehicle = alive && SameVehicle(player,ped);
@@ -402,13 +408,13 @@ namespace LSA.PromotedCharacters
         {
             if (!continuity.HasRecipient) return;
             Game.LogTrivial("[UX4] conversation_continuity invalidated reason=" + reason + " action=fail_closed");
-            continuity.Clear(); continuityPed = null; continuityInvalidated = true; nextContinuityCheck = 0;
+            continuity.Clear(); continuityPed = null; continuityPlayerId = null; continuityPlayerAddress = 0; continuityInvalidated = true; nextContinuityCheck = 0;
             Drop("continuity_lost");
         }
         void ClearContinuity(string reason)
         {
             if (continuity.HasRecipient) Game.LogTrivial("[UX4] conversation_continuity released reason=" + reason);
-            continuity.Clear(); continuityPed = null; continuityInvalidated = false; nextContinuityCheck = 0;
+            continuity.Clear(); continuityPed = null; continuityPlayerId = null; continuityPlayerAddress = 0; continuityInvalidated = false; nextContinuityCheck = 0;
         }
         void Drop(string reason)
         {
