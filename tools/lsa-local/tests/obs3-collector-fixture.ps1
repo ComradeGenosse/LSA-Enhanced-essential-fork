@@ -39,7 +39,7 @@ try {
     if($names|Where-Object{$_ -like '*e1.config.json' -or $_ -like '*build-manifest.json'}){
       throw 'Private config or full build manifest collected'
     }
-    $folder=$result.Zip -replace '\.zip
+    $folder=$result.Zip.Substring(0, $result.Zip.Length - 4)
     $manifest=Join-Path $folder 'build-evidence.json'
     $text=Get-Content -LiteralPath $manifest -Raw
     if($text.Contains('NEVER_INCLUDE_THIS_SECRET')){throw 'Sensitive build metadata leaked'}
