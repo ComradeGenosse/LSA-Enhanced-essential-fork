@@ -49,7 +49,7 @@ foreach($root in @($roots|Where-Object {$_}|Sort-Object -Unique)){
     try {
       New-Item -ItemType Directory -Path (Split-Path $target) -Force|Out-Null
       Copy-Item -LiteralPath $f.FullName -Destination $target
-      $files+=[pscustomobject]@{File=$relative;Source=$f.FullName;SHA256=(Get-FileHash -LiteralPath $target).Hash}
+      $files+=[pscustomobject]@{File=$relative;Source=$label;SHA256=(Get-FileHash -LiteralPath $target).Hash}
       if($f.Name -match '^obs2-inventory-([a-f0-9-]{36})\.jsonl$' -or
          $f.Name -match '^e1-run-\d{8}T\d{6}Z-([a-f0-9-]{36})(-\d+)?\.jsonl$'){
         [void]$runIds.Add($Matches[1])
