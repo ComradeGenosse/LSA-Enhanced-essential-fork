@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Text.Json;
 
@@ -121,7 +122,7 @@ internal static class Program
         public static string MethodText(MethodSignature<string> sig) =>
             (sig.Header.IsInstance ? "instance " : "static ") +
             sig.Header.CallingConvention + " " +
-            (sig.Header.IsExplicitThis ? "explicit-this " : "") +
+            (((sig.Header.RawValue & 0x40) != 0) ? "explicit-this " : "") +
             "generic=" + sig.GenericParameterCount + " " +
             sig.ReturnType + "(" + string.Join(",", sig.ParameterTypes) + ")" +
             " required=" + sig.RequiredParameterCount;
@@ -284,9 +285,9 @@ internal static class Program
                 Add(report, "error", "INACCESSIBLE_TYPE", binary.Path, typeName, "RPH type not externally visible.");
         }
         foreach (var h in md.MemberReferences) CheckMember(sdk, binary, h, report);
-        foreach (var h in md.MethodSpecifications)
+        for (int row = 1; row <= md.GetTableRowCount(TableIndex.MethodSpec); row++)
         {
-            var ms = md.GetMethodSpecification(h);
+            var ms = md.GetMethodSpecification(MetadataTokens.MethodSpecificationHandle(row));
             // The MemberRef underneath the MethodSpec was already checked above.
             if (ms.Method.Kind == HandleKind.MemberReference) report.genericMethodSpecifications++;
         }
@@ -311,7 +312,7 @@ internal static class Program
             report.referenceIdentity = sdk.Name + ", Version=" + sdk.Version;
             if (sdk.Name != "RagePluginHook" ||
                 !sdk.Types.ContainsKey("Rage.Game") ||
-                !sdk.Types.ContainsKey("Rage.Native.NativeFunction"))
+                !sdk.Types.ContainsKey("Rage.Native.NativeFunction") || sdk.Types.Count < 25)
                 throw new InvalidDataException("The supplied file does not expose the RPH SDK API; supply the installed SDK/RagePluginHook.dll, not the RAGEPluginHook.exe launcher.");
             var paths = new List<string> { args[1] };
             if (args.Length >= 3 && args[2].EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) paths.Add(args[2]);
