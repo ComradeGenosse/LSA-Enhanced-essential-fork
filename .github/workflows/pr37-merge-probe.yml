@@ -35,6 +35,20 @@ jobs:
           git diff --check
           echo '=== MERGE CANDIDATE READY ==='
           git status --short | tail -25
+      - name: Resolve duplicate C01/main contract imports in candidate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('lsa-essential-e1-candidate/src/perception/contracts.mjs')
+          s=p.read_text()
+          main="import {readProtagonistFrame,PROTAGONIST_EVENT} from './protagonistProtocol.mjs';"
+          pr="import { readProtagonistFrame, PROTAGONIST_EVENT } from './protagonistProtocol.mjs';"
+          if main in s and pr in s:
+              s=s.replace(pr+'\\n','')
+              p.write_text(s)
+          PY
+          node --check lsa-essential-e1-candidate/src/perception/contracts.mjs
       - name: C01 focused and cross-system Node regression
         shell: bash
         working-directory: lsa-essential-e1-candidate
