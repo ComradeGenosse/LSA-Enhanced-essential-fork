@@ -89,6 +89,19 @@ jobs:
         run: |
           dotnet run --project native/standalone-host/tests/BindingFailureDiagnostics.Tests.csproj -c Release
           if ($LASTEXITCODE -ne 0) { throw 'G2 binding failure diagnostics regression' }
+      - name: Verify fail-closed pinned NPC resolution (G5)
+        shell: pwsh
+        run: |
+          dotnet run --project native/standalone-host/tests/pinned/PinnedActorLookup.Tests.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'G5 pinned NPC handle regression' }
+          # Prevent the original unchecked throwing lookup from returning in Pump.
+          $typed = Get-Content 'native/standalone-host/StandaloneTypedCommands.cs' -Raw
+          if ($typed.Contains('World.GetEntityByHandle<Ped>')) {
+            throw 'G5 regression: unguarded RPH handle lookup returned to Pump'
+          }
+          if (-not $typed.Contains('RphPedValidity.ResolvePinned(entry.PinnedHandle)')) {
+            throw 'G5 regression: pinned path is no longer using guarded lookup'
+          }
       - name: Compile real net481 host and test harness (no GTA deployment)
         shell: pwsh
         run: |
