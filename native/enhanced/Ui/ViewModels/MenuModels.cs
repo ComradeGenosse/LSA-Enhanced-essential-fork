@@ -169,6 +169,28 @@ namespace LSA.Enhanced.Ui
             return model;
         }
     }
+    // Page content is pure; unavailable ACT6/Director features must never pretend to execute.
+    public static class GameplayNavigationView
+    {
+        public static List<MenuLine> Build(CurrentNpcModel model)
+        {
+            var lines = new List<MenuLine> { MenuLine.Fact("actor","Selected NPC",model?.Title ?? "None") };
+            if (model == null || !model.Owned) {
+                lines.Add(MenuLine.Fact("prerequisite","Activity control","Select a promoted NPC","Use Current NPC or summon a character first."));
+            } else {
+                foreach (var line in model.Lines.Where(item => new[] {"activity","assign","activityPause","activityResume","activityCancel","activityStatus","activityHistory"}.Contains(item.Key)))
+                    lines.Add(line);
+            }
+            lines.Add(MenuLine.Fact("act6","Waypoint navigation","Unavailable here","Requires a verified ACT6 readiness gate before exposing a driving or walking command."));
+            return lines;
+        }
+    }
+    public static class DirectorSocialView
+    {
+        public static List<MenuLine> Build() => new List<MenuLine> {
+            MenuLine.Fact("admission","Manual social scene","Not yet available","GM5 must use the existing Director admission pathway and distinguish queued, admitted and speech delivered."),
+        };
+    }
     public sealed class MemoryRow
     {
         public string MemoryId, Preview, Category;
