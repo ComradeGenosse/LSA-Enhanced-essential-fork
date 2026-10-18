@@ -26,6 +26,9 @@ namespace LSA.Standalone.RageHost
         // GTA itself. RPH child processes are not guaranteed to inherit env.
         private static Dictionary<string, string> nativeSettings;
         private static string activeStage = "unconfigured";
+        private static bool autoSmokeEnabled;
+        private static bool autoSmokeActorAuthorized;
+        private static int autoSmokeDelay = 30;
         internal static string ActivationSummary { get; private set; } = "native_runtime_not_started";
 
         public static void Shutdown()
@@ -45,6 +48,7 @@ namespace LSA.Standalone.RageHost
             NativeAuthority authority = null;
             NativeTurnRegistry turns = null;
             NativeAudioRegistry audio = null;
+            StandaloneAutoSmoke autoSmoke = null;
             WaveOutSpatialOutput physicalAudio = null;
             bool facialEnabled = false;
             try
@@ -117,6 +121,9 @@ namespace LSA.Standalone.RageHost
                 server.Start();
                 bool typedEnabled = GetSetting("LSA_STANDALONE_TYPED_MODE") == "enabled";
                 StandaloneTypedCommands.OpenAdmission(typedEnabled);
+                if (autoSmokeEnabled)
+                    autoSmoke = new StandaloneAutoSmoke(autoSmokeDelay, typedEnabled,
+                        autoSmokeActorAuthorized);
                 ActivationSummary = "config=native_file_verified stage=" + activeStage +
                     " native_ipc=started probe=" +
                     (GetSetting("LSA_STANDALONE_ACTOR_MODE") == "off" ? "off" : "enabled_unproven") +
@@ -125,6 +132,7 @@ namespace LSA.Standalone.RageHost
                     " pcm_validation=" + (GetSetting("LSA_STANDALONE_TTS_MODE") == "enabled" &&
                         physicalAudio == null ? "native_non_audible_escrow" : "not_separate") +
                     " lip_sync=" + (facialEnabled ? "presenter_initialized_unverified" : "off") +
+                    " auto_smoke=" + (autoSmokeEnabled ? "armed_after_safe_spawn" : "off") +
                     " gta_validated=false";
                 Game.LogTrivial("[LSA-ACTIVATION] " + ActivationSummary);
                 Game.LogTrivial("[LSA-S3] started actor_adoption=locked_until_live_probe" +
@@ -149,6 +157,7 @@ namespace LSA.Standalone.RageHost
                         audio.DrainOnOwner(4); // only opt-in WaveOut can accept device bytes
                         audio.PumpLipSyncOnOwner(4); // game-fiber only, actual-playback gated
                         StandaloneTypedCommands.Pump(scope, resolver, authority, turns, server);
+                        autoSmoke?.Tick(scope, resolver);
                     }
                     finally { scope.Exit(); }
                     // No owner scope survives this yield.
@@ -186,6 +195,7 @@ namespace LSA.Standalone.RageHost
                 server = null;
                 nativeSettings = null;
                 activeStage = "unconfigured";
+                autoSmokeEnabled = autoSmokeActorAuthorized = false;
                 try { resolver?.Dispose(); } catch {}
                 try { exclusive?.Dispose(); } catch {}
                 Interlocked.Exchange(ref running, 0);
@@ -214,7 +224,7 @@ namespace LSA.Standalone.RageHost
                 // timestamp and the still-running PowerShell launcher PID.
                 var document = new JavaScriptSerializer()
                     .Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
-                if (document == null || document.Count != 6 ||
+                if (document == null || document.Count != 7 ||
                     !document.TryGetValue("kind", out var kind) ||
                     !string.Equals(kind as string, "lsa-standalone-native-activation", StringComparison.Ordinal) ||
                     !document.TryGetValue("version", out var version) ||
@@ -233,7 +243,9 @@ namespace LSA.Standalone.RageHost
                     !document.TryGetValue("ownerPid", out var ownerPid) ||
                     !(ownerPid is int) || (int)ownerPid <= 0 ||
                     !document.TryGetValue("settings", out var rawSettings) ||
-                    !(rawSettings is Dictionary<string, object>))
+                    !(rawSettings is Dictionary<string, object>) ||
+                    !document.TryGetValue("autoSmoke", out var rawAuto) ||
+                    !(rawAuto is Dictionary<string, object>))
                 {
                     reason = "invalid_native_activation_file";
                     return false;
@@ -273,7 +285,30 @@ namespace LSA.Standalone.RageHost
                     }
                     next.Add(key, (string)value);
                 }
+                var smoke = (Dictionary<string, object>)rawAuto;
+                if (smoke.Count != 3 ||
+                    !smoke.TryGetValue("enabled", out var enabledRaw) ||
+                    !(enabledRaw is bool) ||
+                    !smoke.TryGetValue("afterSpawnSeconds", out var delayRaw) ||
+                    !(delayRaw is int) || (int)delayRaw < 5 || (int)delayRaw > 120 ||
+                    !smoke.TryGetValue("actorAdoptionAuthorized", out var actorRaw) ||
+                    !(actorRaw is bool))
+                {
+                    reason = "invalid_automated_smoke_configuration";
+                    return false;
+                }
+                bool automatic = (bool)enabledRaw;
+                bool actorConsent = (bool)actorRaw;
+                if (automatic && next["LSA_STANDALONE_TYPED_MODE"] == "enabled" &&
+                    !actorConsent)
+                {
+                    reason = "automated_actor_adoption_authorization_required";
+                    return false;
+                }
                 nativeSettings = next;
+                autoSmokeEnabled = automatic;
+                autoSmokeActorAuthorized = actorConsent;
+                autoSmokeDelay = (int)delayRaw;
                 activeStage = (string)stageValue;
                 reason = "accepted";
                 return true;

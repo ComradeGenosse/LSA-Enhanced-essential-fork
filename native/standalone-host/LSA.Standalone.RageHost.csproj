@@ -11,7 +11,7 @@
     <Deterministic>true</Deterministic>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="EntryPoint.cs;RageWorldAdapters.cs;StandalonePipeServer.cs;StandaloneTypedCommands.cs;StandaloneOnscreenInput.cs;WaveOutSpatialOutput.cs;RageLipSyncPresenter.cs" />
+    <Compile Include="EntryPoint.cs;RageWorldAdapters.cs;StandalonePipeServer.cs;StandaloneTypedCommands.cs;StandaloneOnscreenInput.cs;WaveOutSpatialOutput.cs;RageLipSyncPresenter.cs;StandaloneAutoSmoke.cs" />
     <ProjectReference Include="../standalone/LSA.Standalone.Core.csproj" SetTargetFramework="TargetFramework=net481" />
     <Reference Include="RagePluginHook">
       <HintPath>$(RphReferencePath)</HintPath>

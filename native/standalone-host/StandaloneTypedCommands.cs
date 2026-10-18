@@ -19,6 +19,7 @@ namespace LSA.Standalone.RageHost
         {
             public string Text;
             public long SourceTick;
+            public int PinnedHandle;
         }
         private static readonly ConcurrentQueue<QueuedText> pending =
             new ConcurrentQueue<QueuedText>();
@@ -85,25 +86,43 @@ namespace LSA.Standalone.RageHost
 
         private static void Enqueue(string phrase)
         {
+            EnqueueCore(phrase, 0);
+        }
+
+        // Only the native owner fiber's explicit auto-smoke controller may
+        // submit a canned phrase bound to the previously verified actor.
+        // This never grants a lease or bypasses probe/arm/native checks.
+        internal static bool QueueAuto(OwnerScope owner, int pinnedHandle)
+        {
+            if (owner == null || !owner.IsOwner || pinnedHandle <= 0)
+                return false;
+            return EnqueueCore("Hello! Please respond with a short friendly greeting.", pinnedHandle);
+        }
+
+        private static bool EnqueueCore(string phrase, int pinnedHandle)
+        {
             if (Volatile.Read(ref accepting) == 0 ||
                 Volatile.Read(ref typedAllowed) == 0)
             {
                 Game.Console.Print("LSA standalone: typed_capability_disabled_or_host_not_ready.");
-                return;
+                return false;
             }
             if (!Valid(phrase))
             {
                 Game.Console.Print("LSA standalone: enter 1-1024 printable characters.");
-                return;
+                return false;
             }
             if (Interlocked.Increment(ref queued) > Capacity)
             {
                 Interlocked.Decrement(ref queued);
                 Game.Console.Print("LSA standalone: typed input queue full.");
-                return;
+                return false;
             }
-            pending.Enqueue(new QueuedText { Text = phrase, SourceTick = Stopwatch.GetTimestamp() });
+            pending.Enqueue(new QueuedText {
+                Text = phrase, SourceTick = Stopwatch.GetTimestamp(), PinnedHandle = pinnedHandle
+            });
             Game.Console.Print("LSA standalone: input queued for native validation.");
+            return true;
         }
 
         private static bool Valid(string phrase)
@@ -213,7 +232,22 @@ namespace LSA.Standalone.RageHost
                 return;
             }
 
-            Ped target = NearestPedAhead();
+            Ped target = entry.PinnedHandle != 0
+                ? World.GetEntityByHandle<Ped>(new PoolHandle(unchecked((uint)entry.PinnedHandle)))
+                : NearestPedAhead();
+            if (entry.PinnedHandle != 0)
+            {
+                Ped player = Game.LocalPlayer.Character;
+                // Even an automation PIN cannot follow a moving NPC or
+                // resurrect a previous handle outside the local test radius.
+                if (player == null || !player.Exists() || player.IsDead ||
+                    target == null || !target.Exists() || target.IsDead ||
+                    target == player || target.DistanceTo(player) >= 4.0f)
+                {
+                    Game.LogTrivial("[LSA-AUTOSMOKE] pinned_actor_no_longer_eligible");
+                    return;
+                }
+            }
             if (target == null)
             {
                 Game.Console.Print("LSA standalone: no_eligible_nearby_target.");
@@ -249,6 +283,8 @@ namespace LSA.Standalone.RageHost
             Game.Console.Print("LSA standalone: typed turn offered to Luna; see companion and listen for output.");
             Game.LogTrivial("[LSA-ACTOR] native_typed_offer actor_handle=" + handle +
                 " turn_ordinal=" + permit.TurnOrdinal + " result=offered");
+            if (entry.PinnedHandle != 0)
+                Game.LogTrivial("[LSA-AUTOSMOKE] native_typed_offer_created awaiting_companion_receipts");
         }
 
         private static Ped NearestPedAhead()

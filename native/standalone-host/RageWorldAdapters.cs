@@ -184,6 +184,12 @@ namespace LSA.Standalone.RageHost
             return null;
         }
 
+        internal bool IsProbeStableFor(int handle)
+        {
+            DemandOwner();
+            return probePassed && probedHandle == handle && ProbeStillCurrent();
+        }
+
         public bool TryArmProbe(out string reason)
         {
             DemandOwner();

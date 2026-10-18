@@ -14,7 +14,10 @@ param(
   [string]$TtsModel,
   [string]$Voice = 'alloy',
   [string]$QwenUrl = 'http://127.0.0.1:8765/v1',
-  [switch]$EarlySpeech
+  [switch]$EarlySpeech,
+  [switch]$AutoSmoke,
+  [ValidateRange(5,120)][int]$AutoDelaySeconds = 30,
+  [switch]$ConfirmAutomatedActorAdoption
 )
 $ErrorActionPreference='Stop'
 $game=[System.IO.Path]::GetFullPath($GamePath)
@@ -99,6 +102,10 @@ $activation = ($activationJson -join '') | ConvertFrom-Json
 if ($activation.capabilities.physical_audio.requested -and -not $ConfirmPhysicalEffects) {
   throw 'Experimental physical audio/lip-sync requires -ConfirmPhysicalEffects. No game was launched.'
 }
+if ($AutoSmoke -and $activation.capabilities.typed_conversation.requested -and
+    -not $ConfirmAutomatedActorAdoption) {
+  throw 'Automated NPC adoption requires explicit -ConfirmAutomatedActorAdoption. No game was launched.'
+}
 if ($PSBoundParameters.ContainsKey('ActorMode') -and
     $ActorMode -ne $activation.nativeActorMode) {
   throw "ActorMode conflicts with -Stage $Stage. Use the stage/capability selectors instead."
@@ -136,6 +143,11 @@ $nativeEnvelope=@{
   createdAtUtc=[DateTime]::UtcNow.ToString('o')
   ownerPid=$PID
   settings=$nativeSettings
+  autoSmoke=@{
+    enabled=[bool]$AutoSmoke
+    afterSpawnSeconds=[int]$AutoDelaySeconds
+    actorAdoptionAuthorized=[bool]($AutoSmoke -and $ConfirmAutomatedActorAdoption)
+  }
 }
 $temporaryActivation=$nativeActivation+'.'+[Guid]::NewGuid().ToString('N')+'.tmp'
 try {
@@ -146,6 +158,9 @@ try {
   Remove-Item -LiteralPath $temporaryActivation -Force -ErrorAction SilentlyContinue
 }
 Write-Host 'Native activation file: installation-owned, session-bound, secret-free.'
+if ($AutoSmoke) {
+  Write-Host "Automated smoke: waits $AutoDelaySeconds seconds of safe, in-game player readiness; no human console input required."
+}
 $companionProc=$null
 $logs=Join-Path $PSScriptRoot 'logs'
 New-Item -ItemType Directory -Force -Path $logs | Out-Null

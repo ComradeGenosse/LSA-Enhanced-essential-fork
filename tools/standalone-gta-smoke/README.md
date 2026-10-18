@@ -107,6 +107,47 @@ If starting a new PowerShell window, first set `$game` and `$backup` to the same
 
 **Safety boundary:** This code can't inspect your actual installed directory or RPH load list remotely. Incomplete backups, unknown third-party bridges, inaccessible Node process enumeration, or ambiguous plugin ownership must be resolved before live testing. CI exercises only synthetic game folders, not an in-game run.
 
+## Automated smoke (optional, one GTA session)
+
+A standalone automatic smoke runner is included for unattended in-game diagnostics.
+**Do not start without your verified off-game controller backup and successful installation.**
+It starts the 30-second countdown only after GTA's real player character exists,
+is alive, and the world is safe (no mission, cutscene, player switch or online
+session). It then looks for **one ambient pedestrian within 4 meters** for up
+to 45 seconds. It never spawns an NPC, teleports the player, takes control of
+other actors, or bypasses the normal per-actor cookie/lease checks. No nearby
+eligible ped means an explicit `no_eligible_target` result, **not a PASS**.
+
+Run from the extracted bundle folder:
+
+```powershell
+$game = 'C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced'
+$env:OPENAI_API_KEY = '<your key - do not log>'
+.\Start-Standalone-Test.ps1 -GamePath $game -Stage streaming `
+  -Model '<verified Responses API model>' -TtsModel '<PCM TTS model>' `
+  -EnableCapability physical_audio,lip_sync `
+  -ConfirmPhysicalEffects -AutoSmoke -ConfirmAutomatedActorAdoption
+```
+
+That **single combined session** exercises host/IPC, the stable NPC probe,
+exact-actor manual-equivalent arm, canned typed model call, streamed speech
+segments, waveOut and facial activation. It logs
+`[LSA-AUTOSMOKE]` and `[LSA-ACTOR]` alongside companion JSON receipts.
+It automatically disarms after an observation window; model replies and
+speech success are separate Node/native evidence. It **does not** substitute
+for independent `tts` non-audible PCM escrow testing or prove perceptible
+audibility/lip-sync correctness; run `-Stage tts -AutoSmoke
+-ConfirmAutomatedActorAdoption` separately if that isolation matters.
+
+The explicit `-ConfirmAutomatedActorAdoption` flag is required for
+typed-and-higher automation and `-ConfirmPhysicalEffects` is independently
+required for audio/lipsync. `-AutoSmoke` is opt-in, never the default,
+and `-PreflightOnly` produces no game-side configuration or effects.
+Change the delay with `-AutoDelaySeconds 45` (range 5-120).
+Each launcher run fires its script **once**, not repeatedly on every respawn.
+RPH must still load the standalone plugin. No result in these logs by itself
+establishes human-observed audio or facial animation.
+
 ## Install and live diagnostics
 
 From PowerShell, in the extracted bundle folder:
