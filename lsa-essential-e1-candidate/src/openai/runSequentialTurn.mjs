@@ -1,6 +1,6 @@
 import {combineDirectorSocialMemory} from '../memory/h1ConversationHistory.mjs';
 import { drivingIntentKind, activeAct6Driving, liveAct6Driving, drivingModelGuidance, reconcileDrivingDecision, stockDrivingCommand } from '../activities/vehicleDrivingIntent.mjs';
-import { parseVehicleSeatPlayerRequest } from '../activities/act5Dialogue.mjs';
+import { parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision } from '../activities/act5Dialogue.mjs';
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 import {scalePcm16} from '../voice/pcmVolume.mjs';
 import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
@@ -681,25 +681,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // Closed player-intent reconciliation after Luna but BEFORE stock validation
     // and publication. No model reference can override native ACT3 seat resolution.
     if (isPlayer && seatRequest && turn.act5Reply?.intent==='board_vehicle') {
-      const reply=turn.act5Reply;
-      if(nativeHandoffStarted)
-        throw Object.assign(new TypeError('Seat decision cannot be changed after speech handoff.'),{code:'vehicle_seat_late_reconciliation'});
-      const seat=seatRequest.slots.seat;
-      const accepted=reply.kind==='approval_pending';
-      const dialogue=accepted
-        ? seat==='driver' ? "I'll try to get behind the wheel." :
-          seat==='passenger' ? "I'll try the front passenger seat." :
-          seat==='rear' ? "I'll try the back seat." : "I'll try to hop in."
-        : reply.reason==='seat_occupied' ? "That seat is taken." :
-          reply.reason==='vehicle_moving' ? "The car needs to stop before I can get in." :
-          reply.reason==='vehicle_unavailable' ? "I can't verify which car to get into." :
-          reply.reason==='actor_busy' ? "I'm busy with another activity right now." :
-          reply.reason==='actor_in_vehicle' ? "I'm already in a vehicle; I can't switch seats with this command." :
-          reply.reason==='capability_disabled' ? "I can't use the seat-entry controller right now." :
-          "I can't safely take that seat right now.";
-      decision={...decision,dialogue,command:'',
-        ...(Object.hasOwn(decision,'activity')?{activity:null}:{})};
-      metrics?.event('vehicle_seat_reconciled',{seat,accepted,code:accepted?'native_admission_pending':reply.reason||'native_unavailable'});
+      const reconciled=reconcileVehicleSeatDecision(decision,seatRequest,turn.act5Reply,
+        {nativeHandoffStarted});
+      decision=reconciled.decision;
+      metrics?.event('vehicle_seat_reconciled',{seat:seatRequest.slots.seat,
+        accepted:reconciled.accepted,code:reconciled.reason});
     }
     if (isPlayer && (vehicleIntent || act6OwnsDrive)) {
       const guarded = reconcileDrivingDecision(decision,{kind:vehicleIntent,act6OwnsDrive});
