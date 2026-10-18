@@ -125,7 +125,7 @@ namespace LSA.Enhanced.Ui
                 }
             }
             if (snapshot.TalkTarget != null && snapshot.TalkTarget.Present) AddTalk(model,snapshot.TalkTarget);
-            foreach (var line in model.Lines) if (line.Command != null && !line.Command.StartsWith("local.",StringComparison.Ordinal)) {
+            foreach (var line in model.Lines) if (line.Command != null) {
                 line.ExpectedEncounterId = npc.EncounterId;
                 line.ExpectedOwnerAlias = npc.OwnerAlias;
             }
@@ -322,6 +322,7 @@ namespace LSA.Enhanced.Ui
         public int Outstanding;
         public string TalkState, TalkConflict, IndicatorState;
         public IReadOnlyList<string> RecentReasons = new string[0];
+        public IReadOnlyList<string> RecentOutcomes = new string[0];
     }
     public static class DiagnosticsView
     {
@@ -339,6 +340,8 @@ namespace LSA.Enhanced.Ui
                 MenuLine.Fact("talk","Talk target",input.TalkState ?? "Off",input.TalkConflict),
                 MenuLine.Fact("indicator","Talk indicator",input.IndicatorState ?? "Off"),
             };
+            if (input.RecentOutcomes.Count == 0) lines.Add(MenuLine.Fact("outcomes","Action results","None"));
+            else foreach (var result in input.RecentOutcomes.Reverse().Take(5)) lines.Add(MenuLine.Fact("outcome:" + lines.Count,"Action",result));
             if (input.RecentReasons.Count == 0) lines.Add(MenuLine.Fact("reasons","Recent failures","None"));
             else foreach (var reason in input.RecentReasons.Reverse().Take(10)) lines.Add(MenuLine.Fact("reason:" + lines.Count,"Recent",reason));
             lines.Add(MenuLine.Action("refresh","Re-check",null,"Refresh this page."));
