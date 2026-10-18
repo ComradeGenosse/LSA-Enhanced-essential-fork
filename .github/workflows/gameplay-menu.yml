@@ -1,0 +1,73 @@
+name: F11 gameplay menu GM0-GM6 acceptance gates
+on:
+  pull_request:
+    branches:
+      - main
+      - feature/gm5-director-manual-f11-feedback
+      - feature/gm4-act-menu-native-readiness
+      - feature/gm3-lifecycle-scene-and-identity
+      - feature/gm2-f11-hierarchy-20261018
+      - feature/gm1-target-fencing-and-command-outcomes
+    paths:
+      - 'native/enhanced/**'
+      - 'native/promoted-characters/**'
+      - 'contracts/commands.v2.json'
+      - 'lsa-essential-e1-candidate/src/activities/**'
+      - 'lsa-essential-e1-candidate/src/characters/editorServer.mjs'
+      - 'lsa-essential-e1-candidate/src/control/nativeSupport.mjs'
+      - 'lsa-essential-e1-candidate/tests/gameplay-menu*.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/commands-contract.test.mjs'
+      - '.github/workflows/gameplay-menu.yml'
+  push:
+    branches: ['feature/gm*']
+    paths:
+      - 'native/enhanced/**'
+      - 'contracts/commands.v2.json'
+      - 'lsa-essential-e1-candidate/src/activities/**'
+      - 'lsa-essential-e1-candidate/src/characters/editorServer.mjs'
+      - 'lsa-essential-e1-candidate/tests/gameplay-menu*.test.mjs'
+      - '.github/workflows/gameplay-menu.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-windows:
+    name: Pinned real net481 loader and F11 command/view-model regression
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build against pinned genuine RPH, Essential and RNUI references
+        run: node tools/native-sdk/compileProductionNative.mjs
+      - name: Run F11 input and dispatcher tests
+        run: dotnet run --project native/enhanced/input-tests/InputTests.csproj --configuration Release
+      - name: Validate native ACT adapter boundaries
+        run: dotnet run --project native/activities/tests/ActivityTests.csproj --configuration Release
+  companion:
+    name: Node 24 gameplay commands, ACT2-ACT6 and Director contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax-check changed companion modules
+        run: |
+          node --check lsa-essential-e1-candidate/src/activities/navigationReadiness.mjs
+          node --check lsa-essential-e1-candidate/src/characters/editorServer.mjs
+      - name: Focused F11, command, activity and Director regressions
+        run: |
+          node --test --test-concurrency=1 \
+            lsa-essential-e1-candidate/tests/gameplay-menu-readiness.test.mjs \
+            lsa-essential-e1-candidate/tests/gameplay-menu-parity-source.test.mjs \
+            lsa-essential-e1-candidate/tests/commands-contract.test.mjs \
+            lsa-essential-e1-candidate/tests/p2-editor.test.mjs \
+            lsa-essential-e1-candidate/tests/activities-act2.test.mjs \
+            lsa-essential-e1-candidate/tests/activities-act3.test.mjs \
+            lsa-essential-e1-candidate/tests/activities-act6.test.mjs \
+            lsa-essential-e1-candidate/tests/director-social-scenes.test.mjs
