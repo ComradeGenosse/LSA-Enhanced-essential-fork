@@ -41,6 +41,29 @@ test('complete-segment decoder emits only closed locally validated objects and r
   assert.throws(() => { const invalid = createSegmentDecoder(); invalid.append(contradiction); invalid.finish(); }, /command after speech/);
 });
 
+test('October 18 buffered DriveEvasively response is normalized before Essential validation',async()=>{
+  const raw=JSON.stringify({mode:'buffered_action',segments:[{text:'You got it, man.'}],command:'DriveEvasively'});
+  const decoder=createSegmentDecoder();
+  decoder.append(raw);
+  const result=decoder.finish();
+  assert.equal(result.commandNormalized,true);
+  assert.deepEqual(result.decision,{dialogue:'You got it, man.',command:'DO DriveEvasively'});
+  const config=normalizeConfig({structuredStreamingEnabled:true},{OPENAI_API_KEY:'test-key'});
+  const events=[];
+  const outcome=await streamDecision({
+    config,body:{model:'gpt-6-luna',input:[],text:{format:{type:'json_schema',strict:true}}},
+    timeoutMs:3000,fetchImpl:async()=>streamingResponse(responseEvents(raw)),
+    onSegment:()=>{},telemetry:{event:(name,data)=>events.push({name,data})},
+  });
+  assert.deepEqual(outcome.decision,result.decision);
+  assert.ok(events.some(item=>item.name==='model_command_normalized'&&item.data.code==='bare_drive_action'));
+  const malformed=JSON.stringify({mode:'buffered_action',segments:[{text:'Okay.'}],command:'BeginDriving'});
+  await assert.rejects(streamDecision({
+    config,body:{model:'gpt-6-luna',input:[],text:{format:{type:'json_schema',strict:true}}},
+    timeoutMs:3000,fetchImpl:async()=>streamingResponse(responseEvents(malformed)),onSegment:()=>{},
+  }),error=>error.code==='decision_format_error');
+});
+
 test('Responses stream yields only validated complete segments before response.completed', async () => {
   const config = normalizeConfig({ structuredStreamingEnabled: true }, { OPENAI_API_KEY: 'test-key' });
   let firstValidated;
