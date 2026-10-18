@@ -628,7 +628,9 @@ export async function createRuntimeForBundle(options = {}) {
       owner.own('activities',runtime.activities,value=>value.stop());
       runtime.activities.start();
       runtime.characterService?.bindActivities?.(runtime.activities);
-      if (config.provider === 'openai' && config.activities.act5 === true &&
+      // Direct player ACT6 orders must work even when optional ACT5 suggestions are off.
+      if (config.provider === 'openai' &&
+          (config.activities.act5 === true || (config.activities.act6Capabilities?.length || 0) > 0) &&
           runtime.activities?.engine && runtime.characterService) {
         runtime.services.act5 = new Act5Dialogue({
           activities: runtime.activities, characterService: runtime.characterService,
