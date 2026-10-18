@@ -455,6 +455,19 @@ static class Program
             TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",generation}});
         }
         Check(driver.Logs.Any(x => x.Contains("reason=verified_continuity")),"continuity reuse is observable in native logs");
+        // A newer stock/MarkedTalk microphone can intentionally take over;
+        // its release must retire the previous UX4 continuity identity.
+        var takeover = TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",206},{"selectFirst",true}});
+        Check((string)takeover["pedId"] == "20","Nathan is active before newer stock mic takes over");
+        driver.ReplaceMic(30);
+        var taken = TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",206}});
+        Check((string)taken["reason"] == "ownership_lost" && driver.LastMicHandle == 30,
+            "UX4 cannot stop the newer ambient MarkedTalk microphone");
+        driver.ReplaceMic(0);
+        var afterTakeover = TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",207},{"selectFirst",true}});
+        Check((string)afterTakeover["recipientKind"] == "ambient" && driver.LastMicHandle == 30,
+            "newer explicit stock conversation ends promoted continuity without a permanent lock");
+        TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",207}});
         // A deliberate tap, not a camera change, may redirect to ambient.
         driver.MovePlayer(0,0,0); driver.LeaveVehicle(20);
         driver.Nearby(20,8,0,0,-100,-100); driver.Nearby(30,3,0,0,960,540); driver.PublishSnapshot();
