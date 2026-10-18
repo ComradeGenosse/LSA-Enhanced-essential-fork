@@ -11,7 +11,10 @@ export function outranks(live, incoming) { return priorityRank(live) > priorityR
 export function validateAdmission(proposal, { registry, mode, hello, passedProbes, act3Capabilities, act6Capabilities, act5 = false, playerApproved = false } = {}) {
   if (!validateProposal(proposal)) return { ok: false, reason: 'policy_denied' };
   const dialogue = proposal.source === 'player_dialogue';
-  if (dialogue ? !(act5 && playerApproved && proposal.priority === 'player_direct') : proposal.source !== 'player_ux')
+  // An authenticated, publication-approved direct ACT6 order is distinct from
+  // optional ACT5 model suggestions. Other dialogue plans still require ACT5.
+  const directNavigation = ['go_to_place', 'vehicle_trip', 'move_to_and_hold'].includes(proposal.intent);
+  if (dialogue ? !((act5 || directNavigation) && playerApproved && proposal.priority === 'player_direct') : proposal.source !== 'player_ux')
     return { ok: false, reason: 'policy_denied' };
   const spec = planSpec(proposal.intent, proposal.slots);
   if (spec.reason) return { ok: false, reason: spec.reason };

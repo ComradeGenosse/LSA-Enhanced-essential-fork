@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { randomBytes,timingSafeEqual } from 'node:crypto';
 import { characterFailureReason } from './characterService.mjs';
+import { inspectNavigationReadiness } from '../activities/navigationReadiness.mjs';
 import { publishControlEndpoint } from '../control/endpointFile.mjs';
 import { describeCurrent } from '../control/currentDescribe.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
@@ -16,6 +17,9 @@ function editorHtml(token, summonWaitMs) {
 <h1>LSA Characters</h1><p>Promote the NPC currently selected in Essential, then keep their character, voice, and memories between game sessions.</p>
 <div class="controls"><button id="promote">Promote current NPC</button><button id="refresh">Refresh</button><button id="socialStart" type="button">NPC: start a conversation</button></div><p id="status" role="status"></p>
 <p id="memoryStatus" role="status"></p>
+<details id="act6Panel"><summary>ACT6 navigation readiness</summary>
+<p><small>This is read-only configuration and native-advertisement information, not proof of in-game movement or waypoint arrival. Each command separately verifies the current character and vehicle.</small></p>
+<button id="act6Refresh" type="button">Refresh ACT6 status</button><pre id="act6Status" role="status"></pre></details>
 <details id="exportPanel" hidden><summary>Back up current SQLite profiles</summary>
 <p><small>Creates a NEW rollback snapshot; never overwrites existing JSON. This is not an automatic rollback and does not contain future episodic journals.</small></p>
 <button id="exportProfiles" type="button">Export rollback profile snapshot</button>
@@ -90,7 +94,15 @@ const form=$('profile');for(const field of ['name','biography','playerNotes'])fo
 $('memories').replaceChildren();for(const memory of profile.memories){const block=document.createElement('div'),content=document.createElement('p');content.textContent=(memory.selectedForContext?'✓ ':'')+memory.category+' · '+memory.importance+' · '+memory.text;block.append(content);for(const action of ['Edit','Remove']){const button=document.createElement('button');button.textContent=action;button.disabled=!memory.editable;button.onclick=()=>action==='Edit'?editMemory(memory):run(async()=>{if(!confirm('Remove this memory?'))return;await api('memory',{characterId:current.characterId,operation:'delete',expectedRevision:current.revision,memoryId:memory.memoryId});await refresh(current.characterId);});block.append(button);}$('memories').append(block);} $('memory').reset();$('memory').querySelector('button').textContent='Add memory';inspectorReset();void loadInspector();}
 async function refresh(id=current?.characterId){profiles=await api('list');$('list').replaceChildren();for(const profile of profiles){const button=document.createElement('button');button.textContent=profile.name+' · '+profile.runtimeStatus;button.onclick=()=>select(profile);$('list').append(button);}const profile=profiles.find(item=>item.characterId===id);if(profile)select(profile);else {$('detail').hidden=true;current=null;inspectorReset();}}
 function editMemory(memory){editingMemory=memory.memoryId;const form=$('memory');form.elements.text.value=memory.text;form.elements.category.value=memory.category;form.elements.importance.value=memory.importance;form.elements.selected.checked=memory.selectedForContext;form.querySelector('button').textContent='Save memory';form.scrollIntoView({behavior:'smooth'});}
-$('promote').onclick=()=>run(async()=>{const profile=await api('promote');await refresh(profile.characterId);});$('refresh').onclick=()=>run(()=>refresh());
+async function refreshAct6(){try{const result=await api('act6_readiness');
+  const explain=value=>value.eligibleForPreflight?'Eligible for native preflight (movement unverified)':
+    value.reason.replaceAll('_',' ')+(value.missingProbes.length?' — missing: '+value.missingProbes.join(', '):'');
+  $('act6Status').textContent='Mode: '+result.mode+'; ACT5 suggestions: '+(result.act5SuggestionsEnabled?'on':'off')+
+    '; native channel: '+(result.nativeConnected?'connected':'unavailable')+'\\n'+
+    'Drive to waypoint: '+explain(result.drive)+'\\nWalk to waypoint: '+explain(result.walk);
+}catch(error){$('act6Status').textContent='ACT6 status unavailable: '+error.message.replaceAll('_',' ');}}
+$('act6Refresh').onclick=()=>void refreshAct6();
+$('promote').onclick=()=>run(async()=>{const profile=await api('promote');await refresh(profile.characterId);});$('refresh').onclick=()=>run(async()=>{await refresh();await refreshAct6();});
 $('socialStart').onclick=async()=>{
   try{
     const old=(await api('director_social_status')).nativeResult?.receivedAt??-1;
@@ -117,7 +129,7 @@ $('memory').onsubmit=event=>{event.preventDefault();run(async()=>{const f=event.
 $('cancelMemory').onclick=()=>{editingMemory=null;$('memory').reset();$('memory').querySelector('button').textContent='Add memory';};
 $('remove').onclick=()=>run(async()=>{const confirmation=prompt('This permanently deletes the profile and its memories. Type the CharacterId to confirm:', '');if(confirmation!==current.characterId)return;await api('remove',{characterId:current.characterId,confirmation,expectedRevision:current.revision});await refresh();});
 ${inspectorScript()}
-run(()=>refresh());run(()=>refreshTimelines());
+run(()=>refresh());run(()=>refreshTimelines());void refreshAct6();
 </script></html>`;
 }
 export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null,inspectorControls=null,diagnostics=null,voiceStatus=null,socialConversation=null,socialStatus=null } = {}) {
@@ -138,6 +150,8 @@ export async function startCharacterEditor(service,{ port = service.config.promo
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('invalid_editor_request');
       let result;
       switch (body.action) {
+        case 'act6_readiness':
+          result=inspectNavigationReadiness(service.activities,service.config?.activities);break;
         case 'inspector_context': {
           const store=service.store,enabled=service.config.memoryK?.capabilities['memory.inspector']==='on';
           const supported=typeof store?.withP2SqliteRead==='function';

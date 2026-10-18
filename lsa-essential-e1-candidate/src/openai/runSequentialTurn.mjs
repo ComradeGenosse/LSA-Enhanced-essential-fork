@@ -1,6 +1,6 @@
 import {combineDirectorSocialMemory} from '../memory/h1ConversationHistory.mjs';
 import { drivingIntentKind, activeAct6Driving, liveAct6Driving, drivingModelGuidance, reconcileDrivingDecision, stockDrivingCommand } from '../activities/vehicleDrivingIntent.mjs';
-import { parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind } from '../activities/act5Dialogue.mjs';
+import { parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind, navigationRequestKind, isAct6StopRequest, reconcileAct6Decision } from '../activities/act5Dialogue.mjs';
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 import {scalePcm16} from '../voice/pcmVolume.mjs';
 import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
@@ -504,11 +504,14 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     turn.knowledgeDelivery?.watch(listener=>services.subscribeKnowledgeInvalidation?.(listener) ?? (()=>{}),error=>controller.abort(error));
     const recordReasoningSuccess=decision=>{check();turn.knowledgeDelivery?.success(decision);};
-    // ACT5 offers are derived from a source-pinned ACT2 registry + present native
-    // owner, never a model-authored capability list. Player acknowledgements are
-    // consumed only after original accepted input reached the history boundary.
+    // ACT5 suggestions are optional; explicit player navigation is separately
+    // recognized and reaches the same owner-fenced ACT6 admission pipeline.
+    const navigationIntent = isPlayer ? navigationRequestKind(finalInput) : null;
+    const navigationStop = isPlayer && isAct6StopRequest(finalInput);
+    const act5SuggestionsEnabled = services.act5?.activities?.engine?.config?.act5 === true;
     let act5Context = null;
-    if (isPlayer && services.act5 && valid()) {
+    if (isPlayer && services.act5 && valid() &&
+        (act5SuggestionsEnabled || navigationIntent || navigationStop)) {
       try {
         act5Context = await services.act5.prepare(turn, source);
         check();
@@ -520,24 +523,24 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
             act5Context = Object.freeze({ ...act5Context, intents: Object.freeze([]), pendingIntent: null });
           }
         }
-      } catch { act5Context = null; }
+      } catch {
+        if (navigationIntent) metrics?.event('act6_player_direct_context_failed', {intent:navigationIntent,code:'context_exception'});
+        act5Context = null;
+      }
     }
-    // ACT5's live owner inspection is another read-only, owner-fenced signal.
-    // Never trust a stale ACT4 state for a different actor/incarnation.
+    // Only the currently authenticated native owner may describe an ACT6 drive.
     if (isPlayer && !act6OwnsDrive && act5Context?.owner) {
       act6OwnsDrive=liveAct6Driving(services.act5?.activities,act5Context.owner);
     }
-    // When ACT5 is off, native is disconnected, or owner inspection failed,
-    // still recognize an explicit navigation order so Luna does not invent
-    // progress or route it to the unrelated free-driving DO command.
-    if (isPlayer && !turn.act5Reply) {
-      const {navigationRequestKind} = await import('../activities/act5Dialogue.mjs');
-      const navigationIntent = navigationRequestKind(finalInput);
-      if (navigationIntent) {
-        turn.act5Reply=Object.freeze({kind:'unavailable',intent:navigationIntent,
-          reason:act5Context?'destination_unresolved':'navigation_unavailable'});
-        if (act5Context) act5Context=Object.freeze({...act5Context,intents:Object.freeze([]),pendingIntent:null});
-      }
+    // An explicit navigation order must NEVER silently fall into Essential's
+    // free-driving DO path when admission or optional context is unavailable.
+    if (navigationIntent && !turn.act5Reply) {
+      const reason = act5Context ? 'destination_unresolved' :
+        services.act5 ? (services.act5.navigationReadiness(navigationIntent) || 'owner_unavailable') :
+          'native_unavailable';
+      turn.act5Reply=Object.freeze({kind:'unavailable',intent:navigationIntent,reason});
+      metrics?.event('act6_player_direct_unavailable',{intent:navigationIntent,code:reason});
+      if (act5Context) act5Context=Object.freeze({...act5Context,intents:Object.freeze([]),pendingIntent:null});
     }
     let decision;
     let streamedSegments = [];
@@ -687,6 +690,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       decision=reconciled.decision;
       metrics?.event('vehicle_seat_reconciled',{seat:seatRequest.slots.seat,
         accepted:reconciled.accepted,code:reconciled.reason,modelCommandKind});
+    }
+    if (isPlayer && ['go_to_place','vehicle_trip','move_to_and_hold'].includes(turn.act5Reply?.intent)) {
+      const corrected=reconcileAct6Decision(decision,turn.act5Reply,{nativeHandoffStarted});
+      if (corrected.suppressed) {
+        decision=corrected.decision;
+        metrics?.event('act6_player_direct_model_conflict',{intent:turn.act5Reply.intent,code:'stock_command_suppressed'});
+      }
     }
     if (isPlayer && (vehicleIntent || act6OwnsDrive)) {
       const guarded = reconcileDrivingDecision(decision,{kind:vehicleIntent,act6OwnsDrive});

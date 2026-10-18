@@ -34,6 +34,31 @@ test('local editor loads usable profile/memory controls and syntactically valid 
   const script = f.response.body.match(/<script>([\s\S]*?)<\/script>/)[1];assert.doesNotThrow(()=>acorn.parse(script,{ecmaVersion:'latest'}));
   for (const control of ['Promote current NPC','Save profile','Add memory','Unpromote and delete profile','summon','follow','wait','dismiss','despawn']) assert.ok(f.response.body.includes(control));
 });
+test('ACT6 editor read-only status reports the real mode without claiming movement',async t=>{
+  const f=await editor(t);
+  assert.match(f.response.body,/ACT6 navigation readiness/);
+  const disabled=await f.call({action:'act6_readiness'});
+  assert.equal(disabled.status,200);
+  assert.equal(disabled.json.drive.eligibleForPreflight,false);
+  assert.equal(disabled.json.drive.reason,'capability_disabled');
+  assert.equal(disabled.json.nativeConnected,false);
+  const original=f.service.activities;
+  const row={phase:'ACT6',execution:{path:'extension'},allowedSources:['player_dialogue'],
+    allowedPriority:['player_direct'],probes:['NV2','FR1']};
+  const engine={config:{mode:'on',act5:false,act6Capabilities:['drive_to'],
+      passedProbes:['NV2','FR1']},hello:{nativeRun:'hello-run',adapterEpoch:'epoch',
+      capabilities:{drive_to:true}},registry:{get:()=>row}};
+  f.service.activities={engine,client:{runtime:{ready:true,nativeRun:'hello-run',adapterEpoch:'epoch'}}};
+  try{
+    const eligible=await f.call({action:'act6_readiness'});
+    assert.equal(eligible.status,200);
+    assert.equal(eligible.json.drive.eligibleForPreflight,true);
+    assert.equal(eligible.json.drive.reason,null);
+    assert.equal(eligible.json.act5SuggestionsEnabled,false);
+    assert.equal(eligible.json.walk.reason,'capability_disabled');
+  } finally {f.service.activities=original;}
+});
+
 test('editor supports explicit promote, list, edit, memory CRUD and character controls end to end',async t => {
   const f = await editor(t),promoted = await f.call({action:'promote'}),p = promoted.json;assert.equal(promoted.status,200);
   const listed = await f.call({action:'list'});assert.equal(listed.json[0].runtimeStatus,'spawned');
