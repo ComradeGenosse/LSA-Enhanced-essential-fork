@@ -1,6 +1,6 @@
 import {combineDirectorSocialMemory} from '../memory/h1ConversationHistory.mjs';
 import { drivingIntentKind, activeAct6Driving, liveAct6Driving, drivingModelGuidance, reconcileDrivingDecision, stockDrivingCommand } from '../activities/vehicleDrivingIntent.mjs';
-import { parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision } from '../activities/act5Dialogue.mjs';
+import { parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind } from '../activities/act5Dialogue.mjs';
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 import {scalePcm16} from '../voice/pcmVolume.mjs';
 import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
@@ -681,11 +681,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // Closed player-intent reconciliation after Luna but BEFORE stock validation
     // and publication. No model reference can override native ACT3 seat resolution.
     if (isPlayer && seatRequest && turn.act5Reply?.intent==='board_vehicle') {
+      const modelCommandKind=vehicleSeatModelCommandKind(decision.command);
       const reconciled=reconcileVehicleSeatDecision(decision,seatRequest,turn.act5Reply,
         {nativeHandoffStarted});
       decision=reconciled.decision;
       metrics?.event('vehicle_seat_reconciled',{seat:seatRequest.slots.seat,
-        accepted:reconciled.accepted,code:reconciled.reason});
+        accepted:reconciled.accepted,code:reconciled.reason,modelCommandKind});
     }
     if (isPlayer && (vehicleIntent || act6OwnsDrive)) {
       const guarded = reconcileDrivingDecision(decision,{kind:vehicleIntent,act6OwnsDrive});
