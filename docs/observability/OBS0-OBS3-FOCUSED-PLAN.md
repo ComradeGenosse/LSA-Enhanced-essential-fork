@@ -2,7 +2,7 @@
 
 **Repository:** `ComradeGenosse/LSA-Enhanced-essential-fork`  
 **Target:** Latest `main`  
-**Status:** OBS0 completed and merged in PR #265; OBS1 implementation merged in PR #266; OBS2 and OBS3 planned.  
+**Status:** OBS0 merged in PR #265; OBS1 merged in PR #266; OBS2 implementation merged in PR #270; OBS3 offline analyzer and collector merged in PR #272. **Final real-GTA-session ZIP acceptance remains unverified.**  
 **Scope:** Repair existing logging, automatically capture critical gameplay diagnostics **and health evidence for every implemented runtime system**, and enable reliable post-session debugging from one collected ZIP.
 
 **Relationship to other work:** GM0–GM6 and gameplay work proceed separately. Integrate with their current interfaces without duplicating F11/browser menus, changing gameplay behavior, or blocking other work. Rebase against current `main` before integrating.
@@ -364,7 +364,7 @@ To keep this targeted, **do not**:
 
 ## Implementation and delivery rules
 
-1. OBS0 is complete and OBS1 merged. Continue with **OBS2, then OBS3**; do not repeat the audit.
+1. OBS0 and OBS1 are complete; OBS2/OBS3 offline implementation is merged. Validate with **one real post-session ZIP** to close final runtime acceptance; do not repeat the audit.
 2. Each phase must leave independently useful improvements. Implement inventory/lifecycle reporting as an OBS2 extension and the health matrix as an OBS3 extension.
 3. Reuse E1/RPH logging, capability registries, activation/status providers, telemetry fields and `Collect-Logs.ps1`.
 4. Preserve actual source evidence, correlation, event-time authority and the distinction between readiness and successful operation.
@@ -385,8 +385,8 @@ To keep this targeted, **do not**:
 | --- | --- |
 | **OBS0** | Completed repository-wide observability audit; merged PR #265 |
 | **OBS1** | Existing telemetry/ACT/native failure repair and correlation improvements; merged PR #266; GTA validation remains separate |
-| **OBS2** | Automatic diagnostics for demonstrated high-value gameplay failures **plus complete installed-system/capability inventory and bounded lifecycle/success evidence** |
-| **OBS3** | Improved ZIP collector; offline session analyzer; gameplay diagnostic report; **full per-system health matrix**; focused log-only acceptance |
+| **OBS2** | Merged PR #270: automatic diagnostics and complete code/registry system inventory with bounded lifecycle/success evidence; native GTA proof still pending |
+| **OBS3** | Merged PR #272: improved ZIP collector, offline Python analyzer, gameplay timelines and **full per-system health matrix**; synthetic/Windows CI passed, actual GTA-session ZIP acceptance pending |
 
 Each implementation phase includes focused tests, what can now be diagnosed, observed coverage and remaining evidence gaps.
 
