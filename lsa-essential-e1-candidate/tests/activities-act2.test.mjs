@@ -229,10 +229,12 @@ test('ACT2 execution sources do not call raw task natives or broad cancellation'
   const root = new URL('../../native/', import.meta.url);
   const files = ['activities/StepRunner.cs', 'activities/CompletionAdapters.cs', 'activities/PlaceTable.cs', 'activities/ActivityWorld.cs', 'promoted-characters/ActivityDispatch.cs'];
   const source = (await Promise.all(files.map(file => readFile(new URL(file, root), 'utf8')))).join('\n');
-  // ACT6's distinct, capability-gated native extension is now the sole authorized task-native callsite.
-  // Preserve ACT2's no-raw-task invariant and forbid any other task family or broad cancellation.
+  // Preserve ACT2's no-raw-task invariant. The exact ACT3 seat shuffle is
+  // separate from the three ACT6 navigation task natives and is owner-gated.
   const taskCalls=[...source.matchAll(/NativeFunction\.CallByName<[^>]+>\("(TASK_[A-Z_]+)"/g)].map(match=>match[1]);
-  assert.deepEqual(taskCalls,['TASK_FOLLOW_NAV_MESH_TO_COORD','TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE','TASK_STAND_STILL']);
+  assert.deepEqual(taskCalls,['TASK_SHUFFLE_TO_NEXT_VEHICLE_SEAT','TASK_FOLLOW_NAV_MESH_TO_COORD','TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE','TASK_STAND_STILL']);
+  assert.match(source,/args\.Seat!="driver" \|\| ped\.SeatIndex!=0 \|\| !SameVehicle\(ped\.CurrentVehicle,anchored\)/);
+  assert.match(source,/anchored\.Speed>=1\.0f \|\| !SeatFree\(anchored,"driver"\)/);
   assert.match(source,/else if \(capability == "walk_to" \|\| capability == "drive_to"\) \{/);
   for (const forbidden of ['CLEAR_PED_TASKS', 'CLEAR_PED', 'CancelAll', 'ReleaseExclusiveControlForExternalSystem', 'SetControlledBrain']) assert.equal(source.includes(forbidden), false, forbidden);
   assert.match(source, /QueueNpcAction/);
