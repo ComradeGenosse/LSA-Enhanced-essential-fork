@@ -50,6 +50,9 @@ export const CAPABILITY_IDS = Object.freeze(['hold_position', 'follow_person', '
 // ACT3 capabilities. Each one stays off until the operator lists it in activities.act3Capabilities,
 // on top of the shared probe list, because probe Q1 is shared with ACT2 and proves nothing about ACT3.
 export const ACT6_CAPABILITY_IDS = Object.freeze(['walk_to', 'drive_to']);
+// Distinct operator-configured probes across ACT2/ACT3/ACT6 may exceed 12.
+// Keep a bounded list, but never silently drop valid ACT6 probes after ACT3.
+export const MAX_ACTIVITY_CONFIG_PROBES = 32;
 export const ACT3_CAPABILITY_IDS = Object.freeze(['stop_and_face', 'approach_person', 'enter_vehicle_seat', 'exit_vehicle', 'follow_vehicle', 'begin_driving', 'scenario_here', 'scenario_at', 'walk_away_from', 'take_cover', 'grab_item', 'give_item', 'take_item', 'clear_held_item']);
 export const DISTANCE_BANDS = Object.freeze(['at', 'near', 'medium', 'far']);
 export const LIMITS = Object.freeze({ characters: 4, anchors: 32, pendingPerActor: 1, callbackRing: 64, frameBytes: FRAME_BYTES, nativeQueue: 64, companionQueue: 256, receiptsPerSecond: 4, factsPerSecond: 2 });
@@ -80,7 +83,7 @@ export function normalizeActivityConfig(value = {}) {
   const mode = valid && (value.mode === 'shadow' || value.mode === 'on') ? value.mode : 'off';
   const pipeName = valid && typeof value.pipeName === 'string' ? value.pipeName : 'LSA.Activities.v1';
   const passedProbes = valid && Array.isArray(value.passedProbes)
-    ? [...new Set(value.passedProbes.filter(item => typeof item === 'string' && /^[A-Z][A-Z0-9]{0,8}$/.test(item)))].slice(0, 12)
+    ? [...new Set(value.passedProbes.filter(item => typeof item === 'string' && /^[A-Z][A-Z0-9]{0,8}$/.test(item)))].slice(0, MAX_ACTIVITY_CONFIG_PROBES)
     : [];
   const act3Capabilities = valid && Array.isArray(value.act3Capabilities)
     ? Object.freeze([...new Set(value.act3Capabilities.filter(item => typeof item === 'string' && ACT3_CAPABILITY_IDS.includes(item)))])

@@ -49,6 +49,20 @@ To use **player-directed driving without ACT5 suggestions**, verify the installe
 }
 ```
 
+**Combined ACT3 + ACT6 configuration:** `normalizeActivityConfig` now retains up to **32 distinct, valid** `passedProbes` entries (previously 12). To keep existing ACT3 actions and enable both ACT6 travel modes in the same session, preserve the existing configured probes and append the additional required IDs:
+
+```json
+{
+  "act6Capabilities": ["walk_to", "drive_to"],
+  "passedProbes": [
+    "Q1", "FR1", "F1", "K1", "R1", "A1", "V1", "V2", "V3", "V4", "SVE1", "S1",
+    "NV1", "NV2", "Q2", "L1", "D1", "D2", "D3"
+  ]
+}
+```
+
+The list is an **operator declaration**, not evidence that the installed native build passed those probes. Native hello, actor/driver preflight and proof gates remain mandatory; enabling the declarations alone does not establish that the game can actually navigate.
+
 The **October 18 source fault** was a triple ACT5 coupling: bootstrap built the player-dialogue handler only when `act5: true`, its live native-owner readiness required ACT5, and `validateAdmission` refused independently authorized `player_dialogue` ACT6 goals without ACT5. The model then received `navigation_unavailable` from a generic fallback before any `actor.acquire` or `step.begin`. Direct navigation now uses the same owner, epoch, hello, capability, probe and transcript-publication fences, but does not enable ACT5 suggestion authoring. **Actual October 18 runtime settings and native hello still need confirmation from the original session logs.**
 
 Typed failures are `capability_disabled`, `capability_unavailable`, `native_unavailable`, `native_capability_missing`, `native_probes_missing`, `owner_unavailable`, `driver_required`, `place_unresolved`, `destination_unresolved`, `actor_busy` or native execution receipts. A typed `place_unresolved` means the waypoint or native road/ground resolution failed; do not tell the player to set a waypoint for an unrelated capability failure. Structured `act6_player_direct_*` telemetry logs recognition, capability/probe readiness, staging, rejection and admission without transcripts. ACT's existing `activity_*` events and the native StepRunner receipts establish dispatch, motion, arrival and failure after admission. Pair them by turn identity/activity ID, not by assuming a model confirmation is physical movement.
