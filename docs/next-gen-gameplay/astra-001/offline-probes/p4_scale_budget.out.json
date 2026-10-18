@@ -1,0 +1,63 @@
+{
+ "house_2storey": {
+  "dense_voxels_10cm_MB": 0.1,
+  "dense_voxels_5cm_MB": 1.0,
+  "structural_chunks_1m3": 125,
+  "structural_dof_6_per_chunk": 750,
+  "prefractured_chunks_0.5m": 1000,
+  "prefractured_GB_at_15KB_per_chunk": 0.01,
+  "tile_state_bitmap_10cm_KB": 7.8,
+  "event_log_MB_per_100k_impacts": 2.0
+ },
+ "midrise_8storey": {
+  "dense_voxels_10cm_MB": 2.9,
+  "dense_voxels_5cm_MB": 23.2,
+  "structural_chunks_1m3": 2900,
+  "structural_dof_6_per_chunk": 17400,
+  "prefractured_chunks_0.5m": 23200,
+  "prefractured_GB_at_15KB_per_chunk": 0.35,
+  "tile_state_bitmap_10cm_KB": 132.0,
+  "event_log_MB_per_100k_impacts": 2.0
+ },
+ "tower_50storey": {
+  "dense_voxels_10cm_MB": 26.0,
+  "dense_voxels_5cm_MB": 208.0,
+  "structural_chunks_1m3": 26000,
+  "structural_dof_6_per_chunk": 156000,
+  "prefractured_chunks_0.5m": 208000,
+  "prefractured_GB_at_15KB_per_chunk": 3.12,
+  "tile_state_bitmap_10cm_KB": 1350.0,
+  "event_log_MB_per_100k_impacts": 2.0
+ },
+ "bridge_600m": {
+  "dense_voxels_10cm_MB": 10.0,
+  "dense_voxels_5cm_MB": 80.0,
+  "structural_chunks_1m3": 10000,
+  "structural_dof_6_per_chunk": 60000,
+  "prefractured_chunks_0.5m": 80000,
+  "prefractured_GB_at_15KB_per_chunk": 1.2,
+  "tile_state_bitmap_10cm_KB": 375.0,
+  "event_log_MB_per_100k_impacts": 2.0
+ },
+ "city_envelope_5000_buildings": {
+  "assumed_mean_volume_m3": 1500,
+  "assumed_mean_surface_m2": 5000,
+  "dense_voxels_10cm_GB": 7.5,
+  "prefractured_0.5m_TB": 0.9,
+  "tile_state_10cm_GB_if_everything_damaged": 0.31
+ },
+ "city_envelope_20000_buildings": {
+  "assumed_mean_volume_m3": 2500,
+  "assumed_mean_surface_m2": 8000,
+  "dense_voxels_10cm_GB": 50.0,
+  "prefractured_0.5m_TB": 6.0,
+  "tile_state_10cm_GB_if_everything_damaged": 2.0
+ },
+ "city_envelope_50000_buildings": {
+  "assumed_mean_volume_m3": 4000,
+  "assumed_mean_surface_m2": 12000,
+  "dense_voxels_10cm_GB": 200.0,
+  "prefractured_0.5m_TB": 24.0,
+  "tile_state_10cm_GB_if_everything_damaged": 7.5
+ }
+}
