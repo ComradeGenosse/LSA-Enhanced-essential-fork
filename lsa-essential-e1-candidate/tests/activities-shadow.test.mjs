@@ -84,6 +84,21 @@ test('ACT shadow sources do not dispatch NPC actions or task natives', async () 
   assert.match(source, /PHYSICALLY_COMPLETED/);
   assert.doesNotMatch(source, /State = "PHYSICALLY_COMPLETED"/);
 });
+test('OBS1 invalid ACT frames produce a safe coded failure rather than silent reset', async () => {
+  const pipe=socket(),events=[];
+  const client=new ActivityClient({mode:'shadow',pipeName:'LSA.Activities.v1'},
+    {connect:()=>pipe,onEvent:(event,data)=>events.push([event,data])});
+  client.start();
+  pipe.emit('data',Buffer.from('{PRIVATE INVALID JSON}\n'));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(client.runtime.ready,false);
+  const failures=events.filter(([event])=>event==='activity_channel_failure');
+  assert.equal(failures.length,1);
+  assert.equal(failures[0][1].code,'invalid_json');
+  assert.equal(JSON.stringify(failures).includes('PRIVATE'),false);
+  client.stop();
+});
+
 test('activity telemetry cannot record physical completion', () => {
   const record = createTelemetryRecord({ sequence: 1, runId: '11111111-1111-4111-8111-111111111111', originMs: 0, event: 'activity_receipt', source: 'system', data: { receiptState: 'PHYSICALLY_COMPLETED', capability: 'hold_position' }, now: 1, utc: '2026-10-04T00:00:00.000Z' });
   assert.equal(record.data.receiptState, undefined);

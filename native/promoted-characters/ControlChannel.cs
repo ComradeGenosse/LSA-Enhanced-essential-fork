@@ -52,7 +52,8 @@ namespace LSA.PromotedCharacters
             suppressedFailureLogs = 0;
             lastFailureLogMs = now;
             try { diagnostic("[P2 OBS1] control_channel_failure code=" + code +
-                " suppressed=" + suppressed + " host_bound=" + (hostRunId != null ? "true" : "false")); } catch {}
+                " suppressed=" + suppressed + " host_run=" + (hostRunId ?? "unavailable") +
+                " world_epoch=" + worldEpoch); } catch {}
         }
         void Serve()
         {

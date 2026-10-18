@@ -24,7 +24,7 @@ export class ActivityClient {
     const socket = this.connect({ path: `\\\\.\\pipe\\${this.config.pipeName}` });
     this.socket = socket; this.clientRun = randomUUID(); this.runtime.ready = false; this.runtime.hostContext = null; this.runtime.dialogueActionVersion=null; this.runtime.expected = 1; this.outSequence = 0;
     let buffer = Buffer.alloc(0), frames = [], hello = false, failed = false;
-    const emit = (event, data) => { this.runtime.events.push(event); try { this.onEvent(event, data); } catch {} };
+    const emit = (event, data) => { this.runtime.events.push(event); if (this.runtime.events.length > 256) this.runtime.events.shift(); try { this.onEvent(event, data); } catch {} };
     // Opaque correlation tokens only. Never log pipe contents or exception text.
     const correlation = () => ({clientRun:this.clientRun,nativeRun:this.runtime.nativeRun,
       adapterEpoch:this.runtime.adapterEpoch,hostRunId:this.runtime.hostContext?.hostRunId,
@@ -69,7 +69,7 @@ export class ActivityClient {
           this.runtime.ready=false;
           try {this.onFrame(value);} catch {}
           // Expected world reset ends the lease; it is not a failure.
-          socket.destroy();return;
+          failed = true; socket.destroy();return;
         }
         if (value.type !== 'diagnostics') { try { this.onFrame(value); } catch {} }
         if (value.type === 'diagnostics') {

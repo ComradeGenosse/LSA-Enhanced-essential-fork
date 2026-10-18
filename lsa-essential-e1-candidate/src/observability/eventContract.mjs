@@ -188,6 +188,9 @@ function safeScalar(key, value) {
   if (key === 'companionMode' || key === 'nativeMode') return ['off','shadow','on'].includes(token) ? token : undefined;
   if (key === 'reason' && REASON_CODES.includes(token)) return token;
   if (closedValues.has(key)) return closedValues.get(key).has(token) ? token : undefined;
+  // ACT receipts are a case-sensitive protocol enum. Do not lowercase them
+  // just because 'failed' also appears in the generic safe-token vocabulary.
+  if (key === 'receiptState') return /^(REQUESTED|VALIDATED|REJECTED|DISPATCHED|HANDLER_ACCEPTED|MODE_ESTABLISHED|FAILED|CANCELLED|SUPERSEDED|TIMED_OUT|DETACHED)$/.test(token) ? token : undefined;
   if (safeTokens.has(token.toLowerCase())) return token.toLowerCase();
   if (['diagnosticReason','reason','terminalReason'].includes(key) &&
       safeDirectorReasons.has(token)) return token;
@@ -212,7 +215,6 @@ function safeScalar(key, value) {
   if (key === 'attemptId' && /^(stt|model|tts):[12]$/.test(token)) return token;
   if (key === 'intent' && /^(hold_position|accompany|resume_previous|sit_here|scenario_here|scenario_at|move_to_and_hold|approach_and_face|hang_out_with|board_vehicle|ride_along|exit_vehicle_and_hold|leave_scene|take_cover_and_hold|go_to_place|vehicle_trip)$/.test(token)) return token;
   if (key === 'capability' && /^[a-z][a-z0-9_]{2,31}$/.test(token)) return token;
-  if (key === 'receiptState' && /^(REQUESTED|VALIDATED|REJECTED|DISPATCHED|HANDLER_ACCEPTED|MODE_ESTABLISHED|FAILED|CANCELLED|SUPERSEDED|TIMED_OUT|DETACHED)$/.test(token)) return token;
   return undefined;
 }
 
