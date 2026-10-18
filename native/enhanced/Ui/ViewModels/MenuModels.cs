@@ -18,12 +18,12 @@ namespace LSA.Enhanced.Ui
     {
         public string Key, Text, Right, Description, Command, Value;
         // Frozen at render time for current-NPC actions: never silently retarget to a replacement actor.
-        public string ExpectedEncounterId, ExpectedOwnerAlias;
+        public string ExpectedEncounterId, ExpectedOwnerAlias, BindingCharacterId, ExpectedOwnershipToken;
         public bool Enabled = true, Info, Confirm, Toggle;   // Toggle: an on/off checkbox; Value is "on" or "off"
         public string[] Options, OptionLabels;              // a left/right choice; Value is one of Options
         public static MenuLine Fact(string key,string text,string right,string description = null) => new MenuLine {Key = key,Text = text,Right = right,Description = description,Info = true,Enabled = true};
         public static MenuLine Action(string key,string text,string command,string description,bool enabled = true,bool confirm = false) => new MenuLine {Key = key,Text = text,Command = command,Description = description,Enabled = enabled,Confirm = confirm};
-        public string Signature => Key + "|" + Text + "|" + Right + "|" + Enabled + "|" + Command + "|" + Value + "|" + Toggle + "|" + (Options == null ? "" : string.Join(",",Options)) + "|" + Description + "|" + ExpectedEncounterId + "|" + ExpectedOwnerAlias;
+        public string Signature => Key + "|" + Text + "|" + Right + "|" + Enabled + "|" + Command + "|" + Value + "|" + Toggle + "|" + (Options == null ? "" : string.Join(",",Options)) + "|" + Description + "|" + ExpectedEncounterId + "|" + ExpectedOwnerAlias + "|" + BindingCharacterId + "|" + ExpectedOwnershipToken;
         public static MenuLine Choice(string key,string text,string command,string value,string[] options,string[] labels,string description,bool enabled = true) =>
             new MenuLine {Key = key,Text = text,Command = command,Value = value,Options = options,OptionLabels = labels ?? options,Description = description,Enabled = enabled};
         public static MenuLine Switch(string key,string text,string command,bool on,string description,bool enabled = true) =>
@@ -171,6 +171,30 @@ namespace LSA.Enhanced.Ui
     }
     // Page content is pure; unavailable ACT6/Director features must never pretend to execute.
 
+    public sealed class CharacterActivityBinding
+    {
+        public string CharacterId,OwnerAlias,EncounterId,OwnershipToken;
+        public bool Safe;
+        static readonly Regex Uuid = new Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$");
+        public static CharacterActivityBinding Parse(string json)
+        {
+            try {
+                var row = new JavaScriptSerializer {MaxJsonLength = 8192,RecursionLimit = 5}.DeserializeObject(json ?? "") as Dictionary<string,object>;
+                if (row == null) return null;
+                string id = row.TryGetValue("characterId",out var character) ? character as string : null;
+                string encounter = row.TryGetValue("encounterId",out var e) ? e as string : null;
+                string token = row.TryGetValue("ownershipToken",out var t) ? t as string : null;
+                string alias = row.TryGetValue("ownerAlias",out var a) ? a as string : null;
+                if (id == null || encounter == null || token == null || !Uuid.IsMatch(id) || !Uuid.IsMatch(encounter) ||
+                    !Uuid.IsMatch(token) || alias != "promoted." + id) return null;
+                return new CharacterActivityBinding {CharacterId=id,OwnerAlias=alias,EncounterId=encounter,OwnershipToken=token,
+                    Safe=row.TryGetValue("safe",out var safe) && safe is bool yes && yes};
+            } catch { return null; }
+        }
+        public bool SameIncarnation(CharacterActivityBinding other) => other != null &&
+            CharacterId == other.CharacterId && EncounterId == other.EncounterId &&
+            OwnerAlias == other.OwnerAlias && OwnershipToken == other.OwnershipToken;
+    }
     // Read-only preflight is advisory and fails closed; the native actor-fiber
     // still performs the authoritative owner, seat, vehicle and place checks.
     public sealed class GameplayMenuReadiness
