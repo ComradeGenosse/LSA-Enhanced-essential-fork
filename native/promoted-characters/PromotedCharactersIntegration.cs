@@ -306,12 +306,14 @@ namespace LSA.PromotedCharacters
         object ActivityOfferSnapshot(Encounter encounter)
         {
             bool inVehicle=false, actorIsDriver=false, safe=false, scenarioReady=false, nearby=false;
+            int actorSeatIndex=-2;
             bool vehicleAvailable=false, vehicleStopped=false, driverFree=false, frontFree=false, rearFree=false, waypointAvailable=false;
             try
             {
                 safe=Safe(encounter) && !encounter.Suspended;
                 inVehicle=NativeFunction.CallByName<bool>("IS_PED_IN_ANY_VEHICLE",encounter.Ped,false);
-                actorIsDriver=inVehicle && encounter.Ped.SeatIndex==-1;
+                if(inVehicle)actorSeatIndex=encounter.Ped.SeatIndex;
+                actorIsDriver=inVehicle && actorSeatIndex==-1;
                 // Advisory only. ACT6 still resolves and validates the live blip
                 // on the native execution fiber after an authorized commit.
                 if(safe) try {
@@ -359,11 +361,11 @@ namespace LSA.PromotedCharacters
                 // Uncertain native state is never advertised as available.
                 return new {version=1,safe=false,actorInVehicle=false,actorOnFoot=false,actorIsDriver=false,
                     playerNearby=false,vehicleAvailable=false,vehicleStopped=false,
-                    passengerFree=false,driverFree=false,frontFree=false,rearFree=false,scenarioReady=false,waypointAvailable=false};
+                    passengerFree=false,driverFree=false,frontFree=false,rearFree=false,actorSeatIndex=-2,scenarioReady=false,waypointAvailable=false};
             }
             return new {version=1,safe,actorInVehicle=inVehicle,actorOnFoot=!inVehicle,actorIsDriver,
                 playerNearby=nearby,vehicleAvailable,vehicleStopped,
-                passengerFree=frontFree||rearFree,driverFree,frontFree,rearFree,scenarioReady,waypointAvailable};
+                passengerFree=frontFree||rearFree,driverFree,frontFree,rearFree,actorSeatIndex,scenarioReady,waypointAvailable};
         }
         object Handle(ControlRequest request)
         {
