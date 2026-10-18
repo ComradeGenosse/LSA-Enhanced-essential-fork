@@ -49,14 +49,30 @@ jobs:
               p.write_text(s)
           q=Path('lsa-essential-e1-candidate/src/perception/shadowRuntime.mjs')
           runtime=q.read_text()
-          if 'const ps2=' not in runtime:
-              original='    this.consumerActivation=consumers;'
-              if original in runtime:
-                  runtime=runtime.replace(original,original+"\n    const ps2=mode==='shadow'&&(consumers===null||consumers.ps2?.enabled===true);\n    const ps3=ps2&&(consumers===null||consumers.ps3?.enabled===true);")
-              else:
-                  print('missing consumerActivation anchor; merged constructor:')
-                  print('\\n'.join(runtime.splitlines()[35:88]))
-              q.write_text(runtime)
+          old="  constructor({ mode='off', radio='off', radioCatalog=RadioTrackTextCatalog.unavailable(), now=()=>Math.floor(performance.now()), situationFor=()=>({}), trace=null, stall=null }={}) {"
+          new="  constructor({ mode='off', radio='off', radioCatalog=null, ambientSpeech=false, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null, m9Events=null, trace=null, stall=null }={}) {"
+          if old not in runtime:
+              raise RuntimeError('unexpected C01 constructor signature')
+          runtime=runtime.replace(old,new)
+          runtime=runtime.replace('this.radioCatalog=radioCatalog??RadioTrackTextCatalog.unavailable();','this.radioCatalog=null;',1)
+          start=runtime.index('    this.observations=new ObservationStore(')
+          end=runtime.index('    this.ps2Diagnostics=',start)
+          newblock=[
+            '    this.consumerActivation=consumers;',
+            "    const ps2=mode==='shadow'&&(consumers===null||consumers.ps2?.enabled===true);",
+            "    const ps3=ps2&&(consumers===null||consumers.ps3?.enabled===true);",
+            '    this.radioCatalog=ps2?(radioCatalog??RadioTrackTextCatalog.unavailable()):null;',
+            '    this.observations=ps2?new ObservationStore({now,current:ref=>this.current(ref)}):null;',
+            '    this.episodes=ps2?new EpisodeStore({now,current:ref=>this.current(ref)}):null;',
+            '    this.correlator=ps2?new EpisodeCorrelator({episodes:this.episodes,observations:this.observations,now,current:ref=>this.current(ref),anchor:ref=>this.anchors.get(ref)}):null;',
+            '    this.transcripts=ps2?new SharedTranscriptStore({now,current:ref=>this.current(ref)}):null;',
+            '    this.utterances=ps2?new UtteranceLifecycle({now,current:ref=>this.current(ref)}):null;',
+            '    this.speechRights=new Map();',
+            '    this.speechDiagnostics={receipts:0,accepted:0,observations:0,rejected:0};',
+            '    this.salience=ps3?new SalienceCache({now,ambientSpeech}):null;'
+          ]
+          runtime=runtime[:start]+chr(10).join(newblock)+chr(10)+runtime[end:]
+          q.write_text(runtime)
           PY
           sed -n '1,18p' lsa-essential-e1-candidate/src/perception/contracts.mjs
           node --check lsa-essential-e1-candidate/src/perception/contracts.mjs
