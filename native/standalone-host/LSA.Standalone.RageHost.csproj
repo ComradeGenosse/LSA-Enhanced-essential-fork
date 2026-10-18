@@ -22,17 +22,25 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net481" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
-  <!-- Fail BEFORE compilation if MSBuild silently resolved the fake unit-test
-       assembly instead of the exact reference path requested by the packager. -->
+  <!-- Fail BEFORE compilation if MSBuild resolved a cached/fake test DLL.
+       The official 1.131 SDK file is named RagePluginHookSDK.dll but its
+       internal CLR assembly identity is RagePluginHook (as in NuGet 1.124).
+       Select by CLR identity, then demand exact requested-vs-resolved path. -->
   <Target Name="VerifyRphReferenceResolution" AfterTargets="ResolveReferences" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <_ExpectedRphFullPath>$([MSBuild]::NormalizePath('$(RphReferencePath)'))</_ExpectedRphFullPath>
+    </PropertyGroup>
     <ItemGroup>
-      <_VerifiedRph Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'RagePluginHook'" />
+      <_VerifiedRph Include="@(ReferencePath)"
+                    Condition="'%(ReferencePath.FusionName)' != '' And $([System.String]::Copy('%(ReferencePath.FusionName)').StartsWith('RagePluginHook,'))" />
     </ItemGroup>
-    <Message Importance="high" Text="RPH compile reference requested=$(RphReferencePath) resolved=@(_VerifiedRph)" />
-    <Error Condition="'@(_VerifiedRph)' != '$(RphReferencePath)'"
-           Text="RPH compile reference does not equal the requested real SDK. Refusing cached/fake assembly resolution." />
+    <Message Importance="high" Text="RPH compile reference requested=$(_ExpectedRphFullPath) resolved=@(_VerifiedRph)" />
+    <Error Condition="'@(_VerifiedRph->Count())' != '1'"
+           Text="Exactly one RagePluginHook CLR assembly reference must resolve; refusing missing/ambiguous SDK selection." />
+    <Error Condition="'@(_VerifiedRph)' != '$(_ExpectedRphFullPath)'"
+           Text="RPH compile reference does not equal the requested official SDK path. Refusing cached/fake assembly resolution." />
   </Target>
   <Target Name="RequireRealRphSdk" BeforeTargets="ResolveReferences" Condition="'$(RphReferencePath)' == '' or !Exists('$(RphReferencePath)')">
-    <Error Text="Supply -p:RphReferencePath=&lt;installed approved RagePluginHook.dll&gt;; no RPH SDK is bundled." />
+    <Error Text="Supply -p:RphReferencePath=&lt;approved RagePluginHook.dll or RagePluginHookSDK.dll&gt;; no RPH SDK is bundled." />
   </Target>
 </Project>
