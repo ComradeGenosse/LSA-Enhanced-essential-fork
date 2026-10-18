@@ -52,7 +52,7 @@ public sealed class Scenario:MarshalByRefObject
         Check(pendingWaited,"The lifetime fiber did not wait for Core initialization while remaining unavailable to live commands.");
         Check(wasReady && wasAlive,"The accepted fiber did not initialize a ready owner.");
         Check(rejected,"A duplicate start while the owner was active was accepted.");
-        Check(ownerPreserved,"A rejected active duplicate stopped or replaced the owner.");
+        Check(ownerPreserved,"A rejected active duplicate stopped or replaced the owner. ready="+RuntimeEntry.Ready+" shutdown_requests="+PromotedCharactersIntegration.ShutdownRequests+" shutdowns="+PromotedCharactersIntegration.Shutdowns+" registered="+IntegrationManager.Registered+" scheduled="+GameFiber.Scheduled);
         Check(bridged,"The ready owner did not receive bridge submissions, results and snapshots.");
         Check(RuntimeEntry.Submit("{}")=="native_unavailable" && RuntimeEntry.Snapshot()==null && PromotedCharactersIntegration.Submissions==1,"A stopping owner accepted bridge work.");
         RuntimeEntry.RequestSnapshots(1000);
