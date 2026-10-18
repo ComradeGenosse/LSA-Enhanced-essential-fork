@@ -25,6 +25,21 @@ namespace LSA.Standalone.RageHost
             }
             catch { return false; } // An invalidated native handle is never admitted.
         }
+
+        // Resolve a queued auto-smoke target only on the owner fiber. Check
+        // native existence and entity kind *before* RPH's throwing resolver,
+        // then recheck the exact pool handle after resolution. Any stale
+        // handle or race is a refused target, never a host-fatal exception.
+        internal static Ped ResolvePinned(int handle)
+        {
+            return PinnedActorLookup.TryResolve(handle,
+                h => NativeFunction.CallByName<bool>("DOES_ENTITY_EXIST", h),
+                h => NativeFunction.CallByName<bool>("IS_ENTITY_A_PED", h),
+                h => World.GetEntityByHandle<Ped>(new PoolHandle(unchecked((uint)h))),
+                p => Exists(p) && !p.IsDead &&
+                    unchecked((int)p.Handle.Value) == handle,
+                out Ped ped) ? ped : null;
+        }
     }
 
     // Synchronous no-yield owner scope. Only the entry fiber may open it.
