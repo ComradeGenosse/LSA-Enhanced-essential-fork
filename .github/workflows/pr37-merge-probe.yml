@@ -211,6 +211,27 @@ jobs:
           if ai.count(old)!=1: raise RuntimeError('OpenAI cancellation anchor changed')
           ai=ai.replace(old,old+chr(10)+"    try {this.#runtime.intelligence?.cancelMicUtterance?.(identity);} catch {}",1)
           Path(ai_path).write_text(ai)
+          # Preserve the latest M3/M9/Memory K frame contracts; admit C01
+          # frames with the original C01 validation functions.
+          contract_path='lsa-essential-e1-candidate/src/perception/contracts.mjs'
+          contract=check_output(['git','show','origin/main:'+contract_path],text=True)
+          needle="import { validateHostEnvelope, validateWorldEpoch } from '../context/hostContext.mjs';"
+          insert="import { validateUtteranceFact } from './utteranceLifecycle.mjs';"+chr(10)+
+                 "import {validateSpeechReceiptV2Shape} from './speechReceiptV2.mjs';"+chr(10)
+          if contract.count(needle)!=1: raise RuntimeError('modern host contract import anchor changed')
+          contract=contract.replace(needle,insert+needle,1)
+          needle="...(Object.hasOwn(v,'directorRequestVersion') ? ['directorRequestVersion'] : [])"
+          if contract.count(needle)!=1: raise RuntimeError('modern hello versions contract changed')
+          contract=contract.replace(needle,needle+",...(Object.hasOwn(v,'utteranceLifecycleVersion') ? ['utteranceLifecycleVersion'] : [])",1)
+          needle="&& v.version===1 && isUuid(v.adapterEpoch)"
+          if contract.count(needle)!=1: raise RuntimeError('modern hello version gating changed')
+          contract=contract.replace(needle,"&& (!Object.hasOwn(v,'utteranceLifecycleVersion') || v.hostContextVersion===1 && v.utteranceLifecycleVersion===1) "+needle,1)
+          needle="  if (v.type==='signal') return validateSignal(v.payload);"
+          if contract.count(needle)!=1: raise RuntimeError('modern contract signal dispatch changed')
+          contract=contract.replace(needle,
+              "  if (v.type==='utterance') return validateUtteranceFact(v.payload);"+chr(10)+
+              "  if (v.type==='speech_receipt') return validateSpeechReceiptV2Shape(v.payload);"+chr(10)+needle,1)
+          Path(contract_path).write_text(contract)
           PY
           sed -n '1,18p' lsa-essential-e1-candidate/src/perception/contracts.mjs
           node --check lsa-essential-e1-candidate/src/perception/contracts.mjs
