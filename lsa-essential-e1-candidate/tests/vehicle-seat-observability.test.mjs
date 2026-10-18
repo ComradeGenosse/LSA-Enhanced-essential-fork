@@ -32,6 +32,15 @@ test('native ACT3 seat trace distinguishes queued from same-anchor occupied and 
   assert.match(source,/if\(state==item.LastState\)return/);
   assert.match(source,/sample\.VehicleIsAnchor && SeatMatches\(sample,item\.Seat\)/);
   assert.match(source,/physically_seated/);
-  assert.match(source,/queued.*verified=false/);
+  // The queued trace is assembled from bounded structured fields over two
+  // source lines; do not require the whole log to be a single source line.
+  assert.match(source,/SeatLog\("queued",encounterId,/);
+  assert.match(source,/"executionId="\+args\.ExecutionId/);
+  assert.match(source,/" requestedSeat="\+args\.Seat/);
+  assert.match(source,/" route="\+route/);
+  assert.match(source,/" verified=false"/);
+  assert.match(source,/" actualSeat="\+sample\.SeatIndex/);
+  assert.match(source,/" anchorMatched="\+sample\.VehicleIsAnchor/);
   assert.match(source,/seatTraces\.Remove\(encounterId\)/);
+  assert.match(source,/seatShuffles\.Remove\(encounterId\)/);
 });
