@@ -38,11 +38,14 @@ jobs:
           node --check lsa-essential-e1-candidate/src/activities/activityValidator.mjs
           node --check lsa-essential-e1-candidate/src/activities/activityEngine.mjs
           node --check lsa-essential-e1-candidate/src/activities/act5Dialogue.mjs
+          node --check lsa-essential-e1-candidate/src/activities/vehicleDrivingIntent.mjs
           node --check lsa-essential-e1-candidate/src/activities/activityKnowledge.mjs
           node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
       - name: ACT2–ACT6 focused regression
         run: |
           node --test --test-concurrency=1 \
+            lsa-essential-e1-candidate/tests/vehicle-dll-handoff.test.mjs \
+            lsa-essential-e1-candidate/tests/vehicle-driving-intent.test.mjs \
             lsa-essential-e1-candidate/tests/activities-act6.test.mjs \
             lsa-essential-e1-candidate/tests/activities-act5.test.mjs \
             lsa-essential-e1-candidate/tests/activities-act3.test.mjs \

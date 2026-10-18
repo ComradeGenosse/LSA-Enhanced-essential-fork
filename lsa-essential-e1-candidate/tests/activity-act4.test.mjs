@@ -5,6 +5,7 @@ import {ActivityEngine} from '../src/activities/activityEngine.mjs';
 import {loadCapabilityRegistry} from '../src/activities/capabilityRegistry.mjs';
 import {normalizeActivityConfig} from '../src/activities/contracts.mjs';
 import {projectActivityKnowledge,assertActivityKnowledgeCurrent,captureActivityKnowledge,releaseActivityKnowledge} from '../src/activities/activityKnowledge.mjs';
+import {liveAct6Driving} from '../src/activities/vehicleDrivingIntent.mjs';
 import {renderKnowledge,pruneKnowledgeFrame} from '../src/context/knowledgeRenderer.mjs';
 
 function fixture() {
@@ -204,4 +205,22 @@ test('ACT4 reports ACT6 requested, moving, failed and verified arrival without i
  activity.act4CompletedStepId=step.stepId;
  state=projectActivityKnowledge(f.captured()).facts[0].text;
  assert.match(state,/reached the selected destination with verified native physical arrival evidence/);
+});
+
+test('ACT6 live driving guard reads the real ACT4 engine using authenticated host context',()=>{
+ const f=fixture(),activity=f.engine.activities.at(-1);
+ activity.template='vehicle_trip';
+ activity.status='running';
+ // ACT5 #owner returns host context adjacent to (not inside) owner.binding.
+ const owner={binding:{characterId:f.binding.characterId,encounterId:f.binding.encounterId,
+   incarnationId:f.binding.incarnationId,ownershipToken:randomUUID()},
+   hostContext:{...f.binding.hostContext}};
+ assert.equal(f.engine.stateForCharacter(owner.binding),null,
+   'regression: calling the actual engine with ACT5 owner.binding alone returns no state');
+ assert.equal(liveAct6Driving(f.activities,owner),true,
+   'source-qualified active ACT6 trip must reject stock driving takeover');
+ assert.equal(liveAct6Driving(f.activities,{...owner,hostContext:{...owner.hostContext,worldEpoch:999}}),false);
+ assert.equal(liveAct6Driving(f.activities,{...owner,binding:{...owner.binding,incarnationId:randomUUID()}}),false);
+ activity.status='completed';activity.terminal={status:'completed',reason:null,atMs:1000};
+ assert.equal(liveAct6Driving(f.activities,owner),false);
 });

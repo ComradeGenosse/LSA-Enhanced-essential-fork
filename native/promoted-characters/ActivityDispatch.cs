@@ -281,6 +281,17 @@ namespace LSA.PromotedCharacters
                     // Supersede only our own held Essential modes before installing this ACT-owned task.
                     if (state.FollowPlayerOnFoot) { NpcActions.ClearFollowFlags(state); FollowBehavior.StopFollowTarget(state); }
                     if (state.SitOnGroundMode) ComplianceBehavior.StopSitOnGround(state);
+                    if (capability == "drive_to") {
+                        // The pinned Essential DLL's StopAllVehicleCommands omits
+                        // DriveToXWhenBothSeated. Its UpdateStartDriving loop will
+                        // otherwise reissue TASK_VEHICLE_DRIVE_WANDER every 3000 ms,
+                        // overwriting the ACT6 destination task. Stop stock modes first
+                        // and retire that *same actor's* persistent free-drive flag
+                        // before issuing the one owned route task.
+                        VehicleBehavior.StopAllVehicleCommands(ped,state);
+                        state.DriveToXWhenBothSeated = false;
+                        state.StayUnderLsaControl = true;
+                    }
                     var dest = new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z);
                     if (capability == "walk_to")
                         NativeFunction.CallByName<int>("TASK_FOLLOW_NAV_MESH_TO_COORD",ped,dest.X,dest.Y,dest.Z,1.0f,-1,2.5f,0,0f);
