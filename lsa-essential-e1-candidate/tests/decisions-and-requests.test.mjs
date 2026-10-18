@@ -33,6 +33,20 @@ test('config preserves Luna, the transcription alias, fixed TTS and bounded PTT 
   assert.throws(() => normalizeConfig({ maxMicDurationMs: 30_001 }, {}), /maxMicDurationMs/);
 });
 
+test('October 18 malformed faster command is repaired but still structurally validated',()=>{
+  assert.deepEqual(parseDecisionJson(JSON.stringify({
+    dialogue:'You got it, man.',command:'DriveEvasively',
+  })),{dialogue:'You got it, man.',command:'DO DriveEvasively'});
+  assert.deepEqual(parseDecisionJson(JSON.stringify({
+    dialogue:'Okay.',command:'DriveNormally',
+  })),{dialogue:'Okay.',command:'DO DriveNormally'});
+  for(const command of ['DriveEvasively V001','DriveTo V001','DO DriveEvasively\\nDO WaitHere',
+    'DO DriveEvasively | DO WaitHere', 'BeginDriving']) {
+    assert.throws(()=>parseDecisionJson(JSON.stringify({dialogue:'Okay.',command})),
+      /one complete DO command/,command);
+  }
+});
+
 test('strict decisions reject refusals, extra keys, multiple commands and command text in dialogue', () => {
   assert.throws(() => extractResponseText({ status: 'incomplete', output: [] }), /not completed/);
   assert.throws(() => extractResponseText({ status: 'completed', output: [{ type: 'message', content: [{ type: 'refusal', refusal: 'no' }] }] }), /refused/);
