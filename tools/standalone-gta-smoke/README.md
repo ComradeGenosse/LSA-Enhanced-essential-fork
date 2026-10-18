@@ -120,7 +120,7 @@ eligible ped means an explicit `no_eligible_target` result, **not a PASS**.
 
 Run from the extracted bundle folder:
 
-\`\`\`powershell
+```powershell
 $game = 'C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced'
 $env:OPENAI_API_KEY = '<your key - do not log>'
 .\Run-Standalone-AutoSmoke.ps1 -GamePath $game `
