@@ -213,16 +213,42 @@ export class CharacterService {
     if (operation === 'dismiss' || operation === 'despawn') this.emit('character_dismissed');
     return result;
   }); }
+  // A read-only, short-lived lease for an explicitly selected F11 character:
+  // it is not a ped handle and cannot itself execute any world action.
+  async activityBinding(characterId) {
+    await this.#requireReady();
+    if (!isUuid(characterId)) throw new Error('character_missing');
+    const profile=this.store.get(characterId);
+    if (!profile) throw new Error('character_missing');
+    const binding=await this.native.request('inspect',{ownerAlias:profile.promotion.ownerAlias});
+    if (!binding || binding.ownerAlias!==profile.promotion.ownerAlias ||
+        !isUuid(binding.encounterId) || !isUuid(binding.ownershipToken)) throw new Error('character_not_spawned');
+    return {characterId,ownerAlias:binding.ownerAlias,encounterId:binding.encounterId,
+      ownershipToken:binding.ownershipToken,safe:binding.activityOffer?.safe===true};
+  }
   async activity(operation, args = {}) { return this.#serial(async () => {
     await this.#requireReady();
     if (!this.activities?.engine || this.activities.engine.config.mode !== 'on') throw new Error('capability_disabled');
     const expected = args.expectedEncounterId ?? null;
-    const capture = await this.native.request('capture');
-    if (expected !== null && capture?.encounterId !== expected) throw new Error('target_changed');
-    const profile = this.store.list().find(item => item.promotion.ownerAlias === capture?.ownerAlias);
-    if (!profile) throw new Error('character_not_promoted');
-    const binding = await this.native.request('inspect', { ownerAlias: profile.promotion.ownerAlias });
-    if (!binding || binding.encounterId !== capture.encounterId) throw new Error('native_stale');
+    let profile,binding;
+    if (args.characterId !== undefined && args.characterId !== null) {
+      // Never re-resolve to Essential's current NPC. Both the original
+      // encounter AND its native ownership incarnation must still match.
+      if (!isUuid(args.characterId) || !isUuid(expected) || !isUuid(args.expectedOwnershipToken)) throw new Error('native_stale');
+      profile=this.store.get(args.characterId);
+      if (!profile) throw new Error('character_missing');
+      binding=await this.native.request('inspect',{ownerAlias:profile.promotion.ownerAlias});
+      if (!binding || binding.ownerAlias!==profile.promotion.ownerAlias ||
+          binding.encounterId!==expected || binding.ownershipToken!==args.expectedOwnershipToken)
+        throw new Error('target_changed');
+    } else {
+      const capture = await this.native.request('capture');
+      if (expected !== null && capture?.encounterId !== expected) throw new Error('target_changed');
+      profile = this.store.list().find(item => item.promotion.ownerAlias === capture?.ownerAlias);
+      if (!profile) throw new Error('character_not_promoted');
+      binding = await this.native.request('inspect', { ownerAlias: profile.promotion.ownerAlias });
+      if (!binding || binding.encounterId !== capture.encounterId) throw new Error('native_stale');
+    }
     const characterId = profile.characterId;
     const owned = { characterId, ownerAlias: binding.ownerAlias, ownershipToken: binding.ownershipToken, encounterId: binding.encounterId, incarnationId: binding.claim?.incarnationId };
     if (operation === 'status') return this.activities.status(characterId);
