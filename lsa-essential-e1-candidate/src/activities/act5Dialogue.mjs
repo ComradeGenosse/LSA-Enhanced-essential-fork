@@ -102,6 +102,68 @@ const drives = (verb, options) => /^(drive|take|bring|get us)/.test(verb) ||
 
 // Classify explicit navigation orders even when the destination is unsupported:
 // callers must not silently fall back to aimless stock vehicle driving.
+// Player-directed seating is a closed, whole-utterance intent. The slot is NOT a
+// Luna-authored V### alias: native ACT3 resolves the player's live vehicle and
+// revalidates identity, seat availability, and ownership before executing.
+export function parseVehicleSeatPlayerRequest(input) {
+  const value=stripLeadIn(input).replace(/(?: man| dude| bro| nathan| please)$/,'').trim();
+  let seat=null;
+  if (/^(?:get|hop|jump) (?:in|into) (?:the )?drivers? seat$/.test(value) ||
+      /^(?:take|grab) (?:the )?drivers? seat$/.test(value) ||
+      /^(?:get|hop|jump) behind (?:the )?wheel$/.test(value) ||
+      /^(?:you drive|you drive this time|hop in and drive|jump in and drive|take the wheel|you get behind the wheel)$/.test(value))
+    seat='driver';
+  else if (/^(?:get|hop|jump) (?:in|into) (?:the )?(?:front )?passenger seat$/.test(value) ||
+           /^(?:take|grab) (?:the )?(?:front )?passenger seat$/.test(value) ||
+           /^(?:ride shotgun|call shotgun|sit shotgun)$/.test(value))
+    seat='passenger';
+  else if (/^(?:get|hop|jump) (?:in|into) (?:the )?(?:back|rear) seat$/.test(value) ||
+           /^(?:sit in|take) (?:the )?(?:back|rear) seat$/.test(value))
+    seat='rear';
+  else if (/^(?:get|hop|jump) in(?:to)? (?:my|the|our) (?:car|vehicle|truck|ride)$/.test(value) ||
+           /^(?:get|hop|jump) in$/.test(value))
+    seat='any_passenger';
+  if(!seat)return null;
+  return Object.freeze({intent:'board_vehicle',
+    slots:Object.freeze({vehicle:Object.freeze({kind:'player_vehicle'}),seat})});
+}
+
+// Diagnostic category only: never emit raw model commands or pretend a
+// reference-shaped V### string has passed Essential's live entity validation.
+export function vehicleSeatModelCommandKind(command) {
+  const value=String(command||'').trim();
+  if(!value)return 'none';
+  if(/<[^>]+>|\{[^}]+\}|\bVXXX\b/i.test(value))return 'placeholder';
+  if(/^DO\s+[A-Za-z][A-Za-z0-9]*\s+V\d{3}$/i.test(value))return 'reference_shaped';
+  return 'other';
+}
+
+// Pure post-model guard. A direct native ACT3 seat order cannot be replaced by
+// an arbitrary DO token or claimed complete just because Luna said it was.
+// Tested independently of network, STT, Essential parser and the native runner.
+export function reconcileVehicleSeatDecision(decision, seatRequest, reply, {nativeHandoffStarted=false} = {}) {
+  if (!seatRequest || reply?.intent!=='board_vehicle')
+    return Object.freeze({decision,reason:null,accepted:false});
+  if(nativeHandoffStarted)
+    throw Object.assign(new TypeError('Seat decision cannot change after audio handoff.'),{code:'vehicle_seat_late_reconciliation'});
+  const seat=seatRequest.slots.seat,accepted=reply.kind==='approval_pending';
+  const dialogue=accepted
+    ? seat==='driver' ? "I'll try to get behind the wheel." :
+      seat==='passenger' ? "I'll try the front passenger seat." :
+      seat==='rear' ? "I'll try the back seat." : "I'll try to hop in."
+    : reply.reason==='seat_occupied' ? "That seat is taken." :
+      reply.reason==='vehicle_moving' ? "The car needs to stop before I can get in." :
+      reply.reason==='vehicle_unavailable' ? "I can't verify which car to get into." :
+      reply.reason==='actor_busy' ? "I'm busy with another activity right now." :
+      reply.reason==='actor_in_vehicle' ? "I'm already in a vehicle; I can't switch seats with this command." :
+      reply.reason==='capability_disabled' ? "I can't use the seat-entry controller right now." :
+      "I can't safely take that seat right now.";
+  return Object.freeze({decision:Object.freeze({...decision,dialogue,command:'',
+    ...(Object.hasOwn(decision,'activity')?{activity:null}:{})}),
+    reason:accepted?'native_admission_pending':reply.reason||'native_unavailable',
+    accepted});
+}
+
 export function navigationRequestKind(input, options = {}) {
   const match = navigationMatch(input);
   return match ? (drives(match[1], options) ? 'vehicle_trip' : 'go_to_place') : null;
@@ -160,8 +222,20 @@ export function act5WorldAvailable(intent, slots, state) {
         'exit_vehicle_and_hold','leave_scene','take_cover_and_hold'].includes(intent)) return true;
   if (state?.version !== 1 || state.safe !== true) return false;
   if (intent === 'board_vehicle' || intent === 'ride_along') {
+    // If already seated, let ACT3 preflight verify the *same anchored car*
+    // and exact seat before it returns alreadySatisfied. A seat index alone
+    // is never proof the actor occupies the player's vehicle.
+    if (state.actorInVehicle === true) {
+      const index=state.actorSeatIndex;
+      return state.vehicleAvailable===true &&
+        (slots.seat==='driver' && index===-1 ||
+         slots.seat==='passenger' && index===0 ||
+         slots.seat==='rear' && index>=1 ||
+         slots.seat==='any_passenger' && index>=0);
+    }
     if (state.actorInVehicle !== false || state.vehicleAvailable !== true ||
         state.vehicleStopped !== true) return false;
+    if (slots.seat === 'driver') return state.driverFree === true;
     if (slots.seat === 'passenger') return state.frontFree === true;
     if (slots.seat === 'rear') return state.rearFree === true;
     return state.passengerFree === true;
@@ -349,9 +423,13 @@ export class Act5Dialogue {
     const nativeOptions = context.owner.activityOffer || {};
     const request = parseAct6PlayerRequest(response, nativeOptions);
     const navigationIntent = navigationRequestKind(response, nativeOptions);
+    const seatRequest = parseVehicleSeatPlayerRequest(response);
     let pending = this.pending.get(characterId);
-    // A fresh explicit command is not approval of an unrelated ACT5 invitation.
-    if (pending && navigationIntent) { this.pending.delete(characterId); pending = null; }
+    // An explicit new order supersedes an unrelated invitation, but "hop in"
+    // can still approve the seat choice Nathan offered moments before.
+    if (pending && (navigationIntent || seatRequest && replyKind(response,pending.activity.intent)!=='approve')) {
+      this.pending.delete(characterId); pending = null;
+    }
     if (!pending && NAV_STOP.has(response)) {
       const owner = await this.#owner(turn);
       if (!owner || !isCurrent?.() || owner.binding.characterId !== characterId ||
@@ -376,6 +454,64 @@ export class Act5Dialogue {
       return Object.freeze({kind:result?.ok?'cancelled':'unavailable',intent:latest.template});
     }
     if (!pending) {
+      if (seatRequest) {
+        const intent='board_vehicle', seat=seatRequest.slots.seat;
+        if (!TERMINAL.has(this.activities.status(characterId)?.status))
+          return Object.freeze({kind:'unavailable',intent,reason:'actor_busy',seat});
+        // Use the same ACT3 registry, capability probes and player-direct
+        // authority as every other physical activity. No stock DO fallback.
+        const capability='enter_vehicle_seat';
+        const row=this.activities.engine.registry.get(capability);
+        if (!this.activities.engine.config.act3Capabilities?.includes(capability) ||
+            !row || row.phase!=='ACT3' || !row.allowedSources.includes('player_dialogue') ||
+            !row.allowedPriority.includes('player_direct') || row.execution.path==='none' ||
+            !this.activities.engine.registry.enabled(capability,{
+              mode:'on',hello:this.activities.engine.hello?.capabilities,
+              requested:[capability],passedProbes:this.activities.engine.config.passedProbes || [],
+              source:'player_dialogue',priority:'player_direct'
+            }))
+          return Object.freeze({kind:'unavailable',intent,reason:'capability_disabled',seat});
+        const owner=await this.#owner(turn);
+        if (!owner || !isCurrent?.() ||
+            owner.binding.characterId!==characterId ||
+            owner.binding.encounterId!==context.owner.binding.encounterId ||
+            owner.binding.incarnationId!==context.owner.binding.incarnationId ||
+            owner.binding.ownershipToken!==context.owner.binding.ownershipToken ||
+            owner.nativeRun!==context.owner.nativeRun ||
+            owner.adapterEpoch!==context.owner.adapterEpoch ||
+            owner.nativeClientRun!==context.owner.nativeClientRun ||
+            owner.sessionKey!==context.owner.sessionKey ||
+            !sameHostContext(owner.hostContext,context.owner.hostContext))
+          return Object.freeze({kind:'unavailable',intent,reason:'owner_unavailable',seat});
+        const native=owner.activityOffer;
+        if (!act5WorldAvailable(intent,seatRequest.slots,native)) {
+          const reason=native?.safe!==true?'native_unavailable':
+            native.actorInVehicle===true?'actor_in_vehicle':
+            native.vehicleAvailable!==true?'vehicle_unavailable':
+            native.vehicleStopped!==true?'vehicle_moving':
+            seat==='driver'&&native.driverFree!==true?'seat_occupied':
+            seat==='passenger'&&native.frontFree!==true?'seat_occupied':
+            seat==='rear'&&native.rearFree!==true?'seat_occupied':
+            seat==='any_passenger'&&native.passengerFree!==true?'seat_occupied':'native_unavailable';
+          return Object.freeze({kind:'unavailable',intent,reason,seat});
+        }
+        const turnKey=keyFor(turn.identity)+':'+turn.identity.turnId+':'+turn.identity.generationId;
+        if (this.seenTurns.has(turnKey) || this.approvals.has(turnKey))
+          return Object.freeze({kind:'unavailable',intent,reason:'duplicate_turn',seat});
+        const now=this.now(),proposed={
+          proposalVersion:1,proposalId:this.id(),source:'player_dialogue',
+          subject:{characterId},intent,slots:seatRequest.slots,priority:'player_direct',
+          origin:{turn:{pedId:String(turn.identity.pedId),sessionNonce:turn.identity.sessionNonce,
+            turnId:turn.identity.turnId,generationId:turn.identity.generationId}},
+          proposedAtMs:now,
+        };
+        this.seenTurns.add(turnKey);
+        if(this.seenTurns.size>256)this.seenTurns.delete(this.seenTurns.values().next().value);
+        this.approvals.set(turnKey,{owner,pending:{activity:seatRequest,proposal:proposed,expiresAt:now+OFFER_MS}});
+        if(this.approvals.size>32)this.approvals.delete(this.approvals.keys().next().value);
+        this.report('vehicle_seat_staged',{intent,seat});
+        return Object.freeze({kind:'approval_pending',intent,seat});
+      }
       // This direct-player ACT6 lane still commits only after the existing
       // output_transcript boundary; a native owner is inspected again at commit.
       if (navigationIntent) {
@@ -507,6 +643,9 @@ export class Act5Dialogue {
     const result = this.activities.engine.assign(pending.proposal,current.binding,{playerApproved:true});
     if (result?.ok) this.lastAccepted.set(characterId,result.activityId);
     this.report(result?.ok?'act5_admitted':'act5_rejected',{intent:pending.activity.intent,reason:result?.reason||null});
+    if(pending.activity.intent==='board_vehicle')
+      this.report('vehicle_seat_commit',{intent:'board_vehicle',seat:pending.activity.slots?.seat,
+        accepted:result?.ok===true,reason:result?.reason||null});
     return result;
   }
 

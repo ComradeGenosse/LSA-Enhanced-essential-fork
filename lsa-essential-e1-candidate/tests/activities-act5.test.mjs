@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ActivityEngine } from '../src/activities/activityEngine.mjs';
-import { Act5Dialogue, validateAct5Choice, parseAct6PlayerRequest } from '../src/activities/act5Dialogue.mjs';
+import { Act5Dialogue, validateAct5Choice, parseAct6PlayerRequest, parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind, act5WorldAvailable } from '../src/activities/act5Dialogue.mjs';
 import { normalizeActivityConfig } from '../src/activities/contracts.mjs';
 import { parseDecisionJson, buildRequest } from '../src/context/essentialDecision.mjs';
 import { createSegmentDecoder } from '../src/openai/segmentDecoder.mjs';
@@ -44,7 +44,7 @@ function harness({ enabled = true, act3Capabilities = [], act6Capabilities = [],
   let currentIncarnation = incarnation;
   let activityOffer = {version:1,safe:true,actorInVehicle:false,actorOnFoot:true,actorIsDriver:false,
     playerNearby:true,vehicleAvailable:true,vehicleStopped:true,
-    passengerFree:true,frontFree:true,rearFree:true,scenarioReady:true};
+    passengerFree:true,driverFree:true,frontFree:true,rearFree:true,actorSeatIndex:-2,scenarioReady:true};
   const native = {request: async operation => operation === 'capture'
     ? {ownerAlias, encounterId: currentEncounter}
     : {ownerAlias, encounterId: currentEncounter, ownershipToken:currentToken,
@@ -619,4 +619,145 @@ test('ACT6 checks the native owner again before commit and cannot issue a ghost 
   h.changeToken();
   assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,false);
   assert.equal(h.commands.length,0);
+});
+
+
+test('October 18 direct vehicle-seat utterances have exact closed native player-vehicle intent', () => {
+  const kinds=[
+    ['Nathan, get in the driver\'s seat','driver'],['Get into the driver seat','driver'],
+    ['Hop in and drive','driver'],['Get behind the wheel','driver'],
+    ['Take the driver\'s seat','driver'],['You drive','driver'],['You drive this time','driver'],
+    ['Get into my car','any_passenger'],['Hop in','any_passenger'],
+    ['Hop in the passenger seat','passenger'],['Ride shotgun','passenger'],
+    ['Get into the back seat','rear'],
+  ];
+  for (const [utterance,seat] of kinds)
+    assert.deepEqual(parseVehicleSeatPlayerRequest(utterance),
+      {intent:'board_vehicle',slots:{vehicle:{kind:'player_vehicle'},seat}},utterance);
+  for(const remark of ['I told Nathan to get in the car yesterday','Why don\'t we drive faster?',
+    'Get in another car','Get in that car','Don\'t get in the driver\'s seat',
+    'Are you in the driver\'s seat?','Drive to the waypoint','You drive to the airport'])
+    assert.equal(parseVehicleSeatPlayerRequest(remark),null,remark);
+});
+
+test('model vehicle token diagnostics separate placeholder, shaped aliases and other commands', () => {
+  for(const [command,kind] of [
+    ['','none'],['DO EnterDriverSeat <vehicle>','placeholder'],
+    ['DO EnterDriverSeat {vehicle}','placeholder'],['DO EnterDriverSeat VXXX','placeholder'],
+    ['DO EnterDriverSeat V001','reference_shaped'],['DO EnterDriverSeat V999','reference_shaped'],
+    ['DO WaitHere','other']])
+    assert.equal(vehicleSeatModelCommandKind(command),kind,command);
+});
+
+test('October 18 placeholder DO is replaced by deterministic ACT3 intent before stock validation', () => {
+  const driver=parseVehicleSeatPlayerRequest('Get in the driver\'s seat');
+  for(const command of ['DO EnterDriverSeat <vehicle>','DO EnterDriverSeat {vehicle}',
+      'DO EnterDriverSeat VXXX','DO EnterDriverSeat V999','DO BeginDriving']) {
+    const result=reconcileVehicleSeatDecision({dialogue:'I got in.',command,activity:{intent:'board_vehicle',slots:{}}},
+      driver,{kind:'approval_pending',intent:'board_vehicle'});
+    assert.equal(result.decision.command,'');
+    assert.equal(result.decision.activity,null);
+    assert.match(result.decision.dialogue,/try/i);
+    assert.equal(result.reason,'native_admission_pending');
+    assert.equal(result.accepted,true);
+  }
+  assert.throws(()=>reconcileVehicleSeatDecision({dialogue:'Yes',command:'DO EnterDriverSeat <vehicle>'},
+    driver,{kind:'approval_pending',intent:'board_vehicle'}, {nativeHandoffStarted:true}),/audio handoff/);
+  const refuse=reconcileVehicleSeatDecision({dialogue:"I'm driving!",command:'DO EnterDriverSeat V001'},
+    driver,{kind:'unavailable',intent:'board_vehicle',reason:'seat_occupied'});
+  assert.equal(refuse.decision.command,'');
+  assert.match(refuse.decision.dialogue,/taken/i);
+  assert.equal(refuse.accepted,false);
+  assert.equal(reconcileVehicleSeatDecision({dialogue:'Okay',command:'DO WaitHere'},
+    null,{kind:'approval_pending',intent:'board_vehicle'}).decision.command,'DO WaitHere');
+});
+
+test('direct driver/passenger orders stage one ACT3 owner-controlled step, never a V### stock DO',async()=>{
+  for(const [utterance,seat] of [['Get behind the wheel','driver'],
+    ['Hop in the passenger seat','passenger'],['Get into the back seat','rear'],
+    ['Get into my car','any_passenger']]) {
+    const h=nativeHarness(),t=turn(),ctx=await h.dialogue.prepare(t,'player_mic');
+    const staged=await h.dialogue.onPlayerInput(t,utterance,ctx,()=>true);
+    assert.deepEqual(staged,{kind:'approval_pending',intent:'board_vehicle',seat},utterance);
+    assert.equal(h.commands.length,0,'no native task before transcript acceptance');
+    assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,true);
+    const activity=h.engine.activities.at(-1);
+    assert.equal(activity.template,'board_vehicle');
+    assert.equal(activity.steps[0].capability,'enter_vehicle_seat');
+    assert.equal(activity.steps[0].args.seat,seat);
+    assert.equal(h.commands.filter(x=>x.type==='actor.acquire').length,1);
+    assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,false,'no replay');
+  }
+});
+
+test('direct seat entry rejects unavailable, moving, occupied vehicles and respects ACT3 gates',async()=>{
+  for(const [offer,reason] of [
+    [{vehicleAvailable:false},'vehicle_unavailable'],
+    [{vehicleStopped:false},'vehicle_moving'],
+    [{driverFree:false},'seat_occupied'],
+    [{safe:false},'native_unavailable'],
+  ]) {
+    const h=nativeHarness();h.setOffer(offer);
+    const t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+    const result=await h.dialogue.onPlayerInput(t,'You drive',ctx,()=>true);
+    assert.deepEqual(result,{kind:'unavailable',intent:'board_vehicle',reason,seat:'driver'});
+    assert.equal(h.commands.length,0);
+  }
+  const disabled=harness(),t=turn();
+  assert.deepEqual(await disabled.dialogue.onPlayerInput(t,'You drive',
+    await disabled.dialogue.prepare(t,'player_text'),()=>true),
+    {kind:'unavailable',intent:'board_vehicle',reason:'capability_disabled',seat:'driver'});
+  assert.equal(disabled.commands.length,0);
+  const h=nativeHarness(),x=turn(),ctx=await h.dialogue.prepare(x,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(x,'You drive',ctx,()=>true)).kind,'approval_pending');
+  h.setOffer({driverFree:false});
+  assert.equal((await h.dialogue.commitApproved(x,()=>true)).ok,false,'seat lost between staging and commit');
+  assert.equal(h.commands.length,0);
+});
+
+test('owner revocation, interruption and retry cannot leave a replayed seat order',async()=>{
+  for(const invalidate of ['changeToken','retire','changeIncarnation','restart','sessionChange']) {
+    const h=nativeHarness(),t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+    assert.equal((await h.dialogue.onPlayerInput(t,'You drive',ctx,()=>true)).kind,'approval_pending');
+    h[invalidate]();
+    assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,false,invalidate);
+    assert.equal(h.commands.length,0,invalidate);
+  }
+  const h=nativeHarness(),t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(t,'You drive',ctx,()=>true)).kind,'approval_pending');
+  assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,true);
+  assert.equal(h.engine.cancel(actor).ok,true,'interrupted seat task is cancelled by existing engine');
+  const again=turn(),next=await h.dialogue.prepare(again,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(again,'You drive',next,()=>true)).kind,'approval_pending');
+  assert.equal((await h.dialogue.commitApproved(again,()=>true)).ok,true,'retry is a fresh owner-scoped request');
+});
+
+test('ACT6-owned navigation is not superseded by driver-seat orders',async()=>{
+  const h=drivingHarness(),t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+  const result=h.engine.assign({
+    proposalVersion:1,proposalId:id(),source:'player_ux',subject:{characterId:actor},
+    intent:'vehicle_trip',slots:{place:{kind:'waypoint'}},priority:'player_direct',
+    origin:{},proposedAtMs:10000
+  },ctx.owner.binding);
+  assert.equal(result.ok,true);
+  const before=h.engine.activities.length;
+  const request=await h.dialogue.onPlayerInput(t,'You drive',ctx,()=>true);
+  assert.deepEqual(request,{kind:'unavailable',intent:'board_vehicle',reason:'actor_busy',seat:'driver'});
+  assert.equal(h.engine.activities.length,before);
+  assert.notEqual(h.engine.activities.at(-1).status,'cancelled');
+});
+
+test('already-seated advisory never becomes an unverified completion claim',async()=>{
+  const offer={version:1,safe:true,actorInVehicle:true,actorOnFoot:false,
+    vehicleAvailable:true,vehicleStopped:false,actorSeatIndex:-1,actorIsDriver:true,driverFree:false};
+  assert.equal(act5WorldAvailable('board_vehicle',
+    {vehicle:{kind:'player_vehicle'},seat:'driver'},offer),true,
+    'native ACT3 preflight must still verify the exact anchored vehicle');
+  assert.equal(act5WorldAvailable('board_vehicle',
+    {vehicle:{kind:'player_vehicle'},seat:'passenger'},offer),false);
+  const h=nativeHarness();h.setOffer({...offer});
+  const t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(t,'You drive',ctx,()=>true)).kind,'approval_pending');
+  assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,true);
+  assert.equal(h.engine.activities.at(-1).steps[0].capability,'enter_vehicle_seat');
 });

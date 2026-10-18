@@ -1,5 +1,6 @@
 import {combineDirectorSocialMemory} from '../memory/h1ConversationHistory.mjs';
 import { drivingIntentKind, activeAct6Driving, liveAct6Driving, drivingModelGuidance, reconcileDrivingDecision, stockDrivingCommand } from '../activities/vehicleDrivingIntent.mjs';
+import { parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind } from '../activities/act5Dialogue.mjs';
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 import {scalePcm16} from '../voice/pcmVolume.mjs';
 import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
@@ -341,6 +342,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       finally{clearTimeout(timer);}
     };
     const vehicleIntent = isPlayer ? drivingIntentKind(finalInput) : null;
+    const seatRequest = isPlayer ? parseVehicleSeatPlayerRequest(finalInput) : null;
+    if(seatRequest)metrics?.event('vehicle_seat_requested',{seat:seatRequest.slots.seat,stage:'classified'});
     // ACT4 state is source-qualified by the same P2 owner/host knowledge boundary.
     // This advisory cannot authorize driving; it only prevents stock takeover.
     const vehicleActivityEvidence = turn.knowledgeInputs?.activityInputs;
@@ -352,8 +355,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const reasoningContext=()=>{
       const activity=turn.act5Reply;
       const navigation=['go_to_place','vehicle_trip','move_to_and_hold'].includes(activity?.intent);
+      const seatInstruction=seatRequest && activity?.intent==='board_vehicle'
+        ? activity.kind==='approval_pending'
+          ? '\n[PLAYER SEAT COMMAND] The player directly ordered a seat change. ACT3 has staged verified native admission. Do not invent a V### token, issue any stock DO command, or claim Nathan is seated. The GTA task has not started; only describe willingness to try.'
+          : '\n[PLAYER SEAT COMMAND] Native seat admission refused this request. Do not issue a substitute stock DO command or claim a seat was entered; explain that the seat/vehicle/controller is unavailable.'
+        : '';
       const activityInstruction=activity
-        ? '\n[ACTIVITY PLAYER REPLY]\n'+JSON.stringify(activity)+(
+        ? '\n[ACTIVITY PLAYER REPLY]\n'+JSON.stringify(activity)+seatInstruction+(
           navigation
             ? activity.kind==='approval_pending'
               ? '\nThis is a recognized navigation command, STAGED for native admission after transcript publication. No GTA movement has been verified. Do not issue a stock DO command or claim driving, progress, or arrival. Respond naturally with tentative intent.'
@@ -670,6 +678,16 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // Validate the PS6 passive-speech restriction before the stock action
     // validator or output_transcript, which can synchronously dispatch effects.
     assertDirectorSpeechDecision(decision,{source,directorTicket:turn.directorTicket,streamMode});
+    // Closed player-intent reconciliation after Luna but BEFORE stock validation
+    // and publication. No model reference can override native ACT3 seat resolution.
+    if (isPlayer && seatRequest && turn.act5Reply?.intent==='board_vehicle') {
+      const modelCommandKind=vehicleSeatModelCommandKind(decision.command);
+      const reconciled=reconcileVehicleSeatDecision(decision,seatRequest,turn.act5Reply,
+        {nativeHandoffStarted});
+      decision=reconciled.decision;
+      metrics?.event('vehicle_seat_reconciled',{seat:seatRequest.slots.seat,
+        accepted:reconciled.accepted,code:reconciled.reason,modelCommandKind});
+    }
     if (isPlayer && (vehicleIntent || act6OwnsDrive)) {
       const guarded = reconcileDrivingDecision(decision,{kind:vehicleIntent,act6OwnsDrive});
       if (guarded.blocked) {
@@ -739,7 +757,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (turn.act5Reply?.kind === 'approval_pending') {
       const accepted = await services.act5?.commitApproved(turn, valid);
       check();
-      if (!accepted?.ok) throw new Error('act5_confirmation_not_admitted');
+      if (seatRequest && turn.act5Reply.intent==='board_vehicle')
+        metrics?.event('vehicle_seat_admission',{seat:seatRequest.slots.seat,
+          accepted:accepted?.ok===true,code:accepted?.reason|| (accepted?.ok?'activity_accepted':'admission_rejected')});
+      if (!accepted?.ok) throw Object.assign(new Error('act5_confirmation_not_admitted'),{
+        code:accepted?.reason||'act5_confirmation_not_admitted'});
       metrics?.event('act5_goal_accepted', { outcome:'accepted' });
     }
     transition('tts_running');

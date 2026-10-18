@@ -160,3 +160,28 @@ test('vehicle parameters must be verified references, not arbitrary names', () =
     allowedActionNames:new Set(['enterdriverseatoftargetvehicle']),resolvePerson:()=>true,resolveVehicle:()=>false,
   }),/vehicle/);
 });
+
+
+test('October 18 invalid <vehicle> placeholder is never an executable Essential command', () => {
+  const references={persons:{},vehicles:{V001:'abc123'}};
+  const base={
+    identity:{pedId:'72',turnId:'seat-1',generationId:1,sessionNonce:3},
+    actor:{nearbyVehicleReferences:{V001:'abc123'}},referenceSnapshot:references,
+    allowedActionNames:new Set(['enterdriverseatoftargetvehicle']),
+    parseActions: command => {
+      const match=/^DO EnterDriverSeat(?:OfTargetVehicle)?\s+(\S+)$/i.exec(command);
+      return match?[{actionName:'enterdriverseatoftargetvehicle',parameter:match[1]}]:[];
+    },
+    resolveVehicle: reference => reference==='V001'?'abc123':null,
+  };
+  for(const ref of ['<vehicle>','{vehicle}','VXXX','V999'])
+    assert.throws(()=>validateStockDecision({dialogue:'Okay.',command:'DO EnterDriverSeat '+ref},base),
+      /vehicle reference was not present/,ref);
+  const valid=validateStockDecision({dialogue:'Okay.',command:'DO EnterDriverSeat V001'},base);
+  assert.equal(valid.actionCount,1);
+  assert.equal(valid.referenceBindings.vehicles.V001,'abc123');
+  assert.throws(()=>validateStockDecision({dialogue:'Okay.',command:'DO EnterDriverSeat V001'},
+    {...base,resolveVehicle:()=> 'abc124'}),/reference changed/);
+  assert.throws(()=>validateStockDecision({dialogue:'Okay.',command:'DO EnterDriverSeat V001'},
+    {...base,resolveVehicle:()=> null}),/no longer available/);
+});
