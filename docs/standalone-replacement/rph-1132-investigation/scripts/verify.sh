@@ -84,10 +84,11 @@ chk "D.2 coverage: LSPDFR / +Essential / +executed only" "$(python3 -I -c "
 rows=[[c.strip() for c in l.strip().strip('|').split('|')] for l in open('evidence/head-member-evidence.md') if l.startswith('| ') and l.split('|')[1].strip().isdigit()]
 lsp=[r for r in rows if r[3]=='✓']; ess=[r for r in rows if r[3]!='✓' and r[4]=='✓']; exe=[r for r in rows if r[3]!='✓' and r[4]!='✓' and 'proven' in r[7]]
 print(len(rows), len(lsp), len(ess), len(exe), [r[1] for r in exe])")" "37 34 2 1 ['\`Rage.GameFiber::get_CanSleepNow():System.Boolean static\`']"
-# PC-side drift check: rebuild the evidence file from its own recorded PC digest/drift and compare
-chk "PC hash evidence reproduces (18 match / 4 drift, digest verified)" "$(python3 -I - <<'PY'
-import re, subprocess, sys
-t = open('evidence/pc-hash-check.txt', encoding='utf-8').read()
+# PC-side drift checks: rebuild each evidence file from its own recorded PC digest/drift and compare
+for pcf in evidence/pc-hash-check.txt evidence/pc-hash-check-20261018T1445Z.txt; do
+chk "PC hash evidence reproduces: ${pcf#evidence/}" "$(PCF="$pcf" python3 -I - <<'PY'
+import os, re, subprocess, sys
+t = open(os.environ['PCF'], encoding='utf-8').read()
 dig = re.search(r'PC digest over the 22 hashes in this order: ([0-9a-f]{64})', t).group(1)
 when = re.search(r'PC check time \(device clock\): (\S+);', t).group(1)
 args = []
@@ -98,6 +99,7 @@ same = open('/tmp/claude-0/pc-hash-check.txt', encoding='utf-8').read() == t
 print(r.stdout.strip(), 'identical' if same else 'DIFFERENT')
 PY
 )" "match=18 drift=4 digest_verified=True identical"
+done
 # G — defects
 chk "ExitPoint Shutdown() parameter count" "$(grep -cE 'public static void Shutdown\(\)' /home/claude/wt-rph-opus55/native/standalone-host/EntryPoint.cs)" "1"
 chk "SDK CallByName<T> constraint" "$($T genparams $SDK CallByName < /dev/null | grep -o 'NotNullableValueTypeConstraint' | head -1)" "NotNullableValueTypeConstraint"

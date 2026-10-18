@@ -15,7 +15,7 @@ Nothing from that branch is relied on here.
 |---|---|
 | `REPORT.md` | The report, rendered from `REPORT.template.md` by `scripts/render_report.py` |
 | `evidence/inventory.json`, `inventory-table.md`, `archive-hashes.txt` | PE/CLR inventory and SHA-256 of every analysed binary and archive (§A) |
-| `evidence/pc-hash-check.txt` | End-of-analysis comparison of your PC against the analysed copies: 18 match, 4 replaced on your PC (§A) |
+| `evidence/pc-hash-check.txt`, `pc-hash-check-20261018T1445Z.txt` | Your PC compared with the analysed copies at 18:30 and 14:45 UTC, each checked against a PC-side digest. 18 match both times; the 4 Promoted Characters-family DLLs were replaced on your PC (§A) |
 | `evidence/launcher-structure.txt` | Structural metadata of the 1.131 and 1.132 launchers: identity, row counts, resources (§B, §C) |
 | `evidence/audit/*` | Dual-matcher audits and repo-auditor output for the `b5cd53f`, `5884d8b` and HEAD hosts (§D, §E) |
 | `evidence/control/*` | The same audits for LSPDFR and your installed plugins (the control group) |
@@ -34,7 +34,7 @@ derived from third-party binaries:
 
 ## Reproducing
 
-`scripts/verify.sh` regenerates every PROVEN number from the raw inputs (45 checks; the last run passed 45/45).
+`scripts/verify.sh` regenerates every PROVEN number from the raw inputs (46 checks; the last run passed 46/46).
 
 - It needs the inputs staged from your PC, the .NET SDK, and the built `RphMeta` and repo `RphSignatureAudit`.
 - Its paths are those of the analysis environment.

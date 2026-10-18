@@ -1,15 +1,15 @@
 # PC-side SHA-256 (read-only, device shell) vs. the copies analysed in this investigation
-# PC check time (device clock): 2026-10-18T14:45:50Z; analysed copies staged 2026-10-18 ~13:33 UTC
-# PC digest over the 22 hashes in this order: 42dea85eed34975f2f0f4994ba2e4e20c0116a0fb7a8df2541f0298baff4b483
-# digest rebuilt from this file: 42dea85eed34975f2f0f4994ba2e4e20c0116a0fb7a8df2541f0298baff4b483 -> VERIFIED (exact)
+# PC check time (device clock): 2026-10-18T18:30:39Z; analysed copies staged 2026-10-18 ~13:33 UTC
+# PC digest over the 22 hashes in this order: 19bd5b60d9b894dfbaa2b45d792a23c088d5cf468ef1f79a153b2487b978e138
+# digest rebuilt from this file: 19bd5b60d9b894dfbaa2b45d792a23c088d5cf468ef1f79a153b2487b978e138 -> VERIFIED (exact)
 # match=18 drift=4
 MATCH  73f05b3f7973d4731f4151ae061dd3c991065e8bf3ece51ea1d9ab728b9b42ac   12237182  Grand Theft Auto V Enhanced/RAGEPluginHook.exe
 MATCH  d2607481b206e7907c9c1f2cabf15797654aacaaf1746ea202740dcdd5eb8bbb     291328  Grand Theft Auto V Enhanced/RAGENativeUI.dll
 MATCH  9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653    2407424  Grand Theft Auto V Enhanced/plugins/LosSantosAlive.dll
-DRIFT  pc=389cf1824d9dc11b6c7b62a805a9547f2b80c3f2447163072b7ffcae66dbcc2d  pc_bytes=185344  pc_mtime=2026-10-18T14:22:49Z  analysed=3126cdd60016e1f57483bb6fa95ca1cef73b80882687c1f482c433de628b05cf  analysed_bytes=185344  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters.dll
-DRIFT  pc=1467a18887c7260588d587e1fa6da2224cb20fb808d5464bedb98933ffef2675  pc_bytes=495104  pc_mtime=2026-10-18T14:22:48Z  analysed=9fb323b6132ddbaed89f42a5b37c9958a5fab586976c98fe09bb0822ce8820cc  analysed_bytes=493056  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Runtime.dll
-DRIFT  pc=7cbe0b1f7e9f5d87cbda84aba4b6bab77648036bdfe0638827598ae33a38c237  pc_bytes=9728  pc_mtime=2026-10-18T14:22:49Z  analysed=5d67229e0f8282324cfe712cc3908e459f15c920c1c2167fe4dbbb199bc3c3b3  analysed_bytes=9728  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Bootstrap.dll
-DRIFT  pc=d8b190e603872171d1cda93f9ac1a2e4992f4175d098a3237c1600391a0486c6  pc_bytes=27136  pc_mtime=2026-10-18T14:22:47Z  analysed=d9c80fe9a63db4af88a6877061cef5c1579755e81a477c6cd1b0c78500821bc1  analysed_bytes=27136  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.SessionIdentity.dll
+DRIFT  pc=0230a39217fe0e75b7a844fd0e7f467e1d088dd3c691b6b67d9c865a9dac9840  pc_bytes=206848  pc_mtime=2026-10-18T18:29:03Z  analysed=3126cdd60016e1f57483bb6fa95ca1cef73b80882687c1f482c433de628b05cf  analysed_bytes=185344  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters.dll
+DRIFT  pc=6f5a5ff34ad2f5c2626a68dbecb760b75d112cc292f91536403e7047b5c81617  pc_bytes=526848  pc_mtime=2026-10-18T18:28:55Z  analysed=9fb323b6132ddbaed89f42a5b37c9958a5fab586976c98fe09bb0822ce8820cc  analysed_bytes=493056  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Runtime.dll
+DRIFT  pc=8722047c6079f6de3d254a343aca17d9922a25f0383fa2c592883e4a3c323cfd  pc_bytes=9728  pc_mtime=2026-10-18T18:29:02Z  analysed=5d67229e0f8282324cfe712cc3908e459f15c920c1c2167fe4dbbb199bc3c3b3  analysed_bytes=9728  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Bootstrap.dll
+DRIFT  pc=99dff4f2ad3a8ea6d18058d3fbcb7e3b130442332e263ed99d29631d76ad31e6  pc_bytes=27648  pc_mtime=2026-10-18T18:28:54Z  analysed=d9c80fe9a63db4af88a6877061cef5c1579755e81a477c6cd1b0c78500821bc1  analysed_bytes=27136  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.SessionIdentity.dll
 MATCH  72a25833f2d632b347f06b54ef331fe831da84909e196fe59fa123d7812c3e03       9728  Grand Theft Auto V Enhanced/plugins/SmartVehicleEntry.dll
 MATCH  712f9491c0693d496ea82b1e4cefaa03c0575408a2fefa8d9e295bb516e5ad3e     294400  Grand Theft Auto V Enhanced/plugins/LSPDFR/LosSantosAlive.PRBridge.dll
 MATCH  b471252afa5e32f8c2f98e842c0f931bcd54149a16fd0f42c407c5811abc97a8      27648  Grand Theft Auto V Enhanced/plugins/LSPDFR/LosSantosAlive.Interop.dll

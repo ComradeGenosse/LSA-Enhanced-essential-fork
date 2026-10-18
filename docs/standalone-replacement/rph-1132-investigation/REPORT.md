@@ -61,12 +61,14 @@ untouched.
 
 ## A. Binary inventory
 
-The SHA-256 values below are of the copies analysed here (staged from your PC at ~13:33 UTC). At the end of the
-analysis, these files were re-hashed read-only on your PC: the 14 rows that exist there as files, the switcher copy
-of the `b5cd53f` payload, and all five archives (22 files, `evidence/pc-hash-check.txt`, checked against a digest
-computed on the PC). **18 are byte-identical. The other 4 are the Promoted Characters family** (`LSA.PromotedCharacters`,
-`.Runtime`, `.Bootstrap`, `LSA.SessionIdentity`). **They were replaced on your PC at 14:22 UTC, after staging**, so
-their rows describe the builds that were analysed. No conclusion in this report depends on those four files (§D.2).
+The SHA-256 values below are of the copies analysed here (staged from your PC at ~13:33 UTC). These files were
+re-hashed read-only on your PC at 14:45 UTC and again at the end, at 18:30 UTC. The check covers the 14 rows that
+exist there as files, the switcher copy of the `b5cd53f` payload, and all five archives: 22 files, each check
+verified against a digest computed on the PC (`evidence/pc-hash-check*.txt`). **Both times, 18 are byte-identical.
+The other 4 are the Promoted Characters family** (`LSA.PromotedCharacters`, `.Runtime`, `.Bootstrap`,
+`LSA.SessionIdentity`). **They were replaced on your PC several times while this analysis ran**: first at 14:22 UTC,
+and the latest build seen is dated 18:29 UTC. Their rows therefore describe the builds that were analysed. No
+conclusion in this report depends on those four files (§D.2).
 Files that exist only inside archives (SDKs, LSPDFR, CI payloads) were hashed after extraction, and their archives
 match. Proprietary binaries were analysed in place and are not included in any output.
 
@@ -117,8 +119,10 @@ Other facts:
   - `LSA.PromotedCharacters`: `FileNotFoundException` for itself (see §B.5).
   - `LSA.SessionIdentity`, placed directly in `Plugins\`: *"does not have the required Plugin attribute"*.
   - A stray `SmartVehicleEntry.dllbbb`: *"not a valid CLR assembly"*.
-- A further GTA session started after staging. It loaded Promoted Characters (the new build), Essential and Smart
-  Vehicle Entry, with no LSA Standalone, no `[LSA-` lines and no exceptions when checked. It is not among the 162.
+- Eight more GTA sessions ran after staging (14:27–18:17 UTC); they are not among the 162. Checked read-only on
+  your PC: all were RPH 1.132.1428.17748 with game 1.0.1158.16, and each loaded only Promoted Characters (newer
+  builds), Essential and Smart Vehicle Entry. None loaded LSA Standalone, and none logged an unhandled exception, a
+  plugin load failure or a missing member.
 - `LSA.Standalone.Core.dll` references **no** RPH assembly in any build: every RPH binding lives in the host.
 
 ---
@@ -424,7 +428,7 @@ rebuilds show the head pipeline is correct; G1 makes this a 1-minute offline che
 - P8 Fake-SDK packaging mechanism (`{CandidateAssemblyFiles}`) reproduced, byte-identical output.
 - P9 Head: 14 types / 33 members / 4 instantiations / 18 named args, 0 unresolved (two matchers + repo auditor).
 - P10 On your 1.132, with the hash-verified 5884d8b/b5cd53f builds: `UInt32 get_GameTime()`, `LogTrivial`, `GameFiber.Sleep` and `GameFiber.CanSleepNow` resolve; `Int32 get_GameTime()` does not; `LSA.Standalone.Core` resolves via `AssemblyProbingPaths`.
-- P15 At the end of the analysis, 18 of 22 analysed files still match your PC byte for byte. The 4 Promoted Characters-family DLLs were replaced at 14:22 UTC (`evidence/pc-hash-check.txt`).
+- P15 At the end of the analysis (18:30 UTC), 18 of 22 analysed files still match your PC byte for byte. The 4 Promoted Characters-family DLLs were replaced repeatedly from 14:22 UTC on (`evidence/pc-hash-check*.txt`). The PR head is still `9933290b`.
 - P11 ExitPoint signature differs from the SDK-documented contract.
 - P12 The host's catch discards the exception message.
 - P13 The head csproj gate rejects the official 1.131 filename `RagePluginHookSDK.dll` (the doc's own command fails).
