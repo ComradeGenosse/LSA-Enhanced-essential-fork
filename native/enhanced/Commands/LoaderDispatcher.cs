@@ -37,6 +37,7 @@ namespace LSA.Enhanced.Commands
         readonly ConcurrentQueue<KeyValuePair<string,CompanionReply>> replies = new ConcurrentQueue<KeyValuePair<string,CompanionReply>>();
         readonly Dictionary<string,long> lastAt = new Dictionary<string,long>();
         readonly Queue<string> recent = new Queue<string>();
+        readonly Queue<string> outcomes = new Queue<string>();
         public LoaderDispatcher(CommandCatalog catalog,INativeBridge bridge,ICompanion companion,IHud hud,EssentialKeyRelay relay,IClock clock)
         {
             this.catalog = catalog; this.bridge = bridge; this.companion = companion; this.hud = hud; this.relay = relay; this.clock = clock;
@@ -49,6 +50,7 @@ namespace LSA.Enhanced.Commands
         public IUiController Ui;
         public CommandCatalog Catalog => catalog;
         public IReadOnlyList<string> RecentReasons => recent.ToList();
+        public IReadOnlyList<string> RecentOutcomes => outcomes.ToList();
         public int Outstanding => jobs.Count;
         public bool Busy(string commandClass) => jobs.Any(job => job.Class == commandClass);
 
@@ -130,6 +132,7 @@ namespace LSA.Enhanced.Commands
             string reply = bridge.Submit(CommandEnvelope.Build(id,CommandCatalog.NpcAsk,source,clock.Utc,encounterId,phrase));
             if (reply != "accepted") return Reject(info.Id,reply ?? "native_unavailable",args,true);
             jobs.Add(new Job {Key = id,CommandId = info.Id,Class = info.Class,Kind = "bridge",SuccessText = successText,Deadline = clock.Monotonic + BridgeTimeoutMs,OnDone = args?.OnDone});
+            Outcome(info.Id,"queued",null);
             return null;
         }
         string Companion(CommandInfo info,CommandArgs args)
@@ -188,6 +191,7 @@ namespace LSA.Enhanced.Commands
         {
             string key = Guid.NewGuid().ToString("N");
             jobs.Add(new Job {Key = key,CommandId = info.Id,Class = info.Class,Kind = "companion",SuccessText = successText,Deadline = clock.Monotonic + timeoutMs + 2000,OnDone = args?.OnDone});
+            Outcome(info.Id,"queued",null);
             companion.Post(body,maxBodyBytes,timeoutMs,reply => replies.Enqueue(new KeyValuePair<string,CompanionReply>(key,reply)));
             return null;
         }
@@ -219,12 +223,15 @@ namespace LSA.Enhanced.Commands
         void Complete(Job job,string reason,string body)
         {
             jobs.Remove(job); Record(job.CommandId,reason);
+            // Successful transport/admission is not proof of physical action or spoken delivery.
+            Outcome(job.CommandId,reason == null ? (job.Class == "read" || job.Class == "profile" ? "completed" : "accepted") : reason.Contains("cancel") ? "cancelled" : "failed",reason);
             hud.Show(reason == null ? job.SuccessText : catalog.Describe(reason));
             try { job.OnDone?.Invoke(reason,body); } catch { }
         }
         string Reject(string commandId,string reason,CommandArgs args,bool show)
         {
             Record(commandId,reason);
+            Outcome(commandId,reason.Contains("cancel") ? "cancelled" : "failed",reason);
             if (show) hud.Show(catalog.Describe(reason));
             try { args?.OnDone?.Invoke(reason,null); } catch { }
             return reason;
@@ -234,6 +241,13 @@ namespace LSA.Enhanced.Commands
             if (reason == null || reason == "cooldown") return;
             recent.Enqueue(commandId + ": " + reason);
             while (recent.Count > RecentLimit) recent.Dequeue();
+        }
+        void Outcome(string commandId,string stage,string reason)
+        {
+            if (reason == "cooldown") return;
+            // IDs and coded reasons only: never record typed prompts, private memory or actor names.
+            outcomes.Enqueue((commandId ?? "unknown") + ": " + stage + (reason == null ? "" : " (" + reason + ")"));
+            while (outcomes.Count > RecentLimit) outcomes.Dequeue();
         }
         static bool ValidText(string text,int max)
         {
