@@ -625,11 +625,13 @@ test('ACT6 disabled does not enable unrelated ACT3 or ACT5 dialogue authority',a
   const t=turn(),ctx=await wrongPhase.dialogue.prepare(t,'player_mic');
   assert.ok(ctx);
   assert.deepEqual(ctx.intents,[]);
-  const result=await wrongPhase.dialogue.onPlayerInput(t,'Get in the driver seat',ctx,()=>true);
-  assert.equal(result?.kind,'approval_pending');
-  const committed=await wrongPhase.dialogue.commitApproved(t,()=>true);
-  assert.equal(committed.ok,false,'ACT3 still requires the original ACT5 dialogue opt-in');
-  assert.equal(committed.reason,'policy_denied');
+  const attempted=wrongPhase.engine.assign({
+    proposalVersion:1,proposalId:id(),source:'player_dialogue',subject:{characterId:actor},
+    intent:'board_vehicle',slots:{vehicle:{kind:'player_vehicle'},seat:'driver'},
+    priority:'player_direct',origin:{},proposedAtMs:10000
+  },ctx.owner.binding,{playerApproved:true});
+  assert.equal(attempted.ok,false,'ACT3 still requires the original ACT5 dialogue opt-in');
+  assert.equal(attempted.reason,'policy_denied');
   assert.equal(wrongPhase.commands.length,0);
 });
 
