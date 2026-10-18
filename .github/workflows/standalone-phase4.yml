@@ -1,6 +1,16 @@
 name: Standalone Phase 4 Native Audio
 
 on:
+  push:
+    branches:
+      - feature/standalone-gta-typed-smoke-gate
+    paths:
+      - 'native/standalone/**'
+      - 'native/standalone-host/**'
+      - 'lsa-standalone-companion/**'
+      - 'docs/standalone-replacement/**'
+      - 'tools/standalone-gta-smoke/**'
+      - '.github/workflows/standalone-phase4.yml'
   pull_request:
     branches:
       - feature/standalone-phase3-typed-turn
