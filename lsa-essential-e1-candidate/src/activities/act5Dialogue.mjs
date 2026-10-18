@@ -31,6 +31,25 @@ const NAV_STOP = new Set(['stop driving','stop the car','stop the trip','cancel 
 const DRIVE_STOP = new Set(['stop driving','stop the car','stop the trip','cancel the trip','end the trip']);
 const WALK_STOP = new Set(['stop walking','stop moving']);
 export const isAct6StopRequest = input => NAV_STOP.has(clean(input));
+// Keep one ACT6 admission source even when Luna proposes a competing stock DO
+// or an ACT5 activity for an explicit navigation command. No native action is
+// issued here; commitApproved still runs after the transcript publication gate.
+export function reconcileAct6Decision(decision, reply, {nativeHandoffStarted=false}={}) {
+  if (!['go_to_place','vehicle_trip','move_to_and_hold'].includes(reply?.intent))
+    return Object.freeze({decision,suppressed:false});
+  const conflict=Boolean(decision?.command) ||
+    (Object.hasOwn(decision || {},'activity') && decision.activity !== null);
+  if (!conflict) return Object.freeze({decision,suppressed:false});
+  if (nativeHandoffStarted) throw Object.assign(new TypeError('ACT6 command conflict after audio handoff.'),
+    {code:'act6_late_reconciliation'});
+  const dialogue=reply.kind==='approval_pending' ? "Okay, I'll try to navigate there." :
+    reply.reason==='driver_required' ? "I need to be in the driver's seat first." :
+    reply.reason==='place_unresolved' || reply.reason==='destination_unresolved'
+      ? "I can't verify that destination right now." :
+    "I can't safely start navigation right now.";
+  return Object.freeze({decision:Object.freeze({...decision,dialogue,command:'',
+    ...(Object.hasOwn(decision,'activity')?{activity:null}:{})}),suppressed:true});
+}
 const NAV_NAMES = Object.freeze(new Map([
   ['airport','airport'],['lsia','lsia'],['los santos international airport','los santos international airport'],
   ['del perro pier','del perro pier'],['vespucci beach','vespucci beach'],
