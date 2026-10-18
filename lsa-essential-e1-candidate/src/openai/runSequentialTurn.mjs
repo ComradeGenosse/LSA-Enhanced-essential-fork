@@ -830,7 +830,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       if (result.reason === 'native_ack_timeout' || !result.type) {
         // Read-only reconciliation: the v3 native protocol does not expose a
         // queue-depth or drain-state query. Never synthesize a success ACK.
-        const snapshot = host.inspectNativePlayback?.(identity) ?? null;
+        let snapshot = null;
+        try { snapshot = host.inspectNativePlayback?.(identity) ?? null; }
+        catch { /* A diagnostic probe must never prevent exact-turn recovery. */ }
         metrics?.event('playback_watchdog_fired', {
           watchdogMs, reason: 'native_ack_timeout', outcome: 'unknown',
           expectedDurationMs, pcmBytes: pcmBytesTotal, chunks: pcmChunksTotal,
