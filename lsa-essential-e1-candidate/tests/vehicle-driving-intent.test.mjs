@@ -38,7 +38,17 @@ test('start, stop, and ACT6 owner are independent, with no disguised stock takeo
   assert.equal(drivingIntentKind('Stop the car'),'stop');
   assert.equal(stockDrivingCommand('DO BeginDriving V001'),'begindriving');
   assert.equal(stockDrivingCommand('DO DriveEvasively'),'driveevasively');
+  for (const [command,expected] of [['DO DriveFaster','drivefaster'],
+    ['DO FloorIt','floorit'],['DO SpeedUp','speedup'],
+    ['DO KeepDriving','keepdriving'],['DO CruiseAround','cruisearound'],
+    ['DO DriveCarefully','drivecarefully'],['DO SlowDown','slowdown']])
+    assert.equal(stockDrivingCommand(command),expected);
   assert.equal(stockDrivingCommand('DO WaitHere'),null);
+  assert.equal(reconcileDrivingDecision({dialogue:'Okay',command:'DO KeepDriving'}, {kind:'continue'}).blocked,'continuation_must_not_reset_task');
+  assert.equal(reconcileDrivingDecision({dialogue:'Okay',command:'DO DriveFaster'}, {kind:'continue'}).blocked,'continuation_must_not_reset_task');
+  assert.equal(reconcileDrivingDecision({dialogue:'Okay',command:'DO FloorIt'}, {kind:'speed_up'}).blocked,null);
+  assert.equal(reconcileDrivingDecision({dialogue:'Okay',command:'DO SlowDown'}, {kind:'slow_down'}).blocked,null);
+  assert.equal(reconcileDrivingDecision({dialogue:'Okay',command:'DO DriveFaster'}, {act6OwnsDrive:true}).blocked,'act6_owns_drive');
   assert.equal(activeAct6Driving({stateVersion:1,intent:'vehicle_trip',status:'running'}),true);
   assert.equal(activeAct6Driving({stateVersion:1,intent:'go_to_place',status:'running'}),false);
   assert.equal(activeAct6Driving({stateVersion:1,intent:'vehicle_trip',status:'completed'}),false);
