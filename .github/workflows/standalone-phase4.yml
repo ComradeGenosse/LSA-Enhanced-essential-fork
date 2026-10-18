@@ -176,6 +176,18 @@ jobs:
           Copy-Item 'lsa-standalone-companion/package.json' "$root/companion/"
           Copy-Item 'tools/standalone-gta-smoke/*.ps1' "$root/"
           Copy-Item 'tools/standalone-gta-smoke/README.md' "$root/"
+          New-Item -ItemType Directory -Force "$root/native/standalone-host/tests" | Out-Null
+          Copy-Item 'native/standalone-host/tests/RphSignatureAudit.cs' "$root/native/standalone-host/tests/"
+          Copy-Item 'native/standalone-host/tests/RphSignatureAudit.csproj' "$root/native/standalone-host/tests/"
+          Copy-Item 'docs/standalone-replacement/rph-compatibility-audit.md' "$root/"
+          # Run the validator FROM the independently extracted-package layout.
+          & "$root/Test-RphCompatibility.ps1" `
+            -RphReferencePath $sdk `
+            -HostDll "$root/payload/LSA.Standalone.RageHost.dll" `
+            -CoreDll "$root/payload/LSA.Standalone.Core.dll" `
+            -ExpectedHostDll 'native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll' `
+            -ReportPath "$root/RphCompatibility.packaged-tool.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ((git rev-parse HEAD).Trim() -ne $env:STANDALONE_BUILD_SHA) {
             throw 'Artifact not built from the exact standalone branch head'
           }
