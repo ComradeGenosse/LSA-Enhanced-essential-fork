@@ -20,8 +20,15 @@ Discord ZIP `RAGEPluginHook_1_131_1424_17745.zip` contains
 the passing CI scanner. The official ZIP's README instructs developers to
 reference `SDK/RagePluginHookSDK.dll`; the name of the SDK file changed, but
 its binary contents did not. Both filenames are accepted by the offline
-compatibility script. Do not add the RPH SDK to this repository or release
-artifacts: the distribution README restricts redistribution.
+compatibility script **and by the host project's MSBuild reference gate**.
+The gate selects the reference by the actual CLR assembly identity
+`RagePluginHook`, then verifies its resolved absolute path equals
+`RphReferencePath`; it does not assume the physical filename is
+`RagePluginHook.dll`. This matters because the fake unit-test SDK also
+has CLR identity `RagePluginHook`, and a previous build mistakenly
+selected that fake binary rather than the requested official one.
+Do not add the RPH SDK to this repository or release artifacts:
+the distribution README restricts redistribution.
 
 The user's installed loader reports RPH 1.132.1428.17748 (GTA V Enhanced).
 The uploaded 1.131 ZIP is marked for GTA V **Legacy**. We therefore have
