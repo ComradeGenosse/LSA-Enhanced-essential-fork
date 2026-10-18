@@ -488,9 +488,18 @@ static class Program
         var resTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",(string)reselected["selectionId"]}}}};
         TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",214},{"selectFirst",false}},resTarget);
         TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",214}});
+        driver.SwitchPlayer(); driver.Tick();
+        Check(RunReason(host,driver,TalkCommand("talk.ptt_start",TalkKind,new Dictionary<string,object>(TalkLimits()) {{"generation",215},{"selectFirst",true}})) == "target_lost",
+            "changing protagonists invalidates prior player's committed relationship");
+        driver.PlayerAt(0,0,0);
+        driver.Nearby(20,8,0,0,960,540); driver.Nearby(30,3,0,0,-100,-100); driver.PublishSnapshot();
+        var newPlayerPick = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        var newPlayerTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",(string)newPlayerPick["selectionId"]}}}};
+        TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",216},{"selectFirst",false}},newPlayerTarget);
+        TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",216}});
         Check(!driver.RetirePromoted().StartsWith("error:"),"P1 owner can be retired");
         driver.Tick();
-        Check(RunReason(host,driver,TalkCommand("talk.ptt_start",TalkKind,new Dictionary<string,object>(TalkLimits()) {{"generation",215},{"selectFirst",true}})) == "target_lost",
+        Check(RunReason(host,driver,TalkCommand("talk.ptt_start",TalkKind,new Dictionary<string,object>(TalkLimits()) {{"generation",217},{"selectFirst",true}})) == "target_lost",
             "dismissed owner may not become ambient on the next direct hold");
         TalkRun(host,driver,"talk.clear",Empty);
         driver.ClearClock(); driver.ClearNearby(); driver.Select(505,0);
