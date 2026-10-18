@@ -1,0 +1,189 @@
+{
+ "pristine": [
+  {
+   "res_cm": 5,
+   "naive_props": 12000,
+   "qt_panels": 99,
+   "ms_boundary_tiles": 0,
+   "qt_ms_total": 99,
+   "open_area_m2": 0.0
+  },
+  {
+   "res_cm": 10,
+   "naive_props": 3000,
+   "qt_panels": 99,
+   "ms_boundary_tiles": 0,
+   "qt_ms_total": 99,
+   "open_area_m2": 0.0
+  },
+  {
+   "res_cm": 25,
+   "naive_props": 480,
+   "qt_panels": 15,
+   "ms_boundary_tiles": 0,
+   "qt_ms_total": 15,
+   "open_area_m2": 0.0
+  }
+ ],
+ "scatter100": [
+  {
+   "res_cm": 5,
+   "naive_props": 12000,
+   "qt_panels": 99,
+   "ms_boundary_tiles": 0,
+   "qt_ms_total": 99,
+   "open_area_m2": 0.0
+  },
+  {
+   "res_cm": 10,
+   "naive_props": 3000,
+   "qt_panels": 99,
+   "ms_boundary_tiles": 0,
+   "qt_ms_total": 99,
+   "open_area_m2": 0.0
+  },
+  {
+   "res_cm": 25,
+   "naive_props": 480,
+   "qt_panels": 15,
+   "ms_boundary_tiles": 0,
+   "qt_ms_total": 15,
+   "open_area_m2": 0.0
+  }
+ ],
+ "loophole60": [
+  {
+   "res_cm": 5,
+   "naive_props": 12000,
+   "qt_panels": 114,
+   "ms_boundary_tiles": 12,
+   "qt_ms_total": 126,
+   "open_area_m2": 0.01
+  },
+  {
+   "res_cm": 10,
+   "naive_props": 3000,
+   "qt_panels": 110,
+   "ms_boundary_tiles": 4,
+   "qt_ms_total": 114,
+   "open_area_m2": 0.01
+  },
+  {
+   "res_cm": 25,
+   "naive_props": 480,
+   "qt_panels": 32,
+   "ms_boundary_tiles": 4,
+   "qt_ms_total": 36,
+   "open_area_m2": 0.01
+  }
+ ],
+ "blast": [
+  {
+   "res_cm": 5,
+   "naive_props": 11360,
+   "qt_panels": 228,
+   "ms_boundary_tiles": 116,
+   "qt_ms_total": 344,
+   "open_area_m2": 1.76
+  },
+  {
+   "res_cm": 10,
+   "naive_props": 2852,
+   "qt_panels": 152,
+   "ms_boundary_tiles": 60,
+   "qt_ms_total": 212,
+   "open_area_m2": 1.76
+  },
+  {
+   "res_cm": 25,
+   "naive_props": 462,
+   "qt_panels": 41,
+   "ms_boundary_tiles": 22,
+   "qt_ms_total": 63,
+   "open_area_m2": 1.76
+  }
+ ],
+ "combined": [
+  {
+   "res_cm": 5,
+   "naive_props": 11359,
+   "qt_panels": 242,
+   "ms_boundary_tiles": 128,
+   "qt_ms_total": 370,
+   "open_area_m2": 1.78
+  },
+  {
+   "res_cm": 10,
+   "naive_props": 2852,
+   "qt_panels": 163,
+   "ms_boundary_tiles": 64,
+   "qt_ms_total": 227,
+   "open_area_m2": 1.78
+  },
+  {
+   "res_cm": 25,
+   "naive_props": 462,
+   "qt_panels": 58,
+   "ms_boundary_tiles": 26,
+   "qt_ms_total": 84,
+   "open_area_m2": 1.78
+  }
+ ],
+ "asset_kit_estimate": {
+  "ms_unique_shapes_up_to_rotation": 6,
+  "panel_sizes_per_res": "log2(400/r)+1",
+  "example": "4 materials x 3 thicknesses x (6 + 5 panel sizes) = 132 prefab assets at 25 cm"
+ }
+}
+{
+ "anisotropic_kit_variant": {
+  "pristine": [
+   {
+    "res_cm": 10,
+    "aniso_panels": 16,
+    "ms_boundary_tiles": 0,
+    "total": 16,
+    "kit_panel_variants": 36
+   },
+   {
+    "res_cm": 25,
+    "aniso_panels": 6,
+    "ms_boundary_tiles": 0,
+    "total": 6,
+    "kit_panel_variants": 20
+   }
+  ],
+  "blast": [
+   {
+    "res_cm": 10,
+    "aniso_panels": 43,
+    "ms_boundary_tiles": 60,
+    "total": 103,
+    "kit_panel_variants": 36
+   },
+   {
+    "res_cm": 25,
+    "aniso_panels": 14,
+    "ms_boundary_tiles": 22,
+    "total": 36,
+    "kit_panel_variants": 20
+   }
+  ],
+  "combined": [
+   {
+    "res_cm": 10,
+    "aniso_panels": 55,
+    "ms_boundary_tiles": 64,
+    "total": 119,
+    "kit_panel_variants": 36
+   },
+   {
+    "res_cm": 25,
+    "aniso_panels": 21,
+    "ms_boundary_tiles": 26,
+    "total": 47,
+    "kit_panel_variants": 20
+   }
+  ]
+ }
+}
