@@ -5,7 +5,7 @@ on:
     paths: [.github/workflows/pr37-merge-probe.yml]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   candidate-validation:
     runs-on: ubuntu-latest
@@ -15,7 +15,7 @@ jobs:
         with:
           ref: feature/c01-source-time-utterance-lifecycle
           fetch-depth: 0
-          persist-credentials: false
+          persist-credentials: true
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -327,3 +327,55 @@ jobs:
         working-directory: lsa-essential-e1-candidate
         shell: bash
         run: node tools/buildCandidate.mjs
+      - name: Document reconciled PR37 acceptance and baseline blockers
+        shell: bash
+        run: |
+          cat >> docs/C01-source-time-capture-testing.md <<'EOF'
+
+## October 18, 2026 — reconciliation with latest main
+
+PR #37 was reconciled against main preserving current UX4 microphone state and
+targeting, PS2/PS3 optional consumer gates, M3/M9 witnessed Memory K events,
+Director admissions, native owner lifecycle, and observability.
+
+The C01-only test files passed 15/15; the focused activities, perception,
+Memory K and runtime integration suite passed 113/113. The production native
+reference compilation succeeded for PromotedCharacters and Loader using pinned
+RPH 1.124.0, RAGENativeUI 1.9.3, DamageTrackerLib 2.0.0. The companion
+build completed successfully.
+
+**Baseline blocks:** The isolated offline suite continues to report original
+Memory K source-blocked acceptance S01–S10. The original native-lifecycle and
+personal-test-defaults tests produce 40 failures both on unchanged latest main
+and on this candidate under direct Node testing. The full inventoried harness
+encounters a duplicate test-registration inventory in latest main. Do not
+represent these as C01-specific regressions or treat the CI job-level success
+(which makes baseline-blocked gates non-blocking) as full green suite coverage.
+
+**Still requires physical GTA acceptance:** original Core mic prefix/postfix
+binding on the actual pinned production Essential DLL; source-time LOS and
+vehicle/interior acoustics; simultaneous NPC hearing without unauthorized
+speech leakage; STT correction, cancellation, world-epoch and NPC retirement;
+PS4 private knowledge for each witness, UX4 target continuity, and A19/A20.
+C01 capture stays native opt-in and experimental. No GTA runtime acceptance
+is implied by compilation or offline tests.
+EOF
+      - name: Commit verified merge into PR37 branch only
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch=feature/c01-source-time-utterance-lifecycle
+          previous=$(git rev-parse HEAD)
+          resolved_main=$(git rev-parse origin/main)
+          current_remote=$(git ls-remote origin "refs/heads/$branch" | cut -f1)
+          test "$current_remote" = "$previous" || { echo "PR branch changed during validation"; exit 1; }
+          actual_main=$(git ls-remote origin refs/heads/main | cut -f1)
+          test "$actual_main" = "$resolved_main" || { echo "main changed during validation"; exit 1; }
+          test -z "$(git ls-files -u)" || { echo "Unmerged files exist"; exit 1; }
+          git add -u
+          git diff --cached --check
+          test -f .git/MERGE_HEAD || test -f "$(git rev-parse --git-path MERGE_HEAD)"
+          git status --short | tail -30
+          git commit -m "merge: reconcile NPC proximity hearing PR #37 with main"
+          git push origin "HEAD:refs/heads/$branch"
+          echo "PR37_MERGED_SHA=$(git rev-parse HEAD)"
