@@ -63,6 +63,7 @@ export function createSegmentDecoder({
         throw new Error("Final segments did not match the segments observed in the stream.");
       }
       const dialogue = normalized.map(segment => segment.text.trim()).join(' ');
+      const parsed = parseDecisionJson(JSON.stringify({ dialogue, command: decision.command, ...(Array.isArray(act5Intents) ? {activity:decision.activity} : {}) }), {act5Intents});
       return Object.freeze({
         mode: decision.mode,
         segments: Object.freeze(normalized.map(segment => Object.freeze({
@@ -70,7 +71,8 @@ export function createSegmentDecoder({
           ...(lunaDeliveryVersion === 1 ? { delivery: segment.delivery } : {}),
         }))),
         reflowedSegments: normalized.length - decision.segments.length,
-        decision: parseDecisionJson(JSON.stringify({ dialogue, command: decision.command, ...(Array.isArray(act5Intents) ? {activity:decision.activity} : {}) }), {act5Intents}),
+        commandNormalized: parsed.command !== decision.command.trim(),
+        decision: parsed,
       });
     },
     get mode() { return extractMode(source); },
