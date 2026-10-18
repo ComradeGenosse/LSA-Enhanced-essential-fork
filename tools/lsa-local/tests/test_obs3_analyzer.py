@@ -183,6 +183,30 @@ class OBS3Tests(unittest.TestCase):
         self.assertEqual(table(with_errors)["act.drive_to"]["health"],"unknown")
         self.assertIn("collection_incomplete",with_errors["sessions"][0]["evidence_gaps"])
 
+    def test_missing_optional_root_keeps_verified_health_and_reports_safe_origin(self):
+        missing = [{"Id": "source-3", "Status": "missing", "Kind": "extra",
+                    "ConfigRef": "ExtraLogRoots[1]", "Required": False}]
+        report = analyze(fixture(missing_roots=missing))
+        self.assertEqual(table(report)["act.drive_to"]["health"], "operational")
+        self.assertIn("optional_collection_sources_missing", report["archive_issues"])
+        self.assertNotIn("collection_incomplete", report["sessions"][0]["evidence_gaps"])
+        self.assertEqual(report["collection"]["missing_source_details"], [{
+            "id": "source-3", "kind": "extra", "config_ref": "ExtraLogRoots[1]",
+            "required": False}])
+        self.assertNotIn("C:/PRIVATE", json.dumps(report))
+
+    def test_required_or_legacy_unclassified_missing_root_is_incomplete(self):
+        required = [{"Id": "source-1", "Status": "missing", "Kind": "game",
+                     "ConfigRef": "GamePath", "Required": True}]
+        for missing in (required, [{"Id": "source-3", "Status": "missing"}],
+                        [{"Id": "source-3", "Status": "missing", "Kind": "extra",
+                          "ConfigRef": "C:/PRIVATE", "Required": False}]):
+            with self.subTest(missing=missing):
+                report = analyze(fixture(missing_roots=missing))
+                self.assertIn("collection_incomplete", report["sessions"][0]["evidence_gaps"])
+                self.assertEqual(table(report)["act.drive_to"]["health"], "unknown")
+                self.assertNotIn("C:/PRIVATE", json.dumps(report))
+
     def test_incomplete_manifest_and_sequence_gap(self):
         files=fixture(altered_manifest=True)
         report=analyze(files)
