@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "files": [
+    "lsa-essential-e1-candidate/tests/director-social-continuity.test.mjs",
+    "lsa-essential-e1-candidate/tests/vehicle-dll-handoff.test.mjs",
+    "lsa-essential-e1-candidate/tests/vehicle-driving-intent.test.mjs"
+  ]
+}
