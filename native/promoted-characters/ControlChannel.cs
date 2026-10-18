@@ -29,22 +29,38 @@ namespace LSA.PromotedCharacters
         readonly string hostRunId;
         readonly int worldEpoch;
         readonly OperationAdmission admission;
+        readonly Action<string> diagnostic;
+        long lastFailureLogMs;
+        int suppressedFailureLogs;
         readonly ConcurrentQueue<ControlRequest> requests = new ConcurrentQueue<ControlRequest>();
         readonly CancellationTokenSource stopping = new CancellationTokenSource();
         NamedPipeServerStream pipe;
         int count;
-        public ControlChannel(string name, string epoch, string world,string hostRunId=null,int worldEpoch=0) {
+        public ControlChannel(string name, string epoch, string world,string hostRunId=null,int worldEpoch=0,Action<string> diagnostic=null) {
             if(hostRunId!=null && (!System.Text.RegularExpressions.Regex.IsMatch(hostRunId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$") || worldEpoch<1) || hostRunId==null && worldEpoch!=0) throw new ArgumentException("invalid_host_context");
-            this.name = name; this.epoch = epoch; this.world = world;this.hostRunId=hostRunId;this.worldEpoch=worldEpoch; admission = new OperationAdmission(epoch,world);
+            this.name = name; this.epoch = epoch; this.world = world;this.hostRunId=hostRunId;this.worldEpoch=worldEpoch; this.diagnostic=diagnostic; admission = new OperationAdmission(epoch,world);
         }
         public void Start() { new Thread(Serve) { IsBackground = true, Name = "LSA player character controls" }.Start(); }
         static long Now => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        // Bounded RPH evidence without untrusted request fields or exception text.
+        void ReportFailure(string code)
+        {
+            if (diagnostic == null) return;
+            long now = Now;
+            if (now - lastFailureLogMs < 10000) { suppressedFailureLogs++; return; }
+            int suppressed = suppressedFailureLogs;
+            suppressedFailureLogs = 0;
+            lastFailureLogMs = now;
+            try { diagnostic("[P2 OBS1] control_channel_failure code=" + code +
+                " suppressed=" + suppressed + " host_bound=" + (hostRunId != null ? "true" : "false")); } catch {}
+        }
         void Serve()
         {
             var json = new JavaScriptSerializer { MaxJsonLength = 32768, RecursionLimit = 12 };
             while (!stopping.IsCancellationRequested)
             {
                 ControlRequest request = null;
+                string failure = "transport_or_setup_error";
                 try
                 {
                     var sid = WindowsIdentity.GetCurrent().User;
@@ -66,17 +82,30 @@ namespace LSA.PromotedCharacters
                         if (extension && (hostRunId==null || !frame.ContainsKey("hostContextVersion") || !(frame["hostContextVersion"] is int cv) || cv!=1 || !frame.ContainsKey("hostRunId") || !Equals(frame["hostRunId"],hostRunId) || !frame.ContainsKey("worldEpoch") || !(frame["worldEpoch"] is int ce) || ce!=worldEpoch)) throw new InvalidDataException();
                         if (frame == null || frame.Count != (extension?10:7) || !(frame["version"] is int version) || version != 1 || !(frame["requestId"] is string id) || !(frame["ownerEpoch"] is string suppliedEpoch) || !(frame["worldProfileId"] is string suppliedWorld) || !(frame["operation"] is string operation) || !(frame["args"] is Dictionary<string,object> args)) throw new InvalidDataException();
                         long expiry = Convert.ToInt64(frame["expiresAtUtc"]);
-                        if (!admission.Admit(id,suppliedEpoch,suppliedWorld,operation,expiry,Now)) throw new InvalidDataException();
-                        if (Interlocked.Increment(ref count) > 16) { Interlocked.Decrement(ref count); throw new InvalidDataException(); }
+                        if (!admission.Admit(id,suppliedEpoch,suppliedWorld,operation,expiry,Now)) { failure = "admission_denied"; throw new InvalidDataException(); }
+                        if (Interlocked.Increment(ref count) > 16) { Interlocked.Decrement(ref count); failure = "queue_full"; throw new InvalidDataException(); }
                         request = new ControlRequest { RequestId = id, Operation = operation, Args = args, ExpiresAtUtc = expiry };
                         requests.Enqueue(request);
                         var remaining = Math.Max(1,(int)Math.Min(Int32.MaxValue,expiry - Now));
                         if (operation == "spawn") watchdog.Change(checked(remaining + 1000),Timeout.Infinite);
-                        if (!request.Done.Wait(operation == "spawn" ? remaining : Math.Min(3000,remaining),stopping.Token)) { request.Cancelled = true; throw new TimeoutException(); }
+                        if (!request.Done.Wait(operation == "spawn" ? remaining : Math.Min(3000,remaining),stopping.Token)) { request.Cancelled = true; failure = "request_timeout"; throw new TimeoutException(); }
                         Write(stream,json,new {version = 1,requestId = id,status = request.Reason == null ? "ok" : "failed",result = request.Result,reason = request.Reason});
                     }
                 }
-                catch { if (request != null) request.Cancelled = true; if (!stopping.IsCancellationRequested) Thread.Sleep(100); }
+                catch (Exception ex) {
+                    if (request != null) request.Cancelled = true;
+                    if (!stopping.IsCancellationRequested) {
+                        if (failure == "transport_or_setup_error") {
+                            if (ex is InvalidDataException || ex is ArgumentException ||
+                                ex is KeyNotFoundException || ex is FormatException ||
+                                ex is OverflowException) failure = "invalid_request";
+                            else if (ex is TimeoutException) failure = "request_timeout";
+                            else if (ex is IOException || ex is ObjectDisposedException) failure = "connection_lost";
+                        }
+                        ReportFailure(failure);
+                        Thread.Sleep(100);
+                    }
+                }
                 finally { try { pipe?.Dispose(); } catch {} }
             }
         }

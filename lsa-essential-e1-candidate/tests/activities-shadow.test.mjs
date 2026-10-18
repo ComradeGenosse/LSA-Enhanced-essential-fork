@@ -49,10 +49,13 @@ test('shadow client correlates hello, lease and diagnostics and drops on a seque
   assert.deepEqual(JSON.parse(pipe.writes[1]), { version: 1, type: 'lease', sequence: 1, leaseTtlMs: 5000 });
   assert.equal(pipe.writes.some(frame => JSON.parse(frame).type === 'step.begin'), false);
   pipe.emit('data', Buffer.from(JSON.stringify(diagnostics(1, { accepted: 1, superseded: 1 })) + '\n')); await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(events.map(item => item[0]), ['activity_receipt', 'activity_receipt']);
+  assert.deepEqual(events.map(item => item[0]), ['activity_channel_counter', 'activity_channel_counter']);
   assert.deepEqual(events.map(item => item[1].receiptState), ['HANDLER_ACCEPTED', 'SUPERSEDED']);
+  assert.deepEqual(events.map(item => item[1].count), [1,1]);
   const run = client.clientRun; pipe.emit('data', Buffer.from(JSON.stringify(diagnostics(3)) + '\n')); await new Promise(resolve => setImmediate(resolve));
   assert.equal(client.runtime.ready, false); assert.notEqual(client.clientRun, run);
+  assert.equal(events.at(-1)[0], 'activity_channel_failure');
+  assert.equal(events.at(-1)[1].code, 'sequence_mismatch');
   client.stop();
   const off = new ActivityClient({ mode: 'off', pipeName: 'LSA.Activities.v1' }, { connect: () => { throw new Error('off'); } });
   off.start(); assert.equal(off.socket, null);

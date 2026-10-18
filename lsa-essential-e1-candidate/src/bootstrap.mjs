@@ -620,7 +620,7 @@ export async function createRuntimeForBundle(options = {}) {
     try {
       owner.starting('activities');
       const notifyKnowledge=()=>{try{runtime.intelligence?.notifyKnowledgeInvalidation();}catch{}};
-      const onEvent = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data); } catch {} notifyKnowledge(); };
+      const onEvent = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data, 'internal', { component: 'activities', severity: event === 'activity_channel_failure' ? 'warn' : 'info' }); } catch {} notifyKnowledge(); };
       const onFrame=frame=>{try{options.activityOptions?.onFrame?.(frame);}catch{}notifyKnowledge();};
       runtime.activities = config.activities.mode === 'on'
         ? new ActivityRuntime(config.activities, { ...options.activityOptions, onEvent,onFrame })
@@ -650,7 +650,7 @@ export async function createRuntimeForBundle(options = {}) {
     const checkpoint = owner.checkpoint();
     try {
       owner.starting('reactions');
-      const report = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data); } catch {} };
+      const report = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data, 'internal', { component: 'reactions' }); } catch {} };
       const client = new ReactionClient(config.reactions, { ...options.reactionOptions, onEvent: report });
       runtime.services.reactions = createReactionService({ config: config.reactions, client, report });
       owner.own('reactions', client, value => value.stop());

@@ -29,6 +29,34 @@ function memorySink() {
   return { runId: randomUUID(), records: [], droppedCount: 0, emit(record) { this.records.push({ ...record, sequence: this.records.length + 1, runId: this.runId }); return true; }, async flush() {}, async close() {} };
 }
 
+test('OBS1 dropped reaction/M9 events persist closed safe metadata', () => {
+  for (const name of ['reaction_channel_ready','reaction_channel_closed','reaction_channel_mode_mismatch','reaction_ack','m9_callback_shadow']) {
+    const record = createTelemetryRecord({sequence:1,runId:'test',originMs:0,event:name,
+      provider:'internal',source:'internal',component:name.startsWith('m9_')?'memory':'reactions',
+      data:{reaction:'nod',companionMode:'shadow',nativeMode:'on',status:'accepted',
+        reason:'native_rejected',secret:'sk-secret',family:'private memory title',
+        prompt:'PRIVATE DIALOGUE'},now:1});
+    assert.equal(record.event,name);
+    assert.equal(record.data.reaction,'nod');
+    assert.equal(JSON.stringify(record).includes('private'),false);
+    assert.equal(JSON.stringify(record).includes('PRIVATE'),false);
+    assert.equal(JSON.stringify(record).includes('sk-secret'),false);
+  }
+  assert.deepEqual(sanitizeTelemetryData({reaction:'secret',companionMode:'anything',nativeMode:'on',
+    executionId:'bad',goalId:'not-uuid',requestId:'arbitrary-user-text',worldEpoch:4}), {nativeMode:'on',worldEpoch:4});
+});
+
+test('OBS1 ACT receipt preserves valid IDs and closed native reasons', () => {
+  const activityId = '11111111-1111-4111-8111-111111111111';
+  const executionId = '22222222-2222-4222-8222-222222222222';
+  const record=createTelemetryRecord({sequence:1,runId:'test',originMs:0,event:'activity_receipt',
+    component:'activities',severity:'info',data:{activityId,executionId,requestId:executionId,
+      receiptState:'FAILED',reason:'navigation_failed',payload:'PRIVATE'},now:2});
+  assert.deepEqual(record.data,{activityId,executionId,requestId:executionId,receiptState:'FAILED',reason:'navigation_failed'});
+  assert.equal(record.component,'activities');
+  assert.equal(record.severity,'info');
+});
+
 test('telemetry schema drops credentials, text, raw bodies, and arbitrary nested fields', () => {
   const secret = 'sk-proj-NEVER_LOG_THIS';
   const data = sanitizeTelemetryData({ code: secret, model: secret, detail: secret, prompt: 'private dialogue', text: 'private transcript', rawBody: { Authorization: secret }, inputChars: 42, httpStatus: 429 });
