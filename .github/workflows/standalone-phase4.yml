@@ -104,7 +104,13 @@ jobs:
           # so ONLY this binary, not the fake-SDK output, is packaged for GTA.
           dotnet build native/standalone-host/LSA.Standalone.RageHost.csproj -c Release -t:Rebuild "-p:RphReferencePath=$sdk"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet run --project native/standalone-host/tests/RphSignatureAudit.csproj -c Release -- "$sdk" "native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll"
+          # Scan every imported RPH type/member against the REAL SDK reference,
+          # plus managed dependency identities. Fail BEFORE any bundle is built.
+          & tools/standalone-gta-smoke/Test-RphCompatibility.ps1 `
+            -RphReferencePath $sdk `
+            -HostDll 'native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll' `
+            -CoreDll 'native/standalone/bin/Release/net481/LSA.Standalone.Core.dll' `
+            -ReportPath 'out/RphCompatibility.build.json'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Native typed replies and exact PCM escrow over real net481 IPC
         shell: pwsh
@@ -151,6 +157,17 @@ jobs:
           New-Item -ItemType Directory -Force "$root/companion" | Out-Null
           Copy-Item 'native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll' "$root/payload/"
           Copy-Item 'native/standalone/bin/Release/net481/LSA.Standalone.Core.dll' "$root/payload/"
+          # Repeat on the exact COPIED host that the ZIP will distribute.
+          # Build reports alone cannot certify a stale or swapped package DLL.
+          $sdk = Get-ChildItem -Path (Join-Path $env:USERPROFILE '.nuget/packages/ragepluginhook/1.124.0') -Filter RagePluginHook.dll -Recurse -File |
+            Select-Object -First 1 -ExpandProperty FullName
+          & tools/standalone-gta-smoke/Test-RphCompatibility.ps1 `
+            -RphReferencePath $sdk `
+            -HostDll "$root/payload/LSA.Standalone.RageHost.dll" `
+            -CoreDll "$root/payload/LSA.Standalone.Core.dll" `
+            -ExpectedHostDll 'native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll' `
+            -ReportPath "$root/RphCompatibility.report.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Set-Content -Path "$root/payload/LSA.Standalone.enabled" -Value "Explicit isolated test profile only." -Encoding UTF8
           Copy-Item 'lsa-standalone-companion/src' "$root/companion/src" -Recurse
           New-Item -ItemType Directory -Force "$root/companion/tools" | Out-Null
