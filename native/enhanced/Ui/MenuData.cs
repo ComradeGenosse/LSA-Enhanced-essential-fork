@@ -19,7 +19,7 @@ namespace LSA.Enhanced.Ui
         readonly IClock clock;
         readonly Action<Action> worker;
         readonly ConcurrentQueue<Action> applied = new ConcurrentQueue<Action>();
-        bool listInFlight, describeInFlight, probeInFlight, readinessInFlight, directorInFlight, bindingInFlight;
+        bool listInFlight, listRefreshPending, describeInFlight, probeInFlight, readinessInFlight, directorInFlight, bindingInFlight, bindingRefreshPending;
         string describeKey, pendingKey, desiredBindingId;
         long describeAt;
         // worker runs JSON parsing off the game fiber (the thread pool by default).
@@ -35,11 +35,14 @@ namespace LSA.Enhanced.Ui
         public GameplayMenuReadiness ActivityReadiness {get;private set;}
         public DirectorSocialStatus DirectorStatus {get;private set;}
         public CharacterActivityBinding CharacterBinding {get;private set;}
+        public long BindingVerifiedAt {get;private set;} = -1;
         public string DescribeKey => describeKey;
         public int Version {get;private set;}
         public void RequestCharacters()
         {
-            if (listInFlight) return;
+            // Spawn can finish while a pre-spawn list request is still in flight.
+            // Coalesce an additional read rather than dropping the invalidation.
+            if (listInFlight) { listRefreshPending = true; return; }
             listInFlight = true;
             companion.Post("{\"action\":\"list\"}",ListBodyBytes,RequestTimeoutMs,reply => {
                 List<CharacterRow> rows = reply != null && reply.Ok ? CharacterList.Parse(reply.Body) : null;
@@ -48,6 +51,7 @@ namespace LSA.Enhanced.Ui
                     listInFlight = false; CompanionReachable = reply != null && (reply.Ok || reply.Status != 0);
                     if (rows != null) Characters = rows;
                     CharactersError = error; Version++;
+                    if (listRefreshPending) { listRefreshPending = false; RequestCharacters(); }
                 });
             });
         }
@@ -96,12 +100,20 @@ namespace LSA.Enhanced.Ui
                 });
             });
         }
+        public void InvalidateCharacterBinding()
+        {
+            // After a native character operation the previous incarnation cannot
+            // be used to claim the actor is still present.
+            CharacterBinding = null; BindingVerifiedAt = -1; Version++;
+        }
         public void RequestCharacterBinding(string id)
         {
             if (desiredBindingId != id) {
-                desiredBindingId = id; CharacterBinding = null; Version++;
+                desiredBindingId = id; bindingRefreshPending = false;
+                InvalidateCharacterBinding();
             }
-            if (bindingInFlight || id == null) return;
+            if (id == null) return;
+            if (bindingInFlight) { bindingRefreshPending = true; return; }
             bindingInFlight = true;
             string requested = id;
             string body = new JavaScriptSerializer().Serialize(new Dictionary<string,object> {
@@ -113,8 +125,13 @@ namespace LSA.Enhanced.Ui
                     bindingInFlight = false;
                     if (desiredBindingId == requested) {
                         CharacterBinding = parsed;
+                        BindingVerifiedAt = parsed == null ? -1 : clock.Monotonic;
                         Version++;
-                    } else RequestCharacterBinding(desiredBindingId);
+                    }
+                    if (bindingRefreshPending || desiredBindingId != requested) {
+                        bindingRefreshPending = false;
+                        RequestCharacterBinding(desiredBindingId);
+                    }
                 });
             });
         }
