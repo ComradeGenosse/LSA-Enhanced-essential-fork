@@ -113,11 +113,11 @@ static partial class Program
         Check(menuActivity.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",new CommandArgs {Value = "vehicle_trip",ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnerAlias = FakeBridge.Alias}) == null && menuActivity.Companion.Last["intent"] as string == "vehicle_trip","F11 waypoint travel uses existing owned ACT companion path");
         var waypointSlots = (Dictionary<string,object>)menuActivity.Companion.Last["slots"];
         Check(((Dictionary<string,object>)waypointSlots["place"])["kind"] as string == "waypoint","ACT6 waypoint slot is finite and native-resolved, not invented coordinates");
-        menuActivity.Companion.Reply(true); menuActivity.Dispatcher.Update(); menuActivity.Clock.Advance(1000);
+        menuActivity.Companion.Reply(true); menuActivity.Dispatcher.Update(); menuActivity.Clock.Advance(1000); menuActivity.Fresh(FakeBridge.Owned());
         Check(menuActivity.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",new CommandArgs {Value = "vehicle_trip:airport",ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnerAlias = FakeBridge.Alias}) == null && ((Dictionary<string,object>)((Dictionary<string,object>)menuActivity.Companion.Last["slots"])["place"])["query"] as string == "airport","allowlisted ACT6 landmark uses named place slot");
-        menuActivity.Companion.Reply(true); menuActivity.Dispatcher.Update(); menuActivity.Clock.Advance(1000);
+        menuActivity.Companion.Reply(true); menuActivity.Dispatcher.Update(); menuActivity.Clock.Advance(1000); menuActivity.Fresh(FakeBridge.Owned());
         Check(menuActivity.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",new CommandArgs {Value = "board_vehicle",ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnerAlias = FakeBridge.Alias}) == null && ((Dictionary<string,object>)menuActivity.Companion.Last["slots"])["seat"] as string == "passenger","ACT3 boarding is explicitly passenger, never driver by implication");
-        menuActivity.Companion.Reply(true); menuActivity.Dispatcher.Update(); menuActivity.Clock.Advance(1000);
+        menuActivity.Companion.Reply(true); menuActivity.Dispatcher.Update(); menuActivity.Clock.Advance(1000); menuActivity.Fresh(FakeBridge.Owned());
         int activityPosts=menuActivity.Companion.Bodies.Count;
         Check(menuActivity.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",new CommandArgs {Value = "teleport_to_arbitrary_coords"}) == "capability_unavailable" && menuActivity.Companion.Bodies.Count == activityPosts,"closed F11 template table rejects arbitrary activity intents");
         var c = new Rig(); d = c.Dispatcher;
