@@ -96,7 +96,13 @@ static partial class Program
         var navigation = GameplayNavigationView.Build(owned);
         Check(Line(navigation,"assign").Command == "local.openActivities" && Line(navigation,"assign").ExpectedEncounterId == FakeBridge.Encounter && Line(navigation,"activityStatus").Command == CommandCatalog.ActivityStatus,"ACT2 navigation page reuses the current owned NPC and frozen identity");
         Check(Line(GameplayNavigationView.Build(CurrentNpcView.Build(SnapshotOf(now,FakeBridge.Ordinary()),now,null,true,true,settings)),"prerequisite").Right == "Select a promoted NPC" && Line(navigation,"act6").Info,"navigation disables unknown ownership and ACT6 without readiness");
-        Check(Line(DirectorSocialView.Build(),"admission").Info,"Director remains read-only until it shares the native admission path");
+        Check(Line(DirectorSocialView.Build(),"admission").Info,"Director admission is read-only until a live native result exists");
+        var admitted = DirectorSocialStatus.Parse("{\"executionAvailable\":true,\"nativeResult\":{\"receivedAt\":42,\"status\":\"accepted\",\"reason\":null}}");
+        Check(admitted != null && admitted.ExecutionAvailable && admitted.ReceivedAt == 42 && admitted.Status == "accepted","director accepts only typed native admission result");
+        var socialView = DirectorSocialView.Build(admitted,true,false);
+        Check(Line(socialView,"startSocial").Command == CommandCatalog.DirectorSocialManual && Line(socialView,"startSocial").Enabled && Line(socialView,"admission").Right == "Accepted" && Line(socialView,"delivery").Right == "Not verified","native admission never claims delivered dialogue");
+        Check(Line(DirectorSocialView.Build(admitted,true,true,42),"admission").Right == "Queued; awaiting native admission","pre-request result does not fulfill new Director request");
+        Check(Line(DirectorSocialView.Build(admitted,false,false),"startSocial").Enabled == false && DirectorSocialStatus.Parse("{broken") == null,"Director fails closed when companion is offline or result invalid");
         var menuReady = GameplayMenuReadiness.Parse("{\"act3\":{\"board_vehicle\":{\"eligibleForPreflight\":true,\"reason\":null}},\"walk\":{\"eligibleForPreflight\":false,\"reason\":\"native_probes_missing\"},\"drive\":{\"eligibleForPreflight\":true,\"reason\":null}}");
         Check(menuReady != null && menuReady.Allows("board_vehicle") && !menuReady.Allows("go_to_place") && menuReady.Allows("vehicle_trip"),"native readiness response is parsed by closed capability keys");
         var acceptedNavigation = GameplayNavigationView.Build(owned,menuReady);
