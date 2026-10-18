@@ -9,29 +9,49 @@ $out=if([IO.Path]::IsPathRooted($c.LogOutputRoot)){$c.LogOutputRoot}else{Join-Pa
 $folder=Join-Path $out ('logs-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')+'-'+[guid]::NewGuid().ToString('N').Substring(0,6))
 New-Item -ItemType Directory -Path $folder -Force|Out-Null
 $collectedUtc=[DateTime]::UtcNow.ToString('o')
-$roots=@($c.GamePath)+@($c.ExtraLogRoots)
+# Record a sanitized origin for every configured root. Source numbers alone
+# cannot identify missing paths after collection, and absolute paths are private.
+$rootInputs=@()
+if($c.GamePath){
+  $rootInputs += [pscustomobject]@{Path=$c.GamePath;Kind='game';ConfigRef='GamePath';Required=$true}
+}
+for($i=0;$i<@($c.ExtraLogRoots).Count;$i++){
+  $path=@($c.ExtraLogRoots)[$i]
+  if($path){
+    $rootInputs += [pscustomobject]@{Path=$path;Kind='extra';ConfigRef=('ExtraLogRoots['+$i+']');Required=$false}
+  }
+}
 # Keep existing standalone companion discovery. Do not require a running browser.
 foreach($search in @($c.LogSearchRoots)+@(Join-Path $PSScriptRoot $c.PackageRoot)){
   if($search -and (Test-Path -LiteralPath $search)){
     foreach($f in Get-ChildItem -LiteralPath $search -Filter 'Start-Standalone-Test.ps1' -File -Recurse){
       if(Test-Path -LiteralPath (Join-Path $f.DirectoryName 'companion/service.mjs')){
-        $roots+=Join-Path $f.DirectoryName 'logs'
+        $rootInputs += [pscustomobject]@{Path=(Join-Path $f.DirectoryName 'logs');
+          Kind='standalone_discovered';ConfigRef='auto:standalone_test_logs';Required=$false}
       }
     }
   }
 }
+# Deduplicate by path, preferring the required game root if configured twice.
+$rootByPath=@{}
+foreach($info in $rootInputs){
+  $key=[string]$info.Path
+  if(-not $rootByPath.ContainsKey($key) -or $info.Required){$rootByPath[$key]=$info}
+}
+$rootInfos=@($rootByPath.Values|Sort-Object -Property Path)
 $files=@();$errors=@();$index=0;$seen=@{};$sources=@();$missingRoots=@()
 $runIds=New-Object 'System.Collections.Generic.HashSet[string]'
-foreach($root in @($roots|Where-Object {$_}|Sort-Object -Unique)){
+foreach($rootInfo in $rootInfos){
+  $root=$rootInfo.Path
   $index++
   $label='source-'+$index
   if(-not(Test-Path -LiteralPath $root)){
-    $missingRoots+=@{Id=$label;Status='missing'}
-    $sources+=@{Id=$label;Status='missing';Files=0}
+    $missingRoots+=@{Id=$label;Status='missing';Kind=$rootInfo.Kind;ConfigRef=$rootInfo.ConfigRef;Required=$rootInfo.Required}
+    $sources+=@{Id=$label;Status='missing';Files=0;Kind=$rootInfo.Kind;ConfigRef=$rootInfo.ConfigRef;Required=$rootInfo.Required}
     continue
   }
   $before=$files.Count
-  $sources+=@{Id=$label;Status='available';Files=0}
+  $sources+=@{Id=$label;Status='available';Files=0;Kind=$rootInfo.Kind;ConfigRef=$rootInfo.ConfigRef;Required=$rootInfo.Required}
   try {
     $candidates=Get-ChildItem -LiteralPath $root -File -Recurse -Force -ErrorAction Stop
   } catch {
