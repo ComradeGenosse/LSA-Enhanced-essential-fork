@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ActivityEngine } from '../src/activities/activityEngine.mjs';
-import { Act5Dialogue, validateAct5Choice, parseAct6PlayerRequest, parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind, act5WorldAvailable } from '../src/activities/act5Dialogue.mjs';
+import { Act5Dialogue, validateAct5Choice, parseAct6PlayerRequest, parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind, act5WorldAvailable, reconcileAct6Decision } from '../src/activities/act5Dialogue.mjs';
 import { normalizeActivityConfig } from '../src/activities/contracts.mjs';
 import { parseDecisionJson, buildRequest } from '../src/context/essentialDecision.mjs';
 import { createSegmentDecoder } from '../src/openai/segmentDecoder.mjs';
@@ -563,6 +563,21 @@ test('ACT6 explicit stop can cancel owner-matched UX navigation without reopenin
   assert.equal((await h.dialogue.onPlayerInput(t,'Stop walking',context,()=>true)),null);
   assert.equal((await h.dialogue.onPlayerInput(t,'Stop driving',context,()=>true))?.kind,'cancelled');
   assert.equal(h.engine.activities[0].status,'cancelled');
+});
+
+test('ACT6 takes ownership of direct navigation even if Luna proposes stock free drive',()=>{
+  const input={dialogue:'We are already on the road.',command:'DO BeginDriving V001',
+    activity:{intent:'hold_position',slots:{}}};
+  const reply={kind:'approval_pending',intent:'vehicle_trip'};
+  const fixed=reconcileAct6Decision(input,reply);
+  assert.equal(fixed.suppressed,true);
+  assert.deepEqual(fixed.decision,{dialogue:"Okay, I'll try to navigate there.",command:'',activity:null});
+  assert.equal(input.command,'DO BeginDriving V001','input stays unchanged');
+  assert.throws(()=>reconcileAct6Decision(input,reply,{nativeHandoffStarted:true}),/audio handoff/);
+  assert.equal(reconcileAct6Decision({dialogue:'fine',command:'',activity:null},reply).suppressed,false);
+  assert.equal(reconcileAct6Decision(input,{kind:'unavailable',intent:'board_vehicle'}).suppressed,false);
+  assert.equal(reconcileAct6Decision(input,{kind:'unavailable',intent:'vehicle_trip',reason:'place_unresolved'})
+    .decision.dialogue,"I can't verify that destination right now.");
 });
 
 // October 18 regression: ACT6 is a player command, NOT an optional ACT5 offer.
