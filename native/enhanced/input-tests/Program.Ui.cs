@@ -177,6 +177,17 @@ static partial class Program
         var absent = CharacterList.Parse(Json.Serialize(new object[] {Profile(CharacterB,"Bo",2)}))[0];
         var absentActions = CharacterList.Actions(absent,true,true);
         Check(Line(absentActions,"summon").Enabled && !Line(absentActions,"follow").Enabled && !Line(absentActions,"despawn").Enabled && Line(absentActions,"memories").Right == "None yet","an absent character can only be summoned");
+        var unknownRoster = CharacterList.Parse(Json.Serialize(new object[] {Profile(CharacterB,"Bo",2,runtimeStatus:"unverified")}))[0];
+        Check(unknownRoster.StatusLabel == "Checking native roster" &&
+              !Line(CharacterList.Actions(unknownRoster,true,true),"summon").Enabled &&
+              !Line(CharacterList.Actions(unknownRoster,true,true),"follow").Enabled,
+              "native roster unavailable is not proof of absence or control authority");
+        var verifiedFallback = CharacterList.Actions(unknownRoster,true,true,true);
+        Check(Line(verifiedFallback,"follow").Enabled && !Line(verifiedFallback,"summon").Enabled &&
+              Line(verifiedFallback,"status").Right == "In world (native verified)",
+              "exact native binding restores Follow while roster refresh catches up");
+        Check(!Line(CharacterList.Actions(unknownRoster,false,true,true),"follow").Enabled,
+              "a verified binding never bypasses a disconnected command bridge");
         Check(!Line(CharacterList.Actions(absent,true,false),"summon").Enabled && Line(CharacterList.Actions(absent,true,false),"rename").Enabled,"without the native host only profile edits stay available");
         Check(!Line(CharacterList.Actions(absent,false,true),"rename").Enabled && !Line(CharacterList.Actions(absent,false,true),"relationship").Enabled,"without the companion nothing can be edited");
         var retired = CharacterList.Parse(Json.Serialize(new object[] {Profile(CharacterB,"Ret",2,status: "retired")}))[0];
@@ -187,6 +198,22 @@ static partial class Program
 
     static void MenuDataTests()
     {
+        // A spawn completion that races a pre-spawn roster reply must request
+        // new native evidence. Routine duplicate reads still coalesce.
+        {
+            var racedCompanion = new FakeCompanion();
+            var raced = new MenuData(racedCompanion,new FakeClock(),work => work());
+            raced.RequestCharacters();
+            raced.RequestCharacters(refreshAfterInFlight:true);
+            Check(racedCompanion.Bodies.Count == 1,"post-spawn roster invalidation coalesces while in flight");
+            racedCompanion.Reply(true,body:Json.Serialize(new object[] {Profile(CharacterA,"Amy",1)}));
+            raced.Pump();
+            Check(racedCompanion.Bodies.Count == 2 && !raced.Characters[0].Spawned,
+                "pre-spawn result is followed by one native roster refresh");
+            racedCompanion.Reply(true,body:Json.Serialize(new object[] {Profile(CharacterA,"Amy",1,runtimeStatus:"spawned")}));
+            raced.Pump();
+            Check(raced.Characters[0].Spawned,"post-spawn refresh updates the displayed owner status");
+        }
         var companion = new FakeCompanion(); var clock = new FakeClock(); var data = new MenuData(companion,clock,work => work());
         data.RequestCharacters(); data.RequestCharacters();
         Check(companion.Bodies.Count == 1 && companion.Last["action"] as string == "list","one roster request in flight");

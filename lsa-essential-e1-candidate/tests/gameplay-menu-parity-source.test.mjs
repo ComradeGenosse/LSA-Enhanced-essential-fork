@@ -31,3 +31,20 @@ test('F11 uses shared dispatch, bounded slots and existing Director runtime endp
     assert.ok(server.includes(action),action);
   assert.ok(!catalog.commands.some(c=>c.id==='character.delete'),'persistent deletion stays browser-only');
 });
+
+test('F11 spawn and refresh races cannot silently disable a verified promoted actor',async()=>{
+  const menu=await read('native/enhanced/Ui/NativeMenu.cs');
+  const data=await read('native/enhanced/Ui/MenuData.cs');
+  const views=await read('native/enhanced/Ui/ViewModels/MenuModels.cs');
+  const service=await read('lsa-essential-e1-candidate/src/characters/characterService.mjs');
+  assert.match(data,/if \(listInFlight\) \{ if \(refreshAfterInFlight\) listRefreshPending = true; return; \}/);
+  assert.match(menu,/data\.RequestCharacters\(refreshAfterInFlight:true\)/);
+  assert.match(data,/if \(listRefreshPending\) \{ listRefreshPending = false; RequestCharacters\(\); \}/);
+  assert.match(data,/if \(bindingInFlight\) \{ bindingRefreshPending = true; return; \}/);
+  assert.match(menu,/data\.InvalidateCharacterBinding\(\);/);
+  assert.match(menu,/\[GM\] character_view roster=/);
+  assert.match(menu,/CharacterList\.Actions\(row,data\.CompanionReachable,context\.Bridge\.Available,binding != null\)/);
+  assert.match(views,/bool present = row\.Spawned \|\| row\.Suspended \|\| nativeBindingVerified/);
+  assert.match(views,/row\.RuntimeStatus != "unverified"/);
+  assert.match(service,/runtimeStatus:roster === null \? 'unverified'/);
+});

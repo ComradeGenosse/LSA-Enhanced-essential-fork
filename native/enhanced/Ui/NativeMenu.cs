@@ -46,6 +46,7 @@ namespace LSA.Enhanced.Ui
         long nextRender, nextInterest, nextRoster, nextReadiness, nextDirectorPoll, nextBinding, aiReadAt = -1;
         long directorBefore = -1;
         bool directorPending;
+        string lastCharacterPresence;
         int dataVersion = -1;
         bool rendering, yielded;
         string aiConfig; bool aiCredential;
@@ -347,8 +348,12 @@ namespace LSA.Enhanced.Ui
                     break;
                 case CommandCatalog.CharacterSummon: case CommandCatalog.CharacterFollow: case CommandCatalog.CharacterWait:
                 case CommandCatalog.CharacterDismiss: case CommandCatalog.CharacterDespawn: case CommandCatalog.CurrentPromote:
-                    data.RequestCharacters();
+                    // Force fresh native evidence after spawn/follow/retirement.
+                    // A stale pre-spawn roster response cannot consume this refresh.
+                    data.InvalidateCharacterBinding();
+                    data.RequestCharacters(refreshAfterInFlight:true);
                     if (selectedCharacterId != null) data.RequestCharacterBinding(selectedCharacterId);
+                    nextRoster = 0; nextBinding = 0;
                     break;
                 case CommandCatalog.ActivityAssign: case CommandCatalog.ActivityPause: case CommandCatalog.ActivityResume: case CommandCatalog.ActivityCancel:
                     RefreshActivityDescribe();
@@ -541,8 +546,29 @@ namespace LSA.Enhanced.Ui
                     return new List<MenuLine> {data.Characters == null ? MenuLine.Fact("loading","Loading character…","") : MenuLine.Fact("missing","Character not found","","It may have been removed in the character editor.")};
                 }
                 subtitle = row.Name;
-                var lines = CharacterList.Actions(row,data.CompanionReachable,context.Bridge.Available);
-                var binding = data.CharacterBinding?.CharacterId == row.CharacterId ? data.CharacterBinding : null;
+                var binding = data.CharacterBinding?.CharacterId == row.CharacterId &&
+                    data.CharacterBinding.OwnerAlias == row.OwnerAlias &&
+                    data.BindingVerifiedAt >= 0 &&
+                    context.Clock.Monotonic - data.BindingVerifiedAt <= AiReadIntervalMs * 2
+                    ? data.CharacterBinding : null;
+                // Native inspect is an independent authenticated presence proof.
+                // It repairs a delayed/unknown roster, but actual commands still
+                // revalidate ownership/lease in the original native executor.
+                var lines = CharacterList.Actions(row,data.CompanionReachable,context.Bridge.Available,binding != null);
+                // One durable RPH transition per visible state change. No private
+                // character/profile IDs, ownership tokens, or polling spam.
+                bool followAvailable = data.CompanionReachable && context.Bridge.Available &&
+                    (row.Spawned || row.Suspended || binding != null);
+                string rosterState = row.Spawned ? "spawned" : row.Suspended ? "suspended" :
+                    row.RuntimeStatus == "unverified" ? "unverified" : "absent";
+                string presence = row.CharacterId + "|" + rosterState + "|" + (binding != null) +
+                    "|" + followAvailable;
+                if (presence != lastCharacterPresence) {
+                    lastCharacterPresence = presence;
+                    context.Log("[GM] character_view roster=" + rosterState +
+                        " binding=" + (binding != null ? "verified" : "unavailable") +
+                        " follow=" + (followAvailable ? "enabled" : "disabled"));
+                }
                 if (binding != null) {
                     var action = MenuLine.Action("characterActivity","Activities for " + row.Name + "...","local.openNavigation",
                         "Select ACT and navigation commands directly for this native-owned incarnation; no UX4 selection needed.",
