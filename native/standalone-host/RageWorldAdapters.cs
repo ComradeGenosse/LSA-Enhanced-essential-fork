@@ -8,6 +8,25 @@ using Rage.Native;
 
 namespace LSA.Standalone.RageHost
 {
+
+    // RPH 1.124 does not expose Ped.Exists(). Use the real GTA native with the
+    // entity's CURRENT pool handle, preserving fail-closed ownership checks.
+    // Callers must already be executing on the RPH owner fiber.
+    internal static class RphPedValidity
+    {
+        internal static bool Exists(Ped ped)
+        {
+            if (ped == null) return false;
+            try
+            {
+                uint handle = ped.Handle.Value;
+                return handle != 0u &&
+                    NativeFunction.CallByName<bool>("DOES_ENTITY_EXIST", unchecked((int)handle));
+            }
+            catch { return false; } // An invalidated native handle is never admitted.
+        }
+    }
+
     // Synchronous no-yield owner scope. Only the entry fiber may open it.
     // This check cannot identify a fiber if arbitrary other code yields inside
     // the scope; callers MUST never yield inside an owner transaction.
@@ -102,7 +121,7 @@ namespace LSA.Standalone.RageHost
                 !NativeFunction.CallByName<bool>("IS_ENTITY_A_PED", handle))
                 return null;
             Ped ped = World.GetEntityByHandle<Ped>(new PoolHandle(unchecked((uint)handle)));
-            return ped != null && ped.Exists() && !ped.IsDead ? ped : null;
+            return ped != null && RphPedValidity.Exists(ped) && !ped.IsDead ? ped : null;
         }
 
         // Native-only diagnostic proof. It writes an ephemeral two-part
