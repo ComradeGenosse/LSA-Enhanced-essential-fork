@@ -24,7 +24,9 @@ static class Program
             if(elapsed>=21100) {PromotedCharactersIntegration.Instance.LoseAvailability();return;}
             Thread.Sleep(milliseconds);
         };
-        // Exercise the legacy source-only and strict producer contract without the\n        // intentionally opt-in-all personal test preset overriding this harness.\n        var config="{\"enabled\":true,\"personalTestMode\":false,\"worldProfileId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"intelligence\":{\"mode\":\"shadow\"}"+
+        // Exercise the legacy source-only and strict producer contract without the
+        // intentionally opt-in-all personal test preset overriding this harness.
+        var config="{\"enabled\":true,\"personalTestMode\":false,\"worldProfileId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"intelligence\":{\"mode\":\"shadow\"}"+
             (scenario=="source-only"?",\"memoryK\":{\"capabilities\":{\"ps1.producers\":\"off\"}}":"")+"}";
         Check(!RuntimeEntry.Start("{\"enabled\":true,\"personalTestMode\":false,\"intelligence\":{\"producers\":{\"state\":true}}}"),"invalid producer mode cannot acquire native host start claim");
         Check(RuntimeEntry.Start(config),"real RuntimeEntry starts");
