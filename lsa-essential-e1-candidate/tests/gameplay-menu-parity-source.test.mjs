@@ -41,6 +41,7 @@ test('F11 spawn and refresh races cannot silently disable a verified promoted ac
   assert.match(data,/if \(listRefreshPending\) \{ listRefreshPending = false; RequestCharacters\(\); \}/);
   assert.match(data,/if \(bindingInFlight\) \{ bindingRefreshPending = true; return; \}/);
   assert.match(menu,/data\.InvalidateCharacterBinding\(\);/);
+  assert.match(menu,/\[GM\] character_view roster=/);
   assert.match(menu,/CharacterList\.Actions\(row,data\.CompanionReachable,context\.Bridge\.Available,binding != null\)/);
   assert.match(views,/bool present = row\.Spawned \|\| row\.Suspended \|\| nativeBindingVerified/);
   assert.match(views,/row\.RuntimeStatus != "unverified"/);
