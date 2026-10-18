@@ -1,0 +1,41 @@
+[
+ {
+  "size": "8x8x10",
+  "free_dof": 4860,
+  "nnz": 50004,
+  "superlu_factor_solve_s": 0.18,
+  "cholmod_factor_s": 0.119,
+  "cholmod_solve_s": 0.0009,
+  "superlu_vs_cholmod_rel_diff": 4.3e-15,
+  "event_numeric_refactor_plus_solve_s": 0.15,
+  "event_rank_downdate_plus_solve_s": 0.0032,
+  "downdate_vs_refactor_rel_diff": 7.3e-15,
+  "max_vertical_disp_change_mm": 9.48
+ },
+ {
+  "size": "12x12x20",
+  "free_dof": 20280,
+  "nnz": 214136,
+  "superlu_factor_solve_s": 3.63,
+  "cholmod_factor_s": 2.876,
+  "cholmod_solve_s": 0.0086,
+  "superlu_vs_cholmod_rel_diff": 1.5e-14,
+  "event_numeric_refactor_plus_solve_s": 3.89,
+  "event_rank_downdate_plus_solve_s": 0.0309,
+  "downdate_vs_refactor_rel_diff": 1.9e-13,
+  "max_vertical_disp_change_mm": 20.13
+ },
+ {
+  "size": "16x16x30",
+  "free_dof": 52020,
+  "nnz": 555356,
+  "superlu_factor_solve_s": 22.978,
+  "cholmod_factor_s": 18.893,
+  "cholmod_solve_s": 0.0619,
+  "superlu_vs_cholmod_rel_diff": 7.2e-14,
+  "event_numeric_refactor_plus_solve_s": 36.13,
+  "event_rank_downdate_plus_solve_s": 0.1414,
+  "downdate_vs_refactor_rel_diff": 6.2e-13,
+  "max_vertical_disp_change_mm": 32.19
+ }
+]
