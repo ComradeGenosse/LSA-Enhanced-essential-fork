@@ -40,7 +40,7 @@ test('October 18 malformed faster command is repaired but still structurally val
   assert.deepEqual(parseDecisionJson(JSON.stringify({
     dialogue:'Okay.',command:'DriveNormally',
   })),{dialogue:'Okay.',command:'DO DriveNormally'});
-  for(const command of ['DriveEvasively V001','DriveTo V001','DO DriveEvasively\\nDO WaitHere',
+  for(const command of ['DriveEvasively V001','DriveTo V001','DO DriveEvasively\nDO WaitHere',
     'DO DriveEvasively | DO WaitHere', 'BeginDriving']) {
     assert.throws(()=>parseDecisionJson(JSON.stringify({dialogue:'Okay.',command})),
       /one complete DO command/,command);
