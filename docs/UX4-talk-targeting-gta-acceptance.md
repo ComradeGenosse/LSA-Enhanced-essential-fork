@@ -294,3 +294,15 @@ Applies only after a DLL built from the committed-recipient feedback change is i
 9. Name fallbacks. With the companion stopped (or `current_describe` failing), hold on Nathan: after about 0.4 s `Talking to: Promoted NPC`, mic and reply unaffected. Promote two characters, then hand-edit the store so both claim one `ownerAlias` (offline test only): expect `Promoted NPC`, never either name. A profile named with `~r~` or markup must show `Promoted NPC`.
 10. Ended/changed target. Hold on Nathan and release inside 0.4 s: no `Talking to` line at all. Hold on Nathan, release, immediately hold on ambient A: only `Nearby NPC`, never Nathan. Switch A/B repeatedly: each notice names the ped that actually received that turn.
 11. Regression: Text, MarkedTalk, shared Essential Talk interception, `talkTargeting.enabled=false`, F11 Follow/Wait/Promote, no per-frame cost increase and no HUD spam.
+
+## K. Verified conversation continuity — October 18 regression
+
+1. Select and talk to promoted, P1 owner-verified Nathan. Let his reply finish; keep him as your companion. With no additional tap, hold to speak again. **Pass:** `mode=verified_continuity`, `recipient=promoted evidence=owner_verified`; native mic recipient and companion turn still point to Nathan.
+2. Enter the same vehicle, seat Nathan as driver, and ask him to drive three times and then `DriveEvasively`. Change camera aim, speed and street. Have an ambient pedestrian become visually central. Hold and ask `Drive` and `Did you get stuck?`. **Pass:** Nathan remains the verified recipient; the pedestrian receives no turn. Compare to the original October 18 logs.
+3. Tap/cycle to the ambient NPC and hold. **Pass:** intent changes the exact mic target to ambient. Do not retain a promoted conversation over a deliberate tap.
+4. Restore Nathan by an intentional tap; then kill or despawn him, dismiss him, suspend his native P1 authority, switch ownership incarnation, or disrupt native proof. **Pass:** no stale handle/proof revival, `conversation_continuity invalidated`, and the next direct hold returns `target_lost` rather than picking the ambient bystander. After an explicit tap, ambient selection remains usable.
+5. Start conversation with Nathan and change protagonist or restart the world. **Pass:** world reset clears relationship and microphone; no old Ped handle can be reused.
+6. Stop speaking for 3 minutes on foot or 15 minutes in a shared vehicle. **Pass:** relationship eventually expires; it is not an indefinite forced lock. Move farther than retention distance without a shared vehicle to validate immediate fail-closed release.
+7. Review the native `[UX4]` logs plus companion recipient binding and dialogue metadata. **Pass:** each mic start carries a selected mode, proven recipient kind/evidence and one authoritative target; no excessive per-frame logs or transcript copies.
+
+Offline tests validate simulated lifetimes and target binding, not visible lip movement or audible speech. GTA live testing remains mandatory.
