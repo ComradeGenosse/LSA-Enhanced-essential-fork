@@ -128,6 +128,16 @@ export function parseVehicleSeatPlayerRequest(input) {
     slots:Object.freeze({vehicle:Object.freeze({kind:'player_vehicle'}),seat})});
 }
 
+// Diagnostic category only: never emit raw model commands or pretend a
+// reference-shaped V### string has passed Essential's live entity validation.
+export function vehicleSeatModelCommandKind(command) {
+  const value=String(command||'').trim();
+  if(!value)return 'none';
+  if(/<[^>]+>|\{[^}]+\}|\bVXXX\b/i.test(value))return 'placeholder';
+  if(/^DO\s+[A-Za-z][A-Za-z0-9]*\s+V\d{3}$/i.test(value))return 'reference_shaped';
+  return 'other';
+}
+
 // Pure post-model guard. A direct native ACT3 seat order cannot be replaced by
 // an arbitrary DO token or claimed complete just because Luna said it was.
 // Tested independently of network, STT, Essential parser and the native runner.
