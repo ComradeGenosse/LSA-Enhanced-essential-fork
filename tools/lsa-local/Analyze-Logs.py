@@ -215,11 +215,16 @@ def parse_inputs(files, issues):
             try:
                 row = json.loads(line.decode("utf-8-sig"))
                 if (row.get("runId") != run_id or type(row.get("sequence")) is not int
-                    or not isinstance(row.get("event"), str)):
+                    or not isinstance(row.get("event"), str) or
+                    not re.fullmatch(r"[a-z][a-z0-9_]{2,79}", row["event"])):
                     raise ValueError()
                 identity = row.get("identity")
                 identity = identity if isinstance(identity, dict) else None
-                events[run_id].append({"event": row["event"], "timestamp": row.get("timestamp"),
+                timestamp = row.get("timestamp")
+                if not isinstance(timestamp, str) or not re.fullmatch(
+                        r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?Z", timestamp):
+                    timestamp = None
+                events[run_id].append({"event": row["event"], "timestamp": timestamp,
                     "sequence": row["sequence"], "data": projected_data(row.get("data")),
                     "identity": identity, "evidence": evidence(filename, lineno, row)})
             except (ValueError, TypeError, UnicodeError, AttributeError):
@@ -261,7 +266,8 @@ def session_gaps(rows, manifest, malformed, archive_gaps):
 
 def health_row(raw, transitions, gaps, install=None, world_cutoff=None):
     mode = raw.get("configuredMode", "unknown")
-    if not isinstance(mode, str):
+    if mode not in ("off", "on", "shadow", "experimental", "active",
+                    "openai", "elevenlabs", "gemini", "auto", "unspecified", "unknown"):
         mode = "unknown"
     implemented = raw.get("implemented")
     if type(implemented) is not bool:
