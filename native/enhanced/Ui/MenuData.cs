@@ -19,7 +19,7 @@ namespace LSA.Enhanced.Ui
         readonly IClock clock;
         readonly Action<Action> worker;
         readonly ConcurrentQueue<Action> applied = new ConcurrentQueue<Action>();
-        bool listInFlight, describeInFlight, probeInFlight, readinessInFlight;
+        bool listInFlight, describeInFlight, probeInFlight, readinessInFlight, directorInFlight;
         string describeKey, pendingKey;
         long describeAt;
         // worker runs JSON parsing off the game fiber (the thread pool by default).
@@ -33,6 +33,7 @@ namespace LSA.Enhanced.Ui
         public bool CompanionReachable {get;private set;} = true;
         public Describe Describe {get;private set;}
         public GameplayMenuReadiness ActivityReadiness {get;private set;}
+        public DirectorSocialStatus DirectorStatus {get;private set;}
         public string DescribeKey => describeKey;
         public int Version {get;private set;}
         public void RequestCharacters()
@@ -77,6 +78,19 @@ namespace LSA.Enhanced.Ui
                 applied.Enqueue(() => {
                     readinessInFlight = false;
                     ActivityReadiness = result; // fail closed when the companion disconnects
+                    Version++;
+                });
+            });
+        }
+        public void RequestDirectorStatus()
+        {
+            if (directorInFlight) return;
+            directorInFlight = true;
+            companion.Post("{\"action\":\"director_social_status\"}",DescribeBodyBytes,RequestTimeoutMs,reply => {
+                var result = reply != null && reply.Ok ? DirectorSocialStatus.Parse(reply.Body) : null;
+                applied.Enqueue(() => {
+                    directorInFlight = false;
+                    DirectorStatus = result; // unknown means no admission claim
                     Version++;
                 });
             });

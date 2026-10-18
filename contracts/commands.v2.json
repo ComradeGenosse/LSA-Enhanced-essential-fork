@@ -32,6 +32,7 @@
     { "id": "activity.cancel", "class": "control", "target": "current", "gesture": true, "executor": "companion", "hud": "Activity cancelled" },
     { "id": "activity.assign", "class": "lifecycle", "target": "current", "gesture": false, "executor": "companion", "hud": "Activity assigned" },
     { "id": "activity.history", "class": "read", "target": "current", "gesture": false, "executor": "companion", "hud": "Activity history" },
+    { "id": "director.socialManual", "class": "control", "target": "none", "gesture": false, "executor": "companion", "hud": "Social request queued" },
     { "id": "ui.mainMenu", "class": "ui", "target": "none", "gesture": true, "executor": "ui", "hud": "Menu" },
     { "id": "ui.quickMenu", "class": "ui", "target": "none", "gesture": true, "executor": "ui", "hud": "Current NPC" }
   ],

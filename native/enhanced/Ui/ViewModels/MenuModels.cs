@@ -238,11 +238,51 @@ namespace LSA.Enhanced.Ui
         }
     }
 
+    public sealed class DirectorSocialStatus
+    {
+        public long ReceivedAt = -1;
+        public bool ExecutionAvailable;
+        public string Status,Reason;
+        public static DirectorSocialStatus Parse(string json)
+        {
+            try {
+                var root = new JavaScriptSerializer {MaxJsonLength = 8192,RecursionLimit = 5}.DeserializeObject(json ?? "") as Dictionary<string,object>;
+                if (root == null) return null;
+                var result = new DirectorSocialStatus {ExecutionAvailable = root.TryGetValue("executionAvailable",out var available) && available is bool yes && yes};
+                if (root.TryGetValue("nativeResult",out var raw) && raw is Dictionary<string,object> entry) {
+                    if (entry.TryGetValue("receivedAt",out var at) && (at is int || at is long)) result.ReceivedAt = Convert.ToInt64(at,CultureInfo.InvariantCulture);
+                    string status = entry.TryGetValue("status",out var state) ? state as string : null;
+                    if (status == "accepted" || status == "rejected" || status == "failed") result.Status = status;
+                    string reason = entry.TryGetValue("reason",out var code) ? code as string : null;
+                    if (reason != null && Regex.IsMatch(reason,"^[a-z][a-z0-9_]{0,47}$")) result.Reason = reason;
+                }
+                return result;
+            } catch { return null; }
+        }
+    }
     public static class DirectorSocialView
     {
-        public static List<MenuLine> Build() => new List<MenuLine> {
-            MenuLine.Fact("admission","Manual social scene","Not yet available","GM5 must use the existing Director admission pathway and distinguish queued, admitted and speech delivered."),
-        };
+        public static List<MenuLine> Build(DirectorSocialStatus status = null,bool companionAvailable = false,bool checking = false,long after = -1)
+        {
+            bool enabled = companionAvailable && status?.ExecutionAvailable == true;
+            var lines = new List<MenuLine> {
+                MenuLine.Action("startSocial","Start conversation",CommandCatalog.DirectorSocialManual,
+                    "Request a social scene through the existing native Director. Queued or admitted does not mean speech was delivered.",enabled),
+                MenuLine.Fact("directorReady","Director admission",!companionAvailable ? "Companion unavailable" :
+                    status == null ? "Checking..." : enabled ? "Available" : "Unavailable",
+                    "Native execution, cooldown, actor busy and ownership gates still apply."),
+            };
+            if (checking && (status == null || status.ReceivedAt <= after)) {
+                lines.Add(MenuLine.Fact("admission","Latest request","Queued; awaiting native admission","The scene may be blocked by Director or Essential. This is not speech delivery."));
+            } else if (status?.Status != null) {
+                lines.Add(MenuLine.Fact("admission","Native admission",CurrentNpcView.Capitalize(status.Status),
+                    status.Reason == null ? "Native Director admission only, not confirmed audible dialogue." :
+                    "Reason: " + status.Reason.Replace('_',' ') + ". Not proof of speech delivery."));
+            } else lines.Add(MenuLine.Fact("admission","Native admission","No result yet","Select Start conversation while native Director is available."));
+            lines.Add(MenuLine.Fact("delivery","Spoken response","Not verified","Director and Essential speech delivery must be verified separately from admission."));
+            lines.Add(MenuLine.Action("refresh","Refresh status",null,"Re-check native Director admission and availability."));
+            return lines;
+        }
     }
     public sealed class MemoryRow
     {
