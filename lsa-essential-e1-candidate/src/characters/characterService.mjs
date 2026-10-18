@@ -38,7 +38,7 @@ export function normalizeCharacterConfig(value = {}) {
   return Object.freeze({ enabled:value.enabled === true,storePath,storageMode,sqliteStorePath,pipeName,editorPort,summonWaitMs });
 }
 export class CharacterService {
-  #queue = Promise.resolve(); #initializing; #syncing; #lastSync = 0;
+  #queue = Promise.resolve(); #initializing; #syncing; #lastSync = 0; #lastRosterState;
   constructor(config,{ identityService,voiceResolver,store,nativeOwner,telemetry } = {}) {
     this.config = config; this.identity = identityService; this.voice = voiceResolver; this.telemetry = telemetry;
     // Explicit opt-in only. JSON is the unchanged production default.
@@ -171,8 +171,26 @@ export class CharacterService {
   }); }
   async list() {
     await this.#requireReady();
-    let roster = []; try { roster = (await this.native.request('roster'))?.owned || []; } catch {}
-    return this.store.list().map(profile => ({ ...profile,runtimeStatus:roster.find(item => item.ownerAlias === profile.promotion.ownerAlias)?.status || profile.status }));
+    // A failed/invalid native roster is UNKNOWN, never proof the actor is absent.
+    // The F11 menu may independently establish a short-lived exact owner binding.
+    let roster = null;
+    try {
+      const result = await this.native.request('roster');
+      if (!Array.isArray(result?.owned) || !result.owned.every(item =>
+        typeof item?.ownerAlias === 'string' && ['spawned','suspended'].includes(item.status)))
+        throw new Error('invalid_native_roster');
+      roster = result.owned;
+    } catch {}
+    const rosterState = roster === null ? 'unavailable' : roster.length ? 'active' : 'empty';
+    if (rosterState !== this.#lastRosterState) {
+      this.#lastRosterState = rosterState;
+      this.emit('character_roster_status',{rosterState,count:roster?.length ?? 0});
+    }
+    return this.store.list().map(profile => ({
+      ...profile,
+      runtimeStatus:roster === null ? 'unverified'
+        : roster.find(item => item.ownerAlias === profile.promotion.ownerAlias)?.status ?? profile.status
+    }));
   }
   async edit(characterId,patch,revision) { return this.#serial(async () => { await this.#requireReady(); const profile = await this.store.edit(characterId,patch,revision); this.sessions.reservePersistent(this.store.list()); this.emit('character_profile_edited',{profileRevision:profile.revision}); return profile; }); }
   async memory(characterId,operation,args) { return this.#serial(async () => { await this.#requireReady(); const result = await this.store.memory(characterId,operation,args); this.emit(`character_memory_${operation === 'create' ? 'created' : operation === 'edit' ? 'edited' : 'deleted'}`,{profileRevision:result.profile.revision}); return result; }); }
