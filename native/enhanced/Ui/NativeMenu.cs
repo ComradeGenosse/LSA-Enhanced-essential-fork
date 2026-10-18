@@ -351,7 +351,7 @@ namespace LSA.Enhanced.Ui
                     // Force fresh native evidence after spawn/follow/retirement.
                     // A stale pre-spawn roster response cannot consume this refresh.
                     data.InvalidateCharacterBinding();
-                    data.RequestCharacters();
+                    data.RequestCharacters(refreshAfterInFlight:true);
                     if (selectedCharacterId != null) data.RequestCharacterBinding(selectedCharacterId);
                     nextRoster = 0; nextBinding = 0;
                     break;
