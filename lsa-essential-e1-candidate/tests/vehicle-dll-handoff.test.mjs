@@ -46,7 +46,7 @@ test('native ACT6 handoff explicitly disables the still-active stock mode before
   const cs=readFileSync(new URL('../../native/promoted-characters/ActivityDispatch.cs',import.meta.url),'utf8');
   const handoff=cs.slice(cs.indexOf('if (capability == "drive_to") {',cs.indexOf('else if (capability == "walk_to" || capability == "drive_to") {',cs.indexOf('public bool Dispatch'))));
   assert.ok(handoff.includes('VehicleBehavior.StopAllVehicleCommands(ped,state);'));
-  assert.match(handoff,/VehicleBehavior\\.StopAllVehicleCommands\\(ped,state\\);\\s*state\\.DriveToXWhenBothSeated = false;/);
+  assert.match(handoff,new RegExp('VehicleBehavior'+'\\.'+'StopAllVehicleCommands'+'\\('+'ped,state'+'\\);'+'\\s*'+'state'+'\\.'+'DriveToXWhenBothSeated = false;'));
   const off=handoff.indexOf('state.DriveToXWhenBothSeated = false;');
   const task=handoff.indexOf('"TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE"');
   assert.ok(off>=0&&task>off,'free-drive flag is retired before ACT6 route task');
