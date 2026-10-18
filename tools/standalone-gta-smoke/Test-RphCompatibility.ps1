@@ -30,7 +30,15 @@ if ($ExpectedHostDll) {
     throw 'The packaged RAGE host does not match the verified clean Release build.'
   }
 }
-$project = Join-Path $PSScriptRoot '../../native/standalone-host/tests/RphSignatureAudit.csproj'
+$packagedProject = Join-Path $PSScriptRoot 'native/standalone-host/tests/RphSignatureAudit.csproj'
+$project = if (Test-Path -LiteralPath $packagedProject -PathType Leaf) {
+  $packagedProject
+} else {
+  Join-Path $PSScriptRoot '../../native/standalone-host/tests/RphSignatureAudit.csproj'
+}
+if (-not (Test-Path -LiteralPath $project -PathType Leaf)) {
+  throw 'Compatibility validator project unavailable; use the complete verified package or repository.'
+}
 # The tool reads raw ECMA-335 metadata and does not load or execute RPH DLL code.
 & dotnet run --project $project --configuration Release -- $reference $hostBinary $coreBinary $ReportPath
 if ($LASTEXITCODE -ne 0) { throw "Standalone ABI scan rejected the payload; inspect $ReportPath" }
