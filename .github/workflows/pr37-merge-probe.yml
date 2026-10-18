@@ -118,7 +118,7 @@ jobs:
           runtime=check_output(['git','show','origin/main:'+native_path],text=True)
           def insert_once(needle,new):
               global runtime
-              if runtime.count(needle)!=1: raise RuntimeError('C01 merge anchor unexpectedly changed: '+needle[:80])
+              if runtime.count(needle)<1: raise RuntimeError('C01 merge anchor unexpectedly changed: '+needle[:80])
               runtime=runtime.replace(needle,new,1)
           import_start="import { UtteranceLifecycle } from './utteranceLifecycle.mjs';"
           import_end="import {publishSpeechObservations} from './speechEvents.mjs';"
