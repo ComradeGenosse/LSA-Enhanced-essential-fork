@@ -76,10 +76,10 @@ test('fallback history supersedes undelivered candidate and requires exact playb
 
 test('speech delivery ledger replaces failed no-PCM segment without forging playback',()=>{
   const source=createNpcSpeechDeliverySource();
-  const id={pedId:'a0a0a0a0-0000-4000-8000-000000000001',turnId:'t1',generationId:1,sessionNonce:2};
+  const id={pedId:'00000001',turnId:'t1',generationId:1,sessionNonce:2};
   const ctrl=new AbortController();
   const ledger=source.recorder.openTurn({identity:id,source:'player_text',connection:{},signal:ctrl.signal});
-  if(!ledger)return; // native actor ID types differ between candidate tiers; behavioral runner covers this.
+  assert.ok(ledger, 'test must exercise a valid native-actor speech ledger');
   const failed=ledger.beginSegment({sequence:0,text:'Unspoken initial answer'});
   failed.failed();
   assert.equal(ledger.replaceUndeliveredWithFallback('Actual backup line'),true);
