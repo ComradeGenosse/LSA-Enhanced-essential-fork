@@ -136,7 +136,6 @@ test('intelligence telemetry keeps only bounded lifecycle and PS2/PS3 scalar dia
     ps3: { decisions: 15, urgent: 16, eligible: 17, staged: 18, suppressed: 19, faults: 20, reasons: { safetySelfDanger: 37, safetyPlayerHarm: 38, safetyNearbyThreat: 39, repetitionSuppressed: 40, revisionStale: 41, noveltyEscalation: 42, suppressionCapacity: 43 }, profile: { biography: 'PRIVATE' } },
     finalSnapshot: true, dialogue: 'PRIVATE DIALOGUE',
   });
-  console.log('PR35_TELEMETRY_PROBE',JSON.stringify({moduleHasFields:createCompanionShadowTelemetry.toString().includes('ps2VisualShotEvicted'),keys:Object.keys(projection).filter(key=>key.includes('VisualShot')),values:[projection.ps2VisualShotEvicted,projection.ps2VisualShotAmbiguous]}));
   assert.deepEqual(projection, {
     anchors: 4, retainedSignals: 9, received: 10, dropped: 2, stale: 3, malformed: 4, duplicate: 5, gaps: 6, expired: 7, resets: 8,
     historyExpired: 21, historyEvicted: 22, historySkipped: 23, historyHighWater: 24,
