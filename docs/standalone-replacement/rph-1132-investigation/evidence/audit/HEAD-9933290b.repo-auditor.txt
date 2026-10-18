@@ -1,0 +1,1 @@
+RPH ABI scan: types=14 members=33 coreTypes=18 coreMembers=67 resolved=100 errors=0 warnings=0 reference=RagePluginHook, Version=0.0.0.0 sha256=5D439745604A5FEDBF8FA401520D4F296C1B6800D77E2923BA3BF9772182C7E0

@@ -1,0 +1,59 @@
+SUMMARY	types_ok=9	members_ok=22	specs_ok=1	named_args_ok=26	failures=0	matcher_disagreements=0	api=RagePluginHook.dll	plugin=LSA.PromotedCharacters.dll
+OK	TYPE	[RagePluginHook]Rage.Attributes.PluginAttribute
+OK	TYPE	[RagePluginHook]Rage.GameFiber
+OK	TYPE	[RagePluginHook]Rage.GraphicsEventArgs
+OK	TYPE	[RagePluginHook]Rage.Graphics
+OK	TYPE	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute
+OK	TYPE	[RagePluginHook]Rage.Game
+OK	TYPE	[RagePluginHook]Rage.GameConsole
+OK	TYPE	[RagePluginHook]Rage.Native.NativeArgument
+OK	TYPE	[RagePluginHook]Rage.Native.NativeFunction
+OK	MEMBER	[RagePluginHook]Rage.Attributes.PluginAttribute::.ctor(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute::.ctor():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::DisplaySubtitle(System.String,System.Int32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::DisplayNotification(System.String):System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_Console():class [RagePluginHook]Rage.GameConsole static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameConsole::get_IsOpen():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_IsPaused():System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::StartNew(class [mscorlib]System.Threading.ThreadStart,System.String):class [RagePluginHook]Rage.GameFiber static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::LogTrivial(System.String):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::Sleep(System.Int32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::Yield():System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::add_FrameRender(class [mscorlib]System.EventHandler`1<class [RagePluginHook]Rage.GraphicsEventArgs>):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::remove_FrameRender(class [mscorlib]System.EventHandler`1<class [RagePluginHook]Rage.GraphicsEventArgs>):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.GraphicsEventArgs::get_Graphics():class [RagePluginHook]Rage.Graphics instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_Resolution():valuetype [System.Drawing]System.Drawing.Size static	Public
+OK	MEMBER	[RagePluginHook]Rage.Graphics::DrawText(System.String,System.String,System.Single,valuetype [System.Drawing]System.Drawing.PointF,valuetype [System.Drawing]System.Drawing.Color):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Graphics::DrawRectangle(valuetype [System.Drawing]System.Drawing.RectangleF,valuetype [System.Drawing]System.Drawing.Color):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Int32):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.String):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeFunction::CallByHash(System.UInt64,class [mscorlib]System.Type,class [RagePluginHook]Rage.Native.NativeArgument[]):System.Object static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameConsole::Print(System.String):System.Void instance	Public
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Int32>
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.Author:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.EntryPoint:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.ExitPoint:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.AssemblyProbingPaths:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.PrefersSingleInstance:System.Boolean
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String

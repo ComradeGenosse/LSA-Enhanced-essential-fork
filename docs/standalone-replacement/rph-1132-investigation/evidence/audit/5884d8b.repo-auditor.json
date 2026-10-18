@@ -1,0 +1,88 @@
+{
+  "referencePath": "/home/claude/rph55/extracted/sdk124/lib/net472/RagePluginHook.dll",
+  "referenceSha256": "5D439745604A5FEDBF8FA401520D4F296C1B6800D77E2923BA3BF9772182C7E0",
+  "referenceIdentity": "RagePluginHook, Version=0.0.0.0",
+  "scannedBinaries": [
+    "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+    "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.Core.dll"
+  ],
+  "rageTypeReferences": 11,
+  "rageMemberReferences": 32,
+  "resolvedMembers": 90,
+  "coreTypeReferences": 18,
+  "coreMemberReferences": 67,
+  "genericMethodSpecifications": 17,
+  "findings": [
+    {
+      "severity": "error",
+      "code": "MISSING_TYPE",
+      "assembly": "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+      "reference": "Rage.LocalPlayer",
+      "detail": "Not present in inspected RPH reference."
+    },
+    {
+      "severity": "error",
+      "code": "METHOD_SIGNATURE_MISMATCH",
+      "assembly": "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+      "reference": "Rage.Native.NativeFunction.CallByName",
+      "detail": "Expected static Default generic=1 !!0(System.String,System.Object[]) required=2; candidates: static Default generic=0 System.Object(System.String,System.Type,Rage.Native.NativeArgument[]) required=3; static Default generic=1 !!0(System.String,Rage.Native.NativeArgument[]) required=2"
+    },
+    {
+      "severity": "error",
+      "code": "METHOD_SIGNATURE_MISMATCH",
+      "assembly": "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+      "reference": "Rage.Ped.op_Inequality",
+      "detail": "Expected static Default generic=0 System.Boolean(Rage.Ped,Rage.Ped) required=2; candidates: static Default generic=0 System.Boolean(Rage.Entity,Rage.Entity) required=2"
+    },
+    {
+      "severity": "error",
+      "code": "MISSING_METHOD",
+      "assembly": "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+      "reference": "Rage.Ped.Exists",
+      "detail": "instance Default generic=0 System.Boolean() required=0"
+    },
+    {
+      "severity": "error",
+      "code": "METHOD_SIGNATURE_MISMATCH",
+      "assembly": "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+      "reference": "Rage.Ped.op_Equality",
+      "detail": "Expected static Default generic=0 System.Boolean(Rage.Ped,Rage.Ped) required=2; candidates: static Default generic=0 System.Boolean(Rage.Entity,Rage.Entity) required=2"
+    },
+    {
+      "severity": "error",
+      "code": "METHOD_SIGNATURE_MISMATCH",
+      "assembly": "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+      "reference": "Rage.Game.get_LocalPlayer",
+      "detail": "Expected static Default generic=0 Rage.LocalPlayer() required=0; candidates: static Default generic=0 Rage.Player() required=0"
+    },
+    {
+      "severity": "error",
+      "code": "MEMBER_PARENT_TYPE_MISSING",
+      "assembly": "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+      "reference": "Rage.LocalPlayer.get_Character",
+      "detail": "Type not present in RPH reference."
+    },
+    {
+      "severity": "error",
+      "code": "METHOD_SIGNATURE_MISMATCH",
+      "assembly": "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+      "reference": "Rage.Ped.DistanceTo",
+      "detail": "Expected instance Default generic=0 System.Single(Rage.Ped) required=1; candidates: instance Default generic=0 System.Single(Rage.Vector3) required=1; instance Default generic=0 System.Single(Rage.ISpatial) required=1"
+    },
+    {
+      "severity": "error",
+      "code": "METHOD_SIGNATURE_MISMATCH",
+      "assembly": "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+      "reference": "Rage.Native.NativeFunction.CallByHash",
+      "detail": "Expected static Default generic=1 !!0(System.UInt64,System.Object[]) required=2; candidates: static Default generic=0 System.Object(System.UInt64,System.Type,Rage.Native.NativeArgument[]) required=3; static Default generic=1 !!0(System.UInt64,Rage.Native.NativeArgument[]) required=2"
+    },
+    {
+      "severity": "error",
+      "code": "METHOD_SIGNATURE_MISMATCH",
+      "assembly": "/home/claude/rph55/extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+      "reference": "Rage.Native.NativeFunction.CallByHash",
+      "detail": "Expected static Default generic=0 System.Object(System.UInt64,System.Object[]) required=2; candidates: static Default generic=0 System.Object(System.UInt64,System.Type,Rage.Native.NativeArgument[]) required=3; static Default generic=1 !!0(System.UInt64,Rage.Native.NativeArgument[]) required=2"
+    }
+  ],
+  "passed": false
+}

@@ -1,0 +1,27 @@
+# PC-side SHA-256 (read-only, device shell) vs. the copies analysed in this investigation
+# PC check time (device clock): 2026-10-18T14:45:50Z; analysed copies staged 2026-10-18 ~13:33 UTC
+# PC digest over the 22 hashes in this order: 42dea85eed34975f2f0f4994ba2e4e20c0116a0fb7a8df2541f0298baff4b483
+# digest rebuilt from this file: 42dea85eed34975f2f0f4994ba2e4e20c0116a0fb7a8df2541f0298baff4b483 -> VERIFIED (exact)
+# match=18 drift=4
+MATCH  73f05b3f7973d4731f4151ae061dd3c991065e8bf3ece51ea1d9ab728b9b42ac   12237182  Grand Theft Auto V Enhanced/RAGEPluginHook.exe
+MATCH  d2607481b206e7907c9c1f2cabf15797654aacaaf1746ea202740dcdd5eb8bbb     291328  Grand Theft Auto V Enhanced/RAGENativeUI.dll
+MATCH  9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653    2407424  Grand Theft Auto V Enhanced/plugins/LosSantosAlive.dll
+DRIFT  pc=389cf1824d9dc11b6c7b62a805a9547f2b80c3f2447163072b7ffcae66dbcc2d  pc_bytes=185344  pc_mtime=2026-10-18T14:22:49Z  analysed=3126cdd60016e1f57483bb6fa95ca1cef73b80882687c1f482c433de628b05cf  analysed_bytes=185344  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters.dll
+DRIFT  pc=1467a18887c7260588d587e1fa6da2224cb20fb808d5464bedb98933ffef2675  pc_bytes=495104  pc_mtime=2026-10-18T14:22:48Z  analysed=9fb323b6132ddbaed89f42a5b37c9958a5fab586976c98fe09bb0822ce8820cc  analysed_bytes=493056  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Runtime.dll
+DRIFT  pc=7cbe0b1f7e9f5d87cbda84aba4b6bab77648036bdfe0638827598ae33a38c237  pc_bytes=9728  pc_mtime=2026-10-18T14:22:49Z  analysed=5d67229e0f8282324cfe712cc3908e459f15c920c1c2167fe4dbbb199bc3c3b3  analysed_bytes=9728  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Bootstrap.dll
+DRIFT  pc=d8b190e603872171d1cda93f9ac1a2e4992f4175d098a3237c1600391a0486c6  pc_bytes=27136  pc_mtime=2026-10-18T14:22:47Z  analysed=d9c80fe9a63db4af88a6877061cef5c1579755e81a477c6cd1b0c78500821bc1  analysed_bytes=27136  Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.SessionIdentity.dll
+MATCH  72a25833f2d632b347f06b54ef331fe831da84909e196fe59fa123d7812c3e03       9728  Grand Theft Auto V Enhanced/plugins/SmartVehicleEntry.dll
+MATCH  712f9491c0693d496ea82b1e4cefaa03c0575408a2fefa8d9e295bb516e5ad3e     294400  Grand Theft Auto V Enhanced/plugins/LSPDFR/LosSantosAlive.PRBridge.dll
+MATCH  b471252afa5e32f8c2f98e842c0f931bcd54149a16fd0f42c407c5811abc97a8      27648  Grand Theft Auto V Enhanced/plugins/LSPDFR/LosSantosAlive.Interop.dll
+MATCH  76be9b2573d9e78391d35f1adf354ed1971f530622350a1484130bc59cbb26e4      57856  Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/pr50-testing/payload/LSA.Standalone.RageHost.dll
+MATCH  51ba61c46e255507906ff177f64ef1d05e9cc4651d18de3f71fba812bea8b805      30208  Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/pr50-testing/payload/LSA.Standalone.Core.dll
+MATCH  76be9b2573d9e78391d35f1adf354ed1971f530622350a1484130bc59cbb26e4      57856  Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/pr50-switcher-testing/payload/LSA.Standalone.RageHost.dll  (not staged; compared with analysed twin Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/pr50-testing/payload/LSA.Standalone.RageHost.dll)
+MATCH  51ba61c46e255507906ff177f64ef1d05e9cc4651d18de3f71fba812bea8b805      30208  Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/pr50-switcher-testing/payload/LSA.Standalone.Core.dll  (not staged; compared with analysed twin Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/pr50-testing/payload/LSA.Standalone.Core.dll)
+MATCH  37a84b5e08da3ccd87ac55f38ab36793cd53e3d33471a6369ca4db98a813004c      57856  Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/pr50-5884d8b-testing/payload/LSA.Standalone.RageHost.dll
+MATCH  984ee238aecb9bb8c648183e14c938468e4279640ff32abd6f4776e1e933b6cd      30208  Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/pr50-5884d8b-testing/payload/LSA.Standalone.Core.dll
+MATCH  ca07e3be0ccfb70323c2f64dde9e82bcb128e30035e440b2682c1876f2567423      95818  Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/lsa-standalone-gta-smoke.zip
+MATCH  fba36250da34e9c077b1a9fb4bdb94c84ce79496152f3290560984f01e69e078      96166  Codex/2026-10-18/implemented-in-pr-50-x20-build/work/pr50-5884d8b-artifact/lsa-standalone-gta-smoke.zip
+MATCH  b48e24aa586a73b5f1f3b220ea7eb7576d388a52446a11d69fa29842f8508c36     186803  Downloads/ragepluginhook.1.124.0.nupkg
+MATCH  4751d4b2fbfc7cd0b3f901d711d1d4c245fef774082ab87f9fed52a49ef3e159   13130999  Downloads/RAGEPluginHook_1_131_1424_17745.zip
+MATCH  8524e534f219c7f33634ed45ced055f3c7b0b461fa8302ff2f0ac46470c7ed34   86824044  Downloads/lspdfr_049_9695_Manual_Install_Enhanced_1158_16.zip  (not staged; compared with analysed twin Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/lspdfr_049_9695_Manual_Install_Enhanced_1158_16.zip)
+MATCH  8524e534f219c7f33634ed45ced055f3c7b0b461fa8302ff2f0ac46470c7ed34   86824044  Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/lspdfr_049_9695_Manual_Install_Enhanced_1158_16.zip

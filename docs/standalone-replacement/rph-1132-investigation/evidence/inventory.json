@@ -1,0 +1,3203 @@
+[
+ {
+  "path": "extracted/sdk124/lib/net472/RagePluginHook.dll",
+  "file": "RagePluginHook.dll",
+  "size": 219648,
+  "sha256": "5D439745604A5FEDBF8FA401520D4F296C1B6800D77E2923BA3BF9772182C7E0",
+  "machine": "0x8664",
+  "pe_kind": "PE32+",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 1765387792,
+  "entrypoint_rva": "0x0",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 215140,
+    "rawsize": 215552,
+    "characteristics": "0x60000020",
+    "entropy": 5.612
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 3584,
+    "rawsize": 3584,
+    "characteristics": "0x40000040",
+    "entropy": 4.802
+   }
+  ],
+  "version_resource": {
+   "CompanyName": "MulleDK19 / LMS",
+   "FileDescription": "RAGE Plugin Hook is a library enabling developers to write plugins for games powered by the RAGE engine.",
+   "FileVersion": "1.124.1393.17586",
+   "InternalName": "RAGEPluginHook.dll",
+   "LegalCopyright": "Copyright \u00a9 MulleDK19 / LMS \u00ae All rights reserved.",
+   "OriginalFilename": "RAGEPluginHook.dll",
+   "ProductName": "RAGE Plugin Hook",
+   "ProductVersion": "1.124.1393.17586",
+   "_FixedFileVersion": "1.124.1393.17586",
+   "_FixedProductVersion": "1.124.1393.17586"
+  },
+  "native_imports": [],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 95,
+   "TypeDef": 186,
+   "Field": 1610,
+   "MethodDef": 2759,
+   "Param": 3372,
+   "InterfaceImpl": 44,
+   "MemberRef": 44,
+   "Constant": 1498,
+   "CustomAttribute": 454,
+   "FieldMarshal": 659,
+   "DeclSecurity": 1,
+   "ClassLayout": 4,
+   "StandAloneSig": 2,
+   "EventMap": 4,
+   "Event": 7,
+   "PropertyMap": 97,
+   "Property": 913,
+   "MethodSemantics": 1327,
+   "MethodImpl": 3,
+   "ModuleRef": 2,
+   "TypeSpec": 22,
+   "Assembly": 1,
+   "AssemblyRef": 18,
+   "NestedClass": 1,
+   "GenericParam": 17,
+   "GenericParamConstraint": 5
+  },
+  "assembly": {
+   "name": "RagePluginHook",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "RagePluginHook.dll",
+   "mvid": "5728b081-dfd1-46d5-b76d-97724e133a91"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "Gwen",
+    "version": "1.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "Gwen.UnitTest",
+    "version": "1.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "Microsoft.CSharp",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "Mono.Cecil",
+    "version": "0.9.6.0",
+    "culture": "",
+    "public_key_or_token": "0738eb9f132ed756"
+   },
+   {
+    "name": "Mono.Cecil.Mdb",
+    "version": "0.9.6.0",
+    "culture": "",
+    "public_key_or_token": "0738eb9f132ed756"
+   },
+   {
+    "name": "Mono.Cecil.Pdb",
+    "version": "0.9.6.0",
+    "culture": "",
+    "public_key_or_token": "0738eb9f132ed756"
+   },
+   {
+    "name": "Mono.Cecil.Rocks",
+    "version": "0.9.6.0",
+    "culture": "",
+    "public_key_or_token": "0738eb9f132ed756"
+   },
+   {
+    "name": "SlimDX",
+    "version": "4.0.13.43",
+    "culture": "",
+    "public_key_or_token": "b1b0c32fd1ffe4f9"
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Data",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Drawing",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "System.IO.Compression",
+    "version": "4.2.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.IO.Compression.FileSystem",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Management",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "System.Windows.Forms",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Xml",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   }
+  ],
+  "module_refs": [
+   "KERNEL32.dll",
+   ""
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "extracted/rph131/SDK/RagePluginHookSDK.dll",
+  "file": "RagePluginHookSDK.dll",
+  "size": 219648,
+  "sha256": "5D439745604A5FEDBF8FA401520D4F296C1B6800D77E2923BA3BF9772182C7E0",
+  "machine": "0x8664",
+  "pe_kind": "PE32+",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 1765387792,
+  "entrypoint_rva": "0x0",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 215140,
+    "rawsize": 215552,
+    "characteristics": "0x60000020",
+    "entropy": 5.612
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 3584,
+    "rawsize": 3584,
+    "characteristics": "0x40000040",
+    "entropy": 4.802
+   }
+  ],
+  "version_resource": {
+   "CompanyName": "MulleDK19 / LMS",
+   "FileDescription": "RAGE Plugin Hook is a library enabling developers to write plugins for games powered by the RAGE engine.",
+   "FileVersion": "1.124.1393.17586",
+   "InternalName": "RAGEPluginHook.dll",
+   "LegalCopyright": "Copyright \u00a9 MulleDK19 / LMS \u00ae All rights reserved.",
+   "OriginalFilename": "RAGEPluginHook.dll",
+   "ProductName": "RAGE Plugin Hook",
+   "ProductVersion": "1.124.1393.17586",
+   "_FixedFileVersion": "1.124.1393.17586",
+   "_FixedProductVersion": "1.124.1393.17586"
+  },
+  "native_imports": [],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 95,
+   "TypeDef": 186,
+   "Field": 1610,
+   "MethodDef": 2759,
+   "Param": 3372,
+   "InterfaceImpl": 44,
+   "MemberRef": 44,
+   "Constant": 1498,
+   "CustomAttribute": 454,
+   "FieldMarshal": 659,
+   "DeclSecurity": 1,
+   "ClassLayout": 4,
+   "StandAloneSig": 2,
+   "EventMap": 4,
+   "Event": 7,
+   "PropertyMap": 97,
+   "Property": 913,
+   "MethodSemantics": 1327,
+   "MethodImpl": 3,
+   "ModuleRef": 2,
+   "TypeSpec": 22,
+   "Assembly": 1,
+   "AssemblyRef": 18,
+   "NestedClass": 1,
+   "GenericParam": 17,
+   "GenericParamConstraint": 5
+  },
+  "assembly": {
+   "name": "RagePluginHook",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "RagePluginHook.dll",
+   "mvid": "5728b081-dfd1-46d5-b76d-97724e133a91"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "Gwen",
+    "version": "1.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "Gwen.UnitTest",
+    "version": "1.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "Microsoft.CSharp",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "Mono.Cecil",
+    "version": "0.9.6.0",
+    "culture": "",
+    "public_key_or_token": "0738eb9f132ed756"
+   },
+   {
+    "name": "Mono.Cecil.Mdb",
+    "version": "0.9.6.0",
+    "culture": "",
+    "public_key_or_token": "0738eb9f132ed756"
+   },
+   {
+    "name": "Mono.Cecil.Pdb",
+    "version": "0.9.6.0",
+    "culture": "",
+    "public_key_or_token": "0738eb9f132ed756"
+   },
+   {
+    "name": "Mono.Cecil.Rocks",
+    "version": "0.9.6.0",
+    "culture": "",
+    "public_key_or_token": "0738eb9f132ed756"
+   },
+   {
+    "name": "SlimDX",
+    "version": "4.0.13.43",
+    "culture": "",
+    "public_key_or_token": "b1b0c32fd1ffe4f9"
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Data",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Drawing",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "System.IO.Compression",
+    "version": "4.2.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.IO.Compression.FileSystem",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Management",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "System.Windows.Forms",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Xml",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   }
+  ],
+  "module_refs": [
+   "KERNEL32.dll",
+   ""
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "extracted/rph131/RAGEPluginHook.exe",
+  "file": "RAGEPluginHook.exe",
+  "size": 12224894,
+  "sha256": "30D14040F9EE16BE3FA54A0065AD726210B6F6030F5D7759ED6463915E12F175",
+  "machine": "0x8664",
+  "pe_kind": "PE32+",
+  "is_dll": false,
+  "subsystem": 2,
+  "timedatestamp": 1784335837,
+  "entrypoint_rva": "0x0",
+  "sections": [
+   {
+    "name": "1\u00b1?\u0095\u00e1\u00b0\u00c0\u00af",
+    "vsize": 11367080,
+    "rawsize": 11367424,
+    "characteristics": "0x60000020",
+    "entropy": 7.988
+   },
+   {
+    "name": "\u00a3\u00ff\u00b1\u00e7p\u00f6\b\u00b5",
+    "vsize": 175152,
+    "rawsize": 175616,
+    "characteristics": "0x40000040",
+    "entropy": 2.549
+   }
+  ],
+  "version_resource": {
+   "Comments": "",
+   "CompanyName": "MulleDK19 / LMS",
+   "FileDescription": "RAGE Plugin Hook",
+   "FileVersion": "1.131.1424.17745",
+   "InternalName": "RagePluginHookLauncher.exe",
+   "LegalCopyright": "Copyright \u00a9 MulleDK19 / LMS \u00ae 2015",
+   "LegalTrademarks": "",
+   "OriginalFilename": "RagePluginHookLauncher.exe",
+   "ProductName": "RAGE Plugin Hook",
+   "ProductVersion": "1.131.1424.17745",
+   "Assembly Version": "1.0.0.0",
+   "_FixedFileVersion": "1.131.1424.17745",
+   "_FixedProductVersion": "1.131.1424.17745"
+  },
+  "native_imports": [],
+  "native_exports": [],
+  "overlay_offset": 11543552,
+  "overlay_size": 681342,
+  "overlay_entropy": 7.558,
+  "overlay_head_hex": "ba89d0b8b355a185b7b875767748cd0b8ac9e088836581b5878845464758dd1b",
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x60001a8",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob",
+   "#Schema"
+  ],
+  "table_rows": {},
+  "assembly_refs": [],
+  "manifest_resources": []
+ },
+ {
+  "path": "extracted/lspdfr132/RAGEPluginHook.exe",
+  "file": "RAGEPluginHook.exe",
+  "size": 12237182,
+  "sha256": "73F05B3F7973D4731F4151AE061DD3C991065E8BF3ECE51EA1D9AB728B9B42AC",
+  "machine": "0x8664",
+  "pe_kind": "PE32+",
+  "is_dll": false,
+  "subsystem": 2,
+  "timedatestamp": 1789662687,
+  "entrypoint_rva": "0x0",
+  "sections": [
+   {
+    "name": "\u00b0\u00f7\u00c3\u00e8*\u000e\u0000?",
+    "vsize": 11375912,
+    "rawsize": 11376128,
+    "characteristics": "0x60000020",
+    "entropy": 7.988
+   },
+   {
+    "name": "\u00b9\b\u00cb#*\u000fG\u00c5",
+    "vsize": 175152,
+    "rawsize": 175616,
+    "characteristics": "0x40000040",
+    "entropy": 2.549
+   }
+  ],
+  "version_resource": {
+   "Comments": "",
+   "CompanyName": "MulleDK19 / LMS",
+   "FileDescription": "RAGE Plugin Hook",
+   "FileVersion": "1.132.1428.17748",
+   "InternalName": "RagePluginHookLauncher.exe",
+   "LegalCopyright": "Copyright \u00a9 MulleDK19 / LMS \u00ae 2015",
+   "LegalTrademarks": "",
+   "OriginalFilename": "RagePluginHookLauncher.exe",
+   "ProductName": "RAGE Plugin Hook",
+   "ProductVersion": "1.132.1428.17748",
+   "Assembly Version": "1.0.0.0",
+   "_FixedFileVersion": "1.132.1428.17748",
+   "_FixedProductVersion": "1.132.1428.17748"
+  },
+  "native_imports": [],
+  "native_exports": [],
+  "overlay_offset": 11552256,
+  "overlay_size": 684926,
+  "overlay_entropy": 7.56,
+  "overlay_head_hex": "21f9b1fa8078f537faa7f131fefbc90d45c808c78cc9be47c703ccfdc3535469",
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x60001a9",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob",
+   "#Schema"
+  ],
+  "table_rows": {},
+  "assembly_refs": [],
+  "manifest_resources": []
+ },
+ {
+  "path": "/mnt/user-data/uploads/Grand Theft Auto V Enhanced/RAGEPluginHook.exe",
+  "file": "RAGEPluginHook.exe",
+  "size": 12237182,
+  "sha256": "73F05B3F7973D4731F4151AE061DD3C991065E8BF3ECE51EA1D9AB728B9B42AC",
+  "machine": "0x8664",
+  "pe_kind": "PE32+",
+  "is_dll": false,
+  "subsystem": 2,
+  "timedatestamp": 1789662687,
+  "entrypoint_rva": "0x0",
+  "sections": [
+   {
+    "name": "\u00b0\u00f7\u00c3\u00e8*\u000e\u0000?",
+    "vsize": 11375912,
+    "rawsize": 11376128,
+    "characteristics": "0x60000020",
+    "entropy": 7.988
+   },
+   {
+    "name": "\u00b9\b\u00cb#*\u000fG\u00c5",
+    "vsize": 175152,
+    "rawsize": 175616,
+    "characteristics": "0x40000040",
+    "entropy": 2.549
+   }
+  ],
+  "version_resource": {
+   "Comments": "",
+   "CompanyName": "MulleDK19 / LMS",
+   "FileDescription": "RAGE Plugin Hook",
+   "FileVersion": "1.132.1428.17748",
+   "InternalName": "RagePluginHookLauncher.exe",
+   "LegalCopyright": "Copyright \u00a9 MulleDK19 / LMS \u00ae 2015",
+   "LegalTrademarks": "",
+   "OriginalFilename": "RagePluginHookLauncher.exe",
+   "ProductName": "RAGE Plugin Hook",
+   "ProductVersion": "1.132.1428.17748",
+   "Assembly Version": "1.0.0.0",
+   "_FixedFileVersion": "1.132.1428.17748",
+   "_FixedProductVersion": "1.132.1428.17748"
+  },
+  "native_imports": [],
+  "native_exports": [],
+  "overlay_offset": 11552256,
+  "overlay_size": 684926,
+  "overlay_entropy": 7.56,
+  "overlay_head_hex": "21f9b1fa8078f537faa7f131fefbc90d45c808c78cc9be47c703ccfdc3535469",
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x60001a9",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob",
+   "#Schema"
+  ],
+  "table_rows": {},
+  "assembly_refs": [],
+  "manifest_resources": []
+ },
+ {
+  "path": "extracted/lspdfr132/plugins/LSPD First Response.dll",
+  "file": "LSPD First Response.dll",
+  "size": 5755904,
+  "sha256": "D5ADC28C97784297C10D031208FFC341A86E9F210E2153F094384E3C444780FA",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 1784400035,
+  "entrypoint_rva": "0x57e88e",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 5752980,
+    "rawsize": 5753344,
+    "characteristics": "0x60000020",
+    "entropy": 6.335
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 1040,
+    "rawsize": 1536,
+    "characteristics": "0x40000040",
+    "entropy": 2.423
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.102
+   }
+  ],
+  "version_resource": {
+   "Comments": "LSPD First Response",
+   "CompanyName": "G17 Media",
+   "FileDescription": "LSPD First Response",
+   "FileVersion": "0.4.9",
+   "InternalName": "LSPD First Response.dll",
+   "LegalCopyright": "(C) 2015-2020 G17 Media",
+   "LegalTrademarks": "",
+   "OriginalFilename": "LSPD First Response.dll",
+   "ProductName": "LSPD First Response",
+   "ProductVersion": "0.4.9",
+   "Assembly Version": "0.4.9695.26411",
+   "_FixedFileVersion": "0.4.9.0",
+   "_FixedProductVersion": "0.4.9.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 660,
+   "TypeDef": 2590,
+   "Field": 17222,
+   "MethodDef": 21714,
+   "Param": 27234,
+   "InterfaceImpl": 301,
+   "MemberRef": 6311,
+   "Constant": 7851,
+   "CustomAttribute": 12080,
+   "FieldMarshal": 2524,
+   "DeclSecurity": 1,
+   "ClassLayout": 32,
+   "FieldLayout": 40,
+   "StandAloneSig": 2494,
+   "EventMap": 49,
+   "Event": 177,
+   "PropertyMap": 533,
+   "Property": 2495,
+   "MethodSemantics": 4433,
+   "MethodImpl": 1218,
+   "ModuleRef": 4,
+   "TypeSpec": 1941,
+   "ImplMap": 11,
+   "FieldRva": 56,
+   "Assembly": 1,
+   "AssemblyRef": 20,
+   "ManifestResource": 2,
+   "NestedClass": 1452,
+   "GenericParam": 360,
+   "MethodSpec": 1103,
+   "GenericParamConstraint": 88
+  },
+  "assembly": {
+   "name": "LSPD First Response",
+   "version": "0.4.9695.26411",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LSPD First Response.dll",
+   "mvid": "5bc765b3-21f2-45ce-8319-0e9c814302da"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "LMS.Common",
+    "version": "1.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Windows.Forms",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Net.Http",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Drawing",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "DiscordRpcNet",
+    "version": "1.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "EasyHook",
+    "version": "2.7.6578.0",
+    "culture": "",
+    "public_key_or_token": "4b580fca19d0b0c5"
+   },
+   {
+    "name": "SlimDX",
+    "version": "4.0.13.43",
+    "culture": "",
+    "public_key_or_token": "b1b0c32fd1ffe4f9"
+   },
+   {
+    "name": "System.Xml.Linq",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.IO.Compression",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Xml",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Numerics",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Data",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Runtime.Serialization",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "Microsoft.CSharp",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "Microsoft.VisualStudio.QualityTools.UnitTestFramework",
+    "version": "10.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "DdsConvert",
+    "version": "1.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   }
+  ],
+  "module_refs": [
+   "user32.dll",
+   "kernel32.dll",
+   "msvcrt.dll",
+   "kernel32"
+  ],
+  "manifest_resources": [
+   {
+    "name": "JrwGxUhVEYZkKJSWHbGFdhkNqLCUA.resources",
+    "offset": 0,
+    "flags": "mrPrivate                                  False\nmrPublic                                    True\nmrUnknown1                                 False\nmrUnknown2                                 False\nmrUnknown3                                 False\nmrUnknown4                                 False\nmrUnknown5                                 False",
+    "implementation": null
+   },
+   {
+    "name": "Newtonsoft.Json.Dynamic.snk",
+    "offset": 38208,
+    "flags": "mrPrivate                                  False\nmrPublic                                    True\nmrUnknown1                                 False\nmrUnknown2                                 False\nmrUnknown3                                 False\nmrUnknown4                                 False\nmrUnknown5                                 False",
+    "implementation": null
+   }
+  ]
+ },
+ {
+  "path": "extracted/ci_b5cd/payload/LSA.Standalone.RageHost.dll",
+  "file": "LSA.Standalone.RageHost.dll",
+  "size": 57856,
+  "sha256": "76BE9B2573D9E78391D35F1ADF354ED1971F530622350A1484130BC59CBB26E4",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 3942326102,
+  "entrypoint_rva": "0xf8c2",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 55496,
+    "rawsize": 55808,
+    "characteristics": "0x60000020",
+    "entropy": 5.566
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 736,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.351
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.082
+   }
+  ],
+  "version_resource": {
+   "FileDescription": " ",
+   "FileVersion": "0.0.0.0",
+   "InternalName": "LSA.Standalone.RageHost.dll",
+   "LegalCopyright": " ",
+   "OriginalFilename": "LSA.Standalone.RageHost.dll",
+   "ProductVersion": "0.0.0.0",
+   "Assembly Version": "0.0.0.0",
+   "_FixedFileVersion": "0.0.0.0",
+   "_FixedProductVersion": "0.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 129,
+   "TypeDef": 27,
+   "Field": 150,
+   "MethodDef": 111,
+   "Param": 134,
+   "InterfaceImpl": 9,
+   "MemberRef": 310,
+   "Constant": 36,
+   "CustomAttribute": 24,
+   "StandAloneSig": 42,
+   "PropertyMap": 5,
+   "Property": 6,
+   "MethodSemantics": 7,
+   "ModuleRef": 1,
+   "TypeSpec": 19,
+   "ImplMap": 7,
+   "Assembly": 1,
+   "AssemblyRef": 6,
+   "NestedClass": 12,
+   "MethodSpec": 8
+  },
+  "assembly": {
+   "name": "LSA.Standalone.RageHost",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LSA.Standalone.RageHost.dll",
+   "mvid": "81e59eaa-b38a-4a62-8fc6-6dc43512285b"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "LSA.Standalone.Core",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Web.Extensions",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "31bf3856ad364e35"
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   }
+  ],
+  "module_refs": [
+   "winmm.dll"
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "extracted/ci_b5cd/payload/LSA.Standalone.Core.dll",
+  "file": "LSA.Standalone.Core.dll",
+  "size": 30208,
+  "sha256": "51BA61C46E255507906FF177F64EF1D05E9CC4651D18DE3F71FBA812BEA8B805",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 4278755326,
+  "entrypoint_rva": "0x8cea",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 27888,
+    "rawsize": 28160,
+    "characteristics": "0x60000020",
+    "entropy": 5.5
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 720,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.287
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.082
+   }
+  ],
+  "version_resource": {
+   "FileDescription": " ",
+   "FileVersion": "0.0.0.0",
+   "InternalName": "LSA.Standalone.Core.dll",
+   "LegalCopyright": " ",
+   "OriginalFilename": "LSA.Standalone.Core.dll",
+   "ProductVersion": "0.0.0.0",
+   "Assembly Version": "0.0.0.0",
+   "_FixedFileVersion": "0.0.0.0",
+   "_FixedProductVersion": "0.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 39,
+   "TypeDef": 30,
+   "Field": 129,
+   "MethodDef": 113,
+   "Param": 285,
+   "InterfaceImpl": 3,
+   "MemberRef": 124,
+   "Constant": 21,
+   "CustomAttribute": 16,
+   "StandAloneSig": 36,
+   "PropertyMap": 8,
+   "Property": 16,
+   "MethodSemantics": 18,
+   "TypeSpec": 27,
+   "Assembly": 1,
+   "AssemblyRef": 2,
+   "NestedClass": 3,
+   "MethodSpec": 1
+  },
+  "assembly": {
+   "name": "LSA.Standalone.Core",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LSA.Standalone.Core.dll",
+   "mvid": "fcd749fe-cee8-401d-8577-7812bc3a34b4"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   }
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "extracted/ci5884/payload/LSA.Standalone.RageHost.dll",
+  "file": "LSA.Standalone.RageHost.dll",
+  "size": 57856,
+  "sha256": "37A84B5E08DA3CCD87AC55F38AB36793CD53E3D33471A6369CA4DB98A813004C",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 3984409584,
+  "entrypoint_rva": "0xf8c2",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 55496,
+    "rawsize": 55808,
+    "characteristics": "0x60000020",
+    "entropy": 5.567
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 736,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.351
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.082
+   }
+  ],
+  "version_resource": {
+   "FileDescription": " ",
+   "FileVersion": "0.0.0.0",
+   "InternalName": "LSA.Standalone.RageHost.dll",
+   "LegalCopyright": " ",
+   "OriginalFilename": "LSA.Standalone.RageHost.dll",
+   "ProductVersion": "0.0.0.0",
+   "Assembly Version": "0.0.0.0",
+   "_FixedFileVersion": "0.0.0.0",
+   "_FixedProductVersion": "0.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 129,
+   "TypeDef": 27,
+   "Field": 150,
+   "MethodDef": 111,
+   "Param": 134,
+   "InterfaceImpl": 9,
+   "MemberRef": 310,
+   "Constant": 36,
+   "CustomAttribute": 24,
+   "StandAloneSig": 42,
+   "PropertyMap": 5,
+   "Property": 6,
+   "MethodSemantics": 7,
+   "ModuleRef": 1,
+   "TypeSpec": 19,
+   "ImplMap": 7,
+   "Assembly": 1,
+   "AssemblyRef": 6,
+   "NestedClass": 12,
+   "MethodSpec": 8
+  },
+  "assembly": {
+   "name": "LSA.Standalone.RageHost",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LSA.Standalone.RageHost.dll",
+   "mvid": "3cd6cbf5-5da4-481f-9316-b6f2ee397721"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "LSA.Standalone.Core",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Web.Extensions",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "31bf3856ad364e35"
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   }
+  ],
+  "module_refs": [
+   "winmm.dll"
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "extracted/ci5884/payload/LSA.Standalone.Core.dll",
+  "file": "LSA.Standalone.Core.dll",
+  "size": 30208,
+  "sha256": "984EE238AECB9BB8C648183E14C938468E4279640FF32ABD6F4776E1E933B6CD",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 2977646709,
+  "entrypoint_rva": "0x8cea",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 27888,
+    "rawsize": 28160,
+    "characteristics": "0x60000020",
+    "entropy": 5.499
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 720,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.287
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.082
+   }
+  ],
+  "version_resource": {
+   "FileDescription": " ",
+   "FileVersion": "0.0.0.0",
+   "InternalName": "LSA.Standalone.Core.dll",
+   "LegalCopyright": " ",
+   "OriginalFilename": "LSA.Standalone.Core.dll",
+   "ProductVersion": "0.0.0.0",
+   "Assembly Version": "0.0.0.0",
+   "_FixedFileVersion": "0.0.0.0",
+   "_FixedProductVersion": "0.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 39,
+   "TypeDef": 30,
+   "Field": 129,
+   "MethodDef": 113,
+   "Param": 285,
+   "InterfaceImpl": 3,
+   "MemberRef": 124,
+   "Constant": 21,
+   "CustomAttribute": 16,
+   "StandAloneSig": 36,
+   "PropertyMap": 8,
+   "Property": 16,
+   "MethodSemantics": 18,
+   "TypeSpec": 27,
+   "Assembly": 1,
+   "AssemblyRef": 2,
+   "NestedClass": 3,
+   "MethodSpec": 1
+  },
+  "assembly": {
+   "name": "LSA.Standalone.Core",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LSA.Standalone.Core.dll",
+   "mvid": "edcf4b37-1176-43c3-887e-ed78710a0e5a"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   }
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "builds/head/native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll",
+  "file": "LSA.Standalone.RageHost.dll",
+  "size": 58368,
+  "sha256": "BAD2D3097853B8AAEA873E5FC7B6A92E7CF944CD2FE78AF735E27D740C3B9433",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 2165445721,
+  "entrypoint_rva": "0xfa26",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 55852,
+    "rawsize": 56320,
+    "characteristics": "0x60000020",
+    "entropy": 5.554
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 736,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.351
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.082
+   }
+  ],
+  "version_resource": {
+   "FileDescription": " ",
+   "FileVersion": "0.0.0.0",
+   "InternalName": "LSA.Standalone.RageHost.dll",
+   "LegalCopyright": " ",
+   "OriginalFilename": "LSA.Standalone.RageHost.dll",
+   "ProductVersion": "0.0.0.0",
+   "Assembly Version": "0.0.0.0",
+   "_FixedFileVersion": "0.0.0.0",
+   "_FixedProductVersion": "0.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 132,
+   "TypeDef": 28,
+   "Field": 150,
+   "MethodDef": 112,
+   "Param": 135,
+   "InterfaceImpl": 9,
+   "MemberRef": 311,
+   "Constant": 36,
+   "CustomAttribute": 24,
+   "StandAloneSig": 43,
+   "PropertyMap": 5,
+   "Property": 6,
+   "MethodSemantics": 7,
+   "ModuleRef": 1,
+   "TypeSpec": 19,
+   "ImplMap": 7,
+   "Assembly": 1,
+   "AssemblyRef": 6,
+   "NestedClass": 12,
+   "MethodSpec": 8
+  },
+  "assembly": {
+   "name": "LSA.Standalone.RageHost",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LSA.Standalone.RageHost.dll",
+   "mvid": "c566d628-8564-45e5-be60-f0a2c67322cb"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "LSA.Standalone.Core",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Web.Extensions",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "31bf3856ad364e35"
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   }
+  ],
+  "module_refs": [
+   "winmm.dll"
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "builds/head/native/standalone-host/bin/Release/net481/LSA.Standalone.Core.dll",
+  "file": "LSA.Standalone.Core.dll",
+  "size": 30208,
+  "sha256": "230385A5093F0091AE3E79E43E2C5E834A6C06F00366A679FAB877F7ABE4054E",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 2965932271,
+  "entrypoint_rva": "0x8cca",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 27856,
+    "rawsize": 28160,
+    "characteristics": "0x60000020",
+    "entropy": 5.495
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 720,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.287
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.082
+   }
+  ],
+  "version_resource": {
+   "FileDescription": " ",
+   "FileVersion": "0.0.0.0",
+   "InternalName": "LSA.Standalone.Core.dll",
+   "LegalCopyright": " ",
+   "OriginalFilename": "LSA.Standalone.Core.dll",
+   "ProductVersion": "0.0.0.0",
+   "Assembly Version": "0.0.0.0",
+   "_FixedFileVersion": "0.0.0.0",
+   "_FixedProductVersion": "0.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 39,
+   "TypeDef": 30,
+   "Field": 129,
+   "MethodDef": 113,
+   "Param": 285,
+   "InterfaceImpl": 3,
+   "MemberRef": 124,
+   "Constant": 21,
+   "CustomAttribute": 16,
+   "StandAloneSig": 36,
+   "PropertyMap": 8,
+   "Property": 16,
+   "MethodSemantics": 18,
+   "TypeSpec": 27,
+   "Assembly": 1,
+   "AssemblyRef": 2,
+   "NestedClass": 3,
+   "MethodSpec": 1
+  },
+  "assembly": {
+   "name": "LSA.Standalone.Core",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LSA.Standalone.Core.dll",
+   "mvid": "ef34f0a3-98cd-4f91-baaa-71c3d4c7fba0"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   }
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "/mnt/user-data/uploads/Grand Theft Auto V Enhanced/plugins/LosSantosAlive.dll",
+  "file": "LosSantosAlive.dll",
+  "size": 2407424,
+  "sha256": "9B6DE42D4C464901D859DD95E17E100E4FA9EF6074BFBB0CF3A57A76F6DDD653",
+  "machine": "0x8664",
+  "pe_kind": "PE32+",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 4111321615,
+  "entrypoint_rva": "0x0",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 2405836,
+    "rawsize": 2405888,
+    "characteristics": "0x60000020",
+    "entropy": 6.158
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 936,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.926
+   }
+  ],
+  "version_resource": {
+   "Comments": "",
+   "CompanyName": "",
+   "FileDescription": "LosSantosAlive",
+   "FileVersion": "1.0.0.0",
+   "InternalName": "LosSantosAlive.dll",
+   "LegalCopyright": "Copyright \u00a9  2026",
+   "LegalTrademarks": "",
+   "OriginalFilename": "LosSantosAlive.dll",
+   "ProductName": "LosSantosAlive",
+   "ProductVersion": "1.0.0.0",
+   "Assembly Version": "1.0.0.0",
+   "_FixedFileVersion": "1.0.0.0",
+   "_FixedProductVersion": "1.0.0.0"
+  },
+  "native_imports": [],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 235,
+   "TypeDef": 651,
+   "Field": 3143,
+   "MethodDef": 5588,
+   "Param": 4240,
+   "InterfaceImpl": 26,
+   "MemberRef": 1577,
+   "Constant": 600,
+   "CustomAttribute": 691,
+   "ClassLayout": 3,
+   "StandAloneSig": 808,
+   "EventMap": 4,
+   "Event": 7,
+   "PropertyMap": 36,
+   "Property": 131,
+   "MethodSemantics": 235,
+   "ModuleRef": 2,
+   "TypeSpec": 457,
+   "ImplMap": 4,
+   "FieldRva": 3,
+   "Assembly": 1,
+   "AssemblyRef": 11,
+   "NestedClass": 468,
+   "GenericParam": 94,
+   "MethodSpec": 25
+  },
+  "assembly": {
+   "name": "LosSantosAlive",
+   "version": "1.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LosSantosAlive.dll",
+   "mvid": "7dcc89c1-d097-4767-8d19-7015d8218757"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "Microsoft.CSharp",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "DamageTrackerLib",
+    "version": "2.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "RAGENativeUI",
+    "version": "1.9.3.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "NAudio.WinMM",
+    "version": "2.2.1.0",
+    "culture": "",
+    "public_key_or_token": "e279aa5131008a41"
+   },
+   {
+    "name": "NAudio.Core",
+    "version": "2.2.1.0",
+    "culture": "",
+    "public_key_or_token": "e279aa5131008a41"
+   },
+   {
+    "name": "websocket-sharp-core",
+    "version": "1.0.1.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "LSPD First Response",
+    "version": "0.4.9695.26411",
+    "culture": "",
+    "public_key_or_token": null
+   }
+  ],
+  "module_refs": [
+   "kernel32.dll",
+   "user32.dll"
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "/mnt/user-data/uploads/Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters.dll",
+  "file": "LSA.PromotedCharacters.dll",
+  "size": 185344,
+  "sha256": "3126CDD60016E1F57483BB6FA95CA1CEF73B80882687C1F482C433DE628B05CF",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 3719307096,
+  "entrypoint_rva": "0x2eafa",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 183040,
+    "rawsize": 183296,
+    "characteristics": "0x60000020",
+    "entropy": 5.798
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 736,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.352
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.102
+   }
+  ],
+  "version_resource": {
+   "FileDescription": " ",
+   "FileVersion": "0.0.0.0",
+   "InternalName": "LSA.PromotedCharacters.dll",
+   "LegalCopyright": " ",
+   "OriginalFilename": "LSA.PromotedCharacters.dll",
+   "ProductVersion": "0.0.0.0",
+   "Assembly Version": "0.0.0.0",
+   "_FixedFileVersion": "0.0.0.0",
+   "_FixedProductVersion": "0.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 171,
+   "TypeDef": 153,
+   "Field": 794,
+   "MethodDef": 773,
+   "Param": 695,
+   "InterfaceImpl": 21,
+   "MemberRef": 551,
+   "Constant": 141,
+   "CustomAttribute": 281,
+   "FieldMarshal": 4,
+   "FieldLayout": 2,
+   "StandAloneSig": 173,
+   "PropertyMap": 36,
+   "Property": 118,
+   "MethodSemantics": 162,
+   "MethodImpl": 14,
+   "ModuleRef": 1,
+   "TypeSpec": 110,
+   "ImplMap": 5,
+   "Assembly": 1,
+   "AssemblyRef": 8,
+   "ManifestResource": 1,
+   "NestedClass": 80,
+   "MethodSpec": 57
+  },
+  "assembly": {
+   "name": "LSA.PromotedCharacters",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LSA.PromotedCharacters.dll",
+   "mvid": "c81a8514-adff-4cac-97f1-e8c2be4dbdf6"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "LSA.PromotedCharacters.Bootstrap",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System.Drawing",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "RAGENativeUI",
+    "version": "1.9.3.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Web.Extensions",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "31bf3856ad364e35"
+   }
+  ],
+  "module_refs": [
+   "user32.dll"
+  ],
+  "manifest_resources": [
+   {
+    "name": "LSA.Enhanced.commands.v2.json",
+    "offset": 0,
+    "flags": "mrPrivate                                  False\nmrPublic                                    True\nmrUnknown1                                 False\nmrUnknown2                                 False\nmrUnknown3                                 False\nmrUnknown4                                 False\nmrUnknown5                                 False",
+    "implementation": null
+   }
+  ]
+ },
+ {
+  "path": "/mnt/user-data/uploads/Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Runtime.dll",
+  "file": "LSA.PromotedCharacters.Runtime.dll",
+  "size": 493056,
+  "sha256": "9FB323B6132DDBAED89F42A5B37C9958A5FAB586976C98FE09BB0822CE8820CC",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 3653391531,
+  "entrypoint_rva": "0x79d16",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 490800,
+    "rawsize": 491008,
+    "characteristics": "0x60000020",
+    "entropy": 6.062
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 768,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.459
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.102
+   }
+  ],
+  "version_resource": {
+   "FileDescription": " ",
+   "FileVersion": "0.0.0.0",
+   "InternalName": "LSA.PromotedCharacters.Runtime.dll",
+   "LegalCopyright": " ",
+   "OriginalFilename": "LSA.PromotedCharacters.Runtime.dll",
+   "ProductVersion": "0.0.0.0",
+   "Assembly Version": "0.0.0.0",
+   "_FixedFileVersion": "0.0.0.0",
+   "_FixedProductVersion": "0.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 226,
+   "TypeDef": 304,
+   "Field": 1994,
+   "MethodDef": 1984,
+   "Param": 2156,
+   "InterfaceImpl": 19,
+   "MemberRef": 1527,
+   "Constant": 230,
+   "CustomAttribute": 882,
+   "StandAloneSig": 403,
+   "EventMap": 3,
+   "Event": 4,
+   "PropertyMap": 106,
+   "Property": 457,
+   "MethodSemantics": 528,
+   "ModuleRef": 1,
+   "TypeSpec": 369,
+   "ImplMap": 1,
+   "FieldRva": 2,
+   "Assembly": 1,
+   "AssemblyRef": 9,
+   "ManifestResource": 1,
+   "NestedClass": 129,
+   "GenericParam": 281,
+   "MethodSpec": 130,
+   "GenericParamConstraint": 1
+  },
+  "assembly": {
+   "name": "LSA.PromotedCharacters.Runtime",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LSA.PromotedCharacters.Runtime.dll",
+   "mvid": "b76b3a28-8b38-4bbc-8ead-17ddd251182e"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "LosSantosAlive",
+    "version": "1.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System.Web.Extensions",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "31bf3856ad364e35"
+   },
+   {
+    "name": "DamageTrackerLib",
+    "version": "2.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "LSA.SessionIdentity",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System.Drawing",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   }
+  ],
+  "module_refs": [
+   "user32.dll"
+  ],
+  "manifest_resources": [
+   {
+    "name": "LSA.Activities.activity-capabilities.v1.json",
+    "offset": 0,
+    "flags": "mrPrivate                                  False\nmrPublic                                    True\nmrUnknown1                                 False\nmrUnknown2                                 False\nmrUnknown3                                 False\nmrUnknown4                                 False\nmrUnknown5                                 False",
+    "implementation": null
+   }
+  ]
+ },
+ {
+  "path": "/mnt/user-data/uploads/Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Bootstrap.dll",
+  "file": "LSA.PromotedCharacters.Bootstrap.dll",
+  "size": 9728,
+  "sha256": "5D67229E0F8282324CFE712CC3908E459F15C920C1C2167FE4DBBB199BC3C3B3",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 2640168920,
+  "entrypoint_rva": "0x3dca",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 7632,
+    "rawsize": 7680,
+    "characteristics": "0x60000020",
+    "entropy": 5.408
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 776,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.477
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.082
+   }
+  ],
+  "version_resource": {
+   "FileDescription": " ",
+   "FileVersion": "0.0.0.0",
+   "InternalName": "LSA.PromotedCharacters.Bootstrap.dll",
+   "LegalCopyright": " ",
+   "OriginalFilename": "LSA.PromotedCharacters.Bootstrap.dll",
+   "ProductVersion": "0.0.0.0",
+   "Assembly Version": "0.0.0.0",
+   "_FixedFileVersion": "0.0.0.0",
+   "_FixedProductVersion": "0.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 38,
+   "TypeDef": 5,
+   "Field": 17,
+   "MethodDef": 27,
+   "Param": 17,
+   "MemberRef": 45,
+   "Constant": 3,
+   "CustomAttribute": 16,
+   "StandAloneSig": 7,
+   "PropertyMap": 1,
+   "Property": 5,
+   "MethodSemantics": 6,
+   "TypeSpec": 1,
+   "Assembly": 1,
+   "AssemblyRef": 2,
+   "NestedClass": 1,
+   "MethodSpec": 4
+  },
+  "assembly": {
+   "name": "LSA.PromotedCharacters.Bootstrap",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LSA.PromotedCharacters.Bootstrap.dll",
+   "mvid": "42346268-576c-4ccd-846a-28d757cebd62"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   }
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "/mnt/user-data/uploads/Grand Theft Auto V Enhanced/plugins/LSA.PromotedCharacters/LSA.SessionIdentity.dll",
+  "file": "LSA.SessionIdentity.dll",
+  "size": 27136,
+  "sha256": "D9C80FE9A63DB4AF88A6877061CEF5C1579755E81A477C6CD1B0C78500821BC1",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 4062762852,
+  "entrypoint_rva": "0x81f6",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 25084,
+    "rawsize": 25088,
+    "characteristics": "0x60000020",
+    "entropy": 5.678
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 720,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.288
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.082
+   }
+  ],
+  "version_resource": {
+   "FileDescription": " ",
+   "FileVersion": "0.0.0.0",
+   "InternalName": "LSA.SessionIdentity.dll",
+   "LegalCopyright": " ",
+   "OriginalFilename": "LSA.SessionIdentity.dll",
+   "ProductVersion": "0.0.0.0",
+   "Assembly Version": "0.0.0.0",
+   "_FixedFileVersion": "0.0.0.0",
+   "_FixedProductVersion": "0.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 86,
+   "TypeDef": 22,
+   "Field": 90,
+   "MethodDef": 104,
+   "Param": 84,
+   "InterfaceImpl": 3,
+   "MemberRef": 191,
+   "Constant": 8,
+   "CustomAttribute": 60,
+   "StandAloneSig": 24,
+   "EventMap": 1,
+   "Event": 1,
+   "PropertyMap": 6,
+   "Property": 22,
+   "MethodSemantics": 26,
+   "TypeSpec": 31,
+   "Assembly": 1,
+   "AssemblyRef": 6,
+   "NestedClass": 7,
+   "GenericParam": 16,
+   "MethodSpec": 7
+  },
+  "assembly": {
+   "name": "LSA.SessionIdentity",
+   "version": "0.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LSA.SessionIdentity.dll",
+   "mvid": "85f3d71f-e053-41b7-8b32-7ad01e7ab8d4"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "LosSantosAlive",
+    "version": "1.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System.Web.Extensions",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "31bf3856ad364e35"
+   }
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "/mnt/user-data/uploads/Grand Theft Auto V Enhanced/plugins/SmartVehicleEntry.dll",
+  "file": "SmartVehicleEntry.dll",
+  "size": 9728,
+  "sha256": "72A25833F2D632B347F06B54EF331FE831DA84909E196FE59FA123D7812C3E03",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 3118294002,
+  "entrypoint_rva": "0x3de2",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 7656,
+    "rawsize": 7680,
+    "characteristics": "0x60000020",
+    "entropy": 5.724
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 888,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 2.796
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.082
+   }
+  ],
+  "version_resource": {
+   "Comments": "",
+   "CompanyName": "",
+   "FileDescription": "thirdtest",
+   "FileVersion": "1.0.0.0",
+   "InternalName": "thirdtest.dll",
+   "LegalCopyright": "Copyright \u00a9  2026",
+   "LegalTrademarks": "",
+   "OriginalFilename": "thirdtest.dll",
+   "ProductName": "thirdtest",
+   "ProductVersion": "1.0.0.0",
+   "Assembly Version": "1.0.0.0",
+   "_FixedFileVersion": "1.0.0.0",
+   "_FixedProductVersion": "1.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 53,
+   "TypeDef": 7,
+   "Field": 14,
+   "MethodDef": 13,
+   "Param": 13,
+   "MemberRef": 71,
+   "Constant": 2,
+   "CustomAttribute": 20,
+   "StandAloneSig": 6,
+   "TypeSpec": 17,
+   "Assembly": 1,
+   "AssemblyRef": 5,
+   "NestedClass": 5
+  },
+  "assembly": {
+   "name": "thirdtest",
+   "version": "1.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "thirdtest.dll",
+   "mvid": "1eea88f5-153e-4877-a534-c093cb2c2589"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "Microsoft.CSharp",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "System.Windows.Forms",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   }
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "/mnt/user-data/uploads/Grand Theft Auto V Enhanced/plugins/LSPDFR/LosSantosAlive.PRBridge.dll",
+  "file": "LosSantosAlive.PRBridge.dll",
+  "size": 294400,
+  "sha256": "712F9491C0693D496EA82B1E4CEFAA03C0575408A2FEFA8D9E295BB516E5AD3E",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 3895787399,
+  "entrypoint_rva": "0x4955e",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 292196,
+    "rawsize": 292352,
+    "characteristics": "0x60000020",
+    "entropy": 5.83
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 1000,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 3.154
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.102
+   }
+  ],
+  "version_resource": {
+   "Comments": "",
+   "CompanyName": "",
+   "FileDescription": "LosSantosAlive.PRBridge",
+   "FileVersion": "1.0.0.0",
+   "InternalName": "LosSantosAlive.PRBridge.dll",
+   "LegalCopyright": "Copyright \u00a9  2026",
+   "LegalTrademarks": "",
+   "OriginalFilename": "LosSantosAlive.PRBridge.dll",
+   "ProductName": "LosSantosAlive.PRBridge",
+   "ProductVersion": "1.0.0.0",
+   "Assembly Version": "1.0.0.0",
+   "_FixedFileVersion": "1.0.0.0",
+   "_FixedProductVersion": "1.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 191,
+   "TypeDef": 67,
+   "Field": 321,
+   "MethodDef": 659,
+   "Param": 872,
+   "InterfaceImpl": 1,
+   "MemberRef": 552,
+   "Constant": 36,
+   "CustomAttribute": 50,
+   "ClassLayout": 2,
+   "StandAloneSig": 291,
+   "PropertyMap": 1,
+   "Property": 4,
+   "MethodSemantics": 4,
+   "TypeSpec": 50,
+   "FieldRva": 2,
+   "Assembly": 1,
+   "AssemblyRef": 8,
+   "NestedClass": 48,
+   "GenericParam": 5,
+   "MethodSpec": 15
+  },
+  "assembly": {
+   "name": "LosSantosAlive.PRBridge",
+   "version": "1.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LosSantosAlive.PRBridge.dll",
+   "mvid": "faa2f3c1-0c06-44a2-b281-f021ee0c4444"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "LSPD First Response",
+    "version": "0.4.9572.22921",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "CommonDataFramework",
+    "version": "1.0.0.6",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "PolicingRedefined",
+    "version": "1.0.0.5",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "Microsoft.CSharp",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   }
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "/mnt/user-data/uploads/Grand Theft Auto V Enhanced/plugins/LSPDFR/LosSantosAlive.Interop.dll",
+  "file": "LosSantosAlive.Interop.dll",
+  "size": 27648,
+  "sha256": "B471252AFA5E32F8C2F98E842C0F931BCD54149A16FD0F42C407C5811ABC97A8",
+  "machine": "0x14c",
+  "pe_kind": "PE32",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 3279769453,
+  "entrypoint_rva": "0x8282",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 25224,
+    "rawsize": 25600,
+    "characteristics": "0x60000020",
+    "entropy": 5.166
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 1000,
+    "rawsize": 1024,
+    "characteristics": "0x40000040",
+    "entropy": 3.095
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.082
+   }
+  ],
+  "version_resource": {
+   "Comments": "",
+   "CompanyName": "",
+   "FileDescription": "LosSantosAlive.Interop",
+   "FileVersion": "1.0.0.0",
+   "InternalName": "LosSantosAlive.Interop.dll",
+   "LegalCopyright": "Copyright \u00a9  2026",
+   "LegalTrademarks": "",
+   "OriginalFilename": "LosSantosAlive.Interop.dll",
+   "ProductName": "LosSantosAlive.Interop",
+   "ProductVersion": "1.0.0.0",
+   "Assembly Version": "1.0.0.0",
+   "_FixedFileVersion": "1.0.0.0",
+   "_FixedProductVersion": "1.0.0.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#~",
+   "#Strings",
+   "#US",
+   "#GUID",
+   "#Blob"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 70,
+   "TypeDef": 7,
+   "Field": 41,
+   "MethodDef": 49,
+   "Param": 44,
+   "MemberRef": 119,
+   "Constant": 16,
+   "CustomAttribute": 16,
+   "StandAloneSig": 24,
+   "PropertyMap": 1,
+   "Property": 1,
+   "MethodSemantics": 1,
+   "TypeSpec": 4,
+   "Assembly": 1,
+   "AssemblyRef": 5,
+   "NestedClass": 1
+  },
+  "assembly": {
+   "name": "LosSantosAlive.Interop",
+   "version": "1.0.0.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "LosSantosAlive.Interop.dll",
+   "mvid": "4b8036b5-fe68-48f8-a98e-4a2f1669b003"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "0Harmony",
+    "version": "2.4.2.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "LSPD First Response",
+    "version": "0.4.9695.26411",
+    "culture": "",
+    "public_key_or_token": null
+   }
+  ],
+  "manifest_resources": []
+ },
+ {
+  "path": "/mnt/user-data/uploads/Grand Theft Auto V Enhanced/RAGENativeUI.dll",
+  "file": "RAGENativeUI.dll",
+  "size": 291328,
+  "sha256": "D2607481B206E7907C9C1F2CABF15797654AACAAF1746EA202740DCDD5EB8BBB",
+  "machine": "0x8664",
+  "pe_kind": "PE32+",
+  "is_dll": true,
+  "subsystem": 3,
+  "timedatestamp": 1734014220,
+  "entrypoint_rva": "0x4876e",
+  "sections": [
+   {
+    "name": ".text",
+    "vsize": 288761,
+    "rawsize": 288768,
+    "characteristics": "0x60000020",
+    "entropy": 6.019
+   },
+   {
+    "name": ".rsrc",
+    "vsize": 1116,
+    "rawsize": 1536,
+    "characteristics": "0x40000040",
+    "entropy": 2.627
+   },
+   {
+    "name": ".reloc",
+    "vsize": 12,
+    "rawsize": 512,
+    "characteristics": "0x42000040",
+    "entropy": 0.102
+   }
+  ],
+  "version_resource": {
+   "Comments": "Library for RAGEPluginHook that helps you to quickly and easily build Rockstar-like menus and UIs.",
+   "CompanyName": "alexguirre",
+   "FileDescription": "RAGENativeUI",
+   "FileVersion": "1.9.3.0",
+   "InternalName": "RAGENativeUI.dll",
+   "LegalCopyright": "Copyright \u00a9 2016-2024 alexguirre",
+   "OriginalFilename": "RAGENativeUI.dll",
+   "ProductName": "RAGENativeUI",
+   "ProductVersion": "1.9.3",
+   "Assembly Version": "1.9.3.0",
+   "_FixedFileVersion": "1.9.3.0",
+   "_FixedProductVersion": "1.9.3.0"
+  },
+  "native_imports": [
+   {
+    "dll": "mscoree.dll",
+    "functions": [
+     "_CorDllMain"
+    ]
+   }
+  ],
+  "native_exports": [],
+  "overlay_offset": null,
+  "overlay_size": 0,
+  "has_clr_header": true,
+  "cor20": {
+   "runtime_version": "2.5",
+   "flags_raw": "0x1",
+   "flags": [
+    "ILONLY"
+   ],
+   "entrypoint_token_or_rva": "0x0",
+   "resources_size": null,
+   "strong_name_sig_size": null,
+   "vtable_fixups_size": null
+  },
+  "metadata_version": "v4.0.30319",
+  "metadata_streams": [
+   "#Strings",
+   "#US",
+   "#Blob",
+   "#GUID",
+   "#~"
+  ],
+  "table_rows": {
+   "Module": 1,
+   "TypeRef": 190,
+   "TypeDef": 304,
+   "Field": 1385,
+   "MethodDef": 1732,
+   "Param": 1826,
+   "InterfaceImpl": 27,
+   "MemberRef": 844,
+   "Constant": 637,
+   "CustomAttribute": 1130,
+   "FieldMarshal": 4,
+   "DeclSecurity": 1,
+   "ClassLayout": 21,
+   "FieldLayout": 35,
+   "StandAloneSig": 360,
+   "EventMap": 13,
+   "Event": 26,
+   "PropertyMap": 83,
+   "Property": 443,
+   "MethodSemantics": 781,
+   "MethodImpl": 9,
+   "ModuleRef": 1,
+   "TypeSpec": 334,
+   "ImplMap": 11,
+   "FieldRva": 5,
+   "Assembly": 1,
+   "AssemblyRef": 7,
+   "ManifestResource": 1,
+   "NestedClass": 172,
+   "GenericParam": 80,
+   "MethodSpec": 57,
+   "GenericParamConstraint": 17
+  },
+  "assembly": {
+   "name": "RAGENativeUI",
+   "version": "1.9.3.0",
+   "culture": "",
+   "public_key_token": null,
+   "flags": "afDisableJITcompileOptimizer               False\nafEnableJITcompileTracking                 False\nafPA_AMD64                                 False\nafPA_IA64                                  False\nafPA_MSIL                                  False\nafPA_None                                   True\nafPA_Specified                             False\nafPA_Unknown1                              False\nafPA_Unknown2                              False\nafPA_Unknown3                              False\nafPA_x86                                   False\nafPublicKey                                False\nafRetargetable                             False"
+  },
+  "module": {
+   "name": "RAGENativeUI.dll",
+   "mvid": "b6ae4772-4cf9-4bdf-bcd9-f1828e6c195b"
+  },
+  "assembly_refs": [
+   {
+    "name": "mscorlib",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "RagePluginHook",
+    "version": "0.0.0.0",
+    "culture": "",
+    "public_key_or_token": null
+   },
+   {
+    "name": "Microsoft.CSharp",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "System.Core",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Windows.Forms",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   },
+   {
+    "name": "System.Drawing",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b03f5f7f11d50a3a"
+   },
+   {
+    "name": "System",
+    "version": "4.0.0.0",
+    "culture": "",
+    "public_key_or_token": "b77a5c561934e089"
+   }
+  ],
+  "module_refs": [
+   "kernel32.dll"
+  ],
+  "manifest_resources": [
+   {
+    "name": "RAGENativeUI.Internals.Stubs.resources",
+    "offset": 0,
+    "flags": "mrPrivate                                  False\nmrPublic                                    True\nmrUnknown1                                 False\nmrUnknown2                                 False\nmrUnknown3                                 False\nmrUnknown4                                 False\nmrUnknown5                                 False",
+    "implementation": null
+   }
+  ]
+ }
+]

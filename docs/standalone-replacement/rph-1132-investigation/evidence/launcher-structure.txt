@@ -1,0 +1,80 @@
+== extracted/rph131/RAGEPluginHook.exe
+module=RagePluginHookLauncher.exe kind=Windows machine=AMD64 cor20=ILOnly runtime=v4.0.30319
+assembly=RagePluginHookLauncher, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+assemblyref=mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=WindowsBase, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35
+assemblyref=mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=Ionic.Zip, Version=1.9.1.8, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c
+assemblyref=System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=System.Xml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=PresentationFramework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35
+assemblyref=System.Xaml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=PresentationCore, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35
+assemblyref=Mono.Cecil, Version=0.9.6.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756
+assemblyref=LMS.PortableExecutable, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+assemblyref=System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+assemblyref=zyPvyCBfgRuwnvLZpPUWoZadMiT, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+assemblyref=System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=System.Management, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+moduleref=kernel32
+moduleref=kernel32.dll
+moduleref=user32.dll
+moduleref=User32
+module_attribute=System.Runtime.CompilerServices.SuppressIldasmAttribute
+module_attribute=ConfusedByAttribute
+typedefs=158 rage_namespace_typedefs=0
+resource=RagePluginHookLauncher.g.resources kind=AssemblyLinked
+resource=BuildDate.txt kind=AssemblyLinked
+resource=Ionic.Zip.dll kind=AssemblyLinked
+resource=HookData kind=AssemblyLinked
+resource=Sounds/Intro.wav kind=AssemblyLinked
+resource==kEoFZihBsQpFzamCy3CYFhnUgT=.resources kind=AssemblyLinked
+rva_field_bytes=12288
+rva_field_bytes=10838208
+rva_field_bytes=12
+pinvoke_modules=kernel32:3,kernel32.dll:27,user32.dll:41,User32:2
+framework_call=System.Reflection.Assembly System.Reflection.Assembly::Load(System.Byte[])
+framework_call=System.Reflection.Assembly System.Reflection.Assembly::LoadFrom(System.String)
+framework_call=System.Void System.AppDomain::add_AssemblyResolve(System.ResolveEventHandler)
+== extracted/lspdfr132/RAGEPluginHook.exe
+module=RagePluginHookLauncher.exe kind=Windows machine=AMD64 cor20=ILOnly runtime=v4.0.30319
+assembly=RagePluginHookLauncher, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+assemblyref=mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=WindowsBase, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35
+assemblyref=mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=Ionic.Zip, Version=1.9.1.8, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c
+assemblyref=System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=System.Xml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=PresentationFramework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35
+assemblyref=System.Xaml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=PresentationCore, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35
+assemblyref=Mono.Cecil, Version=0.9.6.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756
+assemblyref=LMS.PortableExecutable, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+assemblyref=System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+assemblyref=gLnMCRCeECjPwZAqpHXjTIqrivt, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+assemblyref=System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+assemblyref=System.Management, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+moduleref=kernel32
+moduleref=kernel32.dll
+moduleref=user32.dll
+moduleref=User32
+module_attribute=System.Runtime.CompilerServices.SuppressIldasmAttribute
+module_attribute=ConfusedByAttribute
+typedefs=158 rage_namespace_typedefs=0
+resource=Sounds/Intro.wav kind=AssemblyLinked
+resource==KAMQAGVUqkjGxfezbWhBQUpvCk=.resources kind=AssemblyLinked
+resource=BuildDate.txt kind=AssemblyLinked
+resource=HookData kind=AssemblyLinked
+resource=Ionic.Zip.dll kind=AssemblyLinked
+resource=RagePluginHookLauncher.g.resources kind=AssemblyLinked
+rva_field_bytes=12288
+rva_field_bytes=10847744
+rva_field_bytes=12
+pinvoke_modules=kernel32:3,kernel32.dll:27,user32.dll:41,User32:2
+framework_call=System.Reflection.Assembly System.Reflection.Assembly::Load(System.Byte[])
+framework_call=System.Reflection.Assembly System.Reflection.Assembly::LoadFrom(System.String)
+framework_call=System.Void System.AppDomain::add_AssemblyResolve(System.ResolveEventHandler)

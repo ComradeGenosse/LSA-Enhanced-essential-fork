@@ -1,0 +1,10 @@
+SUMMARY	types_ok=3	members_ok=4	specs_ok=0	named_args_ok=2	failures=0	matcher_disagreements=0	api=RagePluginHook.dll	plugin=LosSantosAlive.Interop.dll
+OK	TYPE	[RagePluginHook]Rage.Attributes.PluginAttribute
+OK	TYPE	[RagePluginHook]Rage.GameFiber
+OK	TYPE	[RagePluginHook]Rage.Game
+OK	MEMBER	[RagePluginHook]Rage.Attributes.PluginAttribute::.ctor(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::StartNew(class [mscorlib]System.Threading.ThreadStart,System.String):class [RagePluginHook]Rage.GameFiber static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::Sleep(System.Int32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::LogTrivial(System.String):System.Void static	Public
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.Author:System.String

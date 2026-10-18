@@ -1,0 +1,35 @@
+SUMMARY	types_ok=13	members_ok=19	specs_ok=0	named_args_ok=2	failures=0	matcher_disagreements=0	api=RagePluginHook.dll	plugin=SmartVehicleEntry.dll
+OK	TYPE	[RagePluginHook]Rage.Attributes.PluginAttribute
+OK	TYPE	[RagePluginHook]Rage.Ped
+OK	TYPE	[RagePluginHook]Rage.Vehicle
+OK	TYPE	[RagePluginHook]Rage.Vector3
+OK	TYPE	[RagePluginHook]Rage.Entity
+OK	TYPE	[RagePluginHook]Rage.Game
+OK	TYPE	[RagePluginHook]Rage.GameFiber
+OK	TYPE	[RagePluginHook]Rage.Native.NativeFunction
+OK	TYPE	[RagePluginHook]Rage.World
+OK	TYPE	[RagePluginHook]EntityExtensions
+OK	TYPE	[RagePluginHook]Rage.IHandleable
+OK	TYPE	[RagePluginHook]Rage.GameControl
+OK	TYPE	[RagePluginHook]Rage.Player
+OK	MEMBER	[RagePluginHook]Rage.Attributes.PluginAttribute::.ctor(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::LogTrivial(System.String):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::StartNew(class [mscorlib]System.Threading.ThreadStart):class [RagePluginHook]Rage.GameFiber static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::Yield():System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeFunction::get_Natives():System.Object static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::.ctor(System.Single,System.Single,System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetOffsetPosition(valuetype [RagePluginHook]Rage.Vector3):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::DistanceTo(valuetype [RagePluginHook]Rage.Vector3):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetAllVehicles():class [RagePluginHook]Rage.Vehicle[] static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Position():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::op_Inequality(class [RagePluginHook]Rage.Entity,class [RagePluginHook]Rage.Entity):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]EntityExtensions::Exists(class [RagePluginHook]Rage.IHandleable):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsDead():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::IsControlJustPressed(System.Int32,valuetype [RagePluginHook]Rage.GameControl):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_GameTime():System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_LocalPlayer():class [RagePluginHook]Rage.Player static	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::get_Character():class [RagePluginHook]Rage.Ped instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::IsInAnyVehicle(System.Boolean):System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::DisplaySubtitle(System.String):System.Void static	Public
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.Author:System.String

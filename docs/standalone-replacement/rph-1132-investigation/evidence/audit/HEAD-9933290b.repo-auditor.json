@@ -1,0 +1,17 @@
+{
+  "referencePath": "/home/claude/rph55/extracted/sdk124/lib/net472/RagePluginHook.dll",
+  "referenceSha256": "5D439745604A5FEDBF8FA401520D4F296C1B6800D77E2923BA3BF9772182C7E0",
+  "referenceIdentity": "RagePluginHook, Version=0.0.0.0",
+  "scannedBinaries": [
+    "/home/claude/rph55/builds/head/native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll",
+    "/home/claude/rph55/builds/head/native/standalone-host/bin/Release/net481/LSA.Standalone.Core.dll"
+  ],
+  "rageTypeReferences": 14,
+  "rageMemberReferences": 33,
+  "resolvedMembers": 100,
+  "coreTypeReferences": 18,
+  "coreMemberReferences": 67,
+  "genericMethodSpecifications": 17,
+  "findings": [],
+  "passed": true
+}

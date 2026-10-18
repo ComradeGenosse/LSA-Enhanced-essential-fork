@@ -1,0 +1,2 @@
+ERROR DEPENDENCY_NOT_PROVIDED LosSantosAlive: Non-framework managed dependency absent from inspected binary set.
+RPH ABI scan: types=7 members=8 coreTypes=0 coreMembers=0 resolved=8 errors=1 warnings=0 reference=RagePluginHook, Version=0.0.0.0 sha256=5D439745604A5FEDBF8FA401520D4F296C1B6800D77E2923BA3BF9772182C7E0

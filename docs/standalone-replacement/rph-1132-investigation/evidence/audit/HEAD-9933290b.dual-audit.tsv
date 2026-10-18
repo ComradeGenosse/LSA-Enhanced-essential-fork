@@ -1,0 +1,70 @@
+SUMMARY	types_ok=14	members_ok=33	specs_ok=4	named_args_ok=18	failures=0	matcher_disagreements=0	api=RagePluginHook.dll	plugin=LSA.Standalone.RageHost.dll
+OK	TYPE	[RagePluginHook]Rage.Attributes.PluginAttribute
+OK	TYPE	[RagePluginHook]Rage.Ped
+OK	TYPE	[RagePluginHook]Rage.PoolHandle
+OK	TYPE	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute
+OK	TYPE	[RagePluginHook]Rage.Vector3
+OK	TYPE	[RagePluginHook]Rage.Game
+OK	TYPE	[RagePluginHook]Rage.GameFiber
+OK	TYPE	[RagePluginHook]Rage.Entity
+OK	TYPE	[RagePluginHook]Rage.Native.NativeArgument
+OK	TYPE	[RagePluginHook]Rage.Native.NativeFunction
+OK	TYPE	[RagePluginHook]Rage.World
+OK	TYPE	[RagePluginHook]Rage.Player
+OK	TYPE	[RagePluginHook]Rage.GameConsole
+OK	TYPE	[RagePluginHook]Rage.ISpatial
+OK	MEMBER	[RagePluginHook]Rage.Attributes.PluginAttribute::.ctor(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute::.ctor():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::LogTrivial(System.String):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_GameTime():System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::Sleep(System.Int32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::op_Equality(class [RagePluginHook]Rage.Entity,class [RagePluginHook]Rage.Entity):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Handle():valuetype [RagePluginHook]Rage.PoolHandle instance	Public
+OK	MEMBER	[RagePluginHook]Rage.PoolHandle::get_Value():System.UInt32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Int32):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::get_CanSleepNow():System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.String):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.PoolHandle::.ctor(System.UInt32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetEntityByHandle`1(valuetype [RagePluginHook]Rage.PoolHandle):!!0 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::op_Inequality(class [RagePluginHook]Rage.Entity,class [RagePluginHook]Rage.Entity):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsDead():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_LocalPlayer():class [RagePluginHook]Rage.Player static	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::get_Character():class [RagePluginHook]Rage.Ped instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_MemoryAddress():System.IntPtr instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_Console():class [RagePluginHook]Rage.GameConsole static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameConsole::Print(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::DistanceTo(class [RagePluginHook]Rage.ISpatial):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetOffsetPositionFront(System.Single):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::GetNearbyPeds(System.Int32):class [RagePluginHook]Rage.Ped[] instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::DistanceTo(valuetype [RagePluginHook]Rage.Vector3):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeFunction::CallByHash(System.UInt64,class [mscorlib]System.Type,class [RagePluginHook]Rage.Native.NativeArgument[]):System.Object static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Position():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::op_Subtraction(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3):valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::X:System.Single field	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Y:System.Single field	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Z:System.Single field	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_RightVector():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Boolean>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Int32>
+OK	SPEC	[RagePluginHook]Rage.World::GetEntityByHandle`1(valuetype [RagePluginHook]Rage.PoolHandle):!!0 static<class [RagePluginHook]Rage.Ped>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Int32>
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.Author:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.EntryPoint:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.ExitPoint:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.AssemblyProbingPaths:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.PrefersSingleInstance:System.Boolean
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String

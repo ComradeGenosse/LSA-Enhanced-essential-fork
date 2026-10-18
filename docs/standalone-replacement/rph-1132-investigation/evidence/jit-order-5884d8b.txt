@@ -1,0 +1,53 @@
+EntryPoint.Main bad refs in its OWN body: none
+Direct callees of Main in IL order (first 30) -> own-body bad refs:
+  IL_0000 newobj   System.Void LSA.Standalone.RageHost.EntryPoint/<>c__DisplayClass13_0::.ctor()
+  IL_003B call     System.Boolean LSA.Standalone.RageHost.EntryPoint::StandaloneOnlyProfile(System.String&)
+  IL_005A call     System.Boolean LSA.Standalone.RageHost.EntryPoint::LoadNativeActivation(System.String&)
+  IL_0063 call     System.Boolean LSA.Standalone.RageHost.EntryPoint::ValidateNativeActivation(System.String&)
+  IL_00AB newobj   System.Void LSA.Standalone.RageHost.OwnerScope::.ctor()
+  IL_00B2 callvirt System.Void LSA.Standalone.RageHost.OwnerScope::Enter()
+  IL_00BC call     System.String LSA.Standalone.RageHost.EntryPoint::GetSetting(System.String)
+  IL_00DC newobj   System.Void LSA.Standalone.RageHost.RageActorResolver::.ctor(LSA.Standalone.IOwnerContext,Syste   <== 4 bad: [RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,System.Ob
+  IL_00E2 newobj   System.Void LSA.Standalone.RageHost.MonotonicClock::.ctor()
+  IL_00EC newobj   System.Void LSA.Standalone.RageHost.RageWorld::.ctor()
+  IL_0123 newobj   System.Void LSA.Standalone.RageHost.RageSpatialAudioSource::.ctor(LSA.Standalone.IOwnerContext,
+  IL_0133 ldftn    LSA.Standalone.RageHost.WaveOutSpatialOutput/SpatialMix LSA.Standalone.RageHost.RageSpatialAudi   <== 6 bad: [RagePluginHook]Rage.Game::get_LocalPlayer():class [RagePluginHook]Rage.LocalPla
+  IL_013E newobj   System.Void LSA.Standalone.RageHost.WaveOutSpatialOutput::.ctor(LSA.Standalone.NativeAuthority,
+  IL_016D newobj   System.Void LSA.Standalone.RageHost.RageLipSyncPresenter::.ctor(LSA.Standalone.NativeAuthority,   <== 1 bad: [RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,System.Ob
+  IL_01B8 callvirt System.Void LSA.Standalone.RageHost.OwnerScope::Exit()
+  IL_01CA ldftn    System.Int32 LSA.Standalone.RageHost.EntryPoint/<>c__DisplayClass13_0::<Main>b__0()
+  IL_01D5 newobj   System.Void LSA.Standalone.RageHost.StandalonePipeServer::.ctor(System.Guid,System.Func`1<Syste
+  IL_01E4 callvirt System.Void LSA.Standalone.RageHost.StandalonePipeServer::Start()
+  IL_0201 call     System.Void LSA.Standalone.RageHost.StandaloneTypedCommands::OpenAdmission(System.Boolean)
+  IL_0219 newobj   System.Void LSA.Standalone.RageHost.StandaloneAutoSmoke::.ctor(System.Int32,System.Boolean,Syst
+  IL_0317 call     System.Void LSA.Standalone.RageHost.EntryPoint::set_ActivationSummary(System.String)
+  IL_0321 call     System.String LSA.Standalone.RageHost.EntryPoint::get_ActivationSummary()
+  IL_03AE callvirt System.Void LSA.Standalone.RageHost.RageActorResolver::Disarm()
+  IL_03DB callvirt System.Void LSA.Standalone.RageHost.StandalonePipeServer::DrainOwnerRequests(LSA.Standalone.Nat
+  IL_0401 call     System.Void LSA.Standalone.RageHost.StandaloneTypedCommands::Pump(LSA.Standalone.RageHost.Owner   <== 10 bad: [RagePluginHook]Rage.Ped::op_Equality(class [RagePluginHook]Rage.Ped,class [Rage
+  IL_040E call     System.Void LSA.Standalone.RageHost.StandaloneAutoSmoke::Tick(LSA.Standalone.RageHost.OwnerScop   <== 3 bad: [RagePluginHook]Rage.Game::get_LocalPlayer():class [RagePluginHook]Rage.LocalPla
+  IL_045E call     System.Void LSA.Standalone.RageHost.StandaloneTypedCommands::CloseAdmission()
+  IL_046E call     System.Void LSA.Standalone.RageHost.StandalonePipeServer::StopAdmission()
+  IL_048A call     System.Void LSA.Standalone.RageHost.StandaloneTypedCommands::StopOnOwner(LSA.Standalone.RageHos
+  IL_04A0 call     System.Void LSA.Standalone.RageHost.WaveOutSpatialOutput::Dispose()
+  IL_04DF call     System.Void LSA.Standalone.RageHost.StandalonePipeServer::Dispose()
+  IL_050F call     System.Void LSA.Standalone.RageHost.RageActorResolver::Dispose()
+All methods with bad refs:
+  System.Boolean LSA.Standalone.RageHost.RageWorld::get_AllowsNpcControl()  (5)
+  System.Void LSA.Standalone.RageHost.RageActorResolver::.ctor(LSA.Standalone.IOwnerContext,System.Boo  (4)
+  Rage.Ped LSA.Standalone.RageHost.RageActorResolver::PedFor(System.Int32)  (4)
+  System.Boolean LSA.Standalone.RageHost.RageActorResolver::TryBeginProbe(System.Int32,System.String&)  (7)
+  System.Boolean LSA.Standalone.RageHost.RageActorResolver::ProbeStillCurrent(System.String&)  (5)
+  System.Boolean LSA.Standalone.RageHost.RageActorResolver::StampCookie(System.Int32)  (9)
+  System.UInt64 LSA.Standalone.RageHost.RageActorResolver::ReadCookie(System.Int32)  (4)
+  System.Boolean LSA.Standalone.RageHost.RageActorResolver::TryObserve(System.Int32,LSA.Standalone.Act  (5)
+  System.Void LSA.Standalone.RageHost.StandaloneTypedCommands::Pump(LSA.Standalone.RageHost.OwnerScope  (10)
+  Rage.Ped LSA.Standalone.RageHost.StandaloneTypedCommands::NearestPedAhead()  (8)
+  System.Void LSA.Standalone.RageHost.StandaloneOnscreenInput::Tick(LSA.Standalone.RageHost.OwnerScope  (3)
+  System.Void LSA.Standalone.RageHost.StandaloneOnscreenInput::StopOnOwner(LSA.Standalone.RageHost.Own  (1)
+  LSA.Standalone.RageHost.WaveOutSpatialOutput/SpatialMix LSA.Standalone.RageHost.RageSpatialAudioSour  (6)
+  System.Void LSA.Standalone.RageHost.RageLipSyncPresenter::.ctor(LSA.Standalone.NativeAuthority,LSA.S  (1)
+  System.Boolean LSA.Standalone.RageHost.RageLipSyncPresenter::TryPulse(LSA.Standalone.OwnershipLease,  (12)
+  System.Boolean LSA.Standalone.RageHost.StandaloneAutoSmoke::Ready()  (4)
+  Rage.Ped LSA.Standalone.RageHost.StandaloneAutoSmoke::FindNpc(Rage.Ped)  (4)
+  System.Void LSA.Standalone.RageHost.StandaloneAutoSmoke::Tick(LSA.Standalone.RageHost.OwnerScope,LSA  (3)

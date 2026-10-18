@@ -1,0 +1,830 @@
+SUMMARY	types_ok=85	members_ok=692	specs_ok=16	named_args_ok=36	failures=0	matcher_disagreements=0	api=RagePluginHook.dll	plugin=LSPD First Response.dll
+OK	TYPE	[RagePluginHook]Rage.Vector3
+OK	TYPE	[RagePluginHook]Rage.Vehicle
+OK	TYPE	[RagePluginHook]Rage.Ped
+OK	TYPE	[RagePluginHook]Rage.Blip
+OK	TYPE	[RagePluginHook]Rage.Object
+OK	TYPE	[RagePluginHook]Rage.Group
+OK	TYPE	[RagePluginHook]Rage.Model
+OK	TYPE	[RagePluginHook]Rage.Vector2
+OK	TYPE	[RagePluginHook]Rage.GameFiber
+OK	TYPE	[RagePluginHook]Rage.GameControl
+OK	TYPE	[RagePluginHook]Rage.GraphicsEventArgs
+OK	TYPE	[RagePluginHook]Rage.ControllerButtons
+OK	TYPE	[RagePluginHook]Rage.WeaponDescriptor
+OK	TYPE	[RagePluginHook]Rage.Camera
+OK	TYPE	[RagePluginHook]Rage.Rotator
+OK	TYPE	[RagePluginHook]Rage.HitResult
+OK	TYPE	[RagePluginHook]Rage.Entity
+OK	TYPE	[RagePluginHook]Rage.Player
+OK	TYPE	[RagePluginHook]Rage.AnimationDictionary
+OK	TYPE	[RagePluginHook]Rage.ConsoleCommands.AutoCompleters.ConsoleCommandParameterAutoCompleter
+OK	TYPE	[RagePluginHook]Rage.KeyboardState
+OK	TYPE	[RagePluginHook]Rage.MouseState
+OK	TYPE	[RagePluginHook]Rage.VehicleDrivingFlags
+OK	TYPE	[RagePluginHook]Rage.Task
+OK	TYPE	[RagePluginHook]Rage.WeaponAsset
+OK	TYPE	[RagePluginHook]Rage.VehicleType
+OK	TYPE	[RagePluginHook]Rage.LicensePlateStyle
+OK	TYPE	[RagePluginHook]Rage.VehicleDoor
+OK	TYPE	[RagePluginHook]Rage.PedBoneId
+OK	TYPE	[RagePluginHook]Rage.TaskSequence
+OK	TYPE	[RagePluginHook]Rage.RadioStation
+OK	TYPE	[RagePluginHook]Rage.Native.NativeArgument
+OK	TYPE	[RagePluginHook]Rage.SpeechModifier
+OK	TYPE	[RagePluginHook]Rage.WeaponDescriptorCollection
+OK	TYPE	[RagePluginHook]Rage.Fire
+OK	TYPE	[RagePluginHook]Rage.Weapon
+OK	TYPE	[RagePluginHook]Rage.AnimationFlags
+OK	TYPE	[RagePluginHook]Rage.WeaponHash
+OK	TYPE	[RagePluginHook]Rage.HandlingData
+OK	TYPE	[RagePluginHook]Rage.LeaveVehicleFlags
+OK	TYPE	[RagePluginHook]Rage.Euphoria.EuphoriaMessage
+OK	TYPE	[RagePluginHook]Rage.RelationshipGroup
+OK	TYPE	[RagePluginHook]Rage.PoolHandle
+OK	TYPE	[RagePluginHook]Rage.VehicleModType
+OK	TYPE	[RagePluginHook]Rage.VehicleWheelType
+OK	TYPE	[RagePluginHook]Rage.TaskInvoker
+OK	TYPE	[RagePluginHook]Rage.TaskStatus
+OK	TYPE	[RagePluginHook]Rage.EnterVehicleFlags
+OK	TYPE	[RagePluginHook]Rage.IHashedAsset
+OK	TYPE	[RagePluginHook]Rage.BlipSprite
+OK	TYPE	[RagePluginHook]Rage.Attributes.PluginAttribute
+OK	TYPE	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute
+OK	TYPE	[RagePluginHook]Rage.Attributes.ConsoleCommandParameterAutoCompleterAttribute
+OK	TYPE	[RagePluginHook]Rage.Attributes.ConsoleCommandParameterAttribute
+OK	TYPE	[RagePluginHook]Rage.Native.NativeFunction
+OK	TYPE	[RagePluginHook]Rage.VehicleIndicatorLightsStatus
+OK	TYPE	[RagePluginHook]Rage.VehicleManeuver
+OK	TYPE	[RagePluginHook]EntityExtensions
+OK	TYPE	[RagePluginHook]Rage.IHandleable
+OK	TYPE	[RagePluginHook]Rage.World
+OK	TYPE	[RagePluginHook]Rage.Game
+OK	TYPE	[RagePluginHook]Rage.AnimationTask
+OK	TYPE	[RagePluginHook]Rage.ISpatial
+OK	TYPE	[RagePluginHook]Rage.MathHelper
+OK	TYPE	[RagePluginHook]Rage.DecisionMaker
+OK	TYPE	[RagePluginHook]Rage.GameConsole
+OK	TYPE	[RagePluginHook]Rage.GetEntitiesFlags
+OK	TYPE	[RagePluginHook]Rage.Relationship
+OK	TYPE	[RagePluginHook]Rage.PedInventory
+OK	TYPE	[RagePluginHook]Rage.TraceFlags
+OK	TYPE	[RagePluginHook]Rage.Quaternion
+OK	TYPE	[RagePluginHook]Rage.AnimationSet
+OK	TYPE	[RagePluginHook]Rage.VehicleClass
+OK	TYPE	[RagePluginHook]Rage.VehicleLockStatus
+OK	TYPE	[RagePluginHook]Rage.ConsoleCommands.AutoCompleteOption
+OK	TYPE	[RagePluginHook]Rage.VehicleWindowPropertyWrapper
+OK	TYPE	[RagePluginHook]Rage.VehicleWindow
+OK	TYPE	[RagePluginHook]Rage.FiringPattern
+OK	TYPE	[RagePluginHook]Rage.VehicleDoorPropertyWrapper
+OK	TYPE	[RagePluginHook]Rage.VehicleModder
+OK	TYPE	[RagePluginHook]Rage.Graphics
+OK	TYPE	[RagePluginHook]Rage.Debug
+OK	TYPE	[RagePluginHook]Rage.IAsset
+OK	TYPE	[RagePluginHook]Rage.VehicleWheelPropertyWrapper
+OK	TYPE	[RagePluginHook]Rage.VehicleWheel
+OK	MEMBER	[RagePluginHook]Rage.ConsoleCommands.AutoCompleters.ConsoleCommandParameterAutoCompleter::UpdateOptions():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Attributes.PluginAttribute::.ctor(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute::.ctor():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Attributes.ConsoleCommandParameterAutoCompleterAttribute::.ctor(class [mscorlib]System.Type[]):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Attributes.ConsoleCommandParameterAttribute::.ctor():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(modopt([mscorlib]System.Runtime.CompilerServices.IsSignUnspecifiedByte)System.SByte*):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Int32):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Int64*):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Int64):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Single):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Boolean):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.UInt32):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Void*):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.UInt32*):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Single*):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Int32*):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Boolean*):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::X:System.Single field	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Y:System.Single field	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Z:System.Single field	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::.ctor(System.Single,System.Single,System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_Tasks():class [RagePluginHook]Rage.TaskInvoker instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::CruiseWithVehicle(class [RagePluginHook]Rage.Vehicle,System.Single,valuetype [RagePluginHook]Rage.VehicleDrivingFlags):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_IndicatorLightsStatus(valuetype [RagePluginHook]Rage.VehicleIndicatorLightsStatus):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::DriveToPosition(valuetype [RagePluginHook]Rage.Vector3,System.Single,valuetype [RagePluginHook]Rage.VehicleDrivingFlags):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Speed():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::PerformDrivingManeuver(class [RagePluginHook]Rage.Vehicle,valuetype [RagePluginHook]Rage.VehicleManeuver,System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::get_Zero():valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.PoolHandle::get_Value():System.UInt32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Handle():valuetype [RagePluginHook]Rage.PoolHandle instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_IsPositionFrozen(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Heading():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Position():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::IsInVehicle(class [RagePluginHook]Rage.Vehicle,System.Boolean):System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::op_Implicit(System.String):valuetype [RagePluginHook]Rage.Model static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::.ctor(valuetype [RagePluginHook]Rage.Model,valuetype [RagePluginHook]Rage.Vector3,System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]EntityExtensions::Exists(class [RagePluginHook]Rage.IHandleable):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_Heading(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetOffsetPosition(valuetype [RagePluginHook]Rage.Vector3):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::Dismiss():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::Clear():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::op_Equality(class [RagePluginHook]Rage.Entity,class [RagePluginHook]Rage.Entity):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetAllVehicles():class [RagePluginHook]Rage.Vehicle[] static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::DistanceTo(valuetype [RagePluginHook]Rage.Vector3):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_GameTime():System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_LocalPlayer():class [RagePluginHook]Rage.Player static	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::get_Character():class [RagePluginHook]Rage.Ped instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Object::.ctor(valuetype [RagePluginHook]Rage.Model,valuetype [RagePluginHook]Rage.Vector3):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::GetBoneIndex(valuetype [RagePluginHook]Rage.PedBoneId):System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Rotator::get_Zero():valuetype [RagePluginHook]Rage.Rotator static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::AttachTo(class [RagePluginHook]Rage.Entity,System.Int32,valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Rotator):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_IsVisible(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsDead():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::op_Inequality(class [RagePluginHook]Rage.Entity,class [RagePluginHook]Rage.Entity):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::GetBonePosition(valuetype [RagePluginHook]Rage.PedBoneId):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::set_CanUseCover(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::set_HasControl(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::IsControlPressed(System.Int32,valuetype [RagePluginHook]Rage.GameControl):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::HideHelp():System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::DisplayHelp(System.String,System.Boolean):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_Name():System.String instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::AttachBlip():class [RagePluginHook]Rage.Blip instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::set_Scale(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::Flash(System.Int32,System.Int32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Model():valuetype [RagePluginHook]Rage.Model instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::PlayAmbientSpeech(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::TerminateAllScriptsWithName(System.String):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::Delete():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsOnScreen():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsAlive():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsCar():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsPoliceVehicle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_Hash():System.UInt32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::GetHashKey(System.String):System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::IsSeatFree(System.Int32):System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsVan():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsBigVehicle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::WarpIntoVehicle(class [RagePluginHook]Rage.Vehicle,System.Int32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsOnFoot():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsGettingIntoVehicle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::DisplayHelp(System.String,System.Int32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.AnimationDictionary::.ctor(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::PlayAnimation(valuetype [RagePluginHook]Rage.AnimationDictionary,System.String,System.Int32,System.Single,System.Single,System.Single,valuetype [RagePluginHook]Rage.AnimationFlags):class [RagePluginHook]Rage.AnimationTask instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::PlayAnimation(valuetype [RagePluginHook]Rage.AnimationDictionary,System.String,System.Single,valuetype [RagePluginHook]Rage.AnimationFlags):class [RagePluginHook]Rage.AnimationTask instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::DistanceTo(class [RagePluginHook]Rage.ISpatial):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::DistanceTo(valuetype [RagePluginHook]Rage.Vector3):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::IsKeyDown(valuetype [System.Windows.Forms]System.Windows.Forms.Keys):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::IsControlJustPressed(System.Int32,valuetype [RagePluginHook]Rage.GameControl):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.String):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::IsControlJustReleased(System.Int32,valuetype [RagePluginHook]Rage.GameControl):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(class [RagePluginHook]Rage.IHandleable):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::SetVariation(System.Int32,System.Int32,System.Int32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::DisplaySubtitle(System.String,System.Int32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_FrameTime():System.Single static	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::get_Model():valuetype [RagePluginHook]Rage.Model instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::DisplayHelp(System.String):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::DisableControlAction(System.Int32,valuetype [RagePluginHook]Rage.GameControl,System.Boolean):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsStopped():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_CurrentVehicle():class [RagePluginHook]Rage.Vehicle instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::get_HasControl():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsInAnyPoliceVehicle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_IsPaused():System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeFunction::get_Natives():System.Object static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_Health(System.Int32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_MaxHealth(System.Int32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_Armor(System.Int32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::.ctor(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::StartNew(class [mscorlib]System.Threading.ThreadStart):class [RagePluginHook]Rage.GameFiber static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::Sleep(System.Int32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.MathHelper::ConvertDirectionToHeading(valuetype [RagePluginHook]Rage.Vector3):System.Single static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Velocity():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::op_Addition(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3):valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_Velocity(valuetype [RagePluginHook]Rage.Vector3):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsPlane():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsHelicopter():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_IsEngineOn(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetOffsetPositionRight(System.Single):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_Position(valuetype [RagePluginHook]Rage.Vector3):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::op_Subtraction(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3):valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::ToRotator():valuetype [RagePluginHook]Rage.Rotator instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Rotator::Yaw:System.Single field	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_PassengerCapacity():System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_FrameCount():System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsPersistent():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_Driver():class [RagePluginHook]Rage.Ped instance	Public
+OK	MEMBER	[RagePluginHook]Rage.DecisionMaker::.ctor(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_DecisionMaker(valuetype [RagePluginHook]Rage.DecisionMaker):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.DecisionMaker::.ctor(System.UInt32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::CruiseWithVehicle(System.Single):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetStreetName(valuetype [RagePluginHook]Rage.Vector3):System.String static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::ToNormalized():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::.ctor(valuetype [RagePluginHook]Rage.Model,valuetype [RagePluginHook]Rage.Vector3):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponAsset::.ctor(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponAsset::get_IsValid():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponAsset::get_Hash():System.UInt32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_IsCollisionEnabled(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::DistanceTo2D(valuetype [RagePluginHook]Rage.Vector3):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector2::.ctor(System.Single,System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::op_Equality(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::LoadAndWait():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsLoaded():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Direction():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::ExecuteNewFor(class [mscorlib]System.Threading.ThreadStart,System.Int32):class [RagePluginHook]Rage.GameFiber static	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::.ctor(valuetype [RagePluginHook]Rage.Vector3):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::op_Implicit(class [RagePluginHook]Rage.Blip):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::Delete():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector2::X:System.Single field	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector2::Y:System.Single field	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::.ctor(class [mscorlib]System.Threading.ThreadStart):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::Start():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::.ctor(class [RagePluginHook]Rage.Entity):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_Console():class [RagePluginHook]Rage.GameConsole static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameConsole::Print(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::Yield():System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::DisplayNotification(System.String):System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::Wander():class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_LastVehicle():class [RagePluginHook]Rage.Vehicle instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::get_DateTime():valuetype [mscorlib]System.DateTime static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::LogTrivial(System.String):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_LicensePlate():System.String instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetAllPeds():class [RagePluginHook]Rage.Ped[] static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_HasDriver():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetOffsetPositionUp(System.Single):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::.ctor(valuetype [RagePluginHook]Rage.Vector3,System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsPassenger():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_Occupants():class [RagePluginHook]Rage.Ped[] instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_HasPassengers():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::op_Implicit(valuetype [RagePluginHook]Rage.Model):System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::DisplayNotification(System.String,System.String,System.String,System.String,System.String):System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_BlockPermanentEvents(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::DistanceTo(class [RagePluginHook]Rage.ISpatial):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::PerformDrivingManeuver(valuetype [RagePluginHook]Rage.VehicleManeuver):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::FollowNavigationMeshToPosition(valuetype [RagePluginHook]Rage.Vector3,System.Single,System.Single,System.Single):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsDriveable():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsPlayer():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::ClearLastVehicle():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::get_LastVehicle():class [RagePluginHook]Rage.Vehicle instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_HasOccupants():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsInAir():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_Passengers():class [RagePluginHook]Rage.Ped[] instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::IsInAnyVehicle(System.Boolean):System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::Pause(System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_SeatIndex():System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_HasSiren():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsBoat():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Length():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_ShouldVehiclesYieldToThisVehicle(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_IsSirenSilent(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_Dimensions():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::LeaveVehicle(valuetype [RagePluginHook]Rage.LeaveVehicleFlags):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_IsSirenOn(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsSirenOn():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsBike():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsCar():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsQuadBike():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_PrimaryColor():valuetype [System.Drawing]System.Drawing.Color instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetOffsetPositionFront(System.Single):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::BlipSiren(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::op_Multiply(valuetype [RagePluginHook]Rage.Vector3,System.Single):valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_RightPosition():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_LeftPosition():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsAnySpeechPlaying():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::CruiseWithVehicle(System.Single,valuetype [RagePluginHook]Rage.VehicleDrivingFlags):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::get_RelativeRight():valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::get_RelativeLeft():valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsFleeing():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetEntities(valuetype [RagePluginHook]Rage.Vector3,System.Single,valuetype [RagePluginHook]Rage.GetEntitiesFlags):class [RagePluginHook]Rage.Entity[] static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_Direction(valuetype [RagePluginHook]Rage.Vector3):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::op_Inequality(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::.ctor(class [mscorlib]System.Threading.ThreadStart,System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::op_Implicit(class [RagePluginHook]Rage.Entity):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetClosestEntity(valuetype [RagePluginHook]Rage.Vector3,System.Single,valuetype [RagePluginHook]Rage.GetEntitiesFlags):class [RagePluginHook]Rage.Entity static	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::get_WantedLevel():System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::set_WantedLevel(System.Int32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::EnumeratePeds():class [mscorlib]System.Collections.Generic.IEnumerable`1<class [RagePluginHook]Rage.Ped> static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::set_MaxWantedLevel(System.Int32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::get_Player():valuetype [RagePluginHook]Rage.RelationshipGroup static	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::get_SecurityGuard():valuetype [RagePluginHook]Rage.RelationshipGroup static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_RelationshipGroup(valuetype [RagePluginHook]Rage.RelationshipGroup):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::get_Fireman():valuetype [RagePluginHook]Rage.RelationshipGroup static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::SetRelationshipBetweenRelationshipGroups(valuetype [RagePluginHook]Rage.RelationshipGroup,valuetype [RagePluginHook]Rage.RelationshipGroup,valuetype [RagePluginHook]Rage.Relationship):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::get_Cop():valuetype [RagePluginHook]Rage.RelationshipGroup static	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::get_Army():valuetype [RagePluginHook]Rage.RelationshipGroup static	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::get_Medic():valuetype [RagePluginHook]Rage.RelationshipGroup static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsLocalPlayer():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsHuman():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsShooting():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsInCover():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::GetFreeAimingTarget():class [RagePluginHook]Rage.Entity instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_CombatTarget():class [RagePluginHook]Rage.Ped instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_Inventory():class [RagePluginHook]Rage.PedInventory instance	Public
+OK	MEMBER	[RagePluginHook]Rage.PedInventory::GiveNewWeapon(valuetype [RagePluginHook]Rage.WeaponAsset,System.Int16,System.Boolean):class [RagePluginHook]Rage.WeaponDescriptor instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::set_Model(valuetype [RagePluginHook]Rage.Model):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::add_FrameRender(class [mscorlib]System.EventHandler`1<class [RagePluginHook]Rage.GraphicsEventArgs>):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.KeyboardState::IsDown(valuetype [System.Windows.Forms]System.Windows.Forms.Keys):System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.KeyboardState::get_IsAltDown():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.KeyboardState::get_PressedKeys():class [mscorlib]System.Collections.Generic.ICollection`1<valuetype [System.Windows.Forms]System.Windows.Forms.Keys> instance	Public
+OK	MEMBER	[RagePluginHook]Rage.KeyboardState::get_IsShiftDown():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::GetKeyboardState():class [RagePluginHook]Rage.KeyboardState static	Public
+OK	MEMBER	[RagePluginHook]Rage.KeyboardState::.ctor():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.KeyboardState::get_IsControlDown():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::IsControllerButtonDown(valuetype [RagePluginHook]Rage.ControllerButtons):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::IsControllerButtonDownRightNow(valuetype [RagePluginHook]Rage.ControllerButtons):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeFunction::CallByHash(System.UInt64,class [mscorlib]System.Type,class [RagePluginHook]Rage.Native.NativeArgument[]):System.Object static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::FadeScreenOut(System.Int32,System.Boolean):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Rotation():valuetype [RagePluginHook]Rage.Rotator instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Euphoria.EuphoriaMessage::.ctor(System.String,System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Euphoria.EuphoriaMessage::SendTo(class [RagePluginHook]Rage.Ped):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::Flee(class [RagePluginHook]Rage.Ped,System.Single,System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::ApplyForce(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3,System.Boolean,System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsRagdoll():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.PedInventory::get_Weapons():class [RagePluginHook]Rage.WeaponDescriptorCollection instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponDescriptorCollection::GetEnumerator():class [mscorlib]System.Collections.Generic.IEnumerator`1<class [RagePluginHook]Rage.WeaponDescriptor> instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponDescriptor::DropToGround():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponDescriptor::get_Hash():valuetype [RagePluginHook]Rage.WeaponHash instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::get_Id():System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.AnimationDictionary::op_Implicit(System.String):valuetype [RagePluginHook]Rage.AnimationDictionary static	Public
+OK	MEMBER	[RagePluginHook]Rage.PoolHandle::op_Implicit(System.UInt32):valuetype [RagePluginHook]Rage.PoolHandle static	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetEntityByHandle`1(valuetype [RagePluginHook]Rage.PoolHandle):!!0 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsValid():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::set_Color(valuetype [System.Drawing]System.Drawing.Color):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::StandStill(System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.AnimationDictionary::LoadAndWait():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::set_Position(valuetype [RagePluginHook]Rage.Vector3):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::FollowToOffsetFromEntity(class [RagePluginHook]Rage.Entity,valuetype [RagePluginHook]Rage.Vector3):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsGettingUp():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_IsScreenFadedOut():System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::EnterVehicle(class [RagePluginHook]Rage.Vehicle,System.Int32,System.Int32,System.Single,valuetype [RagePluginHook]Rage.EnterVehicleFlags):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::FadeScreenIn(System.Int32,System.Boolean):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_IsScreenFadingOut():System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::get_IsDead():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::GetMouseState():class [RagePluginHook]Rage.MouseState static	Public
+OK	MEMBER	[RagePluginHook]Rage.MouseState::.ctor():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.MouseState::get_MouseWheelDelta():System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.MouseState::get_IsLeftButtonUp():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.MouseState::get_IsLeftButtonDown():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.MouseState::get_IsRightButtonUp():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.MouseState::get_IsRightButtonDown():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_LastDamageBone():valuetype [RagePluginHook]Rage.PedBoneId instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsInCombat():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.PoolHandle::.ctor(System.UInt32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.PedInventory::get_EquippedWeapon():class [RagePluginHook]Rage.WeaponDescriptor instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponDescriptor::op_Inequality(class [RagePluginHook]Rage.WeaponDescriptor,class [RagePluginHook]Rage.WeaponDescriptor):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsInjured():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::.ctor(valuetype [RagePluginHook]Rage.Vector3,System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::set_Sprite(valuetype [RagePluginHook]Rage.BlipSprite):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Camera::.ctor(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Camera::set_FOV(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::CreateRandomDriver():class [RagePluginHook]Rage.Ped instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_IsInvincible(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::Repair():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_Opacity(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_IsRecordingCollisions(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskSequence::.ctor(class [RagePluginHook]Rage.Ped):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskSequence::get_Tasks():class [RagePluginHook]Rage.TaskInvoker instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::DriveToPosition(valuetype [RagePluginHook]Rage.Vector3,System.Single,valuetype [RagePluginHook]Rage.VehicleDrivingFlags,System.Single):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::ParkVehicle(valuetype [RagePluginHook]Rage.Vector3,System.Single):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskSequence::Execute(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskSequence::Dispose():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.HitResult::get_HitPosition():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.HitResult::get_Hit():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.HitResult::get_HitNormal():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_Rotation(valuetype [RagePluginHook]Rage.Rotator):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsCollisionEnabled():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Rotator::.ctor(System.Single,System.Single,System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Rotator::op_Addition(valuetype [RagePluginHook]Rage.Rotator,valuetype [RagePluginHook]Rage.Rotator):valuetype [RagePluginHook]Rage.Rotator static	Public
+OK	MEMBER	[RagePluginHook]Rage.Rotator::Pitch:System.Single field	Public
+OK	MEMBER	[RagePluginHook]Rage.MathHelper::ConvertHeadingToDirection(System.Single):valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.World::ConvertScreenPositionToTrace(class [RagePluginHook]Rage.Camera,valuetype [RagePluginHook]Rage.Vector2,valuetype [RagePluginHook]Rage.Vector3&,valuetype [RagePluginHook]Rage.Vector3&):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.World::TraceLine(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.TraceFlags,class [RagePluginHook]Rage.Entity[]):valuetype [RagePluginHook]Rage.HitResult static	Public
+OK	MEMBER	[RagePluginHook]Rage.World::ConvertWorldPositionToScreenPosition(valuetype [RagePluginHook]Rage.Vector3):valuetype [RagePluginHook]Rage.Vector2 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Metadata():System.Object instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsRendered():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::IsKeyDownRightNow(valuetype [System.Windows.Forms]System.Windows.Forms.Keys):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.World::SpawnExplosion(valuetype [RagePluginHook]Rage.Vector3,System.Int32,System.Single,System.Boolean,System.Boolean,System.Single):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_Resolution():valuetype [System.Drawing]System.Drawing.Size static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::UnlockMinimapAngle():System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_TickCount():System.UInt64 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Camera::set_Active(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::get_TimeOfDay():valuetype [mscorlib]System.TimeSpan static	Public
+OK	MEMBER	[RagePluginHook]Rage.World::set_IsTimeOfDayFrozen(System.Boolean):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::UnlockMinimapPosition():System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Quaternion::GetAxes(valuetype [RagePluginHook]Rage.Vector3&,valuetype [RagePluginHook]Rage.Vector3&,valuetype [RagePluginHook]Rage.Vector3&):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Camera::get_FOV():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Rotator::ToVector():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::set_TimeScale(System.Single):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Normalize():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::LockMinimapPosition(valuetype [RagePluginHook]Rage.Vector3):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Rotator::ToQuaternion():valuetype [RagePluginHook]Rage.Quaternion instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Length():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.MathHelper::NormalizeHeading(System.Single):System.Single static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::LockMinimapAngle(System.Int32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.World::set_TimeOfDay(valuetype [mscorlib]System.TimeSpan):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsFemale():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::GetTextureVariationCount(System.Int32,System.Int32):System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::FadeScreenOut(System.Int32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::op_Implicit(System.UInt32):valuetype [RagePluginHook]Rage.Model static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::FadeScreenIn(System.Int32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsEmergencyVehicle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsBike():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsLawEnforcementVehicle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetStreetHash(valuetype [RagePluginHook]Rage.Vector3):System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Camera::.ctor(System.String,System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::DisplaySubtitle(System.String):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.AnimationSet::op_Implicit(System.String):valuetype [RagePluginHook]Rage.AnimationSet static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_MovementAnimationSet(valuetype [mscorlib]System.Nullable`1<valuetype [RagePluginHook]Rage.AnimationSet>):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.PedInventory::GiveFlashlight():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::get_IsFreeAimingAtAnyEntity():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::Wash():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::get_RelativeBack():valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::get_RelativeFront():valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::ClearSecondary():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Camera::Shake(System.String,System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::GoStraightToPosition(valuetype [RagePluginHook]Rage.Vector3,System.Single,System.Single,System.Single,System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::Detach():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsInWater():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsJumping():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsClimbing():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_EngineHealth():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsSirenSilent():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_IsDriveable(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsEngineOn():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_IsLoading():System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::GetRunningScripts():System.String[] static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::RemoveNotification(System.UInt32):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::Abort():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::StartNew(class [mscorlib]System.Threading.ThreadStart,System.String):class [RagePluginHook]Rage.GameFiber static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_IsPersistent(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_FreePassengerSeatsCount():System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::SetTargetableByPlayer(class [RagePluginHook]Rage.Player,System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::.ctor(valuetype [RagePluginHook]Rage.Model,valuetype [RagePluginHook]Rage.Vector3,System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_CanBeTargetted(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::EnableRoute(valuetype [System.Drawing]System.Drawing.Color):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::get_Position():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsEmpty():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::Face(class [RagePluginHook]Rage.ISpatial):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Around(System.Single):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponAsset::op_Implicit(System.String):valuetype [RagePluginHook]Rage.WeaponAsset static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsStoppedAtTrafficLights():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsAlarmSounding():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_AlarmTimeLeft():valuetype [mscorlib]System.TimeSpan instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_AlarmTimeLeft(valuetype [mscorlib]System.TimeSpan):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetBonePosition(System.String):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::HasBone(System.String):System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_Class():valuetype [RagePluginHook]Rage.VehicleClass instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_LockStatus():valuetype [RagePluginHook]Rage.VehicleLockStatus instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::.ctor(valuetype [RagePluginHook]Rage.Vector3):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetNextPositionOnStreet(valuetype [RagePluginHook]Rage.Vector3):valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::FightAgainst(class [RagePluginHook]Rage.Ped):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_CanOnlyBeDamagedByPlayer(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_KeepTasks(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsDoingDriveby():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsInMeleeCombat():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsInStealthMode():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsSprinting():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::set_IsFriendly(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::PlayAmbientSpeech(System.String,System.String,System.Int32,valuetype [RagePluginHook]Rage.SpeechModifier):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_RelationshipGroup():valuetype [RagePluginHook]Rage.RelationshipGroup instance	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::get_Name():System.String instance	Public
+OK	MEMBER	[RagePluginHook]Rage.ConsoleCommands.AutoCompleters.ConsoleCommandParameterAutoCompleter::.ctor(class [mscorlib]System.Type):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.ConsoleCommands.AutoCompleters.ConsoleCommandParameterAutoCompleter::get_Options():class [mscorlib]System.Collections.Generic.List`1<class [RagePluginHook]Rage.ConsoleCommands.AutoCompleteOption> instance	Public
+OK	MEMBER	[RagePluginHook]Rage.ConsoleCommands.AutoCompleteOption::.ctor(System.String,System.String,System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponDescriptor::.ctor(valuetype [RagePluginHook]Rage.WeaponAsset):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.PedInventory::GiveNewWeapon(class [RagePluginHook]Rage.WeaponDescriptor,System.Int16,System.Boolean):class [RagePluginHook]Rage.WeaponDescriptor instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_Voice(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetGroundZ(valuetype [RagePluginHook]Rage.Vector3,System.Boolean,System.Boolean):valuetype [mscorlib]System.Nullable`1<System.Single> static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_PassengerCount():System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::AchieveHeading(System.Single):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::GoToOffsetFromEntity(class [RagePluginHook]Rage.Entity,System.Single,System.Single,System.Single):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Task::get_IsActive():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_FrontPosition():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_RearPosition():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_Windows():valuetype [RagePluginHook]Rage.VehicleWindowPropertyWrapper instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::Face(valuetype [RagePluginHook]Rage.Vector3):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleWindowPropertyWrapper::get_Item(System.Int32):class [RagePluginHook]Rage.VehicleWindow instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleWindow::RollDown():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::ClearImmediately():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsBus():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::ReactAndFlee(class [RagePluginHook]Rage.Ped):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsMale():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::PerformDrivingManeuver(class [RagePluginHook]Rage.Vehicle,valuetype [RagePluginHook]Rage.VehicleManeuver):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponAsset::op_Implicit(valuetype [RagePluginHook]Rage.WeaponAsset):System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::GoToWhileAiming(class [RagePluginHook]Rage.Entity,class [RagePluginHook]Rage.Entity,System.Single,System.Single,System.Boolean,valuetype [RagePluginHook]Rage.FiringPattern):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.AnimationDictionary::op_Implicit(valuetype [RagePluginHook]Rage.AnimationDictionary):System.String static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_HasBeenDamagedByAnyPed():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.AnimationDictionary::get_Name():System.String instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::GoToWhileAiming(valuetype [RagePluginHook]Rage.Vector3,class [RagePluginHook]Rage.Entity,System.Single,System.Single,System.Boolean,valuetype [RagePluginHook]Rage.FiringPattern):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::FireWeaponAt(valuetype [RagePluginHook]Rage.Vector3,System.Int32,valuetype [RagePluginHook]Rage.FiringPattern):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::TakeCoverFrom(class [RagePluginHook]Rage.Ped,System.Int32,System.Boolean):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleDoorPropertyWrapper::get_Item(System.Int32):class [RagePluginHook]Rage.VehicleDoor instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleDoor::Open(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_Doors():valuetype [RagePluginHook]Rage.VehicleDoorPropertyWrapper instance	Public
+OK	MEMBER	[RagePluginHook]Rage.PoolHandle::op_Implicit(valuetype [RagePluginHook]Rage.PoolHandle):System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Camera::PointAtEntity(class [RagePluginHook]Rage.Entity,valuetype [RagePluginHook]Rage.Vector3,System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::AchieveHeading(System.Single,System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.AnimationSet::.ctor(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.AnimationSet::Load():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::RemoveHelmet(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.MathHelper::RotateHeading(System.Single,System.Single):System.Single static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::.ctor(System.UInt32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Object::.ctor(valuetype [RagePluginHook]Rage.Model,valuetype [RagePluginHook]Rage.Vector3,System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::ResetVariation():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::op_Equality(class [RagePluginHook]Rage.Blip,class [RagePluginHook]Rage.Blip):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::FollowNavigationMeshToPosition(valuetype [RagePluginHook]Rage.Vector3,System.Single,System.Single):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::EnterVehicle(class [RagePluginHook]Rage.Vehicle,System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::Kill():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::get_Handle():valuetype [RagePluginHook]Rage.PoolHandle instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsInSeaVehicle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsInAirVehicle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::MakePersistent():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::DistanceTo2D(class [RagePluginHook]Rage.ISpatial):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_PrimaryColor(valuetype [System.Drawing]System.Drawing.Color):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_SecondaryColor(valuetype [System.Drawing]System.Drawing.Color):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::set_Alpha(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::op_Implicit(System.String):valuetype [RagePluginHook]Rage.RelationshipGroup static	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::.ctor(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_CanAttackFriendlies(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetAttachedBlip():class [RagePluginHook]Rage.Blip instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::GetVariation(System.Int32,System.Int32&,System.Int32&):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::GetDrawableVariationCount(System.Int32):System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_RadioStation(valuetype [RagePluginHook]Rage.RadioStation):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_LicensePlateStyle():valuetype [RagePluginHook]Rage.LicensePlateStyle instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_LicensePlate(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_LicensePlateStyle(valuetype [RagePluginHook]Rage.LicensePlateStyle):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_Mods():class [RagePluginHook]Rage.VehicleModder instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleModder::ApplyAllMods():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleDoor::get_Index():System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::GetDoors():class [RagePluginHook]Rage.VehicleDoor[] instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleDoor::IsValid():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleDoor::get_IsOpen():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleDoor::Close(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetWaypointBlip():class [RagePluginHook]Rage.Blip static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsPlane():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsHelicopter():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::get_IsAlive():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.Byte):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::Dismiss():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::set_Character(class [RagePluginHook]Rage.Ped):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsOnAllWheels():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_LockStatus(valuetype [RagePluginHook]Rage.VehicleLockStatus):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_IsScreenFadingIn():System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Camera::get_IsRendering():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_IsScreenFadedIn():System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsVisible():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::set_IsRouteEnabled(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::op_Inequality(class [RagePluginHook]Rage.Blip,class [RagePluginHook]Rage.Blip):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetBlipByHandle(valuetype [RagePluginHook]Rage.PoolHandle):class [RagePluginHook]Rage.Blip static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::GetPedOnSeat(System.Int32):class [RagePluginHook]Rage.Ped instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_HandlingData():class [RagePluginHook]Rage.HandlingData instance	Public
+OK	MEMBER	[RagePluginHook]Rage.HandlingData::set_WeaponDamageMultiplier(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_FreeSeatsCount():System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::get_AmbientGangWeicheng():valuetype [RagePluginHook]Rage.RelationshipGroup static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::HasBeenDamagedBy(class [RagePluginHook]Rage.Entity):System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsAiming():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::Cower(System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::Flee(valuetype [RagePluginHook]Rage.Vector3,System.Single,System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::EnterVehicle(class [RagePluginHook]Rage.Vehicle,System.Int32,valuetype [RagePluginHook]Rage.EnterVehicleFlags):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::TravelDistanceTo(valuetype [RagePluginHook]Rage.Vector3):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.AnimationDictionary::get_IsLoaded():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::EnumerateObjects():class [mscorlib]System.Collections.Generic.IEnumerable`1<class [RagePluginHook]Rage.Object> static	Public
+OK	MEMBER	[RagePluginHook]Rage.Rotator::op_Equality(valuetype [RagePluginHook]Rage.Rotator,valuetype [RagePluginHook]Rage.Rotator):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Rotator::Roll:System.Single field	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsBicycle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::GetScriptGlobalVariableAddress(System.Int32):System.IntPtr static	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::get_Sprite():valuetype [RagePluginHook]Rage.BlipSprite instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponDescriptor::op_Equality(class [RagePluginHook]Rage.WeaponDescriptor,class [RagePluginHook]Rage.WeaponDescriptor):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::get_Name():System.String instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetAllBlips():class [RagePluginHook]Rage.Blip[] static	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetAllObjects():class [RagePluginHook]Rage.Object[] static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::DistanceTo2D(class [RagePluginHook]Rage.ISpatial):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::GetFreeSeatIndex():valuetype [mscorlib]System.Nullable`1<System.Int32> instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsStill():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsWalking():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::SetLockedForPlayer(class [RagePluginHook]Rage.Player,System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Player::get_IsFreeAiming():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetBonePosition(System.Int32):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Dot(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3):System.Single static	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleDoor::get_AngleRatio():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetBoneIndex(System.String):System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_CanBeDamaged(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::FindPattern(System.String):System.IntPtr static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::FindPattern(System.String,System.IntPtr):System.IntPtr static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::FindAllOccurrencesOfPattern(System.String):System.IntPtr[] static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::GetNativeAddress(System.String):System.IntPtr static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_MemoryAddress():System.IntPtr instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::AllocateMemory(System.Int64):System.IntPtr static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::FreeMemory(System.IntPtr):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::set_IsPaused(System.Boolean):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_TimeScale():System.Single static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector2::op_Addition(valuetype [RagePluginHook]Rage.Vector2,valuetype [RagePluginHook]Rage.Vector2):valuetype [RagePluginHook]Rage.Vector2 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector2::get_Zero():valuetype [RagePluginHook]Rage.Vector2 static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameConsole::get_IsOpen():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector2::op_Subtraction(valuetype [RagePluginHook]Rage.Vector2,valuetype [RagePluginHook]Rage.Vector2):valuetype [RagePluginHook]Rage.Vector2 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsBicycle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsQuadBike():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsJetski():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsBoat():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsInHelicopter():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsOnBike():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::set_Name(System.String):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Blip::StopFlashing():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(valuetype [RagePluginHook]Rage.Vector3*):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::.ctor(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::.ctor(System.Int32*):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponDescriptor::op_Implicit(valuetype [RagePluginHook]Rage.WeaponHash):class [RagePluginHook]Rage.WeaponDescriptor static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::get_Item(System.Int32):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::LogVerbose(System.String):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_IsArmIkEnabled(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::GoToWhileAiming(class [RagePluginHook]Rage.Entity,System.Single,System.Single):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::ParkVehicle(class [RagePluginHook]Rage.Vehicle,valuetype [RagePluginHook]Rage.Vector3,System.Single):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::DriveToPosition(class [RagePluginHook]Rage.Vehicle,valuetype [RagePluginHook]Rage.Vector3,System.Single,valuetype [RagePluginHook]Rage.VehicleDrivingFlags,System.Single):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]EntityExtensions::Exists(class [RagePluginHook]Rage.Fire):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_IsFireProof(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Fire::get_Position():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::DistanceTo2D(valuetype [RagePluginHook]Rage.Vector3):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.PedInventory::get_EquippedWeaponObject():class [RagePluginHook]Rage.Weapon instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_IsOnFire(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Fire::IsValid():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_EngineHealth(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Fire::set_DesiredBurnDuration(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Fire::get_ParentEntity():class [RagePluginHook]Rage.Entity instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Fire::Delete():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::GoToWhileAiming(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3,System.Single,System.Single,System.Boolean,valuetype [RagePluginHook]Rage.FiringPattern):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::FollowNavigationMeshToPosition(valuetype [RagePluginHook]Rage.Vector3,System.Single,System.Single,System.Single,System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::Resurrect():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_NeedsCollision(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::EnterVehicle(class [RagePluginHook]Rage.Vehicle,System.Int32,System.Int32,valuetype [RagePluginHook]Rage.EnterVehicleFlags):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Euphoria.EuphoriaMessage::PushArgument(System.String,System.Object):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsBeingJacked():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsJacking():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Fire::get_ElapsedBurnDuration():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::GetAllFires():class [RagePluginHook]Rage.Fire[] static	Public
+OK	MEMBER	[RagePluginHook]Rage.Fire::DistanceTo(class [RagePluginHook]Rage.ISpatial):System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_CollisionIgnoredEntity(class [RagePluginHook]Rage.Entity):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetPositionOffset(valuetype [RagePluginHook]Rage.Vector3):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponDescriptor::get_Asset():valuetype [RagePluginHook]Rage.WeaponAsset instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsBailingOutOfVehicle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_HasBeenDamagedByAnyVehicle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_HasBeenDamagedByAnyObject():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Task::get_Status():valuetype [RagePluginHook]Rage.TaskStatus instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponAsset::.ctor(System.UInt32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponDescriptor::op_Implicit(valuetype [RagePluginHook]Rage.WeaponAsset):class [RagePluginHook]Rage.WeaponDescriptor static	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::PutHandsUp(System.Int32,class [RagePluginHook]Rage.Ped):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleDoor::get_IsDamaged():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::GetBoneRotation(System.String):valuetype [RagePluginHook]Rage.Rotator instance	Public
+OK	MEMBER	[RagePluginHook]Rage.MathHelper::GetOffsetPosition(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Quaternion,valuetype [RagePluginHook]Rage.Vector3):valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::SetRotationPitch(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::SetRotationRoll(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleDoor::Open(System.Boolean,System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleDoor::set_AngleRatio(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::TeleportLocalPlayer(valuetype [RagePluginHook]Rage.Vector3,System.Boolean):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::Load():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.AnimationDictionary::Load():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Around2D(System.Single,System.Single):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Around2D(System.Single):valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_HeightAboveGround():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsGoingIntoCover():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::FireWeaponAt(class [RagePluginHook]Rage.Entity,System.Int32,valuetype [RagePluginHook]Rage.FiringPattern):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsVehicle():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_VehicleTryingToEnter():class [RagePluginHook]Rage.Vehicle instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::GoToWhileAiming(class [RagePluginHook]Rage.Entity,valuetype [RagePluginHook]Rage.Vector3,System.Single,System.Single,System.Boolean,valuetype [RagePluginHook]Rage.FiringPattern):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::AimWeaponAt(class [RagePluginHook]Rage.Entity,System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.PedInventory::GiveNewWeapon(valuetype [RagePluginHook]Rage.WeaponHash,System.Int16,System.Boolean):class [RagePluginHook]Rage.WeaponDescriptor instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsBig():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::ShuffleToAdjacentSeat():class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskInvoker::FightAgainst(class [RagePluginHook]Rage.Ped,System.Int32):class [RagePluginHook]Rage.Task instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsStunned():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsUpsideDown():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.AnimationDictionary::Dismiss():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::add_RawFrameRender(class [mscorlib]System.EventHandler`1<class [RagePluginHook]Rage.GraphicsEventArgs>):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.GraphicsEventArgs::get_Graphics():class [RagePluginHook]Rage.Graphics instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Graphics::DrawFilledCircle(valuetype [RagePluginHook]Rage.Vector2,System.Single,valuetype [System.Drawing]System.Drawing.Color):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Graphics::DrawText(System.String,System.String,System.Single,valuetype [System.Drawing]System.Drawing.PointF,valuetype [System.Drawing]System.Drawing.Color):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::remove_RawFrameRender(class [mscorlib]System.EventHandler`1<class [RagePluginHook]Rage.GraphicsEventArgs>):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Euphoria.EuphoriaMessage::SetArgument(System.String,System.Object):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_ForwardVector():valuetype [RagePluginHook]Rage.Vector3 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_MustBeHotwired():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponDescriptor::Drop():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_MaxHealth():System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Health():System.Int32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.HandlingData::set_TractionCurveMaximum(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.HandlingData::set_TractionCurveMinimum(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.HandlingData::get_TractionCurveMaximum():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.HandlingData::get_TractionCurveMinimum():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_CurrentGear():System.Byte instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_SteeringAngle():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.HandlingData::get_TopSpeed():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_TopSpeed(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsFalling():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsVaulting():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.TaskSequence::Execute():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.PedInventory::set_EquippedWeapon(class [RagePluginHook]Rage.WeaponDescriptor):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Lerp(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3,System.Single):valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_IsRagdoll(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::TraceCapsule(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3,System.Single,valuetype [RagePluginHook]Rage.TraceFlags,class [RagePluginHook]Rage.Entity[]):valuetype [RagePluginHook]Rage.HitResult static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::op_Multiply(System.Single,valuetype [RagePluginHook]Rage.Vector3):valuetype [RagePluginHook]Rage.Vector3 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::Distance(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3):System.Single static	Public
+OK	MEMBER	[RagePluginHook]Rage.Native.NativeArgument::op_Implicit(System.UInt64*):class [RagePluginHook]Rage.Native.NativeArgument static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_CanPlayAmbientAnimations(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_CanPlayGestureAnimations(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::IsBoneValid(valuetype [RagePluginHook]Rage.PedBoneId):System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_CanBeKnockedOffBikes(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::set_CanBePulledOutOfVehicles(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Orientation():valuetype [RagePluginHook]Rage.Quaternion instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::set_Orientation(valuetype [RagePluginHook]Rage.Quaternion):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vector3::LengthSquared():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.World::IsPathNodeIdValid(System.UInt32):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Task::WaitForCompletion(System.Int32):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Task::WaitForCompletion():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Task::get_Ped():class [RagePluginHook]Rage.Ped instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::set_IsFullMapRevealForced(System.Boolean):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponAsset::Dismiss():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Debug::DrawLine(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Vector3,valuetype [System.Drawing]System.Drawing.Color):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.Debug::DrawWireBox(valuetype [RagePluginHook]Rage.Vector3,valuetype [RagePluginHook]Rage.Quaternion,valuetype [RagePluginHook]Rage.Vector3,valuetype [System.Drawing]System.Drawing.Color):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponAsset::op_Implicit(System.UInt32):valuetype [RagePluginHook]Rage.WeaponAsset static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::GetDimensions(valuetype [RagePluginHook]Rage.Vector3&,valuetype [RagePluginHook]Rage.Vector3&):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleModder::GetWheelMod(valuetype [RagePluginHook]Rage.VehicleWheelType&,System.Int32&):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_PearlescentColor():valuetype [System.Drawing]System.Drawing.Color instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_RimColor():valuetype [System.Drawing]System.Drawing.Color instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleModder::get_HasTurbo():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleModder::get_HasXenonHeadlights():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_SecondaryColor():valuetype [System.Drawing]System.Drawing.Color instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_CanTiresBurst():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleModder::InstallModKit():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_PearlescentColor(valuetype [System.Drawing]System.Drawing.Color):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleModder::set_HasTurbo(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleModder::set_HasXenonHeadlights(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleModder::SetWheelMod(valuetype [RagePluginHook]Rage.VehicleWheelType,System.Int32,System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_RimColor(valuetype [System.Drawing]System.Drawing.Color):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::set_CanTiresBurst(System.Boolean):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Task::GetTask(class [RagePluginHook]Rage.Ped,System.String):class [RagePluginHook]Rage.Task static	Public
+OK	MEMBER	[RagePluginHook]Rage.Model::get_IsPed():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::GetPreviousPedOnSeat(System.Int32):class [RagePluginHook]Rage.Ped instance	Public
+OK	MEMBER	[RagePluginHook]Rage.IHashedAsset::get_Hash():System.UInt32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.IAsset::get_IsLoaded():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.IAsset::Load():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.IAsset::Dismiss():System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::get_Hash():System.UInt32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.RelationshipGroup::op_Equality(valuetype [RagePluginHook]Rage.RelationshipGroup,valuetype [RagePluginHook]Rage.RelationshipGroup):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_JackingTarget():class [RagePluginHook]Rage.Ped instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_IsInWrithe():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_IsTrain():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleWheelPropertyWrapper::get_Item(System.Int32):class [RagePluginHook]Rage.VehicleWheel instance	Public
+OK	MEMBER	[RagePluginHook]Rage.VehicleWheel::get_TireHealth():System.Single instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Vehicle::get_Wheels():valuetype [RagePluginHook]Rage.VehicleWheelPropertyWrapper instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::SetPositionZ(System.Single):System.Void instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Ped::get_DecisionMaker():valuetype [RagePluginHook]Rage.DecisionMaker instance	Public
+OK	MEMBER	[RagePluginHook]Rage.DecisionMaker::get_Hash():System.UInt32 instance	Public
+OK	MEMBER	[RagePluginHook]Rage.WeaponDescriptor::op_Implicit(System.String):class [RagePluginHook]Rage.WeaponDescriptor static	Public
+OK	MEMBER	[RagePluginHook]Rage.PedInventory::AddComponentToWeapon(valuetype [RagePluginHook]Rage.WeaponAsset,System.String):System.Void instance	Public
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Int32>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Boolean>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Int64>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Single>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.UInt64>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<valuetype [RagePluginHook]Rage.Vector3>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByHash`1(System.UInt64,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.UInt32>
+OK	SPEC	[RagePluginHook]Rage.World::GetEntityByHandle`1(valuetype [RagePluginHook]Rage.PoolHandle):!!0 static<class [RagePluginHook]Rage.Object>
+OK	SPEC	[RagePluginHook]Rage.World::GetEntityByHandle`1(valuetype [RagePluginHook]Rage.PoolHandle):!!0 static<class [RagePluginHook]Rage.Ped>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.UInt32>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Boolean>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Single>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Int32>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<valuetype [RagePluginHook]Rage.Vector3>
+OK	SPEC	[RagePluginHook]Rage.World::GetEntityByHandle`1(valuetype [RagePluginHook]Rage.PoolHandle):!!0 static<class [RagePluginHook]Rage.Vehicle>
+OK	SPEC	[RagePluginHook]Rage.Native.NativeFunction::CallByName`1(System.String,class [RagePluginHook]Rage.Native.NativeArgument[]):!!0 static<System.Int64>
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.EntryPoint:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.PrefersSingleInstance:System.Boolean
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.Author:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.PluginAttribute.ShouldTickInPauseMenu:System.Boolean
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandParameterAttribute.AutoCompleterType:class [mscorlib]System.Type
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandParameterAttribute.AutoCompleterType:class [mscorlib]System.Type
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Description:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String
+OK	NAMED_ARG	[RagePluginHook]Rage.Attributes.ConsoleCommandAttribute.Name:System.String

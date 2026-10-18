@@ -1,0 +1,16 @@
+SUMMARY	types_ok=7	members_ok=8	specs_ok=0	named_args_ok=0	failures=0	matcher_disagreements=0	api=RagePluginHook.dll	plugin=LSA.SessionIdentity.dll
+OK	TYPE	[RagePluginHook]Rage.Ped
+OK	TYPE	[RagePluginHook]Rage.PoolHandle
+OK	TYPE	[RagePluginHook]Rage.Entity
+OK	TYPE	[RagePluginHook]EntityExtensions
+OK	TYPE	[RagePluginHook]Rage.IHandleable
+OK	TYPE	[RagePluginHook]Rage.Game
+OK	TYPE	[RagePluginHook]Rage.GameFiber
+OK	MEMBER	[RagePluginHook]Rage.Entity::op_Equality(class [RagePluginHook]Rage.Entity,class [RagePluginHook]Rage.Entity):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]EntityExtensions::Exists(class [RagePluginHook]Rage.IHandleable):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_IsDead():System.Boolean instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::get_Handle():valuetype [RagePluginHook]Rage.PoolHandle instance	Public
+OK	MEMBER	[RagePluginHook]Rage.Entity::op_Inequality(class [RagePluginHook]Rage.Entity,class [RagePluginHook]Rage.Entity):System.Boolean static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::get_GameTime():System.UInt32 static	Public
+OK	MEMBER	[RagePluginHook]Rage.Game::LogTrivial(System.String):System.Void static	Public
+OK	MEMBER	[RagePluginHook]Rage.GameFiber::get_CanSleepNow():System.Boolean static	Public

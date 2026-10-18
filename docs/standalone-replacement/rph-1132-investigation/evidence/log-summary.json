@@ -1,0 +1,40 @@
+{
+ "unique_logs": 162,
+ "rph_versions": {
+  "1.132.1428.17748": 162
+ },
+ "game_versions": {
+  "1.0.1158.16": 162
+ },
+ "plugin_loads": {
+  "LosSantosAlive": 151,
+  "Smart Vehicle Entry": 151,
+  "LSA Promoted Characters": 117,
+  "LSA Standalone": 2
+ },
+ "logs_with_LSPDFR_loaded": 0,
+ "unhandled_plugin_exceptions": [
+  {
+   "log": "RagePluginHook_18102026_115921.log",
+   "plugin": "LSA Standalone",
+   "type": "System.MissingMethodException",
+   "message": "Method not found: 'Int32 Rage.Game.get_GameTime()'.",
+   "origin": "Game fiber \"Plugin \"LSA Standalone\" main fiber\".",
+   "stack": [
+    "at LSA.Standalone.RageHost.EntryPoint.Main()",
+    "at Rage.GameFiber.Main()"
+   ]
+  }
+ ],
+ "lsa_standalone_lines": {
+  "RagePluginHook_18102026_115921.log": [
+   "",
+   "==============================",
+   ""
+  ],
+  "RagePluginHook_18102026_121606.log": [
+   "[LSA-S2] host_failed kind=MissingMethodException",
+   "[LSA-S2] stopped"
+  ]
+ }
+}

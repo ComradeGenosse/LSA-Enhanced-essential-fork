@@ -1,0 +1,5 @@
+b48e24aa586a73b5f1f3b220ea7eb7576d388a52446a11d69fa29842f8508c36  Downloads/ragepluginhook.1.124.0.nupkg
+4751d4b2fbfc7cd0b3f901d711d1d4c245fef774082ab87f9fed52a49ef3e159  Downloads/RAGEPluginHook_1_131_1424_17745.zip
+8524e534f219c7f33634ed45ced055f3c7b0b461fa8302ff2f0ac46470c7ed34  Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/lspdfr_049_9695_Manual_Install_Enhanced_1158_16.zip
+fba36250da34e9c077b1a9fb4bdb94c84ce79496152f3290560984f01e69e078  Codex/2026-10-18/implemented-in-pr-50-x20-build/work/pr50-5884d8b-artifact/lsa-standalone-gta-smoke.zip
+ca07e3be0ccfb70323c2f64dde9e82bcb128e30035e440b2682c1876f2567423  Codex/2026-10-18/implemented-in-pr-50-x20-build/outputs/lsa-standalone-gta-smoke.zip

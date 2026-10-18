@@ -1,0 +1,144 @@
+{
+ "principle": "Principle: a .NET method is JIT-compiled before its first instruction runs, and the JIT\nresolves every member token in the method's (reachable) IL at that time. So if a log line\nproves a method executed, every RPH member referenced in that method's body was resolved\nby the actual RPH 1.132 runtime in GTA.",
+ "plugins": {
+  "LosSantosAlive": {
+   "distinct_messages": 12864,
+   "executed_methods": [],
+   "runtime_proven_members": []
+  },
+  "LSA Promoted Characters": {
+   "distinct_messages": 118,
+   "executed_methods": [
+    {
+     "method": "LSA.Enhanced.Settings.EnhancedSettings LSA.Enhanced.EnhancedHost::LoadSettings(System.String,LSA.Enhanced.FileStamp,LSA.Enhanced.Commands.CommandCatalog,LSA.Enhanced.Settings.EnhancedSettings,LSA.Enhanced.Commands.IHud,System.Boolean)",
+     "evidence_literal": "[UX] settings_loaded revision="
+    },
+    {
+     "method": "System.Boolean LSA.PromotedCharacters.ClrDomains/<>c__DisplayClass0_0::<FindEssential>b__0(System.AppDomain)",
+     "evidence_literal": "PreInitializedDomain_"
+    },
+    {
+     "method": "System.Void LSA.Enhanced.EnhancedHost::Run(System.String,System.String,System.String,System.Func`1<System.String>)",
+     "evidence_literal": "[UX] enhanced_host_started"
+    },
+    {
+     "method": "System.Void LSA.Enhanced.Input.InputRouter::Apply(LSA.Enhanced.Settings.EnhancedSettings,LSA.Enhanced.Input.EssentialBindings)",
+     "evidence_literal": "[UX] input_latency "
+    },
+    {
+     "method": "System.Void LSA.Enhanced.Input.InputRouter::SetState(System.String)",
+     "evidence_literal": "[UX] input_router state="
+    },
+    {
+     "method": "System.Void LSA.Enhanced.Input.InputRouter::Tick()",
+     "evidence_literal": "[UX] input_keys mask="
+    },
+    {
+     "method": "System.Void LSA.Enhanced.Input.TalkTargetInput::AnnounceRecipient(System.Collections.Generic.Dictionary`2<System.String,System.Object>)",
+     "evidence_literal": "[UX4] talk_ptt recipient kind="
+    },
+    {
+     "method": "System.Void LSA.Enhanced.Input.TalkTargetInput::Apply(LSA.Enhanced.Settings.EnhancedSettings,LSA.Enhanced.Input.EssentialBindings)",
+     "evidence_literal": "[UX4] talk_target input=ready key="
+    },
+    {
+     "method": "System.Void LSA.Enhanced.Input.TalkTargetInput::PollName()",
+     "evidence_literal": "[UX4] talk_ptt recipient_name outcome=shown"
+    },
+    {
+     "method": "System.Void LSA.Enhanced.Input.TalkTargetInput::PollStart()",
+     "evidence_literal": "[UX4] talk_ptt begin latencyMs="
+    },
+    {
+     "method": "System.Void LSA.Enhanced.Ui.UiBridge::Configure(System.Boolean)",
+     "evidence_literal": "[UX] menu state=ready rnui="
+    },
+    {
+     "method": "System.Void LSA.PromotedCharacters.EntryPoint::LogSteamModules()",
+     "evidence_literal": "[UX] steam_modules steam_api64="
+    },
+    {
+     "method": "System.Void LSA.PromotedCharacters.EntryPoint::Main()",
+     "evidence_literal": "[UX] command_bridge available="
+    },
+    {
+     "method": "System.Void LSA.PromotedCharacters.EntryPoint::StartHost(System.String,System.String,System.String)",
+     "evidence_literal": "[P2] host_starting"
+    },
+    {
+     "method": "System.Void LSA.PromotedCharacters.PlayerCommands::Initialize(System.Int32)",
+     "evidence_literal": "[P2] console_frontend_domain="
+    }
+   ],
+   "runtime_proven_members": [
+    "[RagePluginHook]Rage.Game::LogTrivial(System.String):System.Void static",
+    "[RagePluginHook]Rage.GameFiber::Sleep(System.Int32):System.Void static",
+    "[RagePluginHook]Rage.GameFiber::Yield():System.Void static"
+   ]
+  },
+  "Smart Vehicle Entry": {
+   "distinct_messages": 5,
+   "executed_methods": [
+    {
+     "method": "System.Void SmartVehicleEntry.EntryPoint::Main()",
+     "evidence_literal": "[SmartVehicleEntry] Loaded."
+    }
+   ],
+   "runtime_proven_members": [
+    "[RagePluginHook]Rage.Game::LogTrivial(System.String):System.Void static",
+    "[RagePluginHook]Rage.GameFiber::StartNew(class [mscorlib]System.Threading.ThreadStart):class [RagePluginHook]Rage.GameFiber static",
+    "[RagePluginHook]Rage.GameFiber::Yield():System.Void static"
+   ]
+  },
+  "LSA Standalone": {
+   "distinct_messages": 4,
+   "executed_methods": [
+    {
+     "method": "System.Void LSA.Standalone.RageHost.EntryPoint::Main()",
+     "evidence_literal": "[LSA-S2] stopped"
+    },
+    {
+     "method": "System.Void LSA.Standalone.RageHost.OwnerScope::Enter()",
+     "evidence_literal": "<control-flow evidence>"
+    }
+   ],
+   "runtime_proven_members": [
+    "[RagePluginHook]Rage.Game::LogTrivial(System.String):System.Void static",
+    "[RagePluginHook]Rage.Game::get_GameTime():System.UInt32 static",
+    "[RagePluginHook]Rage.GameFiber::Sleep(System.Int32):System.Void static",
+    "[RagePluginHook]Rage.GameFiber::get_CanSleepNow():System.Boolean static"
+   ]
+  }
+ },
+ "all_runtime_proven_members": {
+  "[RagePluginHook]Rage.Game::LogTrivial(System.String):System.Void static": [
+   "LSA Promoted Characters: LSA.Enhanced.Settings.EnhancedSettings LSA.Enhanced.EnhancedHost::LoadSettings(System.String,LSA.Enhanced.FileStamp,LSA.Enhanced.Commands.CommandCatalog,LSA.Enhanced.Settings.EnhancedSettings,LSA.Enhanced.Commands.IHud,System.Boolean)",
+   "LSA Promoted Characters: System.Void LSA.Enhanced.EnhancedHost::Run(System.String,System.String,System.String,System.Func`1<System.String>)",
+   "LSA Promoted Characters: System.Void LSA.PromotedCharacters.EntryPoint::LogSteamModules()",
+   "LSA Promoted Characters: System.Void LSA.PromotedCharacters.EntryPoint::Main()",
+   "LSA Promoted Characters: System.Void LSA.PromotedCharacters.EntryPoint::StartHost(System.String,System.String,System.String)",
+   "LSA Promoted Characters: System.Void LSA.PromotedCharacters.PlayerCommands::Initialize(System.Int32)",
+   "LSA Standalone: System.Void LSA.Standalone.RageHost.EntryPoint::Main()",
+   "Smart Vehicle Entry: System.Void SmartVehicleEntry.EntryPoint::Main()"
+  ],
+  "[RagePluginHook]Rage.Game::get_GameTime():System.UInt32 static": [
+   "LSA Standalone: System.Void LSA.Standalone.RageHost.EntryPoint::Main()"
+  ],
+  "[RagePluginHook]Rage.GameFiber::Sleep(System.Int32):System.Void static": [
+   "LSA Promoted Characters: System.Void LSA.Enhanced.EnhancedHost::Run(System.String,System.String,System.String,System.Func`1<System.String>)",
+   "LSA Promoted Characters: System.Void LSA.PromotedCharacters.EntryPoint::Main()",
+   "LSA Promoted Characters: System.Void LSA.PromotedCharacters.EntryPoint::StartHost(System.String,System.String,System.String)",
+   "LSA Standalone: System.Void LSA.Standalone.RageHost.EntryPoint::Main()"
+  ],
+  "[RagePluginHook]Rage.GameFiber::StartNew(class [mscorlib]System.Threading.ThreadStart):class [RagePluginHook]Rage.GameFiber static": [
+   "Smart Vehicle Entry: System.Void SmartVehicleEntry.EntryPoint::Main()"
+  ],
+  "[RagePluginHook]Rage.GameFiber::Yield():System.Void static": [
+   "LSA Promoted Characters: System.Void LSA.Enhanced.EnhancedHost::Run(System.String,System.String,System.String,System.Func`1<System.String>)",
+   "Smart Vehicle Entry: System.Void SmartVehicleEntry.EntryPoint::Main()"
+  ],
+  "[RagePluginHook]Rage.GameFiber::get_CanSleepNow():System.Boolean static": [
+   "LSA Standalone: System.Void LSA.Standalone.RageHost.OwnerScope::Enter()"
+  ]
+ }
+}

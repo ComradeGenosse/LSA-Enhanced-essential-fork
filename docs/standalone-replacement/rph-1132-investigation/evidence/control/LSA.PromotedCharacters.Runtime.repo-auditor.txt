@@ -1,0 +1,4 @@
+ERROR DEPENDENCY_NOT_PROVIDED LosSantosAlive: Non-framework managed dependency absent from inspected binary set.
+ERROR DEPENDENCY_NOT_PROVIDED DamageTrackerLib: Non-framework managed dependency absent from inspected binary set.
+ERROR DEPENDENCY_NOT_PROVIDED LSA.SessionIdentity: Non-framework managed dependency absent from inspected binary set.
+RPH ABI scan: types=18 members=65 coreTypes=0 coreMembers=0 resolved=65 errors=3 warnings=0 reference=RagePluginHook, Version=0.0.0.0 sha256=5D439745604A5FEDBF8FA401520D4F296C1B6800D77E2923BA3BF9772182C7E0
