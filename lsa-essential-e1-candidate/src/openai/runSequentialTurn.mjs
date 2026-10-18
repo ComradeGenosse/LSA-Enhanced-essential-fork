@@ -3,6 +3,7 @@ import { drivingIntentKind, activeAct6Driving, liveAct6Driving, drivingModelGuid
 import { parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind } from '../activities/act5Dialogue.mjs';
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 import {scalePcm16} from '../voice/pcmVolume.mjs';
+import {playbackCompletionPolicy} from './playbackCompletionPolicy.mjs';
 import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
 const ELEVENLABS_MAX_NATIVE_LEAD_MS=900;
 const ELEVENLABS_PACE_POLL_MS=50;
@@ -806,14 +807,42 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     clearTimeout(providerTimer);
     providerTimer = null;
     transition('playback_completion');
-    const expectedDurationMs = pcmBytesTotal / (24_000 * 2) * 1_000;
-    const watchdogMs = Math.max(services.config.playbackCompletionMinMs ?? 60_000,
-      Math.min(services.config.playbackCompletionMaxMs ?? 600_000,
-        expectedDurationMs + (services.config.playbackCompletionGraceMs ?? 30_000)));
-    metrics?.event('playback_watchdog_armed', { expectedDurationMs, watchdogMs });
+    const sealedAt = performance.now();
+    const policy = playbackCompletionPolicy({
+      pcmBytes: pcmBytesTotal, nativeStartedAt: nativePlaybackStartedAt, sealedAt,
+      minimumMs: services.config.playbackCompletionMinMs ?? 10_000,
+      maximumMs: services.config.playbackCompletionMaxMs ?? 600_000,
+      graceMs: services.config.playbackCompletionGraceMs ?? 12_000,
+    });
+    const {expectedDurationMs, watchdogMs} = policy;
+    metrics?.event('playback_watchdog_armed', {
+      expectedDurationMs, watchdogMs,
+      durationMs: policy.estimatedRemainingMs,
+      playbackStarted: nativePlaybackStartedAt !== null,
+    });
+    // A clip exceeding the configured safety cap is observable rather than
+    // silently misrepresented as a native completion receipt.
+    if (policy.durationCapped) metrics?.event('native_playback_recovery', {
+      reason: 'duration_cap', outcome: 'unknown', expectedDurationMs, watchdogMs,
+    });
     const result = await observation.completion(watchdogMs);
     if (!result.ok || (controller.signal.aborted && terminalReason !== 'completed')) {
-      if (result.reason === 'native_ack_timeout' || !result.type) metrics?.event('playback_watchdog_fired', { watchdogMs, reason: 'native_ack_timeout' });
+      if (result.reason === 'native_ack_timeout' || !result.type) {
+        // Read-only reconciliation: the v3 native protocol does not expose a
+        // queue-depth or drain-state query. Never synthesize a success ACK.
+        const snapshot = host.inspectNativePlayback?.(identity) ?? null;
+        metrics?.event('playback_watchdog_fired', {
+          watchdogMs, reason: 'native_ack_timeout', outcome: 'unknown',
+          expectedDurationMs, pcmBytes: pcmBytesTotal, chunks: pcmChunksTotal,
+          playbackStarted: nativePlaybackStartedAt !== null,
+        });
+        metrics?.event('native_playback_recovery', {
+          reason: snapshot?.endpointReady === false ? 'native_transport_unavailable' : 'native_ack_timeout',
+          outcome: 'unknown', accepted: snapshot?.turnCurrent === true,
+          playbackStarted: snapshot?.playbackStarted === true,
+          durationMs: performance.now() - sealedAt,
+        });
+      }
       if (result.reason === 'native_ack_timeout' || !result.type) chooseTerminal('playback_ack_timeout');
       else chooseTerminal(terminalForNativeEvent(result));
       throw new Error(terminalReason || 'playback_error');
@@ -862,8 +891,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const cause = { ...(underlyingNativeCause || {}), ...(publicCause(error) || {}) };
     if (controller.signal.aborted && controller.signal.reason) cause.abortReason = String(controller.signal.reason.message || controller.signal.reason).slice(0, 80);
     host.log?.(identity, 'terminal', { source, reason: terminalReason, stage: state, cause });
-    try { await host.failTurn(identity, Object.assign(new Error(terminalReason), { code: cause?.code || terminalReason }), { source, reason: terminalReason, stage: state, cause }); }
+    let cleanupAccepted = false;
+    try { cleanupAccepted = await host.failTurn(identity, Object.assign(new Error(terminalReason), { code: cause?.code || terminalReason }), { source, reason: terminalReason, stage: state, cause }) === true; }
     catch { /* Keep the original terminal cause if native cleanup itself fails. */ }
+    if (stageAtFailure === 'playback_completion') metrics?.event('native_playback_retirement_requested', {
+      accepted: cleanupAccepted, reason: terminalReason, outcome: cleanupAccepted ? 'accepted' : 'unknown',
+      playbackStarted: nativePlaybackStartedAt !== null,
+    });
     // Provider/segment/TTS failure can end before a Core playback callback.
     // Fail only its native-bound Director waiter instead of waiting 120 s.
     if (turn.directorTicket) {
