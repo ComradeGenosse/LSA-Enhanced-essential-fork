@@ -194,6 +194,9 @@ namespace LSA.PromotedCharacters
             if (outcome == "native_operation_failed" || outcome == "mic_state_unavailable") throw new InvalidOperationException(outcome);
 
             ptt.CompleteStop(generation);
+            // Stock/MarkedTalk taking the microphone is a newer conversation
+            // authority. Do not drag a previous promoted relationship over it.
+            if (outcome == "ownership_lost") ClearContinuity("mic_ownership_lost");
             if (directPtt) {
                 directPtt = false;
                 policy.Clear("direct_release");
