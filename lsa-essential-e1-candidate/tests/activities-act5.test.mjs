@@ -589,8 +589,8 @@ test('ACT6 direct player navigation admits with ACT5 suggestions disabled and a 
 
 test('ACT6 independent path reports exact gates and does not impersonate stock driving',async()=>{
   const opts={enabled:false,act6Capabilities:['drive_to']};
-  const testRequest=async(h,phrase='Drive to the waypoint')=>{
-    h.setOffer({actorOnFoot:false,actorInVehicle:true,actorIsDriver:true,waypointAvailable:true});
+  const testRequest=async(h,phrase='Drive to the waypoint',offer={})=>{
+    h.setOffer({actorOnFoot:false,actorInVehicle:true,actorIsDriver:true,waypointAvailable:true,...offer});
     const t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
     assert.ok(ctx);
     const outcome=await h.dialogue.onPlayerInput(t,phrase,ctx,()=>true);
@@ -603,11 +603,9 @@ test('ACT6 independent path reports exact gates and does not impersonate stock d
   failedHello.engine.noteHello({type:'hello',...host,nativeRun,adapterEpoch,capabilities:{drive_to:false}});
   assert.equal((await testRequest(failedHello)).reason,'native_capability_missing');
   const wrongDriver=harness({...opts,extraProbes:['NV2','Q2','L1','D1','D2','D3','SVE1']});
-  wrongDriver.setOffer({actorIsDriver:false});
-  assert.equal((await testRequest(wrongDriver)).reason,'driver_required');
+  assert.equal((await testRequest(wrongDriver,'Drive to the waypoint',{actorIsDriver:false})).reason,'driver_required');
   const missingWaypoint=harness({...opts,extraProbes:['NV2','Q2','L1','D1','D2','D3','SVE1']});
-  missingWaypoint.setOffer({waypointAvailable:false});
-  assert.equal((await testRequest(missingWaypoint)).reason,'place_unresolved');
+  assert.equal((await testRequest(missingWaypoint,'Drive to the waypoint',{waypointAvailable:false})).reason,'place_unresolved');
   const stale=harness({...opts,extraProbes:['NV2','Q2','L1','D1','D2','D3','SVE1']});
   stale.setOffer({actorOnFoot:false,actorInVehicle:true,actorIsDriver:true});
   const t=turn(),ctx=await stale.dialogue.prepare(t,'player_text');
