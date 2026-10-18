@@ -28,6 +28,8 @@ internal static class Program
         public int rageTypeReferences { get; set; }
         public int rageMemberReferences { get; set; }
         public int resolvedMembers { get; set; }
+        public int coreTypeReferences { get; set; }
+        public int coreMemberReferences { get; set; }
         public int genericMethodSpecifications { get; set; }
         public List<Finding> findings { get; set; } = new();
         public bool passed => findings.All(f => f.severity != "error");
@@ -192,7 +194,8 @@ internal static class Program
             return;
         }
         else return;
-        report.rageMemberReferences++;
+        if (sdk.Name == "RagePluginHook") report.rageMemberReferences++;
+        else report.coreMemberReferences++;
         string name = md.GetString(member.Name);
         string refer = originalType + "." + name;
         if (!sdk.Types.TryGetValue(TypeKey(originalType), out var type))
@@ -253,7 +256,7 @@ internal static class Program
     private static void Check(AssemblyMetadata sdk, AssemblyMetadata binary, Report report, IReadOnlyCollection<string> available)
     {
         var md = binary.Reader;
-        report.scannedBinaries.Add(binary.Path);
+        if (!report.scannedBinaries.Contains(binary.Path)) report.scannedBinaries.Add(binary.Path);
         foreach (var a in md.AssemblyReferences)
         {
             var ar = md.GetAssemblyReference(a);
@@ -277,7 +280,8 @@ internal static class Program
         {
             var tr = md.GetTypeReference(h);
             if (ScopeAssembly(md, h) != sdk.Name) continue;
-            report.rageTypeReferences++;
+            if (sdk.Name == "RagePluginHook") report.rageTypeReferences++;
+            else report.coreTypeReferences++;
             string typeName = binary.TypesProvider.TypeName(h);
             if (!sdk.Types.TryGetValue(typeName, out var type))
                 Add(report, "error", "MISSING_TYPE", binary.Path, typeName, "Not present in inspected RPH reference.");
@@ -316,10 +320,16 @@ internal static class Program
                 throw new InvalidDataException("The supplied file does not expose the RPH SDK API; supply the installed SDK/RagePluginHook.dll, not the RAGEPluginHook.exe launcher.");
             var paths = new List<string> { args[1] };
             if (args.Length >= 3 && args[2].EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) paths.Add(args[2]);
-            var available = paths.Select(p => Path.GetFileNameWithoutExtension(p)).ToList();
+            var available = paths.Select(p => Path.GetFileNameWithoutExtension(p)).Append(sdk.Name).ToList();
             foreach (var path in paths)
                 using (var binary = new AssemblyMetadata(path))
                     Check(sdk, binary, report, available);
+            // The Core DLL is deployed in a separate assembly-probing directory.
+            // Verify its concrete imports from the host as well as RPH imports.
+            if (paths.Count > 1)
+                using (var core = new AssemblyMetadata(paths[1]))
+                using (var host = new AssemblyMetadata(paths[0]))
+                    Check(core, host, report, available);
             // The RPH reference MUST be the real build input. This scan checks
             // emitted metadata, but does not itself prove the compile path.
             if (report.rageTypeReferences == 0 || report.rageMemberReferences == 0)
@@ -342,7 +352,8 @@ internal static class Program
         foreach (var f in report.findings)
             Console.WriteLine(f.severity.ToUpperInvariant() + " " + f.code + " " + f.reference + ": " + f.detail);
         Console.WriteLine("RPH ABI scan: types=" + report.rageTypeReferences +
-            " members=" + report.rageMemberReferences + " resolved=" + report.resolvedMembers +
+            " members=" + report.rageMemberReferences +
+            " coreTypes=" + report.coreTypeReferences + " coreMembers=" + report.coreMemberReferences + " resolved=" + report.resolvedMembers +
             " errors=" + report.findings.Count(x => x.severity == "error") +
             " warnings=" + report.findings.Count(x => x.severity == "warning") +
             " reference=" + report.referenceIdentity + " sha256=" + report.referenceSha256);
