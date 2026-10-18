@@ -38,6 +38,29 @@ test('telemetry schema drops credentials, text, raw bodies, and arbitrary nested
   assert.equal(JSON.stringify(row).includes(secret), false);
 });
 
+test('vehicle command events persist permitted diagnostics and discard unsafe payloads', async () => {
+  const sink=memorySink();
+  const telemetry=new Telemetry({sink,clock:()=>10,utc:()=>new Date(0).toISOString()});
+  const metrics=telemetry.beginTurn(id,'player_text');
+  assert.equal(metrics.event('vehicle_request_classified',{vehicleKind:'continue',text:'sensitive transcript'}),true);
+  assert.equal(metrics.event('vehicle_command_reconciled',{vehicleKind:'continue',vehicleReason:'continuation_must_not_reset_task',command:'DO BeginDriving V001'}),true);
+  assert.equal(metrics.event('vehicle_stock_command_published',{actionName:'driveevasively',verification:'unverified',playerName:'private'}),true);
+  metrics.finish({reason:'completed',stage:'done'});
+  const vehicle=sink.records.filter(record=>record.event.startsWith('vehicle_'));
+  assert.deepEqual(vehicle.map(record=>record.data),[
+    {vehicleKind:'continue'},
+    {vehicleKind:'continue',vehicleReason:'continuation_must_not_reset_task'},
+    {actionName:'driveevasively',verification:'unverified'},
+  ]);
+  assert.deepEqual(sanitizeTelemetryData({
+    vehicleKind:'drive to my home',vehicleReason:'secret',verification:'observed',
+    actionName:'DO DriveFaster then record my name',transcript:'private',credential:'sk-secret',
+  }),{});
+  assert.equal(JSON.stringify(vehicle).includes('sensitive transcript'),false);
+  assert.equal(JSON.stringify(vehicle).includes('private'),false);
+  await telemetry.close();
+});
+
 test('telemetry retains bounded provider retry and voice assignment dimensions', () => {
   assert.deepEqual(sanitizeTelemetryData({
     operation: 'tts', provider: 'openai.speech', attempt: 2, maxAttempts: 2, attemptId: 'tts:2',
