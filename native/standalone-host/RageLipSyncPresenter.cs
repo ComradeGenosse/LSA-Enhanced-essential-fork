@@ -71,7 +71,7 @@ namespace LSA.Standalone.RageHost
 
                 Ped ped = World.GetEntityByHandle<Ped>(
                     new PoolHandle(unchecked((uint)actor.Handle)));
-                if (ped == null || !ped.Exists() || ped.IsDead ||
+                if (ped == null || !RphPedValidity.Exists(ped) || ped.IsDead ||
                     ped == Game.LocalPlayer.Character) return false;
 
                 // Yield rather than competing with combat, knockdown or
