@@ -88,17 +88,51 @@ def read_zip(archive):
 
 def collector_metadata(files, gaps):
     collection = next((v for p, v in files.items() if PurePosixPath(p).name == "collection.json"), None)
-    result = {"files": None, "copy_failures": None, "missing_roots": None}
+    result = {"files": None, "copy_failures": None, "missing_roots": None,
+              "missing_source_details": []}
     if collection is None:
         gaps.append("collection_metadata_missing")
     else:
         try:
             c = json.loads(collection.decode("utf-8-sig"))
+            failures = c.get("Failures", [])
+            missing = c.get("MissingRoots", [])
+            if not isinstance(failures, list) or not isinstance(missing, list):
+                raise ValueError("invalid collector source lists")
             result["files"] = c.get("Files") if type(c.get("Files")) is int else None
-            result["copy_failures"] = len(c.get("Failures", []))
-            result["missing_roots"] = len(c.get("MissingRoots", []))
-            if result["copy_failures"] or result["missing_roots"]:
+            result["copy_failures"] = len(failures)
+            result["missing_roots"] = len(missing)
+            for root in missing:
+                # The collector deliberately does not disclose absolute root paths.
+                # Only validated configuration keys and fixed semantic roles can
+                # establish whether the missing source was optional.
+                source_id = root.get("Id") if isinstance(root, dict) else None
+                kind = root.get("Kind") if isinstance(root, dict) else None
+                config_ref = root.get("ConfigRef") if isinstance(root, dict) else None
+                required = root.get("Required") if isinstance(root, dict) else None
+                source_id = (source_id if isinstance(source_id, str) and
+                             re.fullmatch(r"source-[1-9][0-9]*", source_id) else "unknown")
+                valid = (
+                    type(required) is bool and
+                    ((kind == "game" and required and config_ref == "GamePath") or
+                     (kind == "extra" and not required and isinstance(config_ref, str)
+                      and re.fullmatch(r"ExtraLogRoots\\[[0-9]+\\]", config_ref)) or
+                     (kind == "standalone_discovered" and not required
+                      and config_ref == "auto:standalone_test_logs"))
+                )
+                result["missing_source_details"].append({
+                    "id": source_id,
+                    "kind": kind if valid else "unknown",
+                    "config_ref": config_ref if valid else "unknown",
+                    "required": required if valid else None,
+                })
+            if failures or any(x["required"] is not False
+                               for x in result["missing_source_details"]):
                 gaps.append("collection_incomplete")
+            elif missing:
+                # Missing optional sources are visible, but must not falsely
+                # invalidate proven operation evidence from the collected run.
+                gaps.append("optional_collection_sources_missing")
         except (ValueError, TypeError, UnicodeError, AttributeError):
             gaps.append("collection_metadata_invalid")
     inventory = next((v for p, v in files.items() if PurePosixPath(p).name == "inventory.csv"), None)
