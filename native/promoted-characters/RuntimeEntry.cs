@@ -18,11 +18,42 @@ namespace LSA.PromotedCharacters
         static volatile bool stopping,finished;
         public static bool Ready=>integration?.IsReady==true && !stopping;
         public static bool Alive=>!finished;
+        // Private test-build defaults: one reversible flag rather than dozens of
+        // independently omitted/disabled switches. No false witness/owner proof
+        // and no facial animation; all existing ACT/C-06/PS4 gates still apply.
+        static void ApplyPersonalTestDefaults(Config config)
+        {
+            if(!config.personalTestMode)return;
+            config.intelligence=config.intelligence??new IntelligenceConfig();
+            config.intelligence.mode="shadow";
+            config.intelligence.directorMode="experimental";
+            config.intelligence.radio="shadow";
+            config.intelligence.protagonistEvidence="negotiated_v1";
+            // Explicit partial producer dictionaries otherwise disable every
+            // unlisted producer. In personal test mode request the full set.
+            config.intelligence.producers=null;
+            config.activities=config.activities??new ActivitiesConfig();
+            config.activities.mode="on";
+            config.activities.dialogueReceipts=true;
+            config.reactions=config.reactions??new ReactionsConfig();
+            config.reactions.mode="on";
+            config.reactions.enabled=new[]{"nod","shrug"};
+            config.reactions.allowDuringOwnedBehavior=false;
+            config.npcVoicePresence=config.npcVoicePresence??new VoicePresenceConfig();
+            config.npcVoicePresence.mode="shadow";
+            config.npcVoicePresence.mouthEnabled=false; // facial overlay disabled
+            config.memoryK=config.memoryK??new NativeMemoryKConfig();
+            config.memoryK.capabilities=config.memoryK.capabilities??new System.Collections.Generic.Dictionary<string,object>();
+            config.memoryK.capabilities["ps1.producers"]="on";
+            foreach(var family in new[]{"crash","rollover","airborne","water","wanted","wasted","busted"})
+                config.memoryK.capabilities["events."+family]="on";
+        }
         public static bool Start(string text)
         {
             if(integration!=null || finished || stopping || text==null || text.Length>4096) return false;
             var config=new JavaScriptSerializer {MaxJsonLength=4096}.Deserialize<Config>(text);
             if(config==null || !config.enabled) return false;
+            ApplyPersonalTestDefaults(config);
             LSA.Intelligence.NativeProducerPolicy producerPolicy;
             try {producerPolicy=LSA.Intelligence.NativeProducerPolicy.FromConfig(
                 config.memoryK?.capabilities,config.intelligence?.producers,config.intelligence?.radio);}
@@ -145,6 +176,7 @@ namespace LSA.PromotedCharacters
         }
         public sealed class Config
         {
+            public bool personalTestMode {get;set;}=true;
             public bool enabled {get;set;} public string worldProfileId {get;set;}
             public string pipeName {get;set;}="LSA.PromotedCharacters.v1";
             public string identityPipeName {get;set;}="LSA.SessionIdentity.v1";
