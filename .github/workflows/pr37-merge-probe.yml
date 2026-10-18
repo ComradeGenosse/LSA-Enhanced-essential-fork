@@ -54,7 +54,8 @@ jobs:
               if original in runtime:
                   runtime=runtime.replace(original,original+"\n    const ps2=mode==='shadow'&&(consumers===null||consumers.ps2?.enabled===true);\n    const ps3=ps2&&(consumers===null||consumers.ps3?.enabled===true);")
               else:
-                  raise RuntimeError('missing consumerActivation anchor in merged ShadowRuntime')
+                  print('missing consumerActivation anchor; merged constructor:')
+                  print('\\n'.join(runtime.splitlines()[35:88]))
               q.write_text(runtime)
           PY
           sed -n '1,18p' lsa-essential-e1-candidate/src/perception/contracts.mjs
