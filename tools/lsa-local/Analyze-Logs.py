@@ -116,7 +116,7 @@ def collector_metadata(files, gaps):
                     type(required) is bool and
                     ((kind == "game" and required and config_ref == "GamePath") or
                      (kind == "extra" and not required and isinstance(config_ref, str)
-                      and re.fullmatch(r"ExtraLogRoots\\[[0-9]+\\]", config_ref)) or
+                      and re.fullmatch(r"ExtraLogRoots\[[0-9]+\]", config_ref)) or
                      (kind == "standalone_discovered" and not required
                       and config_ref == "auto:standalone_test_logs"))
                 )
