@@ -171,6 +171,7 @@ const safeTokens = new Set([
 
   'native_authorization_rejected','chunk_after_end','stale_or_cancelled','provider_attempt_inactive','streaming_pcm_limit','unclassified_pcm_forward_error',
   'native_owner_stalled','deferred_ticket_already_active','deferred_rate_limited','deferred_scene_or_speaker_cooldown','deferred_ambient_cadence','adaptive','complete-utterance','streaming',
+  'source_silence','hello_timeout','transport_error','unverified',
   'inventory_build_failed','inventory_write_failed','health_monitor_attach_failed', // OBS2 bounded failure stages; never serialize exception strings.
 ]);
 
