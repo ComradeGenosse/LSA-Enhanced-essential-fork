@@ -32,8 +32,30 @@ foreach ($item in $m.files) {
     throw "Managed file changed or missing; refusing partial rollback: $($item.relative)"
   }
 }
+# A crashed launcher may leave its temporary native settings behind.
+# Validate the explicitly managed filename before removing any DLLs.
+$nativeActivation = Join-Path $folder 'native-activation.json'
+$knownMetadata = @('manifest.json', 'native-activation.json')
+$unexpected = @(Get-ChildItem -LiteralPath $folder -Force |
+  Where-Object { $knownMetadata -cnotcontains $_.Name })
+if ($unexpected.Count -gt 0) {
+  throw 'Unexpected files in standalone deployment metadata; refusing partial rollback.'
+}
+if (Test-Path -LiteralPath $nativeActivation) {
+  $activation = Get-Content -LiteralPath $nativeActivation -Raw | ConvertFrom-Json
+  if ($activation.kind -cne 'lsa-standalone-native-activation' -or
+      $activation.version -ne 1 -or
+      $activation.stage -notin @('host','probe','typed','tts','audio','lipsync','streaming') -or
+      $null -eq $activation.settings -or
+      $null -eq $activation.ownerPid) {
+    throw 'Unrecognized activation file; refusing partial rollback.'
+  }
+}
 foreach ($item in $m.files) {
   Remove-Item -LiteralPath (Join-Path $game $item.relative) -Force
+}
+if (Test-Path -LiteralPath $nativeActivation) {
+  Remove-Item -LiteralPath $nativeActivation -Force
 }
 $directory = Join-Path $game 'Plugins/LSA.Standalone'
 if (Test-Path -LiteralPath $directory -PathType Container) {

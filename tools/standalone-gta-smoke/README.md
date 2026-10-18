@@ -7,7 +7,7 @@ same DLLs/companion; close and relaunch GTA/RPH between stages, without rebuildi
 or changing installed files. No stage grants NPC control without in-game probe
 and (for typed/voice) manual Arm.
 
-**Read [modular activation and per-stage GTA acceptance](../../docs/standalone-replacement/modular-activation-testing.md)
+**Read [modular activation and per-stage GTA acceptance](modular-activation-testing.md)
 first.** The model and TTS are only required at their respective stages.
 Offline CI does not prove RPH loading, NPC identity reuse, audio audibility
 or lip-sync. A correctly refused startup is a safe outcome.
@@ -33,6 +33,8 @@ or lip-sync. A correctly refused startup is a safe outcome.
 4. Use `-Stage host`, then `-Stage probe` with the same `-GamePath`; proceed to `-Stage typed` only after the GTA native actor checks actually pass. The standalone companion runs from this extracted bundle, not `LosSantosAliveServer`.
 
 **To return to original LSA:** exit GTA/RPH and stop the standalone companion. First run `.\Undo-Standalone.ps1 -GamePath '<same GTA path>'`, which checks and removes only its own three managed plugin files. **Then** restore the moved original LSA binaries/bridges/config from your off-game backup to their exact previous paths and verify their hashes. Never enable both controllers together; do not overwrite newer player profiles or SQLite data when restoring. The rollback script intentionally does **not** restore legacy files for you.
+
+**Native startup configuration:** The launcher writes a short-lived, secret-free `.LSAStandaloneSmoke/native-activation.json` immediately before starting RPH. The real GTA-hosted DLL validates the stage, complete set of seven effect switches, file age and the still-running PowerShell launcher before enabling IPC or actor probing. This avoids relying on environment inheritance from RPH to GTA. `-PreflightOnly` never writes this file. The launcher removes it on exit; `Undo-Standalone.ps1` also handles a recognized stale file after a crash. Never launch the standalone DLL directly through RPH without its launcher. Keep the launcher running for the game session; a stale or unrecognized configuration fails closed. The JSON never contains API keys, model names or dialogue.
 
 **Safety boundary:** This code can't inspect your actual installed directory or RPH load list remotely. Incomplete backups, unknown third-party bridges, inaccessible Node process enumeration, or ambiguous plugin ownership must be resolved before live testing. CI exercises only synthetic game folders, not an in-game run.
 

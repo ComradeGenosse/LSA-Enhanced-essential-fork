@@ -1,5 +1,8 @@
 using System;
 using System.Diagnostics;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Web.Script.Serialization;
 using System.IO;
 using System.Threading;
 using LSA.Standalone;
@@ -19,6 +22,10 @@ namespace LSA.Standalone.RageHost
         private static volatile bool stopping;
         private static int running;
         private static StandalonePipeServer server;
+        // Native stage is sourced from the install-owned, short-lived file in
+        // GTA itself. RPH child processes are not guaranteed to inherit env.
+        private static Dictionary<string, string> nativeSettings;
+        private static string activeStage = "unconfigured";
         internal static string ActivationSummary { get; private set; } = "native_runtime_not_started";
 
         public static void Shutdown()
@@ -49,7 +56,7 @@ namespace LSA.Standalone.RageHost
                     Game.LogTrivial("[LSA-S2] refused " + reason);
                     return;
                 }
-                if (!ValidateNativeActivation(out reason))
+                if (!LoadNativeActivation(out reason) || !ValidateNativeActivation(out reason))
                 {
                     Game.LogTrivial("[LSA-S2] refused " + reason);
                     return;
@@ -71,8 +78,7 @@ namespace LSA.Standalone.RageHost
                     // A process-level opt-in alone never grants adoption.
                     // RPH owner-fiber probe + stable decorator readback +
                     // separate deliberate in-game Arm are all required.
-                    string actorMode = Environment.GetEnvironmentVariable(
-                        "LSA_STANDALONE_ACTOR_MODE") ?? "off";
+                    string actorMode = GetSetting("LSA_STANDALONE_ACTOR_MODE");
                     resolver = new RageActorResolver(scope,
                         actorMode == "experimental", actorMode == "diagnostic");
                     var clock = new MonotonicClock();
@@ -81,8 +87,7 @@ namespace LSA.Standalone.RageHost
                     turns = new NativeTurnRegistry(authority);
                     // Explicitly opt in to an independent Windows output device;
                     // default remains null/safe, with zero audio side effects.
-                    if (string.Equals(Environment.GetEnvironmentVariable(
-                        "LSA_STANDALONE_AUDIO_OUTPUT"), "waveout_experimental",
+                    if (string.Equals(GetSetting("LSA_STANDALONE_AUDIO_OUTPUT"), "waveout_experimental",
                         StringComparison.Ordinal))
                     {
                         var spatial = new RageSpatialAudioSource(scope, resolver);
@@ -92,7 +97,7 @@ namespace LSA.Standalone.RageHost
                     // real physical output presenter (not provider PCM arrival).
                     ILipSyncPresenter face = null;
                     if (physicalAudio != null && string.Equals(
-                        Environment.GetEnvironmentVariable("LSA_STANDALONE_LIPSYNC"),
+                        GetSetting("LSA_STANDALONE_LIPSYNC"),
                         "facial_experimental", StringComparison.Ordinal))
                     {
                         face = new RageLipSyncPresenter(authority, scope, resolver, clock);
@@ -112,7 +117,8 @@ namespace LSA.Standalone.RageHost
                 server.Start();
                 bool typedEnabled = GetSetting("LSA_STANDALONE_TYPED_MODE") == "enabled";
                 StandaloneTypedCommands.OpenAdmission(typedEnabled);
-                ActivationSummary = "native_ipc=started probe=" +
+                ActivationSummary = "config=native_file_verified stage=" + activeStage +
+                    " native_ipc=started probe=" +
                     (GetSetting("LSA_STANDALONE_ACTOR_MODE") == "off" ? "off" : "enabled_unproven") +
                     " typed_admission=" + (typedEnabled ? "enabled_unarmed" : "off") +
                     " physical_audio=" + (physicalAudio == null ? "off" : "adapter_initialized_unverified") +
@@ -122,8 +128,7 @@ namespace LSA.Standalone.RageHost
                     " gta_validated=false";
                 Game.LogTrivial("[LSA-ACTIVATION] " + ActivationSummary);
                 Game.LogTrivial("[LSA-S3] started actor_adoption=locked_until_live_probe" +
-                    " actor_mode=" + (Environment.GetEnvironmentVariable(
-                        "LSA_STANDALONE_ACTOR_MODE") ?? "off") +
+                    " actor_mode=" + GetSetting("LSA_STANDALONE_ACTOR_MODE") +
                     " transport=phase2 waveout=" + (physicalAudio == null ? "off" : "experimental") +
                     " facial=" + (facialEnabled ? "experimental" : "off"));
                 uint previousGameTick = unchecked((uint)Game.GameTime);
@@ -179,6 +184,8 @@ namespace LSA.Standalone.RageHost
                 }
                 try { server?.Dispose(); } catch {}
                 server = null;
+                nativeSettings = null;
+                activeStage = "unconfigured";
                 try { resolver?.Dispose(); } catch {}
                 try { exclusive?.Dispose(); } catch {}
                 Interlocked.Exchange(ref running, 0);
@@ -188,7 +195,94 @@ namespace LSA.Standalone.RageHost
 
         private static string GetSetting(string name)
         {
-            return Environment.GetEnvironmentVariable(name) ?? "off";
+            string value;
+            return nativeSettings != null && nativeSettings.TryGetValue(name, out value)
+                ? value : "off";
+        }
+
+        private static bool LoadNativeActivation(out string reason)
+        {
+            reason = "native_activation_file_required";
+            try
+            {
+                var game = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+                var path = Path.Combine(game, ".LSAStandaloneSmoke", "native-activation.json");
+                if (!File.Exists(path) || new FileInfo(path).Length > 4096 ||
+                    new FileInfo(path).Length < 32) return false;
+                // No credentials, prompts or model names are read from the GTA file.
+                // It contains only seven native effect switches, a stage, a
+                // timestamp and the still-running PowerShell launcher PID.
+                var document = new JavaScriptSerializer()
+                    .Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+                if (document == null || document.Count != 6 ||
+                    !document.TryGetValue("kind", out var kind) ||
+                    !string.Equals(kind as string, "lsa-standalone-native-activation", StringComparison.Ordinal) ||
+                    !document.TryGetValue("version", out var version) ||
+                    !(version is int) || (int)version != 1 ||
+                    !document.TryGetValue("stage", out var stageValue) ||
+                    !(stageValue is string) ||
+                    Array.IndexOf(new[] { "host", "probe", "typed", "tts",
+                        "audio", "lipsync", "streaming" }, (string)stageValue) < 0 ||
+                    !document.TryGetValue("createdAtUtc", out var when) ||
+                    !(when is string) ||
+                    !DateTime.TryParseExact((string)when, "o",
+                        CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind,
+                        out var created) ||
+                    created.ToUniversalTime() > DateTime.UtcNow.AddMinutes(1) ||
+                    created.ToUniversalTime() < DateTime.UtcNow.AddMinutes(-20) ||
+                    !document.TryGetValue("ownerPid", out var ownerPid) ||
+                    !(ownerPid is int) || (int)ownerPid <= 0 ||
+                    !document.TryGetValue("settings", out var rawSettings) ||
+                    !(rawSettings is Dictionary<string, object>))
+                {
+                    reason = "invalid_native_activation_file";
+                    return false;
+                }
+                using (var owner = Process.GetProcessById((int)ownerPid))
+                {
+                    if (owner.HasExited ||
+                        !(string.Equals(owner.ProcessName, "powershell",
+                              StringComparison.OrdinalIgnoreCase) ||
+                          string.Equals(owner.ProcessName, "pwsh",
+                              StringComparison.OrdinalIgnoreCase)))
+                    {
+                        reason = "native_activation_launcher_not_running";
+                        return false;
+                    }
+                }
+                var supplied = (Dictionary<string, object>)rawSettings;
+                var required = new[] {
+                    "LSA_STANDALONE_ACTOR_MODE", "LSA_STANDALONE_TYPED_MODE",
+                    "LSA_STANDALONE_TTS_MODE", "LSA_STANDALONE_AUDIO_OUTPUT",
+                    "LSA_STANDALONE_PLAYBACK_CONFIRM", "LSA_STANDALONE_LIPSYNC",
+                    "LSA_STANDALONE_EARLY_SPEECH"
+                };
+                if (supplied.Count != required.Length)
+                {
+                    reason = "invalid_native_activation_file";
+                    return false;
+                }
+                var next = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (string key in required)
+                {
+                    if (!supplied.TryGetValue(key, out var value) ||
+                        !(value is string) || ((string)value).Length > 40)
+                    {
+                        reason = "invalid_native_activation_file";
+                        return false;
+                    }
+                    next.Add(key, (string)value);
+                }
+                nativeSettings = next;
+                activeStage = (string)stageValue;
+                reason = "accepted";
+                return true;
+            }
+            catch
+            {
+                reason = "invalid_or_expired_native_activation_file";
+                return false;
+            }
         }
 
         private static bool ValidateNativeActivation(out string reason)

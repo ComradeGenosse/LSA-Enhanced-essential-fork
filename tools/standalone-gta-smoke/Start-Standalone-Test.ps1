@@ -19,6 +19,8 @@ param(
 $ErrorActionPreference='Stop'
 $game=[System.IO.Path]::GetFullPath($GamePath)
 $manifest=Join-Path $game '.LSAStandaloneSmoke/manifest.json'
+$nativeActivation=Join-Path $game '.LSAStandaloneSmoke/native-activation.json'
+$nativeActivationWritten=$false
 if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) {
   throw 'Deploy with Install-Standalone.ps1 first.'
 }
@@ -116,6 +118,34 @@ Write-Host 'Do not load LosSantosAlive.dll or other Essential-dependent plugins 
 if ($PreflightOnly) {
   Write-Host 'Activation preflight complete; no companion or GTA/RPH process launched.'
 } else {
+# The native plugin loads inside GTA, not inside this PowerShell process.
+# A short-lived installation-owned file is the authoritative native stage
+# even when RPH/GTA do not inherit the launcher environment. Never store
+# provider secrets, model names, speech or private conversation data here.
+if (Test-Path -LiteralPath $nativeActivation) {
+  throw 'Stale native activation file found. Close the previous launcher and run Undo-Standalone.ps1, then reinstall. Refusing to replace it.'
+}
+$nativeSettings=@{}
+foreach ($setting in $activation.settings.PSObject.Properties) {
+  $nativeSettings[$setting.Name]=[string]$setting.Value
+}
+$nativeEnvelope=@{
+  kind='lsa-standalone-native-activation'
+  version=1
+  stage=$Stage
+  createdAtUtc=[DateTime]::UtcNow.ToString('o')
+  ownerPid=$PID
+  settings=$nativeSettings
+}
+$temporaryActivation=$nativeActivation+'.'+[Guid]::NewGuid().ToString('N')+'.tmp'
+try {
+  $nativeEnvelope | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $temporaryActivation -Encoding UTF8
+  Move-Item -LiteralPath $temporaryActivation -Destination $nativeActivation -ErrorAction Stop
+  $nativeActivationWritten=$true
+} finally {
+  Remove-Item -LiteralPath $temporaryActivation -Force -ErrorAction SilentlyContinue
+}
+Write-Host 'Native activation file: installation-owned, session-bound, secret-free.'
 $companionProc=$null
 $logs=Join-Path $PSScriptRoot 'logs'
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
@@ -149,6 +179,9 @@ try {
 }
 } # no early return; the outer environment cleanup runs on every path
 } finally {
+  if ($nativeActivationWritten) {
+    Remove-Item -LiteralPath $nativeActivation -Force -ErrorAction SilentlyContinue
+  }
   foreach ($key in $activationKeys) {
     $previous=$originalActivationEnv[$key]
     if ($null -eq $previous) {
