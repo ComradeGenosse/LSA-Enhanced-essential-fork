@@ -86,7 +86,7 @@ foreach($artifact in $artifactDirs){
   }
 }
 if($c.GamePath){
-  foreach($name in @('Plugins/LosSantosAlive.dll','Plugins/LSA.Standalone.RageHost.dll',
+  foreach($name in @('RagePluginHook.exe','Plugins/LosSantosAlive.dll','Plugins/LSA.Standalone.RageHost.dll',
                        'Plugins/LSA.Enhanced.dll','Plugins/LSA.PromotedCharacters.dll')){
     $f=Join-Path $c.GamePath $name
     if(Test-Path -LiteralPath $f -PathType Leaf){
