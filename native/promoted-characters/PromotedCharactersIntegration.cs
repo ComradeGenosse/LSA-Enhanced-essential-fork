@@ -150,7 +150,7 @@ namespace LSA.PromotedCharacters
             if (!prepared || channel != null || shutdown) return;
             identity.Initialize();
             if (!identity.IsAvailable) { shutdown = true; Game.LogTrivial("[P2] identity_initialization_failed"); return; }
-            channel = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world,Host.HostRunId,Host.WorldEpoch); channel.Start(); lastGameTime = Game.GameTime;
+            channel = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world,Host.HostRunId,Host.WorldEpoch,message=>Game.LogTrivial(message)); channel.Start(); lastGameTime = Game.GameTime;
             Host.ObserveGameTick(unchecked((uint)lastGameTime));
         }
         static bool Alive(Encounter encounter) => encounter?.Ped != null && encounter.Ped.Exists() && !encounter.Ped.IsDead && encounter.Ped.MemoryAddress == encounter.Address;
@@ -243,7 +243,7 @@ namespace LSA.PromotedCharacters
             // P1 may already have reset its owner store, or may do so later in
             // this Core update. Retiring an old-epoch token never clears a new
             // claim. No capture/control work is admitted during this reset tick.
-            var replacement = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world,Host.HostRunId,Host.WorldEpoch);
+            var replacement = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world,Host.HostRunId,Host.WorldEpoch,message=>Game.LogTrivial(message));
             replacement.Start(); channel = replacement; lastGameTime = now;
             ActivityClockReset(reason);
             // Pending loader commands carried the old world's expectations. The

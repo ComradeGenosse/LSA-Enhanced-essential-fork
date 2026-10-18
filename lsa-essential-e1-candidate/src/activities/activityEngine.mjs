@@ -458,7 +458,7 @@ export class ActivityEngine {
       else if (unsignedElapsed(receipt.milestones.requestedGameMs, activity.gameStart) > 0xf0000000) return this.clockReset();
     }
     activity.updatedAtMs = now;
-    this.onEvent('activity_receipt', { activityId: activity.activityId, capability: receipt.capability, receiptState: receipt.state, reason: receipt.reason });
+    this.onEvent('activity_receipt', { activityId: activity.activityId, goalId: activity.goalId, executionId: receipt.executionId, requestId: receipt.requestId, capability: receipt.capability, receiptState: receipt.state, reason: receipt.reason });
     if (receipt.state === 'HANDLER_ACCEPTED' || receipt.state === 'VALIDATED' || receipt.state === 'DISPATCHED') { step.status = 'executing'; activity.status = 'running'; return; }
     if (receipt.state === 'MODE_ESTABLISHED') {
       if (receipt.modeHealth !== 'lost') activity.act4ModeStepId = step.stepId;

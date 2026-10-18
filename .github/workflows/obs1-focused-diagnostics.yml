@@ -1,0 +1,39 @@
+name: OBS1 focused telemetry and control-pipe diagnostics
+on:
+  pull_request:
+    paths:
+      - 'lsa-essential-e1-candidate/src/observability/**'
+      - 'lsa-essential-e1-candidate/src/activities/**'
+      - 'lsa-essential-e1-candidate/tests/observability.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/activities-shadow.test.mjs'
+      - 'native/promoted-characters/ControlChannel.cs'
+      - 'native/promoted-characters/facts-tests/**'
+      - '.github/workflows/obs1-focused-diagnostics.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: obs1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  companion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify focused telemetry and ACT shadow diagnostics
+        run: |
+          node --check lsa-essential-e1-candidate/src/observability/eventContract.mjs
+          node --check lsa-essential-e1-candidate/src/activities/activityClient.mjs
+          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/observability.test.mjs lsa-essential-e1-candidate/tests/activities-shadow.test.mjs
+  native-control:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Validate actual Windows P2 control channel diagnostics
+        run: dotnet run --project native/promoted-characters/facts-tests/ControlChannelTests.csproj --configuration Release

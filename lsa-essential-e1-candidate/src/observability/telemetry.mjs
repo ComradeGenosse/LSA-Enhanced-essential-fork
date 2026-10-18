@@ -19,13 +19,13 @@ export class Telemetry {
   }
   get runId() { return this.#runId; }
   get droppedCount() { return this.#sink?.droppedCount || 0; }
-  emit(event, identity = null, source = null, data = {}, provider = 'openai') {
+  emit(event, identity = null, source = null, data = {}, provider = 'openai', metadata = null) {
     if (!this.#sink) return false;
     // Observability is best-effort. An unregistered event or a broken sink must
     // never abort STT, Luna reasoning, or NPC speech. Keep the schema strict
     // (unknown names/data are not logged), but contain telemetry errors here.
     try {
-      const record = createTelemetryRecord({ sequence: ++this.#sequence, runId: this.#runId, originMs: this.#origin, event, identity, source, provider, data, now: this.#clock(), utc: this.#utc() });
+      const record = createTelemetryRecord({ sequence: ++this.#sequence, runId: this.#runId, originMs: this.#origin, event, identity, source, provider, data, component: metadata?.component, severity: metadata?.severity, now: this.#clock(), utc: this.#utc() });
       return this.#sink.emit(record);
     } catch {
       return false;
@@ -69,7 +69,7 @@ export class TurnMetrics {
       this.#inputReadyAt = this.clock();
       data = { durationMs: Math.max(0, this.#inputReadyAt - this.#start), ...data };
     }
-    return this.#telemetry.emit(name, this.#identity, this.#source, data);
+    return this.#telemetry.emit(name, this.#identity, this.#source, data, 'openai', { component: 'speech' });
   }
   stage(stage) { this.event('turn_stage', { stage }); }
   startSpan(name, data = {}) {

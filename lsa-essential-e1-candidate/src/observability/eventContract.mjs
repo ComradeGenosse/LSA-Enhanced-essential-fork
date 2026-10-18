@@ -1,3 +1,6 @@
+import { REASON_CODES } from '../activities/contracts.mjs';
+import { isReactionName } from '../reactions/reactionCatalog.mjs';
+
 export const EVENT_NAMES = new Set([
   'run_started','bridge_ready','bridge_disconnected','run_shutdown','turn_bound','turn_stage','mic_input_captured','stt_completed','memory_bypass','memory_fallback','audio_handoff_started','phase_started','phase_finished','phase_failed','pcm_first_forwarded','voice_profile_assigned','speech_provider_selected',
   'input_ready','capture_started','capture_stopped','mic_chunk','input_overflow','provider_request_started',
@@ -17,7 +20,9 @@ export const EVENT_NAMES = new Set([
   'intelligence_status','companion_shadow','knowledge_frame_projected','knowledge_delivery','knowledge_request_stale',
   'intelligence_frame_rejected','director_gate','director_candidate','director_handoff',
   'memory_journal_committed','memory_journal_not_committed',
-  'memory_m3_intake_loss','memory_m3_coverage',
+  'memory_m3_intake_loss','memory_m3_coverage','m9_callback_shadow',
+  'reaction_channel_ready','reaction_channel_closed','reaction_channel_mode_mismatch','reaction_ack',
+  'activity_channel_failure','activity_channel_counter',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
   'vehicle_request_classified','vehicle_command_reconciled','vehicle_stock_command_published',
   'vehicle_seat_requested','vehicle_seat_reconciled','vehicle_seat_admission',
@@ -63,7 +68,9 @@ const safeKeys = new Set([
   'profileRevision','profileCount','collisionCount','canonHash','systemPromptHash','runtimePromptHash','finalReasoningRequestHash',
   'traitsIncluded','memoryCount','biographyIncluded','relationshipIncluded','generatedPersonaPolicy',
   'truncatedFields','truncatedFieldCount','droppedMemoryCount',
-  'activityId','intent','capability','receiptState','stepIndex','delivery',
+  'activityId','executionId','goalId','commandId','clientRun','nativeRun','adapterEpoch','hostRunId','worldEpoch',
+  'companionMode','nativeMode','reaction',
+  'intent','capability','receiptState','stepIndex','delivery',
   'act5Suggestions','nativeAdvertised','missingProbeCount','destinationKind',
   'vehicleKind','vehicleReason','verification','seat','modelCommandKind',
 
@@ -177,7 +184,13 @@ function safeScalar(key, value) {
   if (typeof value !== 'string' || !safeKeys.has(key)) return undefined;
   const token = value.trim();
   if (key === 'traceCode') return /^[0-9a-f]{10}$/.test(token) ? token : undefined;
+  if (key === 'reaction') return isReactionName(token) ? token : undefined;
+  if (key === 'companionMode' || key === 'nativeMode') return ['off','shadow','on'].includes(token) ? token : undefined;
+  if (key === 'reason' && REASON_CODES.includes(token)) return token;
   if (closedValues.has(key)) return closedValues.get(key).has(token) ? token : undefined;
+  // ACT receipts are a case-sensitive protocol enum. Do not lowercase them
+  // just because 'failed' also appears in the generic safe-token vocabulary.
+  if (key === 'receiptState') return /^(REQUESTED|VALIDATED|REJECTED|DISPATCHED|HANDLER_ACCEPTED|MODE_ESTABLISHED|FAILED|CANCELLED|SUPERSEDED|TIMED_OUT|DETACHED)$/.test(token) ? token : undefined;
   if (safeTokens.has(token.toLowerCase())) return token.toLowerCase();
   if (['diagnosticReason','reason','terminalReason'].includes(key) &&
       safeDirectorReasons.has(token)) return token;
@@ -185,7 +198,10 @@ function safeScalar(key, value) {
   // Closed memory-journal refusal codes (d03_*, m2_*, journal_*): never free text.
   if (key === 'reason' && /^(d03|m2|journal|timeline)_[a-z0-9_]{1,80}$/.test(token)) return token;
   if (['nativeReason','nativeType','errorType','actionName','stage','operation'].includes(key) && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
-  if (key === 'requestId' && /^rid_[a-f0-9]{16}$/.test(token)) return token;
+  if (['activityId','executionId','goalId','commandId','clientRun','nativeRun','adapterEpoch','hostRunId','requestId'].includes(key) &&
+      (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(token) ||
+       key === 'requestId' && /^rid_[a-f0-9]{16}$/.test(token))) return token;
+  if (key === 'worldEpoch' && /^\d{1,9}$/.test(token)) return Number(token);
   if (key === 'model' && /^(gpt|whisper|tts)[-_][A-Za-z0-9._-]{1,80}$/i.test(token)) return token;
   if (['bundleHash','dllHash','frameHash','knowledgeRequestHash','projectionHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
   if (['canonHash','systemPromptHash','runtimePromptHash','finalReasoningRequestHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
@@ -197,10 +213,8 @@ function safeScalar(key, value) {
   if (key === 'speechProvider' && /^[a-z][a-z0-9._-]{0,63}$/.test(token)) return token;
   if (key === 'provider' && /^openai\.(reasoning|transcription|speech)$/.test(token)) return token;
   if (key === 'attemptId' && /^(stt|model|tts):[12]$/.test(token)) return token;
-  if (key === 'activityId' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(token)) return token;
   if (key === 'intent' && /^(hold_position|accompany|resume_previous|sit_here|scenario_here|scenario_at|move_to_and_hold|approach_and_face|hang_out_with|board_vehicle|ride_along|exit_vehicle_and_hold|leave_scene|take_cover_and_hold|go_to_place|vehicle_trip)$/.test(token)) return token;
   if (key === 'capability' && /^[a-z][a-z0-9_]{2,31}$/.test(token)) return token;
-  if (key === 'receiptState' && /^(REQUESTED|VALIDATED|REJECTED|DISPATCHED|HANDLER_ACCEPTED|MODE_ESTABLISHED|FAILED|CANCELLED|SUPERSEDED|TIMED_OUT|DETACHED)$/.test(token)) return token;
   return undefined;
 }
 
@@ -222,9 +236,11 @@ export function isSafeNativeIdentity(identity) {
   return id(pedId) && id(turnId) && Number.isSafeInteger(generationId) && generationId >= 0 && Number.isSafeInteger(sessionNonce) && sessionNonce >= 0;
 }
 
-export function createTelemetryRecord({ sequence, runId, originMs, event, identity, source, provider = 'openai', data = {}, now = performance.now(), utc = new Date().toISOString() }) {
+export function createTelemetryRecord({ sequence, runId, originMs, event, identity, source, provider = 'openai', data = {}, component, severity, now = performance.now(), utc = new Date().toISOString() }) {
   if (!EVENT_NAMES.has(event)) throw new TypeError('Unknown telemetry event.');
   const record = { schemaVersion: 1, timestamp: utc, runId, sequence, elapsedMs: Math.max(0, now - originMs), event, provider };
+  if (['activities','reactions','memory','speech','native'].includes(component)) record.component = component;
+  if (['debug','info','warn','error'].includes(severity)) record.severity = severity;
   if (isSafeNativeIdentity(identity)) record.identity = { pedId: identity.pedId, turnId: identity.turnId, generationId: identity.generationId, sessionNonce: identity.sessionNonce };
   if (['player_text','player_mic','special_event','system','internal'].includes(source)) record.source = source;
   record.data = sanitizeTelemetryData(data);
