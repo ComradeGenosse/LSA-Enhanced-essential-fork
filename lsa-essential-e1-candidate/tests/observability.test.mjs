@@ -61,6 +61,26 @@ test('vehicle command events persist permitted diagnostics and discard unsafe pa
   await telemetry.close();
 });
 
+test('ACT6 navigation admission telemetry preserves typed reasons but never speech text',async()=>{
+  const sink=memorySink();
+  const telemetry=new Telemetry({sink,clock:()=>10,utc:()=>new Date(0).toISOString()});
+  const metrics=telemetry.beginTurn(id,'player_mic');
+  assert.equal(metrics.event('act6_player_direct_readiness',{intent:'vehicle_trip',capability:'drive_to',
+    code:'native_probes_missing',nativeAdvertised:true,missingProbeCount:2,act5Suggestions:false,
+    transcript:'PRIVATE NAVIGATION REQUEST',ownerAlias:'SECRET'}),true);
+  assert.equal(metrics.event('act6_player_direct_unavailable',{intent:'vehicle_trip',code:'owner_unavailable',
+    dialogue:'PRIVATE'}),true);
+  metrics.finish({reason:'completed',stage:'done'});
+  const events=sink.records.filter(x=>x.event.startsWith('act6_'));
+  assert.deepEqual(events.map(x=>x.data),[
+    {intent:'vehicle_trip',capability:'drive_to',code:'native_probes_missing',
+      nativeAdvertised:true,missingProbeCount:2,act5Suggestions:false},
+    {intent:'vehicle_trip',code:'owner_unavailable'},
+  ]);
+  assert.equal(JSON.stringify(events).includes('PRIVATE'),false);
+  await telemetry.close();
+});
+
 test('telemetry retains bounded provider retry and voice assignment dimensions', () => {
   assert.deepEqual(sanitizeTelemetryData({
     operation: 'tts', provider: 'openai.speech', attempt: 2, maxAttempts: 2, attemptId: 'tts:2',
