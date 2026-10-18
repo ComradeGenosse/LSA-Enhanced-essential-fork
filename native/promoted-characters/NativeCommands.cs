@@ -97,7 +97,7 @@ namespace LSA.PromotedCharacters
                 if (registration == null) return claimed ? TalkRecipientFeedback.Unknown("owner_roster_mismatch") : TalkRecipientFeedback.Ambient("unowned");
                 if (!Alive(encounter) || encounter.Handle != Convert.ToUInt64(ped.Handle) || encounter.Address.ToInt64() != retainedAddress) return TalkRecipientFeedback.Unknown("encounter_stale");
                 if (encounter.Suspended) return TalkRecipientFeedback.Unknown("owner_suspended");
-                return claimed && claim != null && claim.incarnationId == registration.IncarnationId && claim.sourceKey == encounter.OwnerAlias && claim.worldProfileId == world ? TalkRecipientFeedback.Promoted("owner_verified",claim.sourceKey,claim.incarnationId) : TalkRecipientFeedback.Unknown("owner_proof_stale");
+                return claimed && claim != null && claim.incarnationId == registration.IncarnationId && claim.sourceKey == encounter.OwnerAlias && claim.worldProfileId == world ? TalkRecipientFeedback.Promoted("owner_verified",claim.sourceKey,claim.incarnationId,encounter.OwnershipToken) : TalkRecipientFeedback.Unknown("owner_proof_stale");
             } catch { return TalkRecipientFeedback.Unknown("resolver_failed"); }
         }
         static TalkTargetOptions Limits(LocalCommand command) => new TalkTargetOptions {RadiusMeters = command.RadiusMeters,RetentionRadiusMeters = command.RetentionRadiusMeters,MaxCandidates = command.MaxCandidates,CycleWindowMs = command.CycleWindowMs,SelectionTimeoutMs = command.SelectionTimeoutMs,Indicator = command.Indicator};
