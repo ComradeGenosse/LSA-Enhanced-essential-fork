@@ -127,6 +127,11 @@ class Program
         Check(visual.Status=="witnessed"&&visual.Channel=="visual"&&visual.KnowsSource,"visual witness at bounded range identifies visible source");
         visual=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="firing",Observer=Guid.NewGuid().ToString("D"),Source=target,SampledGameTick=78,DistanceMeters=10,SameInterior=true,ClearLosInFront=false});
         Check(visual.Status=="did_not_witness"&&visual.Channel==null,"wall or outside-cone visual check never grants knowledge");
+        var damageSight=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="damage",
+            Observer=Guid.NewGuid().ToString("D"),Source=attacker,Target=target,
+            SampledGameTick=78,DistanceMeters=12,SameInterior=true,ClearLosInFront=true});
+        Check(damageSight.Status=="witnessed"&&damageSight.KnowsTarget&&!damageSight.KnowsSource,
+            "visual callback qualifies victim but does not invent attacker sight");
         var acousticGeometry=new WitnessGeometry {EventKind="firing",Observer=Guid.NewGuid().ToString("D"),
             Source=target,SampledGameTick=78,DistanceMeters=10,SameInterior=true,ClearLosInFront=false,
             SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,

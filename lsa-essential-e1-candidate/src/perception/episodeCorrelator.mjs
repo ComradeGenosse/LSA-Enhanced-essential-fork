@@ -1,6 +1,7 @@
 import { validateSignal, validateWitnessReceipt, M9_EVENT_TYPES } from './contracts.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
 import { randomUUID, createHash } from 'node:crypto';
+import { witnessedBulletAttribution } from './contextualBallistics.mjs';
 
 const EVENT = Object.freeze({
   firing: ['firing_burst', 'routine', 'firing'],
@@ -33,7 +34,7 @@ export const PS2_DROP_REASONS = Object.freeze(['invalid_input','radio_derived_id
 export class EpisodeCorrelator {
   constructor({ episodes, observations, now = () => Math.floor(performance.now()), current = () => false, anchor = () => null, utc = () => new Date().toISOString() } = {}) {
     this.episodes = episodes; this.observations = observations; this.now = now; this.current = current; this.anchor = anchor; this.utc = utc;
-    this.seen = new Map(); this.latest = new Map(); this.radioCurrent = new Map(); this.radioSignature = new Map(); this.dropped = 0; this.duplicates = 0;
+    this.seen = new Map(); this.latest = new Map(); this.visualShots = new Map(); this.visualShotEvicted = 0; this.visualShotAmbiguous = 0; this.radioCurrent = new Map(); this.radioSignature = new Map(); this.dropped = 0; this.duplicates = 0;
     // Process-cumulative, bounded diagnostics. Never cleared by a channel
     // reset so a session log can attribute every PS2 loss to one reason.
     this.dedupeEvicted = 0;
@@ -83,6 +84,31 @@ export class EpisodeCorrelator {
       }
     }
     if (!qualified.length) { this.remember(eventKey, { episodeId: null }); return { accepted: true, duplicate: false, episodeId: null, observations: [] }; }
+    // Keep visual firing independently, but never convert time proximity into
+    // causality. The native sample's age contributes to its original source
+    // monotonic time; an old queued event cannot be reclassified as fresh.
+    if(signal.kind==='firing' && signal.producer==='shooting' && signal.source &&
+       this.current(signal.source) && this.anchor(signal.source) &&
+       signal.ageMs<=750) for(const receipt of qualified) {
+      if(receipt.status!=='witnessed'||receipt.evidence.channel!=='visual'||receipt.knowsSource!==true||receipt.sampledGameTick!==signal.gameTick)continue;
+      const key=`${nativeRun}:${receipt.observer.captureRef}:${signal.source}`,seenAt=this.now();
+      const previous=this.visualShots.get(key);
+      if(previous && seenAt-previous.sourceMonotonicMs<=750) {
+        // Repeated/automatic shots: cannot prove which one hit the victim.
+        previous.ambiguous=true;
+        this.visualShotAmbiguous=Math.min(2147483647,this.visualShotAmbiguous+1);
+        continue;
+      }
+      if(previous)this.visualShots.delete(key);
+      if(this.visualShots.size>=64) {
+        // Prefer the newest independent sight; count evictions across resets.
+        this.visualShots.delete(this.visualShots.keys().next().value);
+        this.visualShotEvicted=Math.min(2147483647,this.visualShotEvicted+1);
+      }
+      this.visualShots.set(key,{nativeRun,observer:receipt.observer.captureRef,shooter:signal.source,
+        firingSignalId:signal.signalId,incidentKey:signal.incidentKey??null,
+        gameTick:signal.gameTick,sourceMonotonicMs:seenAt-signal.ageMs,ambiguous:false});
+    }
     const participants = [signal.source && { captureRef: signal.source, kind: this.anchor(signal.source)?.kind }, signal.target && { captureRef: signal.target, kind: this.anchor(signal.target)?.kind }]
       .filter(r => r && r.kind && this.current(r.captureRef));
     const family = ['damage', 'injury_state', 'death', 'body_discovered'].includes(signal.kind) ? 'harm' : signal.kind==='radio_changed' ? 'radio' : event[0];
@@ -114,7 +140,12 @@ export class EpisodeCorrelator {
       if (old?.claims.some(c => c.details?.eventSignalId === signal.signalId)) continue;
       if (old && old.claims.length >= CAP.perObservationClaims) { this.noteDrop('observation_claim_capacity'); rejected++; continue; }
       const mappedKind = receipt.evidence.channel === 'report' ? 'report' : event[2];
-      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef && family!=='radio' ? { target: targetRef } : {}), details: signal.kind==='radio_changed' && radio ? {eventSignalId:signal.signalId,reason:receipt.reason,soundType:'radio',station:radio.station,trackKnown:radio.trackKnown,...(radio.stationName?{stationName:radio.stationName}:{}),...(radio.trackKnown?{artist:radio.artist,title:radio.title,contentKind:radio.contentKind}:{})} : qualifiedDetails(signal,receipt,this.anchor) };
+      const priorFiring=this.visualShots.get(`${nativeRun}:${observerRef}:${signal.source}`);
+      const joined=witnessedBulletAttribution({signal,receipt,priorFiring,nativeRun,nowMonotonicMs:this.now()});
+      const knowsSource=receipt.knowsSource===true || joined;
+      const details=signal.kind==='radio_changed'&&radio?{eventSignalId:signal.signalId,reason:receipt.reason,soundType:'radio',station:radio.station,trackKnown:radio.trackKnown,...(radio.stationName?{stationName:radio.stationName}:{}),...(radio.trackKnown?{artist:radio.artist,title:radio.title,contentKind:radio.contentKind}:{})}:qualifiedDetails(signal,receipt,this.anchor);
+      if(joined)details.classification='bullet';
+      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef && family!=='radio' ? { target: targetRef } : {}), details };
       const observation = {
         version: 1, observationId: old?.observationId || randomUUID(), episodeId, revision: (old?.revision || 0) + 1,
         observer: { captureRef: observerRef, kind: 'ped' }, observedAt: { nativeRun, gameTick: receipt.evidence.sampledGameTick, receivedUtc: this.utc() },
@@ -212,10 +243,11 @@ export class EpisodeCorrelator {
   expire() {
     const now=this.now();
     for (const [key, value] of this.seen) { if (value.expires > now) break; this.seen.delete(key); }
+    for (const [key, value] of this.visualShots) if(now-value.sourceMonotonicMs>750 || !this.current(value.observer) || !this.current(value.shooter)) this.visualShots.delete(key);
     for (const [key, value] of this.latest) if (!this.episodes.entries.has(value.episodeId)) this.latest.delete(key); for(const [vehicle,episodeId] of this.radioCurrent) if(!this.episodes.entries.has(episodeId)) {this.radioCurrent.delete(vehicle);this.radioSignature.delete(vehicle);}
   }
   // A channel reset discards correlation state; loss diagnostics stay cumulative.
-  clear() { this.seen.clear(); this.latest.clear(); this.radioCurrent.clear(); this.radioSignature.clear(); this.duplicates = 0; }
+  clear() { this.seen.clear(); this.latest.clear(); this.visualShots.clear(); this.radioCurrent.clear(); this.radioSignature.clear(); this.duplicates = 0; }
 }
 
 // P2's native-receipt replay fence keys on this id. It deliberately EXCLUDES the

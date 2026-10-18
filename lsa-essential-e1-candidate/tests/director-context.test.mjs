@@ -33,3 +33,30 @@ test('freeform NPC words cannot be injected into source-only event rendering',()
  assert.match(got,/seen gunfire/);
  assert.doesNotMatch(got,/IGNORE|SAFETY INSTRUCTIONS/);
 });
+
+test('visual source-time player attribution is allowed only for the exact native player ref',()=>{
+ const player='17f5943a-f26a-486d-8e80-236e2a3c9941';
+ const visual={...base,observation:{...base.observation,claims:[{
+  kind:'firing',certainty:'supported',evidence:{channel:'visual'},source:{kind:'player',captureRef:player}
+ }]}};
+ const recognized=renderDirectorEventContext(proposal,[visual],player);
+ assert.match(recognized,/saw the player firing a gun/);
+ assert.ok(recognized.length<=160);
+ assert.doesNotMatch(renderDirectorEventContext(proposal,[visual],'eac3f5f3-fb96-4e65-8495-122bac53d114'),/player firing/);
+ assert.doesNotMatch(renderDirectorEventContext(proposal,[visual],null),/player firing/);
+ assert.doesNotMatch(renderDirectorEventContext(proposal,[{...visual,observation:{...visual.observation,claims:[{
+  ...visual.observation.claims[0],evidence:{channel:'auditory'}
+ }]}}],player),/player firing/);
+});
+
+test('injury Director rendering requires observer-qualified native bullet causality',()=>{
+ const player='17f5943a-f26a-486d-8e80-236e2a3c9941';
+ const injured={...base,observation:{...base.observation,eventType:'injury',claims:[
+   {kind:'injured',certainty:'supported',evidence:{channel:'visual'}},
+   {kind:'injured',certainty:'supported',evidence:{channel:'visual'},
+     source:{kind:'player',captureRef:player},details:{classification:'bullet'}}
+ ]}};
+ assert.match(renderDirectorEventContext(proposal,[injured],player),/saw the player shooting someone/);
+ assert.doesNotMatch(renderDirectorEventContext(proposal,[injured],null),/player shooting/);
+ assert.doesNotMatch(renderDirectorEventContext(proposal,[injured],'3d95c2ee-1742-4fb9-a5e4-780c74a3b47e'),/player shooting/);
+});

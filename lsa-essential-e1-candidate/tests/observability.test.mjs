@@ -132,7 +132,7 @@ test('intelligence telemetry keeps only bounded lifecycle and PS2/PS3 scalar dia
     resetReasons: { initializations: 27, disconnects: 28, faults: 29, timeouts: 30, manual: 31 },
     nativeDiagnostics: { dropped: 32, staleRejected: 33 },
     damageCallbacks: { ped_damage: 34, player_damage: 35, vehicle_damage: 36 },
-    ps2: { correlated: 11, witnessed: 12, duplicates: 13, dropped: 14, playerSpeechGate: 'unsupported_capture_receipt', speech: { unsupported: 99 }, transcript: 'PRIVATE' },
+    ps2: { correlated: 11, witnessed: 12, duplicates: 13, dropped: 14, visualShotEvicted:44, visualShotAmbiguous:45, playerSpeechGate: 'unsupported_capture_receipt', speech: { unsupported: 99 }, transcript: 'PRIVATE' },
     ps3: { decisions: 15, urgent: 16, eligible: 17, staged: 18, suppressed: 19, faults: 20, reasons: { safetySelfDanger: 37, safetyPlayerHarm: 38, safetyNearbyThreat: 39, repetitionSuppressed: 40, revisionStale: 41, noveltyEscalation: 42, suppressionCapacity: 43 }, profile: { biography: 'PRIVATE' } },
     finalSnapshot: true, dialogue: 'PRIVATE DIALOGUE',
   });
@@ -147,7 +147,7 @@ test('intelligence telemetry keeps only bounded lifecycle and PS2/PS3 scalar dia
     ps3ReasonSafetySelfDanger: 37, ps3ReasonSafetyPlayerHarm: 38, ps3ReasonSafetyNearbyThreat: 39,
     ps3ReasonRepetitionSuppressed: 40, ps3ReasonRevisionStale: 41, ps3ReasonNoveltyEscalation: 42, ps3ReasonSuppressionCapacity: 43,
     radioUnknownTextIds: 0, radioCatalogMismatches: 0,
-    ps2OwnedWitnessed: 0, ps2DedupeEvicted: 0, ps2DropInvalidInput: 0, ps2DropRadioIdentityMismatch: 0, ps2DropUnsupportedEvent: 0,
+    ps2OwnedWitnessed: 0, ps2DedupeEvicted: 0, ps2VisualShotEvicted:44, ps2VisualShotAmbiguous:45, ps2DropInvalidInput: 0, ps2DropRadioIdentityMismatch: 0, ps2DropUnsupportedEvent: 0,
     ps2DropEpisodeClaimCapacity: 0, ps2DropEpisodeRejected: 0, ps2DropObservationClaimCapacity: 0, ps2DropObservationRejected: 0,
     ps3OwnedDecisions: 0, ps3OwnedEligible: 0, ps3OwnedUrgent: 0,
     ps3OwnedAmbientWitness:0,ps3OwnedLowRelevance:0,ps3OwnedRepetitionSuppressed:0,
