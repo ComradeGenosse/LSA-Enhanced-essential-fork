@@ -8,33 +8,102 @@ $c.LogSearchRoots=@($c.LogSearchRoots|ForEach-Object{[Environment]::ExpandEnviro
 $out=if([IO.Path]::IsPathRooted($c.LogOutputRoot)){$c.LogOutputRoot}else{Join-Path $PSScriptRoot $c.LogOutputRoot}
 $folder=Join-Path $out ('logs-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')+'-'+[guid]::NewGuid().ToString('N').Substring(0,6))
 New-Item -ItemType Directory -Path $folder -Force|Out-Null
+$collectedUtc=[DateTime]::UtcNow.ToString('o')
 $roots=@($c.GamePath)+@($c.ExtraLogRoots)
-# Find companion logs in both old and future standalone packages.
+# Keep existing standalone companion discovery. Do not require a running browser.
 foreach($search in @($c.LogSearchRoots)+@(Join-Path $PSScriptRoot $c.PackageRoot)){
-  if(Test-Path -LiteralPath $search){foreach($file in Get-ChildItem -LiteralPath $search -Filter 'Start-Standalone-Test.ps1' -File -Recurse){
-    if(Test-Path -LiteralPath (Join-Path $file.DirectoryName 'companion/service.mjs')){$roots+=Join-Path $file.DirectoryName 'logs'}
-  }}
+  if($search -and (Test-Path -LiteralPath $search)){
+    foreach($f in Get-ChildItem -LiteralPath $search -Filter 'Start-Standalone-Test.ps1' -File -Recurse){
+      if(Test-Path -LiteralPath (Join-Path $f.DirectoryName 'companion/service.mjs')){
+        $roots+=Join-Path $f.DirectoryName 'logs'
+      }
+    }
+  }
 }
-$files=@();$errors=@();$index=0;$seen=@{}
+$files=@();$errors=@();$index=0;$seen=@{};$sources=@();$missingRoots=@()
+$runIds=New-Object 'System.Collections.Generic.HashSet[string]'
 foreach($root in @($roots|Where-Object {$_}|Sort-Object -Unique)){
-  if(-not(Test-Path -LiteralPath $root)){continue};$index++
-  foreach($f in Get-ChildItem -LiteralPath $root -File -Recurse -Force){
+  $index++
+  $label='source-'+$index
+  if(-not(Test-Path -LiteralPath $root)){
+    $missingRoots+=@{Id=$label;Status='missing'}
+    $sources+=@{Id=$label;Status='missing';Files=0}
+    continue
+  }
+  $before=$files.Count
+  $sources+=@{Id=$label;Status='available';Files=0}
+  try {
+    $candidates=Get-ChildItem -LiteralPath $root -File -Recurse -Force -ErrorAction Stop
+  } catch {
+    $errors+=@{Source=$label;ErrorCode='source_enumeration_failed'}
+    $sources[$sources.Count-1].Status='unreadable'
+    continue
+  }
+  foreach($f in $candidates){
     if($seen.ContainsKey($f.FullName)){continue}
     if($f.Name -notmatch '(?i)\.(log|jsonl|rcr|dmp|etl|trace)(\.\d+|\.gz|\.zip)?$|^crashreport$' -and
        -not($f.Extension -eq '.txt' -and $f.FullName -match '(?i)log')){continue}
     $seen[$f.FullName]=$true
-    $relative='source-'+$index+'/'+$f.FullName.Substring($root.TrimEnd('\').Length+1)
+    $relative=$label+'/'+$f.FullName.Substring($root.TrimEnd('\').Length+1)
     $target=Join-Path $folder $relative
     try {
       New-Item -ItemType Directory -Path (Split-Path $target) -Force|Out-Null
       Copy-Item -LiteralPath $f.FullName -Destination $target
-      $files+=[pscustomobject]@{File=$relative;Source=$f.FullName;SHA256=(Get-FileHash -LiteralPath $target).Hash}
-    }catch{$errors+=[pscustomobject]@{File=$f.FullName;Error=$_.Exception.Message}}
+      $files+=[pscustomobject]@{File=$relative;Source=$label;SHA256=(Get-FileHash -LiteralPath $target).Hash}
+      if($f.Name -match '^obs2-inventory-([a-f0-9-]{36})\.jsonl$' -or
+         $f.Name -match '^e1-run-\d{8}T\d{6}Z-([a-f0-9-]{36})(-\d+)?\.jsonl$'){
+        [void]$runIds.Add($Matches[1])
+      }
+    } catch {
+      $errors+=@{File=$relative;ErrorCode=$_.Exception.GetType().Name}
+    }
+  }
+  $sources[$sources.Count-1].Files=$files.Count-$before
+}
+# OBS3 build/deployment evidence is deliberately allowlisted. Never copy raw
+# build manifests, personal config, credential files, databases or memory data.
+$buildManifests=@();$dllCandidates=@()
+$artifactDirs=@()
+if($c.GamePath){$artifactDirs+=@{Path=$c.GamePath;Origin='game'}}
+if($c.CurrentStandalonePackage){$artifactDirs+=@{Path=$c.CurrentStandalonePackage;Origin='package'}}
+foreach($artifact in $artifactDirs){
+  $lookups=@((Join-Path $artifact.Path 'build-manifest.json'),
+             (Join-Path $artifact.Path 'e1/build-manifest.json'),
+             (Join-Path $artifact.Path 'bundle/build-manifest.json'),
+             (Join-Path $artifact.Path 'Plugins/LSA/build-manifest.json'))
+  foreach($candidate in $lookups){
+    if(-not(Test-Path -LiteralPath $candidate -PathType Leaf)){continue}
+    try {
+      $raw=Get-Content -LiteralPath $candidate -Raw|ConvertFrom-Json
+      $entry=@{Origin=$artifact.Origin;ManifestSHA256=(Get-FileHash -LiteralPath $candidate).Hash}
+      foreach($key in @('builtBundleSha256','e1SourceTreeSha256','releasePayloadSha256',
+                         'upstreamBundleSha256','stockDllReferenceSha256')){
+        $value=$raw.$key
+        if($value -is [string] -and $value -match '^[a-fA-F0-9]{64}$'){$entry[$key]=$value.ToLowerInvariant()}
+      }
+      $buildManifests+=$entry
+    }catch{$errors+=@{File='build-manifest';ErrorCode='read_or_parse_failure'}}
   }
 }
+if($c.GamePath){
+  foreach($name in @('RagePluginHook.exe','Plugins/LosSantosAlive.dll','Plugins/LSA.Standalone.RageHost.dll',
+                       'Plugins/LSA.Enhanced.dll','Plugins/LSA.PromotedCharacters.dll')){
+    $f=Join-Path $c.GamePath $name
+    if(Test-Path -LiteralPath $f -PathType Leaf){
+      try{$dllCandidates+=@{RelativePath=$name;SHA256=(Get-FileHash -LiteralPath $f).Hash;Evidence='file_present_not_loaded'}}
+      catch{$errors+=@{File=$name;ErrorCode='file_hash_failure'}}
+    }
+  }
+}
+@{SchemaVersion=1;CollectedUtc=$collectedUtc;BuildManifests=$buildManifests;
+  DeployedDllCandidates=$dllCandidates;Caveat='File existence and build hashes do not prove a DLL loaded or ran.'}|
+  ConvertTo-Json -Depth 8|Set-Content (Join-Path $folder 'build-evidence.json') -Encoding UTF8
 $files|Export-Csv -LiteralPath (Join-Path $folder 'inventory.csv') -NoTypeInformation -Encoding UTF8
-@{Files=$files.Count;Failures=$errors;Note='Raw logs only; no analysis. Running logs are a snapshot. No settings, .env or database files collected.'}|ConvertTo-Json -Depth 5|Set-Content (Join-Path $folder 'collection.json')
+@{SchemaVersion=2;CollectedUtc=$collectedUtc;Files=$files.Count;Failures=$errors;
+  MissingRoots=$missingRoots;Sources=$sources;DetectedRuns=@($runIds);
+  Snapshot=$true;Note='Offline snapshot: includes OBS2 inventory JSONL, sanitized build evidence. No .env/config/memory database copied.'}|
+  ConvertTo-Json -Depth 8|Set-Content (Join-Path $folder 'collection.json') -Encoding UTF8
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [IO.Compression.ZipFile]::CreateFromDirectory($folder,($folder+'.zip'))
-[pscustomobject]@{Zip=($folder+'.zip');Files=$files.Count;Failed=$errors.Count}
-if($errors.Count){throw 'Some logs could not be copied; see collection.json in the ZIP.'}
+[pscustomobject]@{Zip=($folder+'.zip');Files=$files.Count;Failed=$errors.Count;DetectedRuns=@($runIds).Count}
+if($errors.Count){throw 'Some evidence could not be copied; see collection.json in the ZIP.'}
