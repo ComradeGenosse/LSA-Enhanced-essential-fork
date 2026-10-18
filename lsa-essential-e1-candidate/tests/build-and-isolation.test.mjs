@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { ACTIVITY_CAPABILITIES_SHA256 } from '../src/activities/capabilityRegistry.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -29,6 +31,13 @@ test('build is source-pinned, syntactically valid, deterministic, and writes onl
     assert.equal(first.manifest.features.dialogueKnowledge.optionalPerceptionDelivery,false);
     assert.equal(first.manifest.dialogueKnowledgeContract.available,false);
     assert.equal(first.manifest.features.intelligence.modelContext,false);
+    const bundledContract=await readFile(path.join(first.target,'contracts','activity-capabilities.v1.json'));
+    assert.equal(createHash('sha256').update(bundledContract).digest('hex'),ACTIVITY_CAPABILITIES_SHA256);
+    // Resolve the ACT registry with only the deployed self-contained tree;
+    // it must not require ../../../contracts next to the game's Plugins dir.
+    const packagedRegistry=await import(pathToFileURL(
+      path.join(first.target,'e1/activities/capabilityRegistry.mjs')).href);
+    assert.ok(packagedRegistry.loadCapabilityRegistry().get('drive_to'));
     const bundle = await readFile(path.join(first.target, 'server.bundle.mjs'), 'utf8');
     const configModule = await import(pathToFileURL(path.join(first.target, 'e1/config/e1Config.mjs')).href);
     assert.equal(configModule.defaultConfigPath, path.join(first.target, 'e1.config.json'));

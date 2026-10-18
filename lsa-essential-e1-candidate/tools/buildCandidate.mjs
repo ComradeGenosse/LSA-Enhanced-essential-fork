@@ -420,6 +420,16 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   await mkdir(target, { recursive: true });
   await writeFile(entry, patched.output, 'utf8');
   await copyDirectory(src, stagedE1);
+  // ACT's native-capability registry is runtime data, not compiled into
+  // contracts.mjs. Bundle the pinned canonical JSON alongside the companion
+  // so a clean installation works without manually copying Plugins/contracts.
+  const activityContractPath=path.join(root, '..', 'contracts', 'activity-capabilities.v1.json');
+  const {ACTIVITY_CAPABILITIES_SHA256}=await import('../src/activities/capabilityRegistry.mjs');
+  const activityContractBytes=await readFile(activityContractPath);
+  if(digest(activityContractBytes)!==ACTIVITY_CAPABILITIES_SHA256)
+    throw new Error('Pinned ACT capability contract changed: rebuild requires registry review.');
+  await mkdir(path.join(target,'contracts'),{recursive:true});
+  await copyFile(activityContractPath,path.join(target,'contracts','activity-capabilities.v1.json'));
   // Include optional user-recorded offline assets when present. Missing audio
   // must remain an observable capability gap, never silently synthesized.
   const fallbackSource=path.join(root,'VoiceFallback');

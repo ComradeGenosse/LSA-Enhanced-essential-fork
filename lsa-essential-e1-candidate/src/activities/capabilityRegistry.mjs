@@ -5,7 +5,18 @@ import {
 } from './contracts.mjs';
 
 export const ACTIVITY_CAPABILITIES_SHA256 = '31ed6e6d47a7222929b3645401d6e046676ed7f21a65f5643a68e002a3ee6486';
-const contractUrl = new URL('../../../contracts/activity-capabilities.v1.json', import.meta.url);
+// Source checkout uses repo-root /contracts; deployed bundles keep the pinned
+// contract inside the copied LosSantosAliveServer tree instead of depending on
+// a separate Plugins/contracts directory.
+const bundledContractUrl = new URL('../../contracts/activity-capabilities.v1.json', import.meta.url);
+const sourceContractUrl = new URL('../../../contracts/activity-capabilities.v1.json', import.meta.url);
+function readActivityContract() {
+  try { return readFileSync(bundledContractUrl); }
+  catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    return readFileSync(sourceContractUrl);
+  }
+}
 const same = (left, right) => left.length === right.length && left.every((item, index) => item === right[index]);
 const text = value => typeof value === 'string';
 const integer = (value, max) => Number.isSafeInteger(value) && value >= 0 && value <= max;
@@ -62,7 +73,7 @@ export function validateCapabilityDocument(document) {
   if (new Set(document.excluded.map(item => item.id)).size !== document.excluded.length || document.excluded.some(item => CAPABILITY_IDS.includes(item.id) || INTENTS.includes(item.id))) return null;
   return document;
 }
-export function loadCapabilityRegistry(bytes = readFileSync(contractUrl)) {
+export function loadCapabilityRegistry(bytes = readActivityContract()) {
   const hash = createHash('sha256').update(bytes).digest('hex');
   if (hash !== ACTIVITY_CAPABILITIES_SHA256) throw new Error('activity_contract_mismatch');
   const document = validateCapabilityDocument(JSON.parse(Buffer.from(bytes).toString('utf8')));
