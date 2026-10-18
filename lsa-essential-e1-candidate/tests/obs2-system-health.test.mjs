@@ -44,6 +44,40 @@ test('OBS2 inventory derives ACT, memory, reactions and health registries includ
   assert.ok(rows.every(row=>row.installed==='unknown'&&row.initialization==='unknown'),
     'registry existence must not assert native install or successful startup');
 });
+test('OBS2 missing deployed ACT source registry still yields full safe inventory',async t=>{
+  // The deployed bundle may contain contracts.mjs but not the repo-root
+  // activity-capabilities.v1.json. This was the production-only OBS2 failure.
+  const rows=buildSystemInventory(sample,null);
+  const fallback=rows.filter(row=>row.id.startsWith('act.'));
+  assert.equal(fallback.length,CAPABILITY_IDS.length);
+  assert.ok(fallback.every(row=>row.implemented==='unknown' &&
+    row.source==='compiled_contract_fallback' &&
+    row.installed==='unknown' && row.initialization==='unknown'));
+  assert.equal(rows.find(row=>row.id==='act.drive_to').configuredMode,'on');
+  assert.ok(rows.some(row=>row.id==='native.rph'));
+  const dir=await mkdtemp(path.join(tmpdir(),'lsa-obs2-deploy-fallback-'));
+  t.after(()=>rm(dir,{recursive:true,force:true}));
+  const sink=memorySink(),telemetry=new Telemetry({sink});
+  const persisted=await persistSystemInventory({directory:dir,runId:telemetry.runId,inventory:rows});
+  const manifest=JSON.parse(await readFile(persisted.file,'utf8'));
+  assert.equal(manifest.systems.filter(row=>row.id.startsWith('act.')).length,CAPABILITY_IDS.length);
+  assert.ok(manifest.systems.some(row=>row.id==='act.drive_to' &&
+    row.implemented==='unknown' && row.configuredMode==='on'));
+  const monitor=createSystemHealthMonitor({config:sample,telemetry,inventory:rows});
+  monitor.note('companion.telemetry','initialized',{proof:'resource_lifecycle'});
+  assert.equal(sink.records.at(-1).data.systemId,'companion.telemetry');
+});
+
+test('OBS2 failure stage reason codes survive closed telemetry, without private data',()=>{
+  for(const code of ['inventory_build_failed','inventory_write_failed','health_monitor_attach_failed']){
+    const record=createTelemetryRecord({runId:'test',sequence:1,originMs:0,
+      event:'system_health_gap',source:'internal',provider:'internal',
+      data:{code,exception:'PRIVATE_API_KEY',path:'C:\\PRIVATE\\config.json'}});
+    assert.equal(record.data.code,code);
+    assert.ok(!JSON.stringify(record).includes('PRIVATE'));
+  }
+});
+
 test('OBS2 resource inventory stays aligned to real bootstrap resource ownership',async()=>{
   const source=await sourceFile(new URL('../src/bootstrap.mjs',import.meta.url),'utf8');
   const actual=[...new Set([...source.matchAll(/owner\.(?:own|starting|failed)\('([^']+)'/g)].map(x=>x[1]))];
