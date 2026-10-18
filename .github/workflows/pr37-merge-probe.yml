@@ -83,6 +83,17 @@ jobs:
                   raise RuntimeError('native project structure changed; review required')
               main_project=main_project.replace(needle,needle+';SpeechCaptureAdapter.cs',1)
           project.write_text(main_project)
+          entry=Path('native/promoted-characters/RuntimeEntry.cs')
+          modern=check_output(['git','show','origin/main:native/promoted-characters/RuntimeEntry.cs'],text=True)
+          anchor='                            integration.OwnerRetired+=intelligence.OwnerRetired;'
+          if anchor not in modern: raise RuntimeError('native runtime owner anchor changed')
+          modern=modern.replace(anchor,
+              '                            if(config.intelligence.captureMode=="shadow") intelligence.EnableCaptureShadow();'+chr(10)+
+              '                            else if(config.intelligence.captureMode=="experimental") intelligence.EnableCaptureExperimental();'+chr(10)+anchor,1)
+          old='public string directorMode {get;set;}="off";'
+          if old not in modern: raise RuntimeError('native runtime intelligence config changed')
+          modern=modern.replace(old,old+'public string captureMode {get;set;}="off";',1)
+          entry.write_text(modern)
           PY
           sed -n '1,18p' lsa-essential-e1-candidate/src/perception/contracts.mjs
           node --check lsa-essential-e1-candidate/src/perception/contracts.mjs
