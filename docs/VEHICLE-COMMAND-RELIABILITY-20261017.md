@@ -26,11 +26,24 @@
   On task loss, failure, cancellation or arrival, its existing owner-fenced
   cleanup remains authoritative.
 - `vehicle_request_classified`, `vehicle_command_reconciled` and
-  `vehicle_stock_command_published` report intent/command stages. A publication
-  is neither the native handler's success receipt nor a physical motion sample.
-  Stock handler outcomes continue through existing C-05 source-verified receipts
-  (accepted/failed/unknown). ACT6's StepRunner separately reports accepted,
-  established-progress, arrived, interrupted and failed statuses.
+  `vehicle_stock_command_published` report intent/command stages. **These event
+  names and bounded vehicle dimensions are registered in the strict telemetry
+  schema** (and tested against the real JSONL sink). `vehicleKind` identifies
+  closed driving intents, `vehicleReason` explains blocked stock commands, and
+  `actionName` / `verification=unverified` identify a published action only.
+  A publication is neither the native handler's success receipt nor a physical
+  motion sample. Stock handler outcomes continue through existing C-05
+  source-verified receipts (accepted/failed/unknown). ACT6's StepRunner reports
+  accepted, established-progress, arrived, interrupted and failed statuses.
+- The native ACT6 implementation logs `[LSA ACT6 DRIVE]` in RPH logs, scoped to
+  its native actor encounter: `handoff` (old/new stock free-drive flag),
+  `route_issued` (one native task call, **not physical proof**), `sample`
+  (GTA script-task family status, observed displacement, speed, distance,
+  progress, vehicle identity, lost/stuck/arrival flags), `cancel` and
+  `ownership_ended`. Samples emit on state changes or at **most once every
+  five seconds** during steady state; no position coordinates or player text
+  are included. A task-family status is not proof of unique task-instance
+  ownership. No diagnostic read or write triggers an additional GTA task.
 
 ## What this change cannot prove
 
@@ -92,3 +105,27 @@ and detached native state. CI source/build tests are necessary but are not
 physical GTA acceptance. The stock Essential DLL remains external; fixing a
 proven native free-drive reissue bug requires its exact source/runtime, which
 this PR cannot modify safely.
+
+## Logging quick check
+
+With updated **native** and **companion** builds deployed, collect both the
+original RAGEPluginHook log and the companion `logs/e1-run-*.jsonl`.
+In the JSONL, filter on `vehicle_request_classified`,
+`vehicle_command_reconciled`, `vehicle_stock_command_published`, and
+`activity_receipt`. In RPH, filter on `[LSA ACT6 DRIVE]`.
+
+- “Keep going” should produce `vehicleKind=continue`, and if Luna proposed a
+  conflicting DO action, `vehicleReason=continuation_must_not_reset_task`.
+- “Drive faster” should produce `vehicleKind=speed_up` and, when allowed,
+  a stock driving command with `verification=unverified`. This is not proof
+  of GTA acceleration.
+- ACT6 waypoint drive should show exactly one `handoff` with the old and new
+  stock free-drive flags, then `route_issued`, periodic `sample` diagnostics,
+  and eventually activity receipts for success, failure or cancellation.
+  Unexpected `freeDriveFlag=True`, `taskLost=True`, no movement, wrong
+  vehicle, or repeated `route_issued` for the same encounter requires review.
+- Stock Essential's *normal free-drive* three-second logging remains unchanged;
+  this instrumentation applies to ACT6 navigation and model command publication.
+
+A diagnostic record alone never proves that the vehicle visibly moved correctly.
+The matching native release build and in-game log are required.
