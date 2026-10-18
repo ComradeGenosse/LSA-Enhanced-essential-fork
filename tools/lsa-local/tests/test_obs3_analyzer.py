@@ -225,6 +225,33 @@ class OBS3Tests(unittest.TestCase):
             self.assertIn("Complete system-health matrix",text)
             self.assertIn("ready but not exercised",text)
 
+    def test_cross_system_world_reset_invalidates_stale_success(self):
+        source = fixture()
+        rows = [json.loads(x) for x in source[EVENT_NAME].decode().splitlines()]
+        host = "55555555-5555-4555-8555-555555555555"
+        # End session and reopen same E1 run on a *new* world; no ACT action
+        # has since been exercised. The old world_strong proof remains historical.
+        rows[-1:] = [
+            rec(9, "system_health", {"systemId": "activity.transport", "healthState": "ready",
+                                    "hostRunId": host, "worldEpoch": 1, "proofLevel": "transport"}),
+            rec(10, "system_health", {"systemId": "activity.transport", "healthState": "ready",
+                                     "hostRunId": host, "worldEpoch": 2, "proofLevel": "transport"}),
+            rec(11, "run_shutdown"),
+        ]
+        result = analyze(fixture(events=rows))
+        row = table(result)["act.drive_to"]
+        self.assertEqual(row["health"], "unknown")
+        self.assertEqual(row["reason"], "world_or_host_reset_without_new_operation_proof")
+        self.assertIsNotNone(row["last_successful_operation"])
+
+    def test_subsequent_readiness_does_not_erase_verified_operation(self):
+        rows = [json.loads(x) for x in fixture()[EVENT_NAME].decode().splitlines()]
+        rows[-1:] = [rec(9, "system_health", {"systemId": "act.drive_to",
+                                             "healthState": "ready", "proofLevel": "transport",
+                                             "worldEpoch": 1}),
+                     rec(10, "run_shutdown")]
+        self.assertEqual(table(analyze(fixture(events=rows)))["act.drive_to"]["health"],"operational")
+
     def test_build_file_presence_is_not_native_runtime_success(self):
         files = fixture(extra_files={
             "build-evidence.json": json.dumps({
