@@ -15,7 +15,7 @@ const MAX_MESSAGE_CHARS = 1_500_000;
 const MAX_AUDIO_BYTES = 24_000_000;
 const CHUNK_BYTES = 24_000; // 500 ms native forwarding, matching Qwen.
 const VOICE_ID = /^[A-Za-z0-9]{20}$/;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}={0,2}|[A-Za-z0-9+/]{3}={0,1})?$/;
+const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==)?|[A-Za-z0-9+/]{3}=?)?$/;
 // Some base64 encoders omit optional padding. Accept only canonical bytes,
 // never arbitrary characters or silently truncated base64 groups.
 // Defense in depth: a vendor tag is never accepted as an input parameter.
