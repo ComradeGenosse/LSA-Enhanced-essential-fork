@@ -92,6 +92,23 @@ static partial class Program
         var quiet = new Rig("{\"version\":1,\"quickCommands\":{\"phrases\":{\"dismiss\":\"\"}}}"); quiet.Fresh(FakeBridge.Ordinary());
         Check(quiet.Dispatcher.Dispatch(CommandCatalog.CurrentDismiss,"menu") == "promote_first","an empty dismissal phrase turns the ask off");
 
+        var social = new Rig();
+        Check(social.Dispatcher.Dispatch(CommandCatalog.DirectorSocialManual,"menu") == null &&
+            social.Companion.Last["action"] as string == "director_social_manual" &&
+            social.Companion.Last.Count == 1,"F11 Director calls the existing browser/native Director manual endpoint");
+        social.Companion.Reply(true,null,"{\"queued\":true}");
+        social.Dispatcher.Update();
+        Check(social.Hud.Last == "Social request queued" && social.Dispatcher.RecentOutcomes.Last() == "director.socialManual: accepted","queued Director request never claims actual speech playback");
+        social.Clock.Advance(1000);
+        Check(social.Dispatcher.Dispatch(CommandCatalog.DirectorSocialManual,"menu") == null,"native Director can be requested again after first request resolves");
+        social.Companion.Reply(true,null,"{\"queued\":false}");
+        social.Dispatcher.Update();
+        Check(social.Dispatcher.RecentOutcomes.Last() == "director.socialManual: failed (native_unavailable)","Director HTTP 200 without native queue admission cannot report success");
+        social.Clock.Advance(1000);
+        Check(social.Dispatcher.Dispatch(CommandCatalog.DirectorSocialManual,"menu") == null,"native Director recheck follows failure without sticky busy");
+        social.Companion.Reply(true,null,"invalid");
+        social.Dispatcher.Update();
+        Check(social.Dispatcher.Outstanding == 0 && social.Dispatcher.RecentOutcomes.Last().Contains("failed"),"malformed Director response fails closed and releases busy state");
         var menuActivity = new Rig(); menuActivity.Fresh(FakeBridge.Owned());
         Check(menuActivity.Dispatcher.Dispatch(CommandCatalog.ActivityAssign,"menu",new CommandArgs {Value = "vehicle_trip",ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnerAlias = FakeBridge.Alias}) == null && menuActivity.Companion.Last["intent"] as string == "vehicle_trip","F11 waypoint travel uses existing owned ACT companion path");
         var waypointSlots = (Dictionary<string,object>)menuActivity.Companion.Last["slots"];
