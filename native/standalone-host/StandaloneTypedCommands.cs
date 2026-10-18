@@ -240,8 +240,8 @@ namespace LSA.Standalone.RageHost
                 Ped player = Game.LocalPlayer.Character;
                 // Even an automation PIN cannot follow a moving NPC or
                 // resurrect a previous handle outside the local test radius.
-                if (player == null || !player.Exists() || player.IsDead ||
-                    target == null || !target.Exists() || target.IsDead ||
+                if (player == null || !RphPedValidity.Exists(player) || player.IsDead ||
+                    target == null || !RphPedValidity.Exists(target) || target.IsDead ||
                     target == player || target.DistanceTo(player) >= 4.0f)
                 {
                     Game.LogTrivial("[LSA-AUTOSMOKE] pinned_actor_no_longer_eligible");
@@ -292,13 +292,13 @@ namespace LSA.Standalone.RageHost
             try
             {
                 Ped player = Game.LocalPlayer.Character;
-                if (player == null || !player.Exists() || player.IsDead) return null;
+                if (player == null || !RphPedValidity.Exists(player) || player.IsDead) return null;
                 var forward = player.GetOffsetPositionFront(2.0f);
                 Ped winner = null;
                 float nearest = 4.0f;
                 foreach (Ped ped in player.GetNearbyPeds(16))
                 {
-                    if (ped == null || ped == player || !ped.Exists() || ped.IsDead)
+                    if (ped == null || ped == player || !RphPedValidity.Exists(ped) || ped.IsDead)
                         continue;
                     float distance = ped.DistanceTo(player);
                     if (distance < 0.75f || distance >= nearest) continue;
