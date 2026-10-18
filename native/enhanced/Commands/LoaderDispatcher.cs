@@ -11,7 +11,7 @@ namespace LSA.Enhanced.Commands
 {
     public sealed class CommandArgs
     {
-        public string CharacterId, MemoryId, Text, Value, Phrase;
+        public string CharacterId, MemoryId, Text, Value, Phrase, ExpectedEncounterId, ExpectedOwnerAlias;
         public long ExpectedRevision;
         public bool Flag;
         // Invoked on the loader fiber with (reason or null, response body or null).
@@ -97,6 +97,7 @@ namespace LSA.Enhanced.Commands
         string Current(CommandInfo info,string source,EnhancedSettings settings,CommandArgs args)
         {
             var npc = CurrentNpc(out string reason);
+            if (!MatchesSelection(npc,args)) return Reject(info.Id,"target_changed",args,true);
             if (npc == null) return Reject(info.Id,reason,args,true);
             string operation = info.Id.Substring(info.Id.IndexOf('.') + 1);
             // The companion refuses with target_changed if Essential's current NPC is
@@ -106,6 +107,8 @@ namespace LSA.Enhanced.Commands
             if (string.IsNullOrEmpty(phrase)) return Reject(info.Id,"promote_first",args,true);
             return StartAsk(info,source,npc.EncounterId,phrase,info.AskHud ?? info.Hud,args);
         }
+        static bool MatchesSelection(CurrentNpc npc,CommandArgs args) => args?.ExpectedEncounterId == null ||
+            npc != null && npc.EncounterId == args.ExpectedEncounterId && npc.OwnerAlias == args.ExpectedOwnerAlias;
         CurrentNpc CurrentNpc(out string reason)
         {
             var snapshot = NativeSnapshot.Parse(bridge.Snapshot());
@@ -117,6 +120,7 @@ namespace LSA.Enhanced.Commands
         {
             if (validate && !EnhancedSettings.ValidPhrase(phrase)) return Reject(info.Id,"invalid_text",args,true);
             var npc = CurrentNpc(out string reason);
+            if (!MatchesSelection(npc,args)) return Reject(info.Id,"target_changed",args,true);
             if (npc == null) return Reject(info.Id,reason,args,true);
             return StartAsk(info,source,npc.EncounterId,phrase,successText,args);
         }
@@ -133,6 +137,7 @@ namespace LSA.Enhanced.Commands
             if (info.Id != null && info.Id.StartsWith("activity.",StringComparison.Ordinal)) return Activity(info,args);
             if (info.Id == CommandCatalog.CurrentPromote) {
                 var npc = CurrentNpc(out string reason);
+                if (!MatchesSelection(npc,args)) return Reject(info.Id,"target_changed",args,true);
                 if (npc == null) return Reject(info.Id,reason,args,true);
                 return StartCompanion(info,Json(new Dictionary<string,object> {{"action","promote"},{"expectedEncounterId",npc.EncounterId}}),CompanionTimeoutMs,0,info.Hud,args);
             }
@@ -166,6 +171,7 @@ namespace LSA.Enhanced.Commands
         string Activity(CommandInfo info,CommandArgs args)
         {
             var npc = CurrentNpc(out string reason);
+            if (!MatchesSelection(npc,args)) return Reject(info.Id,"target_changed",args,true);
             if (npc == null) return Reject(info.Id,reason,args,true);
             if (!npc.Owned) return Reject(info.Id,"actor_not_owned",args,true);
             var body = new Dictionary<string,object> {{"action","activity"},{"operation",info.Id.Substring("activity.".Length)},{"expectedEncounterId",npc.EncounterId}};
