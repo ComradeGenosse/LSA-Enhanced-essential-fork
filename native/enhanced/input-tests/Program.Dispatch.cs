@@ -59,6 +59,7 @@ static partial class Program
         Check(d.Dispatch(CommandCatalog.CurrentFollow,"menu",new CommandArgs {ExpectedEncounterId = FakeBridge.Encounter,ExpectedOwnerAlias = null}) == "target_changed" && r.Companion.Bodies.Count == 0,"F11 refuses same encounter with changed owner alias");
         Check(d.Dispatch(CommandCatalog.CurrentFollow,"chord") == null && r.Companion.Last["action"] as string == "control_current" && r.Companion.Last["operation"] as string == "follow" && r.Companion.Last["expectedEncounterId"] as string == FakeBridge.Encounter && r.Companion.Last.Count == 3,"a promoted NPC follows through P2 control_current, naming the NPC the player saw");
         r.Companion.Reply(true); d.Update(); Check(r.Hud.Last == "Following" && d.Outstanding == 0,"P2 follow confirmed on the HUD");
+        Check(d.RecentOutcomes.Last() == "current.follow: accepted" && d.RecentOutcomes.Any(x => x == "current.follow: queued"),"HTTP success is accepted, never fabricated world-completed");
         r.Clock.Advance(1000); d.Dispatch(CommandCatalog.CurrentFollow,"chord"); r.Companion.Reply(false,"character_not_promoted"); d.Update();
         Check(r.Hud.Last == "Promote this NPC first","companion failure reasons come from the catalog");
         r.Clock.Advance(1000); r.Fresh(FakeBridge.Ordinary());
