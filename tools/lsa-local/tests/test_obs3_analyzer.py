@@ -225,6 +225,44 @@ class OBS3Tests(unittest.TestCase):
             self.assertIn("Complete system-health matrix",text)
             self.assertIn("ready but not exercised",text)
 
+    def test_build_file_presence_is_not_native_runtime_success(self):
+        files = fixture(extra_files={
+            "build-evidence.json": json.dumps({
+                "SchemaVersion": 1,
+                "BuildManifests": [{"Origin": "game", "ManifestSHA256": "a" * 64,
+                                    "secret": "DO_NOT_INCLUDE_PRIVATE"}],
+                "DeployedDllCandidates": [{"RelativePath": "RagePluginHook.exe",
+                     "SHA256": "b" * 64, "Evidence": "file_present_not_loaded"}],
+            }).encode()})
+        report = analyze(files)
+        row = table(report)["native.rph"]
+        self.assertEqual(row["installed"], "file_present_load_unverified")
+        self.assertEqual(row["health"], "unknown")
+        self.assertEqual(row["deployment_evidence"][0]["load_state"], "unverified")
+        self.assertNotIn("DO_NOT_INCLUDE_PRIVATE", json.dumps(report))
+        self.assertTrue(report["build_evidence"]["build_manifests"])
+
+    def test_native_reasons_require_exact_host_world_match_not_time(self):
+        host = "55555555-5555-4555-8555-555555555555"
+        files = fixture()
+        rows = [json.loads(x) for x in files[EVENT_NAME].decode().splitlines()]
+        rows.insert(3, rec(20, "system_health", {"systemId": "activity.transport",
+                     "healthState": "ready", "hostRunId": host, "worldEpoch": 3,
+                     "proofLevel": "transport"}))
+        # No fabricated causal join across the exact same timestamp in a different world.
+        native = ("[P2 OBS1] control_channel_failure code=admission_denied suppressed=0 "
+                  "host_run=" + host + " world_epoch=3\n"
+                  "[P2 OBS1] control_channel_failure code=request_timeout suppressed=0 "
+                  "host_run=" + host + " world_epoch=4\n")
+        files = fixture(events=rows, extra_files={"source-1/RagePluginHook.log": native.encode()})
+        report = analyze(files)
+        scoped = report["sessions"][0]["native_diagnostics"]
+        self.assertEqual(len(scoped), 1)
+        self.assertEqual(scoped[0]["reason"], "admission_denied")
+        self.assertEqual(len(report["unassigned_native_diagnostics"]), 1)
+        self.assertEqual(report["unassigned_native_diagnostics"][0]["reason"], "request_timeout")
+        self.assertNotEqual(table(report)["native.rph"]["health"], "operational")
+
     def test_multi_run_never_cross_correlates(self):
         files=fixture()
         second="33333333-3333-4333-8333-333333333333"
