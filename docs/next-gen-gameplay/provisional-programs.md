@@ -2,6 +2,19 @@
 
 > **2026-10-18 | Research grouping only.** The seven buckets are not locked architectural modules, branch boundaries or a recommended build order. All 28 player-facing experiences stay separate.
 
+## Physics investigation scope correction — player interview 2026-10-18
+
+**The original seven-program grouping above is an archived *provisional* consolidation, not the user-approved scope of the first Astra investigation.** The confirmed current physics focus is [realistic ballistics, destructive geometry, structural collapse and persistent world state](ballistics-destruction-vision-20261018.md).
+
+- **First research frontier:** #81 + #90 + #100, with #41 persistence and #93 structural demolition support. The crucial gameplay is shooting through walls, bullets removing chunks, explosions removing larger chunks, and genuine structurally caused collapse—even for whole buildings and bridges as the long-term dream.
+- **#82 + #98 vehicles:** keep as later, distinct research. Favor BeamNG mechanical realism over Burnout arcade spectacle.
+- **#95 fire:** explicitly **removed from the current project** at the player's direction. Keep it in the historical list but do not make fire a dependency or Astra deliverable.
+- **Nathan/NPC integration:** not needed initially, despite being present in the old #100 description.
+- **General pickup/tether/crane physics sandbox:** not a player priority; do not substitute for ballistic/structural gameplay.
+- **Performance:** correctness/fidelity over present-day FPS; persistent physical consequences required.
+
+This refinement does **not** rewrite other favorite-idea visions. Revisit the program boundaries during later technical research rather than designing a universal physics engine by default.
+
 ## 1. NPC World Intelligence
 
 **Selected ideas:** #1 (NPCs that actually understand what you're doing); #7 (NPCs that can see the game like you do); #25 (Characters understand how you sound, not just what you say); #30 (NPCs possess genuine spatial memory); #39 (NPCs understand and anticipate real-world physics).

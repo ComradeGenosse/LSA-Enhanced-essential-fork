@@ -4,10 +4,10 @@
 
 ## Phases, outputs, and completion gates
 
-### 1. Define the desired player experiences — **DRAFT IN PROGRESS**
+### 1. Define the desired player experiences — **FIRST PHYSICS INTERVIEW COMPLETE; OTHER IDEAS DRAFT**
 **Output:** [28 experience cards](28-favorite-experiences.md) with vivid player moment, dream, first fun slice, irreplaceable flair, and experiential acceptance question. Collect edits/preferences and obtain player sign-off **per idea**, not a single blanket approval. Keep all IDs stable.
 
-**Exit:** Selected ideas approved/revised/parked; no hidden assumptions about autonomy, permission, persistence, performance, or surprise events.
+**Exit:** Selected ideas approved/revised/parked; no hidden assumptions about autonomy, permission, persistence, performance, or surprise events. **Physics scope clarification completed 2026-10-18:** [ballistics-destruction vision](ballistics-destruction-vision-20261018.md), preserving user answers and separate researcher-proposed test ladders. Other idea cards still require review.
 
 ### 2. Audit the real LSA capability baseline
 **Output:** current main/branches source map, observed runtime behavior, available native actions, perception, memory, character identity, activity receipts, director, animation, world state, persistence, input/UX, and actual installed GTA evidence. Connect *each capability* to supported dream/first-slice features.
@@ -51,6 +51,9 @@
 | Experiment | One concrete test and observable pass/fail evidence |
 | Astra threshold | Unsolved after credible research/experiments; high potential payoff |
 | Stage/owner/status | Design-only, researched, prototype, verified, blocked, parked |
+
+## First Astra candidate research direction
+The [ballistics-destruction vision](ballistics-destruction-vision-20261018.md) is sufficiently defined as a **research question**, but there has not yet been a source/engine audit or proof-of-concept. Next actions for this candidate: map current GTA Enhanced/LSA ballistic, collision, geometry and persistence affordances; survey existing mods and source/libraries; identify competing physics/structural architectures and decisive experiments. **Do not require broad AI NPC, generalized sandbox, or #95 fire features.**
 
 ## Existing repo research anchors (not a completed audit)
 - [Canonical LSA roadmap](../ROADMAP.md) — last described as audited October 17; check newer `main` on every new investigation.

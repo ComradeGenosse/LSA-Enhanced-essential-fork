@@ -168,6 +168,8 @@
 - **Player-experience acceptance question:** Can the player recognize a personal history by looking at the environment?
 - **Owner review:** ☐ Approve ☐ Revise ☐ Reject/park; notes: _TBD_
 
+- **Player clarification from first physics interview (2026-10-18):** For the destruction project specifically, environmental changes should **persist across GTA sessions** rather than resetting when the player leaves/restarts. This reinforces the original #41 goal, without settling implementation or save-lineage handling.
+
 ### #45 — AI-generated explorable interiors
 
 - **The player moment:** Walk up to an ordinary locked storefront, enter it, and discover a coherent shop full of usable objects and NPC activity.
@@ -195,6 +197,8 @@
 - **Player-experience acceptance question:** Can a player exploit the destroyed structure as a new route or cover state?
 - **Owner review:** ☐ Approve ☐ Revise ☐ Reject/park; notes: _TBD_
 
+- **Player clarification (2026-10-18, authoritative dream):** Wants essentially **everything destructible**, including bullet-made holes, damaged floors, collapsible whole buildings **and bridges**. A single destructible wall is only a candidate experimental slice—not the accepted final scale.
+
 ### #82 — BeamNG-level vehicle destruction
 
 - **The player moment:** Smash the front suspension in a pursuit and feel the car pull sideways while damaged parts hang off.
@@ -203,6 +207,8 @@
 - **Irreplaceable flair / scope boundary:** Keep mechanical consequences and crunchy destruction separate from #98's arcade stunt spectacle; don't claim true BeamNG fidelity yet.
 - **Player-experience acceptance question:** Would two differently damaged cars drive meaningfully differently?
 - **Owner review:** ☐ Approve ☐ Revise ☐ Reject/park; notes: _TBD_
+
+- **Player clarification (2026-10-18):** Strong preference for **BeamNG-style mechanical realism rather than Burnout arcade exaggeration**. This remains an interesting separate feature, but is secondary to the first Astra ballistic/structural-destruction investigation.
 
 ### #90 — Max Payne-style cinematic gunfights
 
@@ -213,6 +219,8 @@
 - **Player-experience acceptance question:** Does the player deliberately choose and enjoy the mechanic repeatedly?
 - **Owner review:** ☐ Approve ☐ Revise ☐ Reject/park; notes: _TBD_
 
+- **Player clarification (2026-10-18):** Max Payne-style bullet-time dives, realistic ragdolls and dynamic hit reactions all appeal, but **realistic bullet penetration through walls is especially important**, and must interact with physically destructible openings. Gunplay and destruction are linked, not isolated visual features.
+
 ### #93 — Physics-based demolition missions
 
 - **The player moment:** Study a warehouse, choose supports, plant charges, and watch whether your plan actually brings it down.
@@ -221,6 +229,8 @@
 - **Irreplaceable flair / scope boundary:** Distinct mode with mastery and replayability; shares destruction implementation with #81, not the whole gameplay design.
 - **Player-experience acceptance question:** Can players improve their demolition strategy across attempts?
 - **Owner review:** ☐ Approve ☐ Revise ☐ Reject/park; notes: _TBD_
+
+- **Player clarification (2026-10-18):** Physically plausible collapse is desired, not merely spectacular canned destruction. Whether demolition contracts become a formal game mode is **not yet decided**; free-form structural destruction is the proven priority.
 
 ### #94 — A real tactical AI squad
 
@@ -240,6 +250,8 @@
 - **Player-experience acceptance question:** Can the player predict, exploit or stop the spread through gameplay?
 - **Owner review:** ☐ Approve ☐ Revise ☐ Reject/park; notes: _TBD_
 
+- **Player decision (2026-10-18):** **Withdrawn from the current Physics/Astra investigation**: spreading fire and environmental disasters are considered too ambitious for this focus. Historical idea preserved; no active research requirements.
+
 ### #98 — Burnout-style vehicle combat and stunt physics
 
 - **The player moment:** Smash a rival into roadside scenery, earn a spectacular takedown, and chain the chaos into another stunt.
@@ -248,6 +260,8 @@
 - **Irreplaceable flair / scope boundary:** Intentionally exciting arcade feel; don't dissolve it into #82's simulation-first vehicle engineering.
 - **Player-experience acceptance question:** Is it immediately thrilling even without a quest or narrative?
 - **Owner review:** ☐ Approve ☐ Revise ☐ Reject/park; notes: _TBD_
+
+- **Player clarification (2026-10-18):** Burnout-style exaggeration is **not the vehicle-physics priority**; BeamNG-like realism takes precedence. Keep the original stunt idea in the favorites archive, but do not include arcade stunts as a first Astra destruction requirement.
 
 ### #100 — A fully dynamic destruction-and-physics playground
 
@@ -258,6 +272,8 @@
 - **Player-experience acceptance question:** Do combined systems create genuinely new possibilities that neither enables alone?
 - **Owner review:** ☐ Approve ☐ Revise ☐ Reject/park; notes: _TBD_
 
+
+- **Player clarification (2026-10-18, supersedes generic playground description):** Wants a **realistic ballistic and structural-destruction world**, not primarily a broad physics sandbox. Bullets penetrate walls and knock chunks loose; explosions remove larger sections; authentic structural failures collapse floors, buildings and bridges; the modified world persists. Nathan's integration and generic object-manipulation systems are **not initial requirements**. See [complete vision interview](ballistics-destruction-vision-20261018.md).
 
 ## Cross-cutting clarification questions (not blockers to archiving this draft)
 - Which ideas should emerge organically, and which should be explicitly toggled/started by the player?

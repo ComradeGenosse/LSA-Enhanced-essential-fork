@@ -7,11 +7,15 @@ Preserve the complete 100-idea brainstorming catalog, the player's **28 explicit
 
 **Branch:** `research/next-gen-gameplay-experiences-20261018` created from `main` at `c390840aba02f6e20480421f5a2a9872772890fc`. This branch is for concept/research work; do not merge automatically.
 
+## 2026-10-18 first vision interview — confirmed direction
+**The player has now specified a focused first Astra candidate:** [Realistic Ballistics & Structural Destruction Vision](ballistics-destruction-vision-20261018.md). The dream is pervasive material-aware wall penetration, bullets removing real chunks, explosive breaches, realistic structural collapse (up to buildings and bridges), persistent changes and Max Payne-style responsive gunplay. **Fire #95 was removed from this project; NPC physics integration is not a prerequisite; BeamNG-like vehicle damage is secondary.** The seven original programs and all original favorites are retained as historical design material, not compulsory scope for this first investigation.
+
 ## Reading order
-1. [Selected 28 — player-experience definitions](28-favorite-experiences.md): individually numbered gameplay fantasies, first genuinely fun playable slices, unique flair, and experiential pass questions. All are **draft proposals awaiting player review**.
-2. [All 100 original brainstorm ideas](100-idea-catalog.md): titles of every original idea, with selected favorites flagged so no alternatives are forgotten. Detailed descriptions of selected ideas are in the preceding file.
-3. [Seven provisional programs and crossovers](provisional-programs.md): reuse opportunities, preserved feature boundaries, and crossover possibilities. These seven groupings are hypotheses to test, not mandated implementation domains.
-4. [Research and master-plan workflow](research-workflow.md): evidence standards, planned phases, artifact outputs, the Astra handoff gate, and decisions still outstanding.
+1. [First Astra candidate: player-approved ballistics and destruction vision](ballistics-destruction-vision-20261018.md): nine answered questions, active scope, non-goals and staged research targets.
+2. [Selected 28 — player-experience definitions](28-favorite-experiences.md): individually numbered gameplay fantasies, first genuinely fun playable slices, unique flair, and experiential pass questions. All are **draft proposals awaiting player review**.
+3. [All 100 original brainstorm ideas](100-idea-catalog.md): titles of every original idea, with selected favorites flagged so no alternatives are forgotten. Detailed descriptions of selected ideas are in the preceding file.
+4. [Seven provisional programs and crossovers](provisional-programs.md): reuse opportunities, preserved feature boundaries, and crossover possibilities. These seven groupings are hypotheses to test, not mandated implementation domains.
+5. [Research and master-plan workflow](research-workflow.md): evidence standards, planned phases, artifact outputs, the Astra handoff gate, and decisions still outstanding.
 
 ## Core principles
 - **Preserve the gameplay fantasy:** never collapse two fun experiences just because they may share code.
