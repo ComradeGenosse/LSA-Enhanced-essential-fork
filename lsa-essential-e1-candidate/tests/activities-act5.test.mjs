@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ActivityEngine } from '../src/activities/activityEngine.mjs';
-import { Act5Dialogue, validateAct5Choice, parseAct6PlayerRequest, parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, act5WorldAvailable } from '../src/activities/act5Dialogue.mjs';
+import { Act5Dialogue, validateAct5Choice, parseAct6PlayerRequest, parseVehicleSeatPlayerRequest, reconcileVehicleSeatDecision, vehicleSeatModelCommandKind, act5WorldAvailable } from '../src/activities/act5Dialogue.mjs';
 import { normalizeActivityConfig } from '../src/activities/contracts.mjs';
 import { parseDecisionJson, buildRequest } from '../src/context/essentialDecision.mjs';
 import { createSegmentDecoder } from '../src/openai/segmentDecoder.mjs';
@@ -638,6 +638,15 @@ test('October 18 direct vehicle-seat utterances have exact closed native player-
     'Get in another car','Get in that car','Don\'t get in the driver\'s seat',
     'Are you in the driver\'s seat?','Drive to the waypoint','You drive to the airport'])
     assert.equal(parseVehicleSeatPlayerRequest(remark),null,remark);
+});
+
+test('model vehicle token diagnostics separate placeholder, shaped aliases and other commands', () => {
+  for(const [command,kind] of [
+    ['','none'],['DO EnterDriverSeat <vehicle>','placeholder'],
+    ['DO EnterDriverSeat {vehicle}','placeholder'],['DO EnterDriverSeat VXXX','placeholder'],
+    ['DO EnterDriverSeat V001','reference_shaped'],['DO EnterDriverSeat V999','reference_shaped'],
+    ['DO WaitHere','other']])
+    assert.equal(vehicleSeatModelCommandKind(command),kind,command);
 });
 
 test('October 18 placeholder DO is replaced by deterministic ACT3 intent before stock validation', () => {
