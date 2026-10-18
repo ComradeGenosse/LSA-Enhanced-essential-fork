@@ -54,18 +54,3 @@ try {
 } finally {
   Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
 }
-,''
-    $manifest=Join-Path $folder 'build-evidence.json'
-    $text=Get-Content -LiteralPath $manifest -Raw
-    if($text.Contains('NEVER_INCLUDE_THIS_SECRET')){throw 'Sensitive build metadata leaked'}
-    $deployment=$text|ConvertFrom-Json
-    if(@($deployment.DeployedDllCandidates).Count -lt 1){throw 'Present plugin not identified'}
-    $collection=Get-Content -LiteralPath (Join-Path $folder 'collection.json') -Raw|ConvertFrom-Json
-    if(@($collection.MissingRoots).Count -ne 1){throw 'Missing root not accounted for'}
-    if(@($collection.DetectedRuns) -notcontains $run){throw 'Session correlation IDs not collected'}
-    if($collection.Files -lt 3){throw 'Insufficient fixture logs collected'}
-    Write-Host ('OBS3 collector smoke passed. Files='+$collection.Files+'; Run='+$run)
-  } finally { $zip.Dispose() }
-} finally {
-  Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
-}
