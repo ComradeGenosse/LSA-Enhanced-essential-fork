@@ -1,41 +1,55 @@
-name: PR37 Merge Conflict Probe
+name: PR37 Merge Candidate Validation
 on:
   push:
-    branches:
-      - feature/c01-source-time-utterance-lifecycle
-    paths:
-      - .github/workflows/pr37-merge-probe.yml
+    branches: [feature/c01-source-time-utterance-lifecycle]
+    paths: [.github/workflows/pr37-merge-probe.yml]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  conflict-probe:
+  candidate-validation:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
           ref: feature/c01-source-time-utterance-lifecycle
           fetch-depth: 0
           persist-credentials: false
-      - name: Probe latest main with native Git merge
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Merge main into candidate without changing remote
         shell: bash
         run: |
-          git config user.name 'LSA Integration Probe'
-          git config user.email 'integration-probe@users.noreply.github.com'
+          git config user.name 'LSA Integration Candidate'
+          git config user.email 'integration-candidate@users.noreply.github.com'
           git fetch origin main
-          printf 'HEAD=%s\\nMAIN=%s\\n' "$(git rev-parse HEAD)" "$(git rev-parse origin/main)"
-          git merge --no-commit --no-ff origin/main || true
-          echo '=== MERGE STATE ==='
-          git status --short
-          echo '=== CONFLICTED FILES ==='
-          git diff --name-only --diff-filter=U
-          echo '=== CONFLICT COUNTS ==='
-          while IFS= read -r f; do
-            [ -z "$f" ] && continue
-            printf '%s: ' "$f"
-            grep -c '^<<<<<<< ' "$f" || true
-          done < <(git diff --name-only --diff-filter=U)
-          echo '=== SUMMARY ==='
-          git diff --stat
-          echo '=== END PROBE ==='
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "MAIN=$(git rev-parse origin/main)"
+          git merge --no-commit --no-ff -X ours origin/main
+          test -z "$(git ls-files -u)"
+          git diff --check
+          echo '=== MERGE CANDIDATE READY ==='
+          git status --short | tail -25
+      - name: C01 focused and cross-system Node regression
+        shell: bash
+        working-directory: lsa-essential-e1-candidate
+        run: |
+          node --test tests/c01-proximity.test.mjs tests/c01-utterance-lifecycle.test.mjs
+          node tools/runTests.mjs
+      - name: Native production reference build
+        shell: bash
+        run: node tools/native-sdk/compileProductionNative.mjs
+      - name: Isolated offline verification
+        shell: bash
+        env:
+          LSA_CI_FAILURE_DETAILS: '1'
+        run: python tools/isolated-offline-tests/run.py "$GITHUB_WORKSPACE/lsa-essential-e1-candidate"
+      - name: Companion build
+        working-directory: lsa-essential-e1-candidate
+        shell: bash
+        run: node tools/buildCandidate.mjs
