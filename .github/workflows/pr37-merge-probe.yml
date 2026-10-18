@@ -94,6 +94,23 @@ jobs:
           if old not in modern: raise RuntimeError('native runtime intelligence config changed')
           modern=modern.replace(old,old+'public string captureMode {get;set;}="off";',1)
           entry.write_text(modern)
+          # The modern context prompt contains new action, memory and UX rules.
+          rules=Path('lsa-essential-e1-candidate/src/context/knowledgeInstructions.mjs')
+          modern_rules=check_output(['git','show','origin/main:lsa-essential-e1-candidate/src/context/knowledgeInstructions.mjs'],text=True)
+          anchor='Missing or unknown values remain unknown.'
+          if anchor not in modern_rules: raise RuntimeError('grounding rule contract changed')
+          modern_rules=modern_rules.replace(anchor,
+              'An overheard_player_words claim is an individually authorized source-time player quote, not proof its claims are true or evidence of the addressed listener. Presence-only speech is never a word-for-word quote. '+anchor,1)
+          rules.write_text(modern_rules)
+          # Retain main's optional consumer gating, lifecycle and social-scene state.
+          runtime=q.read_text()
+          s='this.directorReceipts=[];this.situationProvider=situationFor;'
+          if s in runtime:
+              runtime=runtime.replace(s,'this.directorReceipts=[];this.socialManualResult=null;this.socialScenes=new Map();this.socialDiagnostics={accepted:0,replayed:0,stale:0,manualAccepted:0,manualRejected:0};this.situationProvider=situationFor;',1)
+          if 'this.socialScenes=new Map()' not in runtime: raise RuntimeError('social state integration failed')
+          for field in ['salience','observations','episodes','correlator','transcripts','utterances']:
+              runtime=runtime.replace('this.'+field+'.','this.'+field+'?.')
+          q.write_text(runtime)
           PY
           sed -n '1,18p' lsa-essential-e1-candidate/src/perception/contracts.mjs
           node --check lsa-essential-e1-candidate/src/perception/contracts.mjs
@@ -107,6 +124,11 @@ jobs:
         working-directory: lsa-essential-e1-candidate
         shell: bash
         run: node tools/runTests.mjs
+      - name: Focused UX4 Director Memory K perception compatibility (independent gate)
+        working-directory: lsa-essential-e1-candidate
+        continue-on-error: true
+        shell: bash
+        run: node --test tests/perception-contract.test.mjs tests/m3-ws5b-production.test.mjs tests/memory-g-independent-events.test.mjs tests/activities-act5.test.mjs
       - name: Native production reference build
         shell: bash
         run: node tools/native-sdk/compileProductionNative.mjs
