@@ -16,6 +16,7 @@ namespace LSA.PromotedCharacters
         sealed class Sample { public TalkCandidate Token; public Ped Ped; }
         readonly TalkTargetPolicy policy = new TalkTargetPolicy();
         readonly TalkPttSession ptt = new TalkPttSession();
+        readonly TalkRecipientContinuity continuity = new TalkRecipientContinuity();
         readonly EssentialMicState mic = new EssentialMicState();
         readonly TalkTargetIndicator indicator = new TalkTargetIndicator();
         readonly Func<Ped,string> encounterId;
@@ -23,9 +24,10 @@ namespace LSA.PromotedCharacters
         readonly List<Ped> frozenPeds = new List<Ped>();
         readonly List<TalkCandidate> exported = new List<TalkCandidate>();
         TalkTargetOptions options = new TalkTargetOptions();
-        Ped essentialPed;
-        long essentialAddress, clock, indicatorUntil;
-        bool essentialSet, hooked, directPtt;
+        Ped essentialPed, continuityPed;
+        long essentialAddress, clock, indicatorUntil, nextContinuityCheck, continuityPlayerAddress;
+        string continuityPlayerId;
+        bool essentialSet, hooked, directPtt, continuityInvalidated;
         public TalkTargetSelector(Func<Ped,string> encounterId,Func<Ped,long,TalkRecipientFeedback> recipient = null) { this.encounterId = encounterId; this.recipient = recipient; }
         public string IndicatorState => indicator.State;
 
@@ -34,6 +36,14 @@ namespace LSA.PromotedCharacters
             clock = now;
             try {
                 if (!hooked) { indicator.EnsureHooked(); hooked = true; }
+                if (continuity.HasRecipient && now >= nextContinuityCheck) {
+                    nextContinuityCheck = now + 500;
+                    string continuityProblem = CheckContinuity(now,options.RetentionRadiusMeters);
+                    if (continuityProblem != null) {
+                        if (ptt.IsLive) Stop(ptt.LiveGeneration,"continuity_lost",now);
+                        InvalidateContinuity(continuityProblem);
+                    }
+                }
                 if (!policy.HasSelection) { frozenPeds.Clear(); indicator.Clear(); return; }
                 string problem = Fitness(now,false);
                 if (problem != null) {
@@ -46,12 +56,13 @@ namespace LSA.PromotedCharacters
             } catch { indicator.Clear(); }
         }
         public object AsResult(TalkTargetView view) => view != null && view.Present ? Payload(view,EncounterOf(Bound()),0,view.PttCommitted,RecipientOf(Bound(),view.Address)) : new {present = false,reason = view?.Reason,indicator = indicator.State};
-        public TalkTargetView SelectFirst(long now,TalkTargetOptions next) { clock = now; return Select(now,Sanitize(next),true); }
+        public TalkTargetView SelectFirst(long now,TalkTargetOptions next) { clock = now; if (ptt.IsLive) return Current(now,"ptt_busy"); ClearContinuity("player_select"); return Select(now,Sanitize(next),true); }
         public TalkTargetView SelectNext(long now,TalkTargetOptions next)
         {
             clock = now;
             next = Sanitize(next);
             if (ptt.IsLive) return Current(now,"ptt_busy");
+            ClearContinuity("player_cycle");
             if (!policy.CycleOpen(now)) return Select(now,next,true);
             options = next;
             var advanced = policy.SelectNext(now,next);
@@ -68,6 +79,7 @@ namespace LSA.PromotedCharacters
             clock = now;
             next = Sanitize(next);
             bool explicitSelection = !selectFirst;
+            bool retainedForThisHold = false;
             string admission = ptt.Admit(generation);
             if (admission == "cancelled") return new {started = false,reason = "cancelled",generation};
             if (admission == "already") {
@@ -81,9 +93,26 @@ namespace LSA.PromotedCharacters
                     if (!policy.HasSelection || expectedSelectionId != policy.SelectionId) { ptt.Fence(generation); throw new InvalidOperationException(policy.HasSelection ? "target_changed" : "target_lost"); }
                     if (Fitness(now,true) != null) { Drop("lost"); ptt.Fence(generation); throw new InvalidOperationException("target_lost"); }
                 } else {
+                    // A lost verified relationship must not silently fall back to
+                    // whichever ambient NPC happens to be under the camera.
+                    if (continuityInvalidated) { ptt.Fence(generation); throw new InvalidOperationException("target_lost"); }
                     if (policy.HasSelection) Drop("direct_override");
-                    var selected = Select(now,next,false);
-                    if (!selected.Present) { ptt.Fence(generation); throw new InvalidOperationException(selected.Reason ?? "no_nearby_npc"); }
+                    if (continuity.HasRecipient) {
+                        string loss = CheckContinuity(now,next.RetentionRadiusMeters);
+                        if (loss != null) {
+                            InvalidateContinuity(loss);
+                            ptt.Fence(generation);
+                            throw new InvalidOperationException("target_lost");
+                        }
+                        var token = new TalkCandidate(continuity.PedId,continuity.Address,0f,0f,true,0);
+                        policy.SelectFirst(new[] {token},now,next);
+                        frozenPeds.Clear(); frozenPeds.Add(continuityPed);
+                        retainedForThisHold = true;
+                        Trace("[UX4] talk_target selected reason=verified_continuity kind=promoted evidence=owner_verified");
+                    } else {
+                        var selected = Select(now,next,false);
+                        if (!selected.Present) { ptt.Fence(generation); throw new InvalidOperationException(selected.Reason ?? "no_nearby_npc"); }
+                    }
                 }
 
                 var ped = Bound();
@@ -102,9 +131,21 @@ namespace LSA.PromotedCharacters
                 try {
                     NpcTargeting.SetPlayerConversationPed(ped);
                     essentialPed = ped; essentialAddress = address; essentialSet = true;
+                    if (NpcTargeting.GetPlayerConversationPed() != ped) { Trace("[UX4] talk_ptt rejected reason=recipient_mismatch intended_actual=different"); TryRevert(ped); ptt.Fence(generation); throw new InvalidOperationException("recipient_mismatch"); }
                     InputController.SendMicStart(ped);
                     if (!mic.Owns(ped,address)) { TryRevert(ped); ptt.Fence(generation); throw new InvalidOperationException("mic_ownership_lost"); }
 
+                    var committedRecipient = RecipientOf(ped,address);
+                    if (retainedForThisHold && (committedRecipient.Kind != TalkRecipientKind.Promoted ||
+                        committedRecipient.Evidence != "owner_verified" ||
+                        committedRecipient.Alias != continuity.Alias || committedRecipient.IncarnationId != continuity.IncarnationId ||
+                        committedRecipient.OwnershipToken != continuity.OwnershipToken)) {
+                        string aborted = mic.StopOwned(ped,address);
+                        if (aborted == "native_operation_failed" || aborted == "mic_state_unavailable") throw new InvalidOperationException(aborted);
+                        TryRevert(ped); ptt.Fence(generation);
+                        InvalidateContinuity("owner_changed_during_start");
+                        throw new InvalidOperationException("target_lost");
+                    }
                     if (!ptt.Commit(generation)) {
                         string cancelledStop = mic.StopOwned(ped,address);
                         if (cancelledStop == "native_operation_failed" || cancelledStop == "mic_state_unavailable") throw new InvalidOperationException(cancelledStop);
@@ -119,16 +160,16 @@ namespace LSA.PromotedCharacters
                     indicator.Clear();
                     // Classified only now, from the exact ped the native mic commit
                     // just accepted, never from a preview or a previous selection.
-                    var committedRecipient = RecipientOf(ped,address);
+                    RememberRecipient(ped,address,committedRecipient,now);
                     if (explicitSelection) {
                         directPtt = false;
                         result = Payload(policy.Inspect(now),encounter,generation,true,committedRecipient);
                     } else {
                         directPtt = true;
-                        result = DirectPayload(ped,encounter,generation,true,"direct",committedRecipient);
+                        result = DirectPayload(ped,encounter,generation,true,retainedForThisHold ? "verified_continuity" : "direct",committedRecipient);
                     }
 
-                    try { Game.LogTrivial("[UX4] talk_ptt commit=accepted generation=" + generation + " mode=" + (explicitSelection ? "explicit" : "direct") + " recipient=" + committedRecipient.Token + " evidence=" + committedRecipient.Evidence); } catch { }
+                    try { Game.LogTrivial("[UX4] talk_ptt commit=accepted generation=" + generation + " mode=" + (explicitSelection ? "explicit" : retainedForThisHold ? "verified_continuity" : "direct") + " recipient=" + committedRecipient.Token + " evidence=" + committedRecipient.Evidence + " intended_actual=match"); } catch { }
                     return result;
                 } catch {
                     TryRevert(ped);
@@ -153,6 +194,12 @@ namespace LSA.PromotedCharacters
             if (outcome == "native_operation_failed" || outcome == "mic_state_unavailable") throw new InvalidOperationException(outcome);
 
             ptt.CompleteStop(generation);
+            // Stock/MarkedTalk taking the microphone is a newer conversation
+            // authority. Do not drag a previous promoted relationship over it.
+            if (outcome == "ownership_lost") {
+                ClearContinuity("mic_ownership_lost");
+                Drop("mic_ownership_lost"); // invalidate any explicit selector too
+            }
             if (directPtt) {
                 directPtt = false;
                 policy.Clear("direct_release");
@@ -188,16 +235,18 @@ namespace LSA.PromotedCharacters
             clock = now;
             if (ptt.IsLive) Stop(ptt.LiveGeneration,reason ?? "manual",now);
             Drop(reason ?? "manual");
+            ClearContinuity(reason ?? "manual");
             DetachEssential();
         }
         public void ResetForWorldChange(long now)
         {
             clock = now;
-            bool had = policy.HasSelection || ptt.IsLive || essentialSet;
+            bool had = policy.HasSelection || ptt.IsLive || essentialSet || continuity.HasRecipient || continuityInvalidated;
             if (ptt.IsLive) Stop(ptt.LiveGeneration,"world_reset",now);
             ptt.Reset();
             directPtt = false;
             policy.ResetForWorldChange();
+            ClearContinuity("world_reset");
             frozenPeds.Clear();
             indicatorUntil = 0;
             indicator.Clear();
@@ -245,7 +294,10 @@ namespace LSA.PromotedCharacters
                 var character = Game.LocalPlayer.Character;
                 player = character != null && ped == character;
                 human = exists && !dead && !player && NpcTargeting.IsValidHumanPed(ped);
-                if (character != null && character.Exists()) distance = Distance(ped.Position,character.Position);
+                if (character != null && character.Exists()) {
+                    distance = Distance(ped.Position,character.Position);
+                    if (SameVehicle(character,ped)) distance = 0f; // Seats may report displaced native positions while driving.
+                }
             } catch { return "lost"; }
             string problem = policy.Problem(pedId,address,exists,dead,player,human,distance,options.RetentionRadiusMeters,now);
             if (problem != null) return problem;
@@ -319,6 +371,62 @@ namespace LSA.PromotedCharacters
             if (ped == null || encounterId == null) return null;
             try { return encounterId(ped); } catch { return null; }
         }
+        void RememberRecipient(Ped ped,long address,TalkRecipientFeedback feedback,long now)
+        {
+            if (feedback.Kind == TalkRecipientKind.Promoted && feedback.Evidence == "owner_verified" &&
+                feedback.Alias != null && feedback.IncarnationId != null && feedback.OwnershipToken != null) {
+                continuity.Remember(ped.Handle.ToString(),address,feedback,now);
+                continuityPed = ped;
+                try {
+                    var player = Game.LocalPlayer.Character;
+                    continuityPlayerId = player?.Handle.ToString();
+                    continuityPlayerAddress = player == null ? 0 : player.MemoryAddress.ToInt64();
+                    if (continuityPlayerId == null || continuityPlayerAddress == 0) { ClearContinuity("player_unavailable"); return; }
+                } catch { ClearContinuity("player_unavailable"); return; }
+                continuityInvalidated = false;
+                nextContinuityCheck = now + 500;
+                Trace("[UX4] conversation_continuity established kind=promoted evidence=owner_verified");
+            } else ClearContinuity("recipient_changed");
+        }
+        string CheckContinuity(long now,float radius)
+        {
+            if (!continuity.HasRecipient || continuityPed == null) return "ped_lifetime_changed";
+            try {
+                var ped = continuityPed;
+                var player = Game.LocalPlayer.Character;
+                bool alive = ped.Exists() && !ped.IsDead && ped != player && NpcTargeting.IsValidHumanPed(ped) &&
+                    player != null && player.Exists() && !player.IsDead;
+                if (player == null || player.Handle.ToString() != continuityPlayerId ||
+                    player.MemoryAddress.ToInt64() != continuityPlayerAddress) return "player_changed";
+                long address = alive ? ped.MemoryAddress.ToInt64() : 0;
+                string pedId = alive ? ped.Handle.ToString() : null;
+                bool sharedVehicle = alive && SameVehicle(player,ped);
+                float distance = alive ? Distance(player.Position,ped.Position) : float.MaxValue;
+                var proof = alive ? RecipientOf(ped,address) : TalkRecipientFeedback.Unknown("ped_invalid");
+                return continuity.Problem(pedId,address,proof,alive,sharedVehicle,distance,radius,now);
+            } catch { return "verification_failed"; }
+        }
+        static bool SameVehicle(Ped player,Ped actor)
+        {
+            try {
+                var a = player.CurrentVehicle; var b = actor.CurrentVehicle;
+                return a != null && b != null && a.Exists() && b.Exists() &&
+                    a.MemoryAddress != IntPtr.Zero && a.MemoryAddress == b.MemoryAddress && a.Handle == b.Handle;
+            } catch { return false; }
+        }
+        void InvalidateContinuity(string reason)
+        {
+            if (!continuity.HasRecipient) return;
+            Trace("[UX4] conversation_continuity invalidated reason=" + reason + " action=fail_closed");
+            continuity.Clear(); continuityPed = null; continuityPlayerId = null; continuityPlayerAddress = 0; continuityInvalidated = true; nextContinuityCheck = 0;
+            Drop("continuity_lost");
+        }
+        void ClearContinuity(string reason)
+        {
+            if (continuity.HasRecipient) Trace("[UX4] conversation_continuity released reason=" + reason);
+            continuity.Clear(); continuityPed = null; continuityPlayerId = null; continuityPlayerAddress = 0; continuityInvalidated = false; nextContinuityCheck = 0;
+        }
+        static void Trace(string message) { try { Game.LogTrivial(message); } catch { } }
         void Drop(string reason)
         {
             if (!policy.HasSelection && frozenPeds.Count == 0) { indicator.Clear(); return; }
