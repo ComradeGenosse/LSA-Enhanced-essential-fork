@@ -27,4 +27,4 @@ jobs:
           node --check lsa-essential-e1-candidate/tools/recordVoiceFallback.mjs
       - name: Offline fallback and existing history regression
         working-directory: lsa-essential-e1-candidate
-        run: node --test tests/local-voice-fallback*.test.mjs tests/tts-and-history.test.mjs tests/playback-completion-recovery.test.mjs
+        run: node --test tests/local-voice-fallback*.test.mjs tests/tts-and-history.test.mjs tests/playback-completion-recovery.test.mjs tests/ea2-turn-lifecycle.test.mjs tests/reliability.test.mjs tests/openai-transport.test.mjs
