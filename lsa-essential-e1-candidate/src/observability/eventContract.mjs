@@ -19,6 +19,7 @@ export const EVENT_NAMES = new Set([
   'memory_journal_committed','memory_journal_not_committed',
   'memory_m3_intake_loss','memory_m3_coverage',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
+  'vehicle_request_classified','vehicle_command_reconciled','vehicle_stock_command_published',
 
   'stream_segments_reflowed','model_decision_validation_failure','elevenlabs_tts_timing_summary','perception_trace','radio_trace','native_pcm_forward_failed', // Main/EA allowed vocab preserved alongside Memory K
 ]);
@@ -59,6 +60,7 @@ const safeKeys = new Set([
   'traitsIncluded','memoryCount','biographyIncluded','relationshipIncluded','generatedPersonaPolicy',
   'truncatedFields','truncatedFieldCount','droppedMemoryCount',
   'activityId','intent','capability','receiptState','stepIndex','delivery',
+  'vehicleKind','vehicleReason','verification',
 
   'reflowedSegments','originalSegments','firstPcmMs','wallMs','generatedChunks','forwardedChunks','modelId','maxSegmentChars','maxDialogueChars','responseChars','playbackBufferMode','receivedChunks','generationDurationMs','forwardDurationMs','maxChunkGapMs','p95ChunkGapMs','slowChunkCount','forwardWaitMaxMs','underRealtime','streamRate','bufferedBytes','underrunRiskCount','fallbackUsed','captureEventRadio','selectedRadio','radioQuestion','traceCode','signalKind','producer','catalog','receipts','selfReceipts','qualified','ownedQualified','ownedObservers','ps2','ps2Reason','observations','ownedObservations','ps3Owned','ps3Reason','urgency','ps2OwnedWitnessed','ps2DedupeEvicted','ps2DropInvalidInput','ps2DropRadioIdentityMismatch','ps2DropUnsupportedEvent','ps2DropEpisodeClaimCapacity','ps2DropEpisodeRejected','ps2DropObservationClaimCapacity','ps2DropObservationRejected','ps3OwnedDecisions','ps3OwnedEligible','ps3OwnedUrgent','radioChanged','radioStopped','radioKnown','radioUnknown','radioMismatch','radioOff','radioObservations','radioOwnedObservations','nativeRadioSamples','nativeRadioEdges','nativeRadioFailures','nativeRadioWitnessed','nativeRadioWitnessUnknown','nativeWitnessDeferred','nativeWitnessUnknown','nativeWitnessRejected','ownerStalls','ownerStallMaxMs','traceEmitted','traceSuppressed', // Main/EA allowed vocab preserved alongside Memory K
   // Bounded PS2/PS3/PS6 correlation diagnostics (closed vocabularies below).
@@ -97,6 +99,13 @@ const closedValues = new Map([
     'routine_low_relevance','ambient_direct_witness'])],
   ['urgency', new Set(['urgent','routine'])],
   ['sceneType', new Set(['shared_vehicle_entry','reunion','shared_idle','travel','activity_transition','manual','personal_curiosity'])],
+  // No free-form dialogue, actor identifiers or arbitrary model commands in vehicle telemetry.
+  ['vehicleKind', new Set(['continue','speed_up','slow_down','evasive','normal','start','stop'])],
+  ['vehicleReason', new Set(['act6_owns_drive','continuation_must_not_reset_task',
+    'speed_up_requires_essential_faster_mode','slow_down_requires_normal_mode',
+    'stop_must_not_switch_driving_mode','start_must_not_be_evasive',
+    'normal_must_not_be_evasive'])],
+  ['verification', new Set(['unverified'])],
 ]);
 const safeTokens = new Set([
   'delivered','expired','ack_key_retired','observation_expired',
