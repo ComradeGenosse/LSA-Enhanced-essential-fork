@@ -19,6 +19,9 @@ namespace LSA.Activities
         public string Target, Vehicle, Place, Seat, Scenario, ScenarioName, Item, ItemName;
         // The one Essential command this step may queue. Null for wrapper steps.
         public string Command;
+        // Native-only trace identity from the validated ACT execution frame.
+        // Never supplied or interpreted as a world reference by Luna.
+        public string ExecutionId;
         // Retained, owner-scoped coordinates from the native PlaceTable, not model-provided coordinates.
         public bool HasPlace;
         public PlaceAnchor PlaceTarget;

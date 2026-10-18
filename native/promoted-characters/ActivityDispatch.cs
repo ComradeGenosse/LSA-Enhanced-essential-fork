@@ -25,7 +25,7 @@ namespace LSA.PromotedCharacters
         {
             sealed class SeatMemory { public bool Enter, Exit, Stay; }
             // Transition-only observations for a single ACT-owned seat task.
-            sealed class SeatTrace { public string Seat; public int LastState = int.MinValue; }
+            sealed class SeatTrace { public string Seat, ExecutionId; public int LastState = int.MinValue; }
             // Evidence for the ACT runner's single current step; not a task controller.
             sealed class NavMemory {
                 public string PlaceRef, Capability;
@@ -87,7 +87,7 @@ namespace LSA.PromotedCharacters
                 var label=state==-1?"actor_gone":state==0?"not_started":state==1?"entering_unverified":
                     state==2?"entering_anchor":state==3?"physically_seated":
                     sample.SeatShuffleActive && sample.VehicleIsAnchor ? "seat_transition_pending" : "wrong_seat_or_vehicle";
-                SeatLog("sample",encounterId,"requestedSeat="+item.Seat+
+                SeatLog("sample",encounterId,"executionId="+item.ExecutionId+" requestedSeat="+item.Seat+
                     " actualSeat="+sample.SeatIndex+" anchorMatched="+sample.VehicleIsAnchor+
                     " status="+label+" occupationVerified="+(state==3));
             }
@@ -354,8 +354,8 @@ namespace LSA.PromotedCharacters
                         NpcActionQueue.QueueNpcAction(args.Command, "", "", ped);
                         own[encounterId]=args.Command;
                     }
-                    seatTraces[encounterId] = new SeatTrace { Seat=args.Seat };
-                    SeatLog("queued",encounterId,"requestedSeat="+args.Seat+" route="+route+
+                    seatTraces[encounterId] = new SeatTrace { Seat=args.Seat, ExecutionId=args.ExecutionId };
+                    SeatLog("queued",encounterId,"executionId="+args.ExecutionId+" requestedSeat="+args.Seat+" route="+route+
                         " anchor="+args.Vehicle.Substring(0,8)+" verified=false");
                 }
                 else if (capability == "walk_to" || capability == "drive_to") {
@@ -419,7 +419,8 @@ namespace LSA.PromotedCharacters
             }
             public void NoteForeign(string encounterId) { if (encounterId != null) {
                 own.Remove(encounterId); navigation.Remove(encounterId);
-                if(seatTraces.ContainsKey(encounterId))SeatLog("superseded",encounterId,"reason=foreign_owner");
+                if(seatTraces.TryGetValue(encounterId,out var foreign))SeatLog("superseded",encounterId,
+                    "executionId="+foreign.ExecutionId+" reason=foreign_owner");
                 seatTraces.Remove(encounterId); seatShuffles.Remove(encounterId); RefreshPrimaryOwner(Find(encounterId));} }
             public void Cancel(string encounterId, string capability, bool stopIfCurrent)
             {
@@ -436,7 +437,7 @@ namespace LSA.PromotedCharacters
                 else if (capability == "begin_driving") VehicleBehavior.StopVehicleTaskOnly(encounter.Ped);
                 else if (capability == "enter_vehicle_seat") {
                     VehicleBehavior.StopAllVehicleCommands(encounter.Ped, state);
-                    SeatLog("cancel",encounterId,"reason=cancel_or_supersede");
+                    SeatLog("cancel",encounterId,"executionId="+(seatTraces.TryGetValue(encounterId,out var cancelled) ? cancelled.ExecutionId : "none")+" reason=cancel_or_supersede");
                     seatTraces.Remove(encounterId);
                     seatShuffles.Remove(encounterId);
                 }
@@ -612,7 +613,7 @@ namespace LSA.PromotedCharacters
                 navigation.Remove(encounterId);
                 own.Remove(encounterId);
                 if(seatTraces.ContainsKey(encounterId))
-                    SeatLog("ownership_ended",encounterId,"preempted="+preempted);
+                    SeatLog("ownership_ended",encounterId,"executionId="+seatTraces[encounterId].ExecutionId+" preempted="+preempted);
                 seatTraces.Remove(encounterId);
                 seatShuffles.Remove(encounterId);
                 var memory = seats[encounterId]; seats.Remove(encounterId);
