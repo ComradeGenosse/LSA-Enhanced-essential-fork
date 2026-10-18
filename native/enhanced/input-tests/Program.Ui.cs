@@ -108,6 +108,17 @@ static partial class Program
         var acceptedNavigation = GameplayNavigationView.Build(owned,menuReady);
         Check(Line(acceptedNavigation,"board").Enabled && Line(acceptedNavigation,"board").Value == "board_vehicle" && Line(acceptedNavigation,"board").ExpectedEncounterId == FakeBridge.Encounter,"available ACT3 action preserves actor binding");
         Check(Line(acceptedNavigation,"driveWaypoint").Enabled && Line(acceptedNavigation,"driveWaypoint").Confirm && Line(acceptedNavigation,"driveAirport").Value == "vehicle_trip:airport","ACT6 driving is opt-in, explicit and confirmed");
+        Check(Line(acceptedNavigation,"driverSeat").Value == "board_vehicle:driver" && Line(acceptedNavigation,"driverSeat").Confirm && Line(acceptedNavigation,"driverSeat").Enabled,"F11 explicitly offers driver-seat boarding only under native seat probes");
+        var binding=CharacterActivityBinding.Parse("{\"characterId\":\"11111111-1111-4111-8111-111111111111\",\"ownerAlias\":\"promoted.11111111-1111-4111-8111-111111111111\",\"encounterId\":\"22222222-2222-4222-8222-222222222222\",\"ownershipToken\":\"33333333-3333-4333-8333-333333333333\",\"safe\":true}");
+        Check(binding != null && binding.Safe && binding.SameIncarnation(binding),"native owner binding parses only exact character and 4-v4 UUID token");
+        var selectedRow=CharacterList.ParseProfile(Profile(CharacterA,"Nathan JustNate",1,runtimeStatus:"spawned"));
+        var explicitMenu=CharacterNavigationView.Build(selectedRow,binding,menuReady,true);
+        Check(Line(explicitMenu,"driveWaypoint").Enabled && Line(explicitMenu,"driveWaypoint").BindingCharacterId == CharacterA &&
+          Line(explicitMenu,"driveWaypoint").ExpectedOwnershipToken == binding.OwnershipToken &&
+          Line(explicitMenu,"assign").BindingCharacterId == CharacterA,"roster F11 activities bind to Nathan's exact incarnation without UX4 selection");
+        Check(!Line(CharacterNavigationView.Build(selectedRow,null,menuReady,true),"driveWaypoint").Enabled &&
+          CharacterActivityBinding.Parse("{\"characterId\":\"11111111-1111-4111-8111-111111111111\",\"ownerAlias\":\"promoted.not-same\",\"encounterId\":\"22222222-2222-4222-8222-222222222222\",\"ownershipToken\":\"33333333-3333-4333-8333-333333333333\",\"safe\":true}") == null,
+          "unbound and forged roster identities fail closed");
         Check(!Line(acceptedNavigation,"walkWaypoint").Enabled && Line(acceptedNavigation,"walkWaypoint").Description.Contains("native probes missing"),"missing native probes disable F11 walking with an explanation");
         Check(!GameplayNavigationView.Build(owned,null).First(line => line.Key == "driveWaypoint").Enabled && GameplayMenuReadiness.Parse("oops") == null,"missing or malformed readiness fails closed");
         var assign = CurrentNpcView.Assign(true);
@@ -229,6 +240,14 @@ static partial class Program
         Check(data.DirectorStatus?.Status == "rejected" && data.DirectorStatus.Reason == "actor_busy","native admission rejection is retained as a typed status");
         data.RequestDirectorStatus(); companion.Unreachable(); data.Pump();
         Check(data.DirectorStatus == null,"unavailable Director status fails closed instead of reusing stale admission");
+        data.RequestCharacterBinding(CharacterA);
+        Check(companion.Last["action"] as string == "character_activity_binding" && companion.Last["characterId"] as string == CharacterA,"per-character binding uses native-verified read-only endpoint");
+        companion.Reply(true,body: "{\"characterId\":\"11111111-1111-4111-8111-111111111111\",\"ownerAlias\":\"promoted.11111111-1111-4111-8111-111111111111\",\"encounterId\":\"22222222-2222-4222-8222-222222222222\",\"ownershipToken\":\"33333333-3333-4333-8333-333333333333\",\"safe\":true}");
+        data.Pump(); Check(data.CharacterBinding?.CharacterId == CharacterA,"character binding only applies on the native loader fiber");
+        data.RequestCharacterBinding(CharacterB);
+        Check(data.CharacterBinding == null,"changing selected roster character immediately drops the previous ownership token");
+        companion.Reply(false,"character_not_spawned"); data.Pump();
+        Check(data.CharacterBinding == null,"failed owner verification never falls back to the stale character");
     }
 
     // The real loopback client against a local server: oversized success bodies
