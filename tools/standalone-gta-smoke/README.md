@@ -79,7 +79,27 @@ foreach ($row in $proof) {
 Write-Host "Verified controller backup: $backup"
 ```
 
-For restoration, after Undo succeeds and GTA/RPH are closed, **move each entry in `$controllers` that exists under `$backup` back to the same relative path under `$game`**, refusing any existing destination. Re-run the checksum loop against `$game` rather than `$backup`. Restore the independently backed-up server/profile/settings data only if actually necessary; do not overwrite newer databases or player-authored files.
+For restoration, **after Undo succeeds and GTA/RPH are fully closed**, use the same PowerShell window (with `$game`, `$backup`, `$controllers` and `$proof` still set):
+
+```powershell
+foreach ($relative in $controllers) {
+  $from = Join-Path $backup $relative
+  if (-not (Test-Path -LiteralPath $from)) { continue }
+  $to = Join-Path $game $relative
+  if (Test-Path -LiteralPath $to) { throw "Refusing to overwrite existing $relative" }
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $to) | Out-Null
+  Move-Item -LiteralPath $from -Destination $to -ErrorAction Stop
+}
+foreach ($row in $proof) {
+  $restored = Join-Path $game $row.relative
+  if ((Get-FileHash -LiteralPath $restored -Algorithm SHA256).Hash -ne $row.hash) {
+    throw "Restoration verification FAILED: $($row.relative)"
+  }
+}
+Write-Host 'Verified original LSA controller binaries restored.'
+```
+
+If starting a new PowerShell window, first set `$game` and `$backup` to the same paths and reload `$proof = @(Get-Content (Join-Path $backup 'sha256-controller-proof.json') -Raw | ConvertFrom-Json)`. Use the `$controllers` list above again. Restore independently backed-up server/profile/settings data only if actually necessary; do not overwrite newer databases or player-authored files.
 
 **To return to original LSA:** exit GTA/RPH and stop the standalone companion. First run `.\Undo-Standalone.ps1 -GamePath '<same GTA path>'`, which checks and removes only its own three managed plugin files. **Then** restore the moved original LSA binaries/bridges/config from your off-game backup to their exact previous paths and verify their hashes. Never enable both controllers together; do not overwrite newer player profiles or SQLite data when restoring. The rollback script intentionally does **not** restore legacy files for you.
 
