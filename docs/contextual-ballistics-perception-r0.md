@@ -5,7 +5,7 @@ Status: **R1 and bounded R2 bullet-callback attribution wired in code; other bal
 
 ## Current implementation update — October 18
 
-**Implemented on this branch, not deployed:** R1 player attribution now flows from the original PS2 visually witnessed source and the current single native player anchor through PS4 and the existing bounded PS6 Director context. Audio-only witnesses never gain source identity. A native damage callback is now checked for *near-time visual target visibility* on the GTA owner fiber (at most 150ms after receipt), without granting attacker knowledge. PS2 also retains at most 64 same-observer visually witnessed source proofs for 750ms and may join an exact bullet-class ped-damage callback to an already witnessed firing source. The frozen PS4 knowledge and existing PS6 context can then say the player shot and injured someone, subject to all other unchanged gates.
+**Implemented on this branch, not deployed:** R1 player attribution now flows from the original PS2 visually witnessed source and the current single native player anchor through PS4 and the existing bounded PS6 Director context. Audio-only witnesses never gain source identity. A native damage callback is now checked for *near-time visual target visibility* on the GTA owner fiber (at most 100ms after callback receipt under current `FreshCallbackWindow`), without granting attacker knowledge. PS2 also retains at most 64 same-observer visually witnessed source proofs for 750ms and may join an exact bullet-class ped-damage callback to an already witnessed firing source. The frozen PS4 knowledge and existing PS6 context can then say the player shot and injured someone, subject to all other unchanged gates.
 
 **Still not implemented or GTA-verified:** impact normals/material classification (wall/ground/car), per-bullet round counts, reliable skyward trajectory, body-bone linkage, precise hit location, robust multi-weapon ballistic attribution, and material-death causality. The standalone R0 `projectContextualBallistics` surface/body evidence renderer is deliberately not production-authoritative. The source-witness join helper from that file **is** integrated into PS2. Current DamageTracker callback live availability was historically unproven; code changes do not establish that it runs in GTA Enhanced. No new config flag or inference provider has been activated.
 
@@ -15,13 +15,13 @@ Acceptance requires source-matched native Windows build, offline tests, and a co
 
 **Do not call this PS5:** PS5 is already reserved for automatic experiential memory. This is an optional producer/knowledge extension to existing native source-time sensors → PS2 witnesses/episodes → PS3 salience → one frozen PS4 knowledge writer → PS6 spontaneous speech. Preserve D-004 (world fact != NPC knowledge), D-008 (single PS4 writer), D-016 (Essential original turn ownership), C-02/C-13 native anchor/lifetime, and all original Director limits, playback acknowledgements, and safety gates. No independent prompt builder, persistent event store, AI call per bullet, action proposal, or new executor.
 
-Present code: `SensorAdapters.Shooting` captures source-keyed firing transitions, not bullet counts; `DamageSensors` can capture attacker/victim/classification but the controlled live damage-callback acceptance is still open. `WitnessPolicy` keeps visual and auditory knowledge distinct. The present PS4 claim renderer anonymizes even witnessed firing subjects; the stock Director context says only 'gunfire'. Both need future carefully verified player attribution.
+Present code: `SensorAdapters.Shooting` captures source-keyed firing transitions, not bullet counts; `DamageSensors` can capture attacker/victim/classification but the controlled live damage-callback acceptance is still open. `WitnessPolicy` keeps visual and auditory knowledge distinct. PS4 now identifies the player only with a unique current native player anchor and an independently sight-qualified source; Director's bounded event renderer now has the same source-time gating. Auditory-only witnesses remain anonymous.
 
 ## Included in R0
 
 `src/perception/contextualBallistics.mjs` exports `projectContextualBallistics` and bounded limits. It constructs an immutable, model-safe **candidate** for future PS4, based on one exact firing event, an exact source-time witness receipt, a current locally verified player captureRef, and at most 16 independently correlated evidence rows within 1500 native game-tick milliseconds. The original firing ID, shooter source ref, original witness time, current player anchor and evidence joins must match. Internal identifiers are never projected to dialogue.
 
-This pure code **cannot authenticate input data**. Tags like `proof: native_impact` do not themselves prove an impact. Its native ingestion caller must source-verify the original observations, actor lifetime and callbacks before constructing them. To avoid a false claim, R0 is **not imported into the production runtime** and cannot affect current NPC speech.
+This pure code **cannot authenticate input data**. Tags like `proof: native_impact` do not themselves prove an impact. Its native ingestion caller must source-verify the original observations, actor lifetime and callbacks before constructing them. The R0 *candidate projector* remains unwired and cannot invent any NPC speech. Its separate `witnessedBulletAttribution` helper **is** imported by the production PS2 correlator and contributes only source-matched, bounded native bullet injury claims.
 
 | Qualified evidence | Candidate output | Must not infer |
 | --- | --- | --- |
@@ -33,9 +33,9 @@ This pure code **cannot authenticate input data**. Tags like `proof: native_impa
 | Native line-of-fire geometry that Nathan saw | `trajectory: skyward/downward/toward_person/other` | a hit, miss, or shooter intention |
 | No defensible outcome | `impact: unconfirmed` | 'missed', 'hit nothing', 'tried to kill' |
 
-## Next implementation slices
+## Integration stages and remaining implementation
 
-### R1 — shooter attribution with existing source proofs
+### R1 — shooter attribution with existing source proofs (integrated, GTA acceptance open)
 
 1. Join the original firing `sourceCaptureRef` to the current native C-02 player anchor and same host/world epoch at PS2 acquisition and frozen PS4 selection. Do **not** infer from a Ped name, identity alias or later nearby-player query.
 2. Preserve PS2 `knowsSource`, visual LOS and exact observer context; current PS4 `knowledgeSelector.mjs` can project `player` for a visual source match but must preserve anonymous or unknown otherwise.
@@ -57,9 +57,9 @@ This pure code **cannot authenticate input data**. Tags like `proof: native_impa
 
 ## Acceptance
 
-R0: ten isolated Node tests covering visual player attribution, auditory redaction, no fake misses, wall/ground proof, trajectory ambiguity, verified body region, source and player spoofing, timing/receipt limits and uint game-tick wrap. Syntax checked, no full suite or native build in this branch. Exact branch and test status should be revalidated after further edits.
+R0: the pure projector and source-time witness join retain focused isolated Node tests for visual player attribution, auditory redaction, fake-miss prevention, world-impact candidates, trajectory ambiguity, body-region proof, spoofing, game-tick wrap and bounded receipt windows. Current Node, native harness and Windows compilation are assessed by the PR's GitHub Actions checks, not by this document; see those checks for results. Offline success never proves GTA runtime support.
 
-R2/R3 must undergo controlled GTA tests: wall, ground, sky, vehicle, NPC miss, NPC injury/head/leg, automatic fire, gunfire behind Nathan, occlusion, different shooter, multiple hits, player switch, delayed callback and world reset. Confirm correct source-time proof, no hallucinated recognition, native callback availability, unchanged ordinary conversation, and rate/ownership/full-playback safety. Record exact companion/native build and deployment hashes separately. Until then, **this branch is only the initial implementation plan and testable pure projection**.
+R2/R3 must undergo controlled GTA tests: wall, ground, sky, vehicle, NPC miss, NPC injury/head/leg, automatic fire, gunfire behind Nathan, occlusion, different shooter, multiple hits, player switch, delayed callback and world reset. Confirm correct source-time proof, no hallucinated recognition, native callback availability, unchanged ordinary conversation, and rate/ownership/full-playback safety. Record exact companion/native build and deployment hashes separately. Until then, **this branch contains a production-wired but physically unaccepted source-qualified R1/R2 subset plus an unconnected pure projection for future evidence**.
 
 ## October 18 integration status
 
