@@ -75,6 +75,14 @@ A manifest proves code/registry enumeration, **not** that a DLL was deployed
 or loaded; even a hashed file's presence is not proof that RPH loaded it.
 Successful provider output does not prove native action or audible speech.
 
+The collector records sanitized source origins in `collection.json`: `GamePath`
+is required, whereas `ExtraLogRoots[n]` and auto-discovered standalone
+test logs are optional. Local absolute paths are never emitted as source
+identifiers. Missing optional roots remain visible as coverage warnings,
+but alone do not revoke verified system-health evidence. Older archives
+with only `source-N` and no origin classification remain conservatively
+incomplete: the missing root's identity cannot be recovered from that ZIP.
+
 The analyzer reads ZIP entries directly (no extraction), requires no game
 connection, and never fetches an API. It reports missing sources, duplicate
 or missing sequence records, telemetry losses, unmatched OBS2 manifest hash,

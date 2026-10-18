@@ -51,6 +51,17 @@ try {
     }
     $collection=Get-Content -LiteralPath (Join-Path $folder 'collection.json') -Raw|ConvertFrom-Json
     if(@($collection.MissingRoots).Count -ne 1){throw 'Missing root not accounted for'}
+    $root=@($collection.MissingRoots)[0]
+    if($root.Kind -ne 'extra' -or $root.Required -ne $false -or
+       $root.ConfigRef -ne 'ExtraLogRoots[1]'){
+      throw 'Missing optional root lacked safe configuration identity'
+    }
+    if(@($collection.Sources|Where-Object {$_.Kind -eq 'game' -and $_.Required}).Count -ne 1){
+      throw 'Required game source identity missing'
+    }
+    if(($collection|ConvertTo-Json -Depth 8).Contains($temp)){
+      throw 'Collector leaked a private source path into metadata'
+    }
     if(@($collection.DetectedRuns) -notcontains $run){throw 'Session correlation IDs not collected'}
     if($collection.Files -lt 3){throw 'Insufficient fixture logs collected'}
     Write-Host ('OBS3 collector smoke passed. Files='+$collection.Files+'; Run='+$run)
