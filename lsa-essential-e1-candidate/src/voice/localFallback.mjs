@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../');
 const ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const DIRECTORY = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FILE = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}\.wav$/;
 const CATEGORIES = new Set(['misheard','lost_thought','speech_lost','action_unconfirmed','action_succeeded','action_failed']);
@@ -66,7 +67,7 @@ export async function selectLocalFallback({config,turn,category,signal,read=read
   if(!characterId||typeof voice!=='string'||!ID.test(voice))
     return {status:'identity_unverified'};
   const dirname=setting.assetDirectory;
-  if(typeof dirname!=='string'||!ID.test(dirname))return {status:'invalid_config'};
+  if(typeof dirname!=='string'||!DIRECTORY.test(dirname))return {status:'invalid_config'};
   const folder=path.join(ROOT,dirname);
   const timeoutMs=setting.maxRecoveryDelayMs??1500;
   const reader=async()=>{
