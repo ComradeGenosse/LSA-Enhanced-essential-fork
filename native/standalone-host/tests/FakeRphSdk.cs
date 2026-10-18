@@ -58,7 +58,9 @@ namespace Rage
     // Compile-only local API shapes: NEVER distribute as an actual SDK.
     public static class Game
     {
-        public static int GameTime => 0;
+        // Must match the official RPH getter EXACTLY. Its return type is UInt32,
+        // not Int32; the CLR method signature includes the return type.
+        public static uint GameTime => 0u;
         public static LocalPlayer LocalPlayer => new LocalPlayer();
         public static GameConsole Console => new GameConsole();
         public static void LogTrivial(string message) {}

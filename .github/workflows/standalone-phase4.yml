@@ -99,7 +99,12 @@ jobs:
           $sdk = Get-ChildItem -Path (Join-Path $env:USERPROFILE '.nuget/packages/ragepluginhook/1.124.0') -Filter RagePluginHook.dll -Recurse -File |
             Select-Object -First 1 -ExpandProperty FullName
           if (-not $sdk) { throw 'Official RPH reference unavailable' }
-          dotnet build native/standalone-host/LSA.Standalone.RageHost.csproj -c Release "-p:RphReferencePath=$sdk"
+          # CRITICAL: MSBuild may consider the prior fake-SDK build up-to-date
+          # even though RphReferencePath changed. Force a clean real-SDK compile
+          # so ONLY this binary, not the fake-SDK output, is packaged for GTA.
+          dotnet build native/standalone-host/LSA.Standalone.RageHost.csproj -c Release -t:Rebuild "-p:RphReferencePath=$sdk"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project native/standalone-host/tests/RphSignatureAudit.csproj -c Release -- "$sdk" "native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Native typed replies and exact PCM escrow over real net481 IPC
         shell: pwsh

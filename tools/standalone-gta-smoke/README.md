@@ -107,6 +107,19 @@ If starting a new PowerShell window, first set `$game` and `$backup` to the same
 
 **Safety boundary:** This code can't inspect your actual installed directory or RPH load list remotely. Incomplete backups, unknown third-party bridges, inaccessible Node process enumeration, or ambiguous plugin ownership must be resolved before live testing. CI exercises only synthetic game folders, not an in-game run.
 
+### RPH native API ABI guard (first GTA smoke, 2026-10-18)
+
+The original package built before this guard failed at RPH startup with
+`MissingMethodException: Int32 Rage.Game.get_GameTime()`.
+The official RPH SDK declares `GameTime` as `UInt32`. Our compile-only
+fake RPH SDK had incorrectly declared it `int`, and the real SDK build
+could reuse the cached fake-SDK binary. The fake declaration is corrected,
+the distributable host is **force-rebuilt** against official RPH reference
+1.124.0, and a metadata regression audit now verifies both the SDK
+getter and the *actual packaged host's* imported getter signature.
+This does **not** prove compatibility with an uninspected local RPH 1.132
+binary or substitute for the GTA smoke rerun.
+
 ## Automated smoke (optional, one GTA session)
 
 A standalone automatic smoke runner is included for unattended in-game diagnostics.
