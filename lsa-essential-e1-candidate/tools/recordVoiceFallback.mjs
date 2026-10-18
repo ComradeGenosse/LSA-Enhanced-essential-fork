@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {loadConfig} from '../src/config/e1Config.mjs';
 import {createElevenLabsSpeechProvider} from '../src/providers/elevenlabs/speechProvider.mjs';
 import {pcmToWav} from '../src/voice/pcmWav.mjs';
+import {decodeFallbackWav} from '../src/voice/localFallback.mjs';
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../VoiceFallback');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SAFE=/^[a-z0-9][a-z0-9_-]{0,63}$/;
@@ -50,7 +51,9 @@ for(const pack of output.characters){
     });
     if(!result?.bytes||result.bytes!==chunks.reduce((s,c)=>s+c.length,0))
       throw new Error('Incomplete prerecorded audio: '+clip.id);
-    await writeFile(path.join(ROOT,pack.characterId,clip.asset),pcmToWav(chunks));
+    const wav=pcmToWav(chunks);
+    decodeFallbackWav(wav); // Reject clips too long or incompatible with native local playback.
+    await writeFile(path.join(ROOT,pack.characterId,clip.asset),wav);
     console.log('Recorded '+pack.characterId+' / '+clip.id);
   }
 }
