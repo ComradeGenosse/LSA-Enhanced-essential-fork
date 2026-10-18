@@ -1,0 +1,44 @@
+name: Issue 276 native owner interruption and recovery
+on:
+  pull_request:
+    paths:
+      - 'native/promoted-characters/HostInterruptionEvidence.cs'
+      - 'native/promoted-characters/RuntimeEntry.cs'
+      - 'native/promoted-characters/host-context-tests/**'
+      - 'native/promoted-characters/*Tests.csproj'
+      - 'lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs'
+      - 'lsa-essential-e1-candidate/src/observability/eventContract.mjs'
+      - 'lsa-essential-e1-candidate/tests/native-owner-pause-recovery.test.mjs'
+      - '.github/workflows/issue-276-owner-interruption.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  companion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and native-owner pause/recovery regression
+        run: |
+          node --check lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs
+          node --check lsa-essential-e1-candidate/src/observability/eventContract.mjs
+          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/native-owner-pause-recovery.test.mjs lsa-essential-e1-candidate/tests/perception-client.test.mjs lsa-essential-e1-candidate/tests/intelligence-frame-rejection-telemetry.test.mjs
+  native-offline:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Validate native host focus and world-epoch contract
+        shell: pwsh
+        run: |
+          dotnet build native/promoted-characters/host-context-tests/HostContextTests.csproj --configuration Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "native/promoted-characters/host-context-tests/bin/Release/net481/HostContextTests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Validate runtime host compiles with offline RPH stubs
+        run: dotnet build native/promoted-characters/runtime-tests/RuntimeTests.csproj --configuration Release
