@@ -540,14 +540,20 @@ export class Act5Dialogue {
       if (navigationIntent) {
         const intent = request?.intent || navigationIntent;
         const deny = reason => {
-          this.report('act6_player_direct_rejected', {intent,reason});
+          this.report('act6_player_direct_rejected', {intent,code:reason});
           return Object.freeze({kind:'unavailable',intent,reason});
         };
-        this.report('act6_player_direct_recognized', {intent,destination:request?.slots?.place?.kind || 'unresolved',
+        this.report('act6_player_direct_recognized', {intent,destinationKind:request?.slots?.place?.kind || 'unresolved',
           act5Suggestions:this.activities.engine.config.act5 === true});
         if (!request) return deny('destination_unresolved');
         if (!TERMINAL.has(this.activities.status(characterId)?.status)) return deny('actor_busy');
         const readiness = this.navigationReadiness(intent);
+        const needed = intent === 'vehicle_trip' ? 'drive_to' : 'walk_to';
+        const row = this.activities.engine.registry.get(needed);
+        this.report('act6_player_direct_readiness', {intent,capability:needed,code:readiness || 'ready',
+          nativeAdvertised:this.activities.engine.hello?.capabilities?.[needed] === true,
+          missingProbeCount:row?.probes?.filter(p=>!this.activities.engine.config.passedProbes?.includes(p)).length || 0,
+          act5Suggestions:this.activities.engine.config.act5 === true});
         if (readiness) return deny(readiness);
         const owner=await this.#owner(turn);
         if (!owner || !isCurrent?.() ||
@@ -584,7 +590,7 @@ export class Act5Dialogue {
         if (this.seenTurns.size>256) this.seenTurns.delete(this.seenTurns.values().next().value);
         this.approvals.set(turnKey,{owner,pending:{activity:request,proposal:proposed,expiresAt:now+OFFER_MS}});
         if (this.approvals.size>32) this.approvals.delete(this.approvals.keys().next().value);
-        this.report('act6_player_direct_staged',{intent:request.intent,destination:request.slots.place.kind});
+        this.report('act6_player_direct_staged',{intent:request.intent,destinationKind:request.slots.place.kind});
         return Object.freeze({kind:'approval_pending',intent:request.intent});
       }
       if (!CANCEL.has(response)) return null;
@@ -662,6 +668,9 @@ export class Act5Dialogue {
     }
     const result = this.activities.engine.assign(pending.proposal,current.binding,{playerApproved:true});
     if (result?.ok) this.lastAccepted.set(characterId,result.activityId);
+    if (['go_to_place','vehicle_trip','move_to_and_hold'].includes(pending.activity.intent))
+      this.report(result?.ok?'act6_player_direct_admitted':'act6_player_direct_rejected',
+        {intent:pending.activity.intent,activityId:result?.activityId,code:result?.reason || 'accepted'});
     this.report(result?.ok?'act5_admitted':'act5_rejected',{intent:pending.activity.intent,reason:result?.reason||null});
     if(pending.activity.intent==='board_vehicle')
       this.report('vehicle_seat_commit',{intent:'board_vehicle',seat:pending.activity.slots?.seat,
