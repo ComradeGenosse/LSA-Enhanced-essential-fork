@@ -259,9 +259,11 @@ static partial class Program
         Check(ControlsView.Build(null,essential,"ready",null,false,120,new GestureBinding[0]).Count == 0,"no settings: no lines");
 
         var empty = DiagnosticsView.Build(new DiagnosticsInput {HostStatus = "host=none",RouterState = "disabled",SettingsRevision = "defaults",CatalogSha = catalog.Sha256});
+        Check(Line(empty,"outcomes").Right == "None","empty command outcomes appear explicitly");
         Check(Line(empty,"snapshot").Right == "None" && Line(empty,"reasons").Right == "None" && Line(empty,"settings").Right == "Defaults" && Line(empty,"catalog").Right == catalog.Sha256.Substring(0,8) && Line(empty,"companion").Right == "Not reachable","empty diagnostics");
         Check(Line(empty,"refresh").Command == null && Line(empty,"log").Command == null && !Line(empty,"refresh").Info,"diagnostics actions are local");
-        var busy = DiagnosticsView.Build(new DiagnosticsInput {HostStatus = "status=ready",BridgeAvailable = true,CompanionReachable = true,SnapshotAgeMs = 120,Outstanding = 1,SettingsRevision = new string('a',64),RecentReasons = new[] {"first: a","second: b"}});
+        var busy = DiagnosticsView.Build(new DiagnosticsInput {HostStatus = "status=ready",BridgeAvailable = true,CompanionReachable = true,SnapshotAgeMs = 120,Outstanding = 1,SettingsRevision = new string('a',64),RecentReasons = new[] {"first: a","second: b"},RecentOutcomes = new[] {"activity.assign: queued","activity.assign: accepted"}});
+        Check(busy.Where(line => line.Text == "Action").Select(line => line.Right).SequenceEqual(new[] {"activity.assign: accepted","activity.assign: queued"}),"typed outcomes newest first");
         Check(Line(busy,"snapshot").Right == "120 ms" && Line(busy,"bridge").Right == "Available" && Line(busy,"settings").Right == "aaaaaaaa" && busy.Where(line => line.Text == "Recent").Select(line => line.Right).SequenceEqual(new[] {"second: b","first: a"}),"recent failures newest first");
     }
 
