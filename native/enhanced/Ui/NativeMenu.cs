@@ -182,7 +182,7 @@ namespace LSA.Enhanced.Ui
             if (menu == settingsPage) { editorItem.RightLabel = Plain(EditorAddress()); return; }
             if (!pages.TryGetValue(menu,out var page)) return;
             Invalidate(page);
-            if (menu == roster || menu == character) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
+            if (menu == roster || menu == character || ((menu == current || menu == navigation) && data.Characters == null)) { data.RequestCharacters(); nextRoster = now + RosterRefreshMs; }
             if (menu == ai) aiReadAt = -1;
         }
         void Selected(UIMenu sender,UIMenuItem item,int index)
@@ -427,6 +427,7 @@ namespace LSA.Enhanced.Ui
             string alias = npc != null && npc.Owned ? npc.OwnerAlias : null;
             if (npc != null && npc.Present) data.RequestDescribe(npc.EncounterId,alias);
             var describe = npc != null && npc.Present ? data.DescribeFor(npc.EncounterId,alias) : null;
+            if (describe == null && npc != null && npc.Owned) describe = CharacterList.ForOwnedAlias(data.Characters,alias);
             return CurrentNpcView.Build(snapshot,utc,describe,context.Bridge.Available,data.CompanionReachable,settings);
         }
         List<MenuLine> Build(Page page,out string subtitle)
@@ -476,7 +477,15 @@ namespace LSA.Enhanced.Ui
                     return new List<MenuLine> {data.Characters == null ? MenuLine.Fact("loading","Loading character…","") : MenuLine.Fact("missing","Character not found","","It may have been removed in the character editor.")};
                 }
                 subtitle = row.Name;
-                return CharacterList.Actions(row,data.CompanionReachable,context.Bridge.Available);
+                var lines = CharacterList.Actions(row,data.CompanionReachable,context.Bridge.Available);
+                var snapshot = Snapshot(utc);
+                var npc = snapshot != null && snapshot.Fresh(utc,InputGates.SnapshotMaxAgeMs) ? snapshot.Current : null;
+                if (row.OwnerAlias != null && npc != null && npc.Present && npc.Owned && npc.OwnerAlias == row.OwnerAlias) {
+                    var action = MenuLine.Action("characterActivity","Activities for this NPC...","local.openActivities","Act on this exact in-world incarnation, not another current NPC.",data.CompanionReachable && npc.Safe);
+                    action.ExpectedEncounterId = npc.EncounterId; action.ExpectedOwnerAlias = npc.OwnerAlias;
+                    lines.Insert(1,action);
+                } else lines.Insert(1,MenuLine.Fact("activitySelection","Activity actions","Select in world","To assign an activity, first select this same promoted NPC with UX4."));
+                return lines;
             }
             if (page.Menu == controls) {
                 subtitle = "Controls";
