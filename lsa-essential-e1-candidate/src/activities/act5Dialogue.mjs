@@ -212,6 +212,17 @@ export function act5WorldAvailable(intent, slots, state) {
         'exit_vehicle_and_hold','leave_scene','take_cover_and_hold'].includes(intent)) return true;
   if (state?.version !== 1 || state.safe !== true) return false;
   if (intent === 'board_vehicle' || intent === 'ride_along') {
+    // If already seated, let ACT3 preflight verify the *same anchored car*
+    // and exact seat before it returns alreadySatisfied. A seat index alone
+    // is never proof the actor occupies the player's vehicle.
+    if (state.actorInVehicle === true) {
+      const index=state.actorSeatIndex;
+      return state.vehicleAvailable===true &&
+        (slots.seat==='driver' && index===-1 ||
+         slots.seat==='passenger' && index===0 ||
+         slots.seat==='rear' && index>=1 ||
+         slots.seat==='any_passenger' && index>=0);
+    }
     if (state.actorInVehicle !== false || state.vehicleAvailable !== true ||
         state.vehicleStopped !== true) return false;
     if (slots.seat === 'driver') return state.driverFree === true;
