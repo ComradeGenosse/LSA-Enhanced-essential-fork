@@ -61,7 +61,7 @@ const safeKeys = new Set([
   'traitsIncluded','memoryCount','biographyIncluded','relationshipIncluded','generatedPersonaPolicy',
   'truncatedFields','truncatedFieldCount','droppedMemoryCount',
   'activityId','intent','capability','receiptState','stepIndex','delivery',
-  'vehicleKind','vehicleReason','verification','seat',
+  'vehicleKind','vehicleReason','verification','seat','modelCommandKind',
 
   'reflowedSegments','originalSegments','firstPcmMs','wallMs','generatedChunks','forwardedChunks','modelId','maxSegmentChars','maxDialogueChars','responseChars','playbackBufferMode','receivedChunks','generationDurationMs','forwardDurationMs','maxChunkGapMs','p95ChunkGapMs','slowChunkCount','forwardWaitMaxMs','underRealtime','streamRate','bufferedBytes','underrunRiskCount','fallbackUsed','captureEventRadio','selectedRadio','radioQuestion','traceCode','signalKind','producer','catalog','receipts','selfReceipts','qualified','ownedQualified','ownedObservers','ps2','ps2Reason','observations','ownedObservations','ps3Owned','ps3Reason','urgency','ps2OwnedWitnessed','ps2DedupeEvicted','ps2DropInvalidInput','ps2DropRadioIdentityMismatch','ps2DropUnsupportedEvent','ps2DropEpisodeClaimCapacity','ps2DropEpisodeRejected','ps2DropObservationClaimCapacity','ps2DropObservationRejected','ps3OwnedDecisions','ps3OwnedEligible','ps3OwnedUrgent','radioChanged','radioStopped','radioKnown','radioUnknown','radioMismatch','radioOff','radioObservations','radioOwnedObservations','nativeRadioSamples','nativeRadioEdges','nativeRadioFailures','nativeRadioWitnessed','nativeRadioWitnessUnknown','nativeWitnessDeferred','nativeWitnessUnknown','nativeWitnessRejected','ownerStalls','ownerStallMaxMs','traceEmitted','traceSuppressed', // Main/EA allowed vocab preserved alongside Memory K
   // Bounded PS2/PS3/PS6 correlation diagnostics (closed vocabularies below).
@@ -103,6 +103,7 @@ const closedValues = new Map([
   // No free-form dialogue, actor identifiers or arbitrary model commands in vehicle telemetry.
   ['vehicleKind', new Set(['continue','speed_up','slow_down','evasive','normal','start','stop'])],
   ['seat', new Set(['driver','passenger','rear','any_passenger'])],
+  ['modelCommandKind', new Set(['none','placeholder','reference_shaped','other'])],
   ['vehicleReason', new Set(['act6_owns_drive','continuation_must_not_reset_task',
     'speed_up_requires_essential_faster_mode','slow_down_requires_normal_mode',
     'stop_must_not_switch_driving_mode','start_must_not_be_evasive',
