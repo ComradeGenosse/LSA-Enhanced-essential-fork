@@ -67,6 +67,23 @@ NativeFunction.CallByName or CallByHash; managed reflection, unmanaged APIs,
 game state, fibers, ped identities, decorators, audio or visible lip sync
 remain runtime gates. Never translate a green static report into a GTA pass.
 
+## G5: fail-closed auto-smoke actor lookup
+
+The native owner fiber now validates a pinned auto-smoke handle using
+`DOES_ENTITY_EXIST` and `IS_ENTITY_A_PED` before
+`World.GetEntityByHandle<Ped>`. It rejects any failure from the
+preflight, lookup, or post-lookup validity/handle check without stopping
+the standalone host. The player/target radius checks also reject stale
+objects locally. A stale pinned handle **never** falls back to another NPC,
+creates an ownership lease, or offers a typed turn.
+
+The offline `PinnedActorLookup.Tests.csproj` fixture covers missing,
+non-ped, recycled, invalid and throwing handles. The CI G5 gate also
+checks that `StandaloneTypedCommands.Pump` uses the guarded lookup.
+This proves exception containment in the code path, **not** the
+runtime behavior of a live GTA entity after despawn or recycling;
+that remains an in-game check.
+
 ## Safe update of an existing smoke installation
 
 1. Close GTA, RPH and the standalone Node process. Preserve the verified,
