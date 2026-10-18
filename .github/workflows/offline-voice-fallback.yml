@@ -7,6 +7,7 @@ on:
       - 'lsa-essential-e1-candidate/src/config/e1Config.mjs'
       - 'lsa-essential-e1-candidate/src/memory/**'
       - 'lsa-essential-e1-candidate/tests/local-voice-fallback.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/local-voice-fallback-turn.test.mjs'
       - '.github/workflows/offline-voice-fallback.yml'
   push:
     branches:
@@ -26,4 +27,4 @@ jobs:
           node --check lsa-essential-e1-candidate/tools/recordVoiceFallback.mjs
       - name: Offline fallback and existing history regression
         working-directory: lsa-essential-e1-candidate
-        run: node --test tests/local-voice-fallback.test.mjs tests/tts-and-history.test.mjs tests/playback-completion-recovery.test.mjs
+        run: node --test tests/local-voice-fallback*.test.mjs tests/tts-and-history.test.mjs tests/playback-completion-recovery.test.mjs
