@@ -96,6 +96,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   let playbackCommitted = false;
   let outputTranscriptPublished = false;
   let outputTranscriptAttempted = false;
+  let fallbackPlayback = null;
   let stockActionPublished = false;
   let providerTimer = null;
   const metrics = host.telemetry?.beginTurn(identity, source, { inputChars: String(input || '').length, bytes: pcm?.byteLength || 0, sampleRate: sampleRate || 0 }) || null;
@@ -281,6 +282,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     if(controller.signal.aborted||retired||!host.isCurrent(identity))return null;
     metrics?.event('voice_fallback_selected',{category,assetId:asset.assetId,characterId:asset.characterId,audioPath:'native_pcm'});
+    fallbackPlayback={category,assetId:asset.assetId,started:false};
     // If Luna never published a transcript, publish one validated speech-only
     // transcript. After stock action publication NEVER publish it again.
     if(!outputTranscriptPublished){
@@ -313,7 +315,6 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       clearTimeout(providerTimer);providerTimer=null;
       providerWorkDone?.('failed',{code:failureReason});
       transition('playback_completion');
-      metrics?.event('voice_fallback_playback_started',{category,assetId:asset.assetId,pcmBytes:copied});
       const policy=playbackCompletionPolicy({
         pcmBytes:copied,nativeStartedAt:nativePlaybackStartedAt,sealedAt:performance.now(),
         minimumMs:services.config.playbackCompletionMinMs??10000,
@@ -367,7 +368,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       };
       const type = map[event.type];
       if (!type) return;
-      if(event.type==='playback_started')nativePlaybackStartedAt=performance.now();
+      if(event.type==='playback_started'){
+        nativePlaybackStartedAt=performance.now();
+        if(fallbackPlayback && !fallbackPlayback.started){
+          fallbackPlayback.started=true;
+          metrics?.event('voice_fallback_playback_started',{category:fallbackPlayback.category,assetId:fallbackPlayback.assetId});
+        }
+      }
       dialogueTurn?.native({ type: event.type, reason: event.reason || null, wasInterrupted: event.wasInterrupted ?? null, hadAudio: event.hadAudio ?? null, playbackStarted: event.playbackStarted ?? null });
       const key = type === 'native_playback_started' ? 'playbackStartedCount' : type === 'native_playback_ended' ? 'playbackEndedCount' : type === 'native_authorization_accepted' ? 'authorizationAcceptedCount' : 'authorizationRejectedCount';
       metrics?.count(key);
