@@ -116,24 +116,32 @@ test('crossing native uint gameTick wrap still permits a brief verified callback
     {kind: 'surface_hit', surface: 'ground'});
 });
 
-test('bullet victim attribution requires same original witnessed visual firing and callback',()=>{
- const f=fixture(),nativeRun=randomUUID(),observer=f.witness.observerCaptureRef, target=randomUUID();
- const signal={kind:'damage',producer:'ped_damage',source:f.firing.sourceCaptureRef,
-   target,gameTick:600,facts:{classification:'bullet'}};
+test('bullet causality requires one exact native incident and bounded source time',()=>{
+ const f=fixture(),nativeRun=randomUUID(),observer=f.witness.observerCaptureRef,target=randomUUID(),incidentKey=randomUUID();
+ const signal={signalId:randomUUID(),kind:'damage',producer:'ped_damage',source:f.firing.sourceCaptureRef,
+   target,gameTick:600,ageMs:10,incidentKey,facts:{classification:'bullet'}};
  const receipt={status:'witnessed',observer:{captureRef:observer},knowsTarget:true,
-   evidence:{channel:'visual'}};
+   evidence:{channel:'visual',sampledGameTick:600}};
  const priorFiring={nativeRun,observer,shooter:f.firing.sourceCaptureRef,
-   gameTick:500,monotonicMs:5000};
+   firingSignalId:randomUUID(),incidentKey,gameTick:500,sourceMonotonicMs:4990};
  const args={signal,receipt,priorFiring,nativeRun,nowMonotonicMs:5100};
  assert.equal(witnessedBulletAttribution(args),true);
  for(const change of [
    {signal:{...signal,source:randomUUID()}},
    {signal:{...signal,facts:{classification:'explosion'}}},
    {signal:{...signal,gameTick:1800}},
+   {signal:{...signal,incidentKey:randomUUID()}},
+   {signal:{...signal,incidentKey:undefined}},
+   {signal:{...signal,ageMs:760}},
+   {signal:{...signal,ageMs:120}},
    {receipt:{...receipt,evidence:{channel:'auditory'}}},
+   {receipt:{...receipt,evidence:{channel:'visual',sampledGameTick:750}}},
    {receipt:{...receipt,knowsTarget:false}},
    {priorFiring:{...priorFiring,observer:randomUUID()}},
    {priorFiring:{...priorFiring,nativeRun:randomUUID()}},
+   {priorFiring:{...priorFiring,ambiguous:true}},
+   {priorFiring:{...priorFiring,sourceMonotonicMs:4900}},
    {nowMonotonicMs:6000}
  ]) assert.equal(witnessedBulletAttribution({...args,...change}),false);
+
 });

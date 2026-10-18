@@ -82,41 +82,103 @@ test('reported evidence passes the closed contract and remains hearsay in observ
   assert.equal(claim.source,undefined);assert.equal(claim.target,undefined);
 });
 
-test('PS2 native bullet callback joins only a recent same-observer visually seen shooter',()=>{
- let now=1000;const run=randomUUID(),observer=randomUUID(),player=randomUUID(),victim=randomUUID();
+
+function ballisticsFixture(){
+ let now=1000;
+ const run=randomUUID(),observer=randomUUID(),player=randomUUID(),victim=randomUUID();
  const live=new Set([observer,player,victim]),anchors=new Map([
-   [observer,{captureRef:observer,kind:'ped'}],
-   [player,{captureRef:player,kind:'player'}],
+   [observer,{captureRef:observer,kind:'ped'}],[player,{captureRef:player,kind:'player'}],
    [victim,{captureRef:victim,kind:'ped'}]]);
  const episodes=new EpisodeStore({now:()=>now,current:ref=>live.has(ref)});
  const observations=new ObservationStore({now:()=>now,current:ref=>live.has(ref)});
  const correlation=new EpisodeCorrelator({episodes,observations,now:()=>now,
    current:ref=>live.has(ref),anchor:ref=>anchors.get(ref),utc:()=>new Date(0).toISOString()});
- const sight=(tick,knowsSource,knowsTarget)=>({
+ const sight=(tick,source=false,target=false)=>({
    observer:{captureRef:observer,kind:'ped'},sampledGameTick:tick,status:'witnessed',
-   reason:'visual_clear',knowsSource,knowsTarget,
+   reason:'visual_clear',knowsSource:source,knowsTarget:target,
    evidence:{channel:'visual',basis:'sampled_state',sampledGameTick:tick}});
- const fire={signalId:randomUUID(),producer:'shooting',producerSequence:1,
-   kind:'firing',source:player,target:null,gameTick:1000,ageMs:0,facts:{}};
- const seen=correlation.ingest({nativeRun:run,signal:fire,witnessReceipts:[sight(1000,true,false)]});
+ const fire=(incidentKey,extra={})=>({signalId:randomUUID(),producer:'shooting',producerSequence:1,
+   kind:'firing',source:player,target:null,gameTick:1000,ageMs:0,facts:{},
+   ...(incidentKey?{incidentKey}:{}),...extra});
+ const damage=(incidentKey,extra={})=>({signalId:randomUUID(),producer:'ped_damage',producerSequence:1,
+   kind:'damage',source:player,target:victim,gameTick:1100,ageMs:0,
+   facts:{classification:'bullet',damage:15,armour:0},
+   ...(incidentKey?{incidentKey}:{}),...extra});
+ return {run,observer,player,victim,live,anchors,correlation,sight,fire,damage,
+   setNow:value=>{now=value}};
+}
+
+test('PS2 joins visible bullet injury only with source-matched native incident ID',()=>{
+ const f=ballisticsFixture(),incident=randomUUID();
+ const seen=f.correlation.ingest({nativeRun:f.run,signal:f.fire(incident),
+   witnessReceipts:[f.sight(1000,true,false)]});
  assert.equal(seen.observations[0].claims[0].source.kind,'player');
- now=1200;
- const damage={signalId:randomUUID(),producer:'ped_damage',producerSequence:1,
-   kind:'damage',source:player,target:victim,gameTick:1200,ageMs:0,
-   facts:{classification:'bullet',damage:15,armour:0}};
- const hit=correlation.ingest({nativeRun:run,signal:damage,witnessReceipts:[sight(1200,false,true)]});
+ f.setNow(1100);
+ const hit=f.correlation.ingest({nativeRun:f.run,signal:f.damage(incident),
+   witnessReceipts:[f.sight(1100,false,true)]});
  const claim=hit.observations[0].claims[0];
  assert.equal(claim.kind,'injured');
- assert.equal(claim.source.captureRef,player);
- assert.equal(claim.target.captureRef,victim);
+ assert.equal(claim.source.captureRef,f.player);
+ assert.equal(claim.target.captureRef,f.victim);
  assert.equal(claim.details.classification,'bullet');
- now=3500;
- const stale=correlation.ingest({nativeRun:run,signal:{...damage,signalId:randomUUID(),
-   producerSequence:2,gameTick:3500},witnessReceipts:[sight(3500,false,true)]});
+ f.setNow(3500);
+ const stale=f.correlation.ingest({nativeRun:f.run,
+   signal:f.damage(incident,{producerSequence:2,gameTick:3500}),
+   witnessReceipts:[f.sight(3500,false,true)]});
  assert.equal(stale.observations[0].claims.at(-1).source,undefined);
- correlation.clear();
- assert.equal(correlation.visualShots.size,0);
+ f.correlation.clear();
+ assert.equal(f.correlation.visualShots.size,0);
 });
+
+test('PS2 rejects adjacent unrelated firing, aged receipts and ambiguous bursts',()=>{
+ for(const scenario of ['no_incident','other_incident','unseen_source','burst','old_firing',
+   'old_damage','late_target','other_attacker']){
+   const f=ballisticsFixture(),incident=randomUUID();
+   f.correlation.ingest({nativeRun:f.run,
+     signal:f.fire(scenario==='no_incident'?null:incident,
+       scenario==='old_firing'?{ageMs:850}:{}),
+     witnessReceipts:[f.sight(1000,scenario!=='unseen_source',false)]});
+   if(scenario==='burst')f.correlation.ingest({nativeRun:f.run,
+     signal:f.fire(incident,{producerSequence:2,gameTick:1001}),
+     witnessReceipts:[f.sight(1001,true,false)]});
+   f.setNow(1100);
+   const damage=f.damage(scenario==='no_incident'?null:
+     scenario==='other_incident'?randomUUID():incident,
+     scenario==='other_attacker'?{source:randomUUID()}:
+     scenario==='old_damage'?{ageMs:800}:{});
+   if(scenario==='other_attacker'){
+     f.live.add(damage.source);f.anchors.set(damage.source,{captureRef:damage.source,kind:'ped'});
+   }
+   const hit=f.correlation.ingest({nativeRun:f.run,signal:damage,
+     witnessReceipts:[f.sight(scenario==='late_target'?1250:1100,false,true)]});
+   assert.equal(hit.observations.length,1,scenario);
+   const claim=hit.observations[0].claims[0];
+   assert.equal(claim.kind,'injured',scenario);
+   assert.equal(claim.source,undefined,scenario);
+   assert.equal(claim.target.captureRef,f.victim,scenario);
+   assert.equal(claim.details.classification,undefined,scenario);
+   if(scenario==='burst')assert.equal(f.correlation.visualShotAmbiguous,1);
+ }
+});
+
+test('PS2 64-entry sight ledger evicts oldest and records loss across reset',()=>{
+ const f=ballisticsFixture(),sources=[f.player];
+ for(let i=1;i<65;i++) {
+   const ref=randomUUID();sources.push(ref);f.live.add(ref);
+   f.anchors.set(ref,{captureRef:ref,kind:'ped'});
+ }
+ for(let i=0;i<sources.length;i++){
+   const signal=f.fire(randomUUID(),{source:sources[i],producerSequence:i+1});
+   f.correlation.ingest({nativeRun:f.run,signal,witnessReceipts:[f.sight(1000,true,false)]});
+ }
+ assert.equal(f.correlation.visualShots.size,64);
+ assert.equal(f.correlation.visualShotEvicted,1);
+ assert.equal(f.correlation.visualShots.has(`${f.run}:${f.observer}:${sources[0]}`),false);
+ assert.equal(f.correlation.visualShots.has(`${f.run}:${f.observer}:${sources.at(-1)}`),true);
+ f.correlation.clear();
+ assert.equal(f.correlation.visualShotEvicted,1);
+});
+
 
 
 test('radio R3 keeps hearing observer-scoped, separates tracks, and retains history after stop',()=>{

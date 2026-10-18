@@ -87,24 +87,34 @@ export function projectContextualBallistics({firing, witness, evidence = [], ver
 }
 
 
-// Only a verified bullet-damage callback may be causally associated with
-// a separately witnessed firing event. Both observations must belong to
-// this exact observer, attacker, native adapter run and bounded game-tick
-// window. Native target sight is still required independently.
+// Bullet injury attribution requires an explicit native shared incident UUID.
+// A nearby witnessed firing or attacker match is NOT causal sight evidence.
+// Both native source events and the victim sight must be verified independently.
 export function witnessedBulletAttribution({signal,receipt,priorFiring,nativeRun,nowMonotonicMs}={}) {
+  // Native-provided incident IDs only; never use JS episode continuation keys.
   if(signal?.kind!=='damage' || signal.producer!=='ped_damage' ||
-     signal.facts?.classification!=='bullet' || !uuid(signal.source) ||
-     !uuid(signal.target) || !tick(signal.gameTick) ||
+     signal.facts?.classification!=='bullet' || !uuid(signal.signalId) ||
+     !uuid(signal.source) || !uuid(signal.target) || !tick(signal.gameTick) ||
+     !uuid(signal.incidentKey) || !Number.isSafeInteger(signal.ageMs) ||
+     signal.ageMs<0 || signal.ageMs>750 ||
      receipt?.status!=='witnessed' || receipt.evidence?.channel!=='visual' ||
      receipt.knowsTarget!==true || !uuid(receipt.observer?.captureRef) ||
+     !tick(receipt.evidence?.sampledGameTick) ||
+     ((receipt.evidence.sampledGameTick-signal.gameTick)>>>0)>100 ||
      !priorFiring || priorFiring.nativeRun!==nativeRun ||
      priorFiring.observer!==receipt.observer.captureRef ||
-     priorFiring.shooter!==signal.source ||
+     priorFiring.shooter!==signal.source || priorFiring.ambiguous===true ||
+     !uuid(priorFiring.firingSignalId) ||
+     priorFiring.firingSignalId===signal.signalId ||
+     priorFiring.incidentKey!==signal.incidentKey ||
      !tick(priorFiring.gameTick) ||
      !Number.isSafeInteger(nowMonotonicMs) ||
-     !Number.isSafeInteger(priorFiring.monotonicMs) ||
-     nowMonotonicMs<priorFiring.monotonicMs ||
-     nowMonotonicMs-priorFiring.monotonicMs>750 ||
+     !Number.isSafeInteger(priorFiring.sourceMonotonicMs) ||
+     nowMonotonicMs<priorFiring.sourceMonotonicMs ||
+     nowMonotonicMs-priorFiring.sourceMonotonicMs>750 ||
+     nowMonotonicMs<signal.ageMs ||
+     nowMonotonicMs-signal.ageMs<priorFiring.sourceMonotonicMs ||
+     nowMonotonicMs-signal.ageMs-priorFiring.sourceMonotonicMs>750 ||
      ((signal.gameTick-priorFiring.gameTick)>>>0)>750)
     return false;
   return true;

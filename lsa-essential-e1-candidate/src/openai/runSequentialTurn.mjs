@@ -605,7 +605,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       await recoverPreRequest('pre_request_stale','initial_preflight');
     }
     turn.knowledgeDelivery?.watch(listener=>services.subscribeKnowledgeInvalidation?.(listener) ?? (()=>{}),error=>controller.abort(error));
-    const recordReasoningSuccess=decision=>{check();turn.knowledgeDelivery?.success(decision);};
+    const recordReasoningSuccess=decision=>{
+      check();
+      turn.knowledgeDelivery?.success(decision,act5Context ? {
+        act5Intents: act5Context.intents,
+        act5Choices: act5Context.availableChoices,
+      } : undefined);
+    };
     // ACT5 suggestions are optional; explicit player navigation is separately
     // recognized and reaches the same owner-fenced ACT6 admission pipeline.
     const navigationIntent = isPlayer ? navigationRequestKind(finalInput) : null;
