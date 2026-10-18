@@ -77,7 +77,7 @@ export function createM7RuntimeCuration({config,store,isPaused=()=>false,subscri
   nativeIdleSource=()=>null,fetchImpl=globalThis.fetch,now=Date.now,ownerId=randomUUID(),
   setIntervalFn=setInterval,clearIntervalFn=clearInterval,
   setTimeoutFn=setTimeout,clearTimeoutFn=clearTimeout,
-  createScheduler=createEssentialM7Scheduler,...overrides}={}){
+  createScheduler=createEssentialM7Scheduler,onStatusChange=null,onVerifiedOperation=null,...overrides}={}){
   const {intervalMs,startupDelayMs,foregroundQuietMs,...schedulerOptions}={...M7_RUNTIME_DEFAULTS,...overrides};
   if(typeof store?.readM7Consent!=='function'||typeof store?.subscribeM7ConsentInvalidation!=='function'||
      typeof store?.reconcileCurationBudget!=='function'||typeof now!=='function'||typeof nativeIdleSource!=='function')
@@ -101,7 +101,12 @@ export function createM7RuntimeCuration({config,store,isPaused=()=>false,subscri
   const invalidationListeners=new Set();
   const unsubscribers=[];
 
-  const set=(state,reason=null)=>{status={state,reason};};
+  const set=(state,reason=null)=>{
+    if(status.state===state&&status.reason===reason)return;
+    status={state,reason};
+    // Passive diagnostic observer; never veto the curator or log memory data.
+    try{onStatusChange?.({state,reason});}catch{}
+  };
   const foregroundBusy=()=>now()-lastForegroundMs<foregroundQuietMs;
   const sourceAvailable=()=>{
     try{return typeof nativeIdleSource()?.snapshot==='function';}catch{return false;}
@@ -237,7 +242,10 @@ export function createM7RuntimeCuration({config,store,isPaused=()=>false,subscri
       }
       stats.checkpoints++;stats.lastCheckpoint=outcome.status;
       if(outcome.status==='failed_closed')stats.consecutiveFailures++;else stats.consecutiveFailures=0;
-      stats.curated+=Number.isSafeInteger(outcome.processed)?outcome.processed:0;
+      const processed=Number.isSafeInteger(outcome.processed)&&outcome.processed>0?outcome.processed:0;
+       stats.curated+=processed;
+       if(processed>0&&['completed','partially_completed'].includes(outcome.status))
+         try{onVerifiedOperation?.({kind:'curation_checkpoint',processed});}catch{}
       applyOutcome(outcome);
       await refreshQueueView();
       return {status:outcome.status,processed:outcome.processed??0};

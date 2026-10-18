@@ -12,6 +12,7 @@ export class Telemetry {
   #terminalTurns = new Map();
   #reportedDropped = 0;
   #closed = false;
+  #observers = new Set();
 
   constructor({ sink = null, clock = () => performance.now(), utc = () => new Date().toISOString(), runId, run = {} } = {}) {
     this.#sink = sink; this.#clock = clock; this.#utc = utc; this.#origin = clock(); this.#runId = runId || sink?.runId || randomUUID();
@@ -19,6 +20,7 @@ export class Telemetry {
   }
   get runId() { return this.#runId; }
   get droppedCount() { return this.#sink?.droppedCount || 0; }
+  subscribe(listener) { if (typeof listener !== 'function') throw new TypeError('telemetry_observer_required'); this.#observers.add(listener); return () => this.#observers.delete(listener); }
   emit(event, identity = null, source = null, data = {}, provider = 'openai', metadata = null) {
     if (!this.#sink) return false;
     // Observability is best-effort. An unregistered event or a broken sink must
@@ -26,7 +28,13 @@ export class Telemetry {
     // (unknown names/data are not logged), but contain telemetry errors here.
     try {
       const record = createTelemetryRecord({ sequence: ++this.#sequence, runId: this.#runId, originMs: this.#origin, event, identity, source, provider, data, component: metadata?.component, severity: metadata?.severity, now: this.#clock(), utc: this.#utc() });
-      return this.#sink.emit(record);
+      const persisted = this.#sink.emit(record);
+      // Observe only validated records accepted by the queue. No payload
+      // transformation or async gameplay work in this passive callback.
+      if (persisted && event !== 'system_health') for (const listener of this.#observers) {
+        try { listener(record); } catch { /* health must never affect a turn */ }
+      }
+      return persisted;
     } catch {
       return false;
     }
@@ -51,7 +59,7 @@ export class Telemetry {
     if (dropped > this.#reportedDropped) { this.#reportedDropped = dropped; this.emit('telemetry_records_dropped', null, null, { dropped }); }
     await this.#sink?.flush?.();
   }
-  async close() { if (this.#closed) return; this.emit('run_shutdown', null, null, { dropped: this.droppedCount }); this.#closed = true; await this.flush(); await this.#sink?.close?.(); }
+  async close() { if (this.#closed) return; this.emit('run_shutdown', null, null, { dropped: this.droppedCount }); this.#closed = true; await this.flush(); await this.#sink?.close?.(); this.#observers.clear(); }
 }
 
 export class TurnMetrics {

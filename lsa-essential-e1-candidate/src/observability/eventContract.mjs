@@ -22,7 +22,11 @@ export const EVENT_NAMES = new Set([
   'memory_journal_committed','memory_journal_not_committed',
   'memory_m3_intake_loss','memory_m3_coverage','m9_callback_shadow',
   'reaction_channel_ready','reaction_channel_closed','reaction_channel_mode_mismatch','reaction_ack',
-  'activity_channel_failure','activity_channel_counter',
+  'reaction_selected','reaction_sent','reaction_dropped',
+  'activity_channel_failure','activity_channel_counter','activity_channel_ready','activity_channel_closed',
+  'system_health','system_health_manifest','system_health_gap',
+  'voice_fallback_requested','voice_fallback_selected','voice_fallback_playback_started',
+  'voice_fallback_playback_completed','voice_fallback_playback_failed','voice_fallback_recovery_completed',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
   'vehicle_request_classified','vehicle_command_reconciled','vehicle_stock_command_published',
   'vehicle_seat_requested','vehicle_seat_reconciled','vehicle_seat_admission',
@@ -69,6 +73,7 @@ const safeKeys = new Set([
   'traitsIncluded','memoryCount','biographyIncluded','relationshipIncluded','generatedPersonaPolicy',
   'truncatedFields','truncatedFieldCount','droppedMemoryCount',
   'activityId','executionId','goalId','commandId','clientRun','nativeRun','adapterEpoch','hostRunId','worldEpoch',
+  'systemId','healthState','proofLevel','evidenceEvent','manifestHash','category','originalFailure',
   'companionMode','nativeMode','reaction',
   'intent','capability','receiptState','stepIndex','delivery',
   'act5Suggestions','nativeAdvertised','missingProbeCount','destinationKind',
@@ -185,6 +190,14 @@ function safeScalar(key, value) {
   if (typeof value !== 'string' || !safeKeys.has(key)) return undefined;
   const token = value.trim();
   if (key === 'traceCode') return /^[0-9a-f]{10}$/.test(token) ? token : undefined;
+  if (key === 'systemId') return /^[a-z][A-Za-z0-9_.-]{1,79}$/.test(token) ? token : undefined;
+  if (key === 'healthState') return ['initializing','initialized','ready','connected','disconnected',
+    'degraded','blocked','verified','stopped','unknown'].includes(token) ? token : undefined;
+  if (key === 'proofLevel') return ['none','resource_lifecycle','transport','provider_result',
+    'native_terminal','world_strong','durable_write','history_commit','source_event','frame_projected'].includes(token) ? token : undefined;
+  if (key === 'evidenceEvent') return EVENT_NAMES.has(token) && token !== 'system_health' ? token : undefined;
+  if (key === 'category') return ['misheard','lost_thought','speech_lost',
+    'action_unconfirmed','action_succeeded','action_failed'].includes(token) ? token : undefined;
   if (key === 'reaction') return isReactionName(token) ? token : undefined;
   if (key === 'companionMode' || key === 'nativeMode') return ['off','shadow','on'].includes(token) ? token : undefined;
   if (key === 'reason' && REASON_CODES.includes(token)) return token;
@@ -204,7 +217,7 @@ function safeScalar(key, value) {
        key === 'requestId' && /^rid_[a-f0-9]{16}$/.test(token))) return token;
   if (key === 'worldEpoch' && /^\d{1,9}$/.test(token)) return Number(token);
   if (key === 'model' && /^(gpt|whisper|tts)[-_][A-Za-z0-9._-]{1,80}$/i.test(token)) return token;
-  if (['bundleHash','dllHash','frameHash','knowledgeRequestHash','projectionHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
+  if (['manifestHash','bundleHash','dllHash','frameHash','knowledgeRequestHash','projectionHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
   if (['canonHash','systemPromptHash','runtimePromptHash','finalReasoningRequestHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
   if (key === 'generatedPersonaPolicy' && ['suppressed','subordinate'].includes(token.toLowerCase())) return token.toLowerCase();
   if (key === 'truncatedFields' && /^(?:name|nicknames|personality\.description|personality\.traits|relationship\.description|biography|memory\.text)(?:,(?:name|nicknames|personality\.description|personality\.traits|relationship\.description|biography|memory\.text))*$/.test(token)) return token;
@@ -240,7 +253,7 @@ export function isSafeNativeIdentity(identity) {
 export function createTelemetryRecord({ sequence, runId, originMs, event, identity, source, provider = 'openai', data = {}, component, severity, now = performance.now(), utc = new Date().toISOString() }) {
   if (!EVENT_NAMES.has(event)) throw new TypeError('Unknown telemetry event.');
   const record = { schemaVersion: 1, timestamp: utc, runId, sequence, elapsedMs: Math.max(0, now - originMs), event, provider };
-  if (['activities','reactions','memory','speech','native'].includes(component)) record.component = component;
+  if (['activities','reactions','memory','speech','native','observability'].includes(component)) record.component = component;
   if (['debug','info','warn','error'].includes(severity)) record.severity = severity;
   if (isSafeNativeIdentity(identity)) record.identity = { pedId: identity.pedId, turnId: identity.turnId, generationId: identity.generationId, sessionNonce: identity.sessionNonce };
   if (['player_text','player_mic','special_event','system','internal'].includes(source)) record.source = source;
