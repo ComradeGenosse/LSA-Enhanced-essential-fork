@@ -15,7 +15,7 @@ $rootInputs=@()
 if($c.GamePath){
   $rootInputs += [pscustomobject]@{Path=$c.GamePath;Kind='game';ConfigRef='GamePath';Required=$true}
 }
-for($i=0;$i<@($c.ExtraLogRoots).Count;$i++){
+for($i=0; $i -lt @($c.ExtraLogRoots).Count; $i++){
   $path=@($c.ExtraLogRoots)[$i]
   if($path){
     $rootInputs += [pscustomobject]@{Path=$path;Kind='extra';ConfigRef=('ExtraLogRoots['+$i+']');Required=$false}
