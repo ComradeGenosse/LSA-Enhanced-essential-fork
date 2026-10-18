@@ -37,7 +37,8 @@ test('F11 spawn and refresh races cannot silently disable a verified promoted ac
   const data=await read('native/enhanced/Ui/MenuData.cs');
   const views=await read('native/enhanced/Ui/ViewModels/MenuModels.cs');
   const service=await read('lsa-essential-e1-candidate/src/characters/characterService.mjs');
-  assert.match(data,/if \(listInFlight\) \{ listRefreshPending = true; return; \}/);
+  assert.match(data,/if \(listInFlight\) \{ if \(refreshAfterInFlight\) listRefreshPending = true; return; \}/);
+  assert.match(menu,/data\.RequestCharacters\(refreshAfterInFlight:true\)/);
   assert.match(data,/if \(listRefreshPending\) \{ listRefreshPending = false; RequestCharacters\(\); \}/);
   assert.match(data,/if \(bindingInFlight\) \{ bindingRefreshPending = true; return; \}/);
   assert.match(menu,/data\.InvalidateCharacterBinding\(\);/);
