@@ -91,7 +91,7 @@ class Program
             Position=new Rage.Vector3 {X=1,Y=0,Z=0}};
         EntityAnchor Owned(Ped p)=>anchors.Retain(p,(ulong)p.Handle,p.MemoryAddress,"ped",
             Guid.NewGuid().ToString("D"),()=>p.Existing,clock,true);
-        var source=Owned(nathan),listener=Owned(sarah);
+        var source=Owned(nathan);var listener=Owned(sarah);
         var ambient=anchors.Retain(ordinary,(ulong)ordinary.Handle,ordinary.MemoryAddress,
             "ped",null,()=>ordinary.Existing,clock,true);
         Check(source!=null && listener!=null && ambient!=null,
