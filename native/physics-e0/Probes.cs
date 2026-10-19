@@ -204,7 +204,7 @@ namespace LSA.WPS.Lab
             lastSample=lastTick=RealMs();lastGame=startGame;
             logFile=Path.Combine(logDir,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-"+id.Replace(".","_")+"-"+run+".jsonl");
             summaryFile=Path.ChangeExtension(logFile,".summary.json");
-            Note("start",new {probe=id,settings=cfg,mode,environment=Metadata(),sampleCount=samples.Count,
+            Note("start",new {probe=id,settings=cfg,mode,environment=Metadata(),sampleCount=surfaceSamples.Count+wallSamples.Count,
                 inputEvidence="user_configured",surfaceSampleCount=surfaceSamples.Count,wallSampleCount=wallSamples.Count,allowNoop=false});
             Console("Started "+id+" run "+run.Substring(0,8)+" (WPSE0Cancel is emergency stop)");
         }
