@@ -149,7 +149,7 @@ namespace LSA.Intelligence
         }
         void SpeechGrade(SpeechWindow w,SpeechListener l,string grade,
             string reason,int elapsed) {
-            if(l.Path!=grade && w.AcousticLogs<48) {
+            if((l.Path!=grade || l.Reason!=reason) && w.AcousticLogs<48) {
                 w.AcousticLogs++;
                 LogStatus("[C01_ACOUSTIC] tick="+Game.GameTime+
                     " host_ms="+host.MonotonicMs+" utterance="+TraceCode(w.Id)+
@@ -230,7 +230,8 @@ namespace LSA.Intelligence
                 var distance=observer.Position.DistanceTo(player.Position);
                 if(float.IsNaN(distance) || float.IsInfinity(distance) || distance>18) {
                     if(w.Listeners.TryGetValue(a.CaptureRef,out var outlier)) {
-                        outlier.LastSample=-1;outlier.Path="blocked";outlier.Reason="out_of_range";
+                        outlier.Distance=distance;
+                        SpeechGrade(w,outlier,"inaudible","out_of_range",relative);
                     }
                     continue;
                 }
@@ -286,7 +287,7 @@ namespace LSA.Intelligence
                     int from=SpeechSampleStart(relative,l.LastSample,l.Intervals.Count==0);
                     AppendSpeechSpan(l,from,relative);
                     l.LastSample=relative;
-                } catch {l.Path="unknown";l.Reason="sample_failed";l.LastSample=-1;}
+                } catch {SpeechGrade(w,l,"unknown","sample_failed",relative);}
             }
         }
         void CompleteSpeechWindow(LSA.PromotedCharacters.SpeechCaptureAdapter.Fact fact) {
