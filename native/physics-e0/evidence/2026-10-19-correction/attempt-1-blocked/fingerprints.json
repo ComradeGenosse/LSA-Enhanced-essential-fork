@@ -1,0 +1,19 @@
+{
+  "prHead": "19bf17e74e04e6ccd4c9497778cef07c44df36dd",
+  "workflowRun": 39254354255,
+  "artifactId": 12186817265,
+  "archiveSha256": "e4aa30bd5e7b2ff1b7ce346097d157e73d9da16d562fa16a09ffd24b37a4aa7d",
+  "dllSha256": "cdc4af0b04437ddc7bc5d2148fa01da169d4fcf38ad05b78d37ee77280f885af",
+  "configSha256": "26fad9559b025fd0ca1b88bcfa5a8f4443c39098300e0ac3026eba273e053aa8",
+  "samplesSha256": "0df2a02dd906eefae0791bc70a380a37bd9ae2fb665c44066fa842792e7b7a96",
+  "configOptions": {
+    "enabled": true,
+    "autoRunPreShot": true,
+    "permitExplosion": false,
+    "permitBullet": false,
+    "permitIpl": false,
+    "permitHide": false,
+    "permitTimeScale": false,
+    "autoTeleportForSamples": true
+  }
+}

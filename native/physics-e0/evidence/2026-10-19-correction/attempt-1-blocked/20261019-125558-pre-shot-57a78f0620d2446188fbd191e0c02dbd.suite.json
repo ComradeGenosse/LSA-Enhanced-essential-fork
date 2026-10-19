@@ -1,0 +1,51 @@
+{
+  "type": "E0_pre_shot_unattended",
+  "run": "57a78f0620d2446188fbd191e0c02dbd",
+  "state": "blocked_safe_navigation_or_collision_timeout",
+  "readOnly": true,
+  "planned": [
+    "E0.0",
+    "E0.1",
+    "E0.2",
+    "E0.3"
+  ],
+  "next": "E0.2",
+  "active": null,
+  "results": [
+    {
+      "probe": "E0.0",
+      "status": "GTA_VERIFIED",
+      "reason": "observations_captured_review_hypothesis",
+      "log": "20261019-125558-E0_0-2929b0abe1374665985398f2a351f963.jsonl",
+      "summary": "20261019-125558-E0_0-2929b0abe1374665985398f2a351f963.summary.json"
+    },
+    {
+      "probe": "E0.1",
+      "status": "GTA_VERIFIED",
+      "reason": "observations_captured_review_hypothesis",
+      "log": "20261019-125600-E0_1-c8ce32c8e30845f9b54173767041696c.jsonl",
+      "summary": "20261019-125600-E0_1-c8ce32c8e30845f9b54173767041696c.summary.json"
+    }
+  ],
+  "autoTeleportEnabled": true,
+  "positionStatus": "blocked_safe_navigation_or_collision_timeout",
+  "transport": {
+    "teleportWasPerformed": false,
+    "destinationCollisionVerified": false,
+    "destinationCollisionChecks": 0,
+    "destinationStableFrames": 0,
+    "destinationSettleMs": -1,
+    "destinationDistanceM": -1,
+    "returnCollisionVerified": false,
+    "returnCollisionChecks": 0,
+    "returnCollisionWaitMs": -1,
+    "returnPositionErrorM": -1,
+    "returnHeadingErrorDeg": -1
+  },
+  "restoredOriginalPosition": true,
+  "materialReferenceCount": 30,
+  "wallReferenceCount": 10,
+  "missingMaterialReference": null,
+  "missingWallReference": null,
+  "caveat": "Missing CodeWalker material/wall ground truth is BLOCKED, not verified. No E0.4 or E0.5-E0.12 is authorized."
+}

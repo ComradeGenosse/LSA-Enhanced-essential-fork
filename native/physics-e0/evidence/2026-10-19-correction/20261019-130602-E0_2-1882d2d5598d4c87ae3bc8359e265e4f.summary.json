@@ -1,0 +1,627 @@
+{
+  "exp": "E0.2",
+  "run": "1882d2d5598d4c87ae3bc8359e265e4f",
+  "status": "GTA_VERIFIED",
+  "reason": "observations_captured_review_hypothesis",
+  "mode": "single",
+  "environment": {
+    "gameVersion": "1.0.1158.16",
+    "gameExe": "GTA5_Enhanced.exe",
+    "rphVersion": "1.132.1428.17748",
+    "sdkVersion": "0.0.0.0",
+    "pluginVersion": "0.1.0-e0",
+    "pluginSha256": "87538ce9b7c92d19c2c146cb4f6ff5bd227b7790a1d3878cc653d0363a773aef",
+    "scriptHookV": "3889.0.1158.13",
+    "scriptHookVDotNet": "3.9.0.6",
+    "openRpf": "not_installed",
+    "codeWalker": "not_detected_external"
+  },
+  "frameTimeMs": {
+    "p50": 25,
+    "p95": 27,
+    "p99": 27.299999999999997,
+    "max": 28
+  },
+  "samples": 71,
+  "events": [
+    {
+      "kind": "start",
+      "data": {
+        "probe": "E0.2",
+        "mode": "single",
+        "environment": {
+          "gameVersion": "1.0.1158.16",
+          "gameExe": "GTA5_Enhanced.exe",
+          "rphVersion": "1.132.1428.17748",
+          "sdkVersion": "0.0.0.0",
+          "pluginVersion": "0.1.0-e0",
+          "pluginSha256": "87538ce9b7c92d19c2c146cb4f6ff5bd227b7790a1d3878cc653d0363a773aef",
+          "scriptHookV": "3889.0.1158.13",
+          "scriptHookVDotNet": "3.9.0.6",
+          "openRpf": "not_installed",
+          "codeWalker": "not_detected_external"
+        },
+        "sampleCount": 40,
+        "inputEvidence": "user_configured",
+        "surfaceSampleCount": 30,
+        "wallSampleCount": 10,
+        "allowNoop": false
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 1,
+        "joaatName": 3908498457,
+        "joaatIndexed": 3929491133,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 3929491133,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 2,
+        "joaatName": 2117158864,
+        "joaatIndexed": 244521486,
+        "shape": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        },
+        "nameMatches": false,
+        "indexMatches": false,
+        "diagnostic": "ray_miss"
+      }
+    },
+    {
+      "kind": "material_confirmation",
+      "data": {
+        "sampleIndex": 2,
+        "delayMs": 509,
+        "shape": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        },
+        "indexedHashMatches": false,
+        "note": "Second delayed observation of an earlier baseline mismatch; not another ground-truth sample."
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 3,
+        "joaatName": 3825218130,
+        "joaatIndexed": 1849540536,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1849540536,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 4,
+        "joaatName": 3919987971,
+        "joaatIndexed": 1639053622,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1639053622,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 5,
+        "joaatName": 232261786,
+        "joaatIndexed": 282940568,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 282940568,
+          "entity": 189186
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 6,
+        "joaatName": 1392055141,
+        "joaatIndexed": 762193613,
+        "shape": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        },
+        "nameMatches": false,
+        "indexMatches": false,
+        "diagnostic": "ray_miss"
+      }
+    },
+    {
+      "kind": "material_confirmation",
+      "data": {
+        "sampleIndex": 6,
+        "delayMs": 519,
+        "shape": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        },
+        "indexedHashMatches": false,
+        "note": "Second delayed observation of an earlier baseline mismatch; not another ground-truth sample."
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 7,
+        "joaatName": 540970151,
+        "joaatIndexed": 3539969597,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 3539969597,
+          "entity": 189186
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 8,
+        "joaatName": 589867211,
+        "joaatIndexed": 1907048430,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1907048430,
+          "entity": 189186
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 9,
+        "joaatName": 3020034581,
+        "joaatIndexed": 2379541433,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 2379541433,
+          "entity": 201986
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 10,
+        "joaatName": 2621383197,
+        "joaatIndexed": 1187676648,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 11,
+        "joaatName": 2621383197,
+        "joaatIndexed": 1187676648,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 12,
+        "joaatName": 1304227765,
+        "joaatIndexed": 581794674,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 581794674,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 13,
+        "joaatName": 1304227765,
+        "joaatIndexed": 581794674,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 581794674,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 14,
+        "joaatName": 1304227765,
+        "joaatIndexed": 581794674,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 581794674,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 15,
+        "joaatName": 1304227765,
+        "joaatIndexed": 581794674,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 581794674,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 16,
+        "joaatName": 2621383197,
+        "joaatIndexed": 1187676648,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 17,
+        "joaatName": 2621383197,
+        "joaatIndexed": 1187676648,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 18,
+        "joaatName": 2621383197,
+        "joaatIndexed": 1187676648,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 19,
+        "joaatName": 3860250459,
+        "joaatIndexed": 2847687191,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 2847687191,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 20,
+        "joaatName": 1304227765,
+        "joaatIndexed": 581794674,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 581794674,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 21,
+        "joaatName": 1304227765,
+        "joaatIndexed": 581794674,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 581794674,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 22,
+        "joaatName": 2621383197,
+        "joaatIndexed": 1187676648,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 23,
+        "joaatName": 2621383197,
+        "joaatIndexed": 1187676648,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 24,
+        "joaatName": 2621383197,
+        "joaatIndexed": 1187676648,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 25,
+        "joaatName": 2621383197,
+        "joaatIndexed": 1187676648,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 201986
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 26,
+        "joaatName": 1304227765,
+        "joaatIndexed": 581794674,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 581794674,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 27,
+        "joaatName": 2621383197,
+        "joaatIndexed": 1187676648,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 28,
+        "joaatName": 2621383197,
+        "joaatIndexed": 1187676648,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 29,
+        "joaatName": 1304227765,
+        "joaatIndexed": 581794674,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 581794674,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "material",
+      "data": {
+        "sampleIndex": 30,
+        "joaatName": 1304227765,
+        "joaatIndexed": 581794674,
+        "shape": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 581794674,
+          "entity": 179202
+        },
+        "nameMatches": false,
+        "indexMatches": true,
+        "diagnostic": "match"
+      }
+    },
+    {
+      "kind": "cleanup",
+      "data": {
+        "success": true,
+        "ownedRemaining": 0,
+        "iplRestored": true,
+        "timeRestored": true,
+        "hideRestored": true
+      }
+    },
+    {
+      "kind": "verdict",
+      "data": {
+        "status": "GTA_VERIFIED",
+        "reason": "observations_captured_review_hypothesis",
+        "frame": 72,
+        "probe": "E0.2"
+      }
+    }
+  ],
+  "statuses": {
+    "E0.0": "GTA_VERIFIED",
+    "E0.1": "GTA_VERIFIED",
+    "E0.2": "GTA_VERIFIED",
+    "E0.3": "NOT_TESTED",
+    "E0.4": "NOT_TESTED",
+    "E0.5": "NOT_TESTED",
+    "E0.6": "NOT_TESTED",
+    "E0.7": "NOT_TESTED",
+    "E0.8": "NOT_TESTED",
+    "E0.9": "NOT_TESTED",
+    "E0.10": "NOT_TESTED",
+    "E0.11": "NOT_TESTED",
+    "E0.12": "NOT_TESTED"
+  },
+  "caveat": "Native observations are GTA-only; an offline compiler cannot verify gameplay behavior."
+}

@@ -1,0 +1,16 @@
+{
+  "all30PrimaryMaterialOutcomesIdenticalToBaseline": true,
+  "all10PrimaryWallMeasurementsIdenticalToBaseline": true,
+  "destinationLoadedMs": 816,
+  "consecutiveLoadedPolls": 35,
+  "returnPositionErrorM": 0,
+  "returnHeadingErrorDeg": 0,
+  "suiteQueueToRestoredSeconds": 9.617,
+  "rphLaunchToRestoredSeconds": 127.844,
+  "nativeMatrixCallable": 10,
+  "nativeMatrixErrors": 0,
+  "insideSolidHitCount": 0,
+  "insideSolidTestCount": 10,
+  "baselineRun": "300c6937234f4d999e43c53a59e31d2a",
+  "correctionRun": "016609b140414d319a44800287bdbe0a"
+}

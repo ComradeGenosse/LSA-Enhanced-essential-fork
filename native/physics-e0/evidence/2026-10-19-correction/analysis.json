@@ -1,0 +1,260 @@
+{
+  "suite": {
+    "type": "E0_pre_shot_unattended",
+    "run": "016609b140414d319a44800287bdbe0a",
+    "state": "completed",
+    "readOnly": true,
+    "planned": [
+      "E0.0",
+      "E0.1",
+      "E0.2",
+      "E0.3"
+    ],
+    "next": null,
+    "active": null,
+    "results": [
+      {
+        "probe": "E0.0",
+        "status": "GTA_VERIFIED",
+        "reason": "observations_captured_review_hypothesis",
+        "log": "20261019-130556-E0_0-b4fc2e3a5db9454bb55018b41caf7550.jsonl",
+        "summary": "20261019-130556-E0_0-b4fc2e3a5db9454bb55018b41caf7550.summary.json"
+      },
+      {
+        "probe": "E0.1",
+        "status": "GTA_VERIFIED",
+        "reason": "observations_captured_review_hypothesis",
+        "log": "20261019-130558-E0_1-7c9129a13fd94500ac3068c6c0f1e70d.jsonl",
+        "summary": "20261019-130558-E0_1-7c9129a13fd94500ac3068c6c0f1e70d.summary.json"
+      },
+      {
+        "probe": "E0.2",
+        "status": "GTA_VERIFIED",
+        "reason": "observations_captured_review_hypothesis",
+        "log": "20261019-130602-E0_2-1882d2d5598d4c87ae3bc8359e265e4f.jsonl",
+        "summary": "20261019-130602-E0_2-1882d2d5598d4c87ae3bc8359e265e4f.summary.json"
+      },
+      {
+        "probe": "E0.3",
+        "status": "GTA_VERIFIED",
+        "reason": "observations_captured_review_hypothesis",
+        "log": "20261019-130604-E0_3-f4482235fda642898c750cf9af313a6d.jsonl",
+        "summary": "20261019-130604-E0_3-f4482235fda642898c750cf9af313a6d.summary.json"
+      }
+    ],
+    "autoTeleportEnabled": true,
+    "positionStatus": "destination_collision_verified_return_streaming_original_position_restored",
+    "transport": {
+      "teleportWasPerformed": true,
+      "destinationCollisionVerified": true,
+      "destinationCollisionChecks": 35,
+      "destinationStableFrames": 35,
+      "destinationSettleMs": 1636,
+      "destinationDistanceM": 48.38760151896881,
+      "destinationLoadedMs": 816,
+      "returnCollisionVerified": true,
+      "returnCollisionChecks": 17,
+      "returnCollisionWaitMs": 419,
+      "returnPositionErrorM": 0,
+      "returnHeadingErrorDeg": 0,
+      "navRegionRequested": false,
+      "navmeshLoaded": true,
+      "navQueries": 9,
+      "navMisses": 8,
+      "navRejected": 0,
+      "lastNavigationStatus": "not_started"
+    },
+    "restoredOriginalPosition": true,
+    "materialReferenceCount": 30,
+    "wallReferenceCount": 10,
+    "missingMaterialReference": null,
+    "missingWallReference": null,
+    "caveat": "Missing CodeWalker material/wall ground truth is BLOCKED, not verified. No E0.4 or E0.5-E0.12 is authorized."
+  },
+  "materials": 30,
+  "matches": 28,
+  "missing": [
+    2,
+    6
+  ],
+  "mismatched": [],
+  "wallCount": 10,
+  "within1cm": 8,
+  "meanAbsErrorM": 0.034989762660045595,
+  "maxAbsErrorM": 0.25473022703125003,
+  "insideHits": 0,
+  "confirmations": [
+    {
+      "v": 1,
+      "exp": "E0.2",
+      "run": "1882d2d5598d4c87ae3bc8359e265e4f",
+      "build": "1.0.1158.16",
+      "rph": "1.132.1428.17748",
+      "plugin": "0.1.0-e0",
+      "t_game_ms": 27770,
+      "t_real_ms": 563,
+      "frame": 23,
+      "kind": "material_confirmation",
+      "details": {
+        "sampleIndex": 2,
+        "delayMs": 509,
+        "shape": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        },
+        "indexedHashMatches": false,
+        "note": "Second delayed observation of an earlier baseline mismatch; not another ground-truth sample."
+      }
+    },
+    {
+      "v": 1,
+      "exp": "E0.2",
+      "run": "1882d2d5598d4c87ae3bc8359e265e4f",
+      "build": "1.0.1158.16",
+      "rph": "1.132.1428.17748",
+      "plugin": "0.1.0-e0",
+      "t_game_ms": 28394,
+      "t_real_ms": 1185,
+      "frame": 48,
+      "kind": "material_confirmation",
+      "details": {
+        "sampleIndex": 6,
+        "delayMs": 519,
+        "shape": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        },
+        "indexedHashMatches": false,
+        "note": "Second delayed observation of an earlier baseline mismatch; not another ground-truth sample."
+      }
+    },
+    {
+      "v": 1,
+      "exp": "E0.3",
+      "run": "f4482235fda642898c750cf9af313a6d",
+      "build": "1.0.1158.16",
+      "rph": "1.132.1428.17748",
+      "plugin": "0.1.0-e0",
+      "t_game_ms": 29602,
+      "t_real_ms": 585,
+      "frame": 23,
+      "kind": "wall_confirmation",
+      "details": {
+        "sampleIndex": 3,
+        "delayMs": 506,
+        "measuredM": 0.59771728515625,
+        "errorM": 0.09509277515625003,
+        "sameEntity": false,
+        "withinOneCentimeter": false,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1639053622,
+          "entity": 201986
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 3108646581,
+          "entity": 215298
+        },
+        "note": "Second delayed observation only; original wall baseline retained."
+      }
+    },
+    {
+      "v": 1,
+      "exp": "E0.3",
+      "run": "f4482235fda642898c750cf9af313a6d",
+      "build": "1.0.1158.16",
+      "rph": "1.132.1428.17748",
+      "plugin": "0.1.0-e0",
+      "t_game_ms": 30149,
+      "t_real_ms": 1132,
+      "frame": 45,
+      "kind": "wall_confirmation",
+      "details": {
+        "sampleIndex": 4,
+        "delayMs": 520,
+        "measuredM": 0.75860595703125,
+        "errorM": 0.25473022703125003,
+        "sameEntity": false,
+        "withinOneCentimeter": false,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 215298
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 179202
+        },
+        "note": "Second delayed observation only; original wall baseline retained."
+      }
+    }
+  ],
+  "timing": [
+    {
+      "exp": "E0.0",
+      "t_game_ms": 25737,
+      "t_real_ms": 16,
+      "frame": 0,
+      "kind": "start"
+    },
+    {
+      "exp": "E0.0",
+      "t_game_ms": 25803,
+      "t_real_ms": 2221,
+      "frame": 1,
+      "kind": "verdict"
+    },
+    {
+      "exp": "E0.1",
+      "t_game_ms": 25869,
+      "t_real_ms": 5,
+      "frame": 0,
+      "kind": "start"
+    },
+    {
+      "exp": "E0.1",
+      "t_game_ms": 25935,
+      "t_real_ms": 51,
+      "frame": 1,
+      "kind": "verdict"
+    },
+    {
+      "exp": "E0.2",
+      "t_game_ms": 27209,
+      "t_real_ms": 6,
+      "frame": 0,
+      "kind": "start"
+    },
+    {
+      "exp": "E0.2",
+      "t_game_ms": 28994,
+      "t_real_ms": 1790,
+      "frame": 72,
+      "kind": "verdict"
+    },
+    {
+      "exp": "E0.3",
+      "t_game_ms": 29019,
+      "t_real_ms": 6,
+      "frame": 0,
+      "kind": "start"
+    },
+    {
+      "exp": "E0.3",
+      "t_game_ms": 30296,
+      "t_real_ms": 1282,
+      "frame": 51,
+      "kind": "verdict"
+    }
+  ]
+}

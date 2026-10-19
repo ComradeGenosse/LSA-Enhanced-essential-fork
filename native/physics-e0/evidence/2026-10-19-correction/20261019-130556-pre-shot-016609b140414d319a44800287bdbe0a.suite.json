@@ -1,0 +1,72 @@
+{
+  "type": "E0_pre_shot_unattended",
+  "run": "016609b140414d319a44800287bdbe0a",
+  "state": "completed",
+  "readOnly": true,
+  "planned": [
+    "E0.0",
+    "E0.1",
+    "E0.2",
+    "E0.3"
+  ],
+  "next": null,
+  "active": null,
+  "results": [
+    {
+      "probe": "E0.0",
+      "status": "GTA_VERIFIED",
+      "reason": "observations_captured_review_hypothesis",
+      "log": "20261019-130556-E0_0-b4fc2e3a5db9454bb55018b41caf7550.jsonl",
+      "summary": "20261019-130556-E0_0-b4fc2e3a5db9454bb55018b41caf7550.summary.json"
+    },
+    {
+      "probe": "E0.1",
+      "status": "GTA_VERIFIED",
+      "reason": "observations_captured_review_hypothesis",
+      "log": "20261019-130558-E0_1-7c9129a13fd94500ac3068c6c0f1e70d.jsonl",
+      "summary": "20261019-130558-E0_1-7c9129a13fd94500ac3068c6c0f1e70d.summary.json"
+    },
+    {
+      "probe": "E0.2",
+      "status": "GTA_VERIFIED",
+      "reason": "observations_captured_review_hypothesis",
+      "log": "20261019-130602-E0_2-1882d2d5598d4c87ae3bc8359e265e4f.jsonl",
+      "summary": "20261019-130602-E0_2-1882d2d5598d4c87ae3bc8359e265e4f.summary.json"
+    },
+    {
+      "probe": "E0.3",
+      "status": "GTA_VERIFIED",
+      "reason": "observations_captured_review_hypothesis",
+      "log": "20261019-130604-E0_3-f4482235fda642898c750cf9af313a6d.jsonl",
+      "summary": "20261019-130604-E0_3-f4482235fda642898c750cf9af313a6d.summary.json"
+    }
+  ],
+  "autoTeleportEnabled": true,
+  "positionStatus": "destination_collision_verified_return_streaming_original_position_restored",
+  "transport": {
+    "teleportWasPerformed": true,
+    "destinationCollisionVerified": true,
+    "destinationCollisionChecks": 35,
+    "destinationStableFrames": 35,
+    "destinationSettleMs": 1636,
+    "destinationDistanceM": 48.38760151896881,
+    "destinationLoadedMs": 816,
+    "returnCollisionVerified": true,
+    "returnCollisionChecks": 17,
+    "returnCollisionWaitMs": 419,
+    "returnPositionErrorM": 0,
+    "returnHeadingErrorDeg": 0,
+    "navRegionRequested": false,
+    "navmeshLoaded": true,
+    "navQueries": 9,
+    "navMisses": 8,
+    "navRejected": 0,
+    "lastNavigationStatus": "not_started"
+  },
+  "restoredOriginalPosition": true,
+  "materialReferenceCount": 30,
+  "wallReferenceCount": 10,
+  "missingMaterialReference": null,
+  "missingWallReference": null,
+  "caveat": "Missing CodeWalker material/wall ground truth is BLOCKED, not verified. No E0.4 or E0.5-E0.12 is authorized."
+}

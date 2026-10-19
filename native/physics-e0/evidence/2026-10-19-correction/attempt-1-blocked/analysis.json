@@ -1,0 +1,93 @@
+{
+  "suite": {
+    "type": "E0_pre_shot_unattended",
+    "run": "57a78f0620d2446188fbd191e0c02dbd",
+    "state": "blocked_safe_navigation_or_collision_timeout",
+    "readOnly": true,
+    "planned": [
+      "E0.0",
+      "E0.1",
+      "E0.2",
+      "E0.3"
+    ],
+    "next": "E0.2",
+    "active": null,
+    "results": [
+      {
+        "probe": "E0.0",
+        "status": "GTA_VERIFIED",
+        "reason": "observations_captured_review_hypothesis",
+        "log": "20261019-125558-E0_0-2929b0abe1374665985398f2a351f963.jsonl",
+        "summary": "20261019-125558-E0_0-2929b0abe1374665985398f2a351f963.summary.json"
+      },
+      {
+        "probe": "E0.1",
+        "status": "GTA_VERIFIED",
+        "reason": "observations_captured_review_hypothesis",
+        "log": "20261019-125600-E0_1-c8ce32c8e30845f9b54173767041696c.jsonl",
+        "summary": "20261019-125600-E0_1-c8ce32c8e30845f9b54173767041696c.summary.json"
+      }
+    ],
+    "autoTeleportEnabled": true,
+    "positionStatus": "blocked_safe_navigation_or_collision_timeout",
+    "transport": {
+      "teleportWasPerformed": false,
+      "destinationCollisionVerified": false,
+      "destinationCollisionChecks": 0,
+      "destinationStableFrames": 0,
+      "destinationSettleMs": -1,
+      "destinationDistanceM": -1,
+      "returnCollisionVerified": false,
+      "returnCollisionChecks": 0,
+      "returnCollisionWaitMs": -1,
+      "returnPositionErrorM": -1,
+      "returnHeadingErrorDeg": -1
+    },
+    "restoredOriginalPosition": true,
+    "materialReferenceCount": 30,
+    "wallReferenceCount": 10,
+    "missingMaterialReference": null,
+    "missingWallReference": null,
+    "caveat": "Missing CodeWalker material/wall ground truth is BLOCKED, not verified. No E0.4 or E0.5-E0.12 is authorized."
+  },
+  "materials": 0,
+  "matches": 0,
+  "missing": [],
+  "mismatched": [],
+  "wallCount": 0,
+  "within1cm": 0,
+  "meanAbsErrorM": null,
+  "maxAbsErrorM": null,
+  "insideHits": 0,
+  "confirmations": [],
+  "timing": [
+    {
+      "exp": "E0.0",
+      "t_game_ms": 24972,
+      "t_real_ms": 16,
+      "frame": 0,
+      "kind": "start"
+    },
+    {
+      "exp": "E0.0",
+      "t_game_ms": 25038,
+      "t_real_ms": 2154,
+      "frame": 1,
+      "kind": "verdict"
+    },
+    {
+      "exp": "E0.1",
+      "t_game_ms": 25104,
+      "t_real_ms": 5,
+      "frame": 0,
+      "kind": "start"
+    },
+    {
+      "exp": "E0.1",
+      "t_game_ms": 25170,
+      "t_real_ms": 37,
+      "frame": 1,
+      "kind": "verdict"
+    }
+  ]
+}

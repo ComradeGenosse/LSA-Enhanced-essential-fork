@@ -1,0 +1,26 @@
+[
+  {
+    "file": "20261019-130556-E0_0-b4fc2e3a5db9454bb55018b41caf7550.jsonl",
+    "exitCode": 0,
+    "stdout": "{\n  \"file\": \"outputs\\\\e0-correction-evidence\\\\20261019-130556-E0_0-b4fc2e3a5db9454bb55018b41caf7550.jsonl\",\n  \"valid\": true,\n  \"issues\": [],\n  \"runs\": {\n    \"b4fc2e3a5db9454bb55018b41caf7550\": {\n      \"exp\": \"E0.0\",\n      \"events\": 5,\n      \"verdict\": \"GTA_VERIFIED\",\n      \"start\": true,\n      \"cleanup\": true\n    }\n  },\n  \"offlineReadyDoesNotProveGta\": true\n}\n",
+    "stderr": ""
+  },
+  {
+    "file": "20261019-130558-E0_1-7c9129a13fd94500ac3068c6c0f1e70d.jsonl",
+    "exitCode": 0,
+    "stdout": "{\n  \"file\": \"outputs\\\\e0-correction-evidence\\\\20261019-130558-E0_1-7c9129a13fd94500ac3068c6c0f1e70d.jsonl\",\n  \"valid\": true,\n  \"issues\": [],\n  \"runs\": {\n    \"7c9129a13fd94500ac3068c6c0f1e70d\": {\n      \"exp\": \"E0.1\",\n      \"events\": 6,\n      \"verdict\": \"GTA_VERIFIED\",\n      \"start\": true,\n      \"cleanup\": true\n    }\n  },\n  \"offlineReadyDoesNotProveGta\": true\n}\n",
+    "stderr": ""
+  },
+  {
+    "file": "20261019-130602-E0_2-1882d2d5598d4c87ae3bc8359e265e4f.jsonl",
+    "exitCode": 0,
+    "stdout": "{\n  \"file\": \"outputs\\\\e0-correction-evidence\\\\20261019-130602-E0_2-1882d2d5598d4c87ae3bc8359e265e4f.jsonl\",\n  \"valid\": true,\n  \"issues\": [],\n  \"runs\": {\n    \"1882d2d5598d4c87ae3bc8359e265e4f\": {\n      \"exp\": \"E0.2\",\n      \"events\": 35,\n      \"verdict\": \"GTA_VERIFIED\",\n      \"start\": true,\n      \"cleanup\": true\n    }\n  },\n  \"offlineReadyDoesNotProveGta\": true\n}\n",
+    "stderr": ""
+  },
+  {
+    "file": "20261019-130604-E0_3-f4482235fda642898c750cf9af313a6d.jsonl",
+    "exitCode": 0,
+    "stdout": "{\n  \"file\": \"outputs\\\\e0-correction-evidence\\\\20261019-130604-E0_3-f4482235fda642898c750cf9af313a6d.jsonl\",\n  \"valid\": true,\n  \"issues\": [],\n  \"runs\": {\n    \"f4482235fda642898c750cf9af313a6d\": {\n      \"exp\": \"E0.3\",\n      \"events\": 15,\n      \"verdict\": \"GTA_VERIFIED\",\n      \"start\": true,\n      \"cleanup\": true\n    }\n  },\n  \"offlineReadyDoesNotProveGta\": true\n}\n",
+    "stderr": ""
+  }
+]

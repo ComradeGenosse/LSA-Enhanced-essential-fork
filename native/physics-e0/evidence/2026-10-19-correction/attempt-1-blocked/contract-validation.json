@@ -1,0 +1,14 @@
+[
+  {
+    "file": "20261019-125558-E0_0-2929b0abe1374665985398f2a351f963.jsonl",
+    "exitCode": 0,
+    "stdout": "{\n  \"file\": \"outputs\\\\e0-correction-evidence\\\\20261019-125558-E0_0-2929b0abe1374665985398f2a351f963.jsonl\",\n  \"valid\": true,\n  \"issues\": [],\n  \"runs\": {\n    \"2929b0abe1374665985398f2a351f963\": {\n      \"exp\": \"E0.0\",\n      \"events\": 5,\n      \"verdict\": \"GTA_VERIFIED\",\n      \"start\": true,\n      \"cleanup\": true\n    }\n  },\n  \"offlineReadyDoesNotProveGta\": true\n}\n",
+    "stderr": ""
+  },
+  {
+    "file": "20261019-125600-E0_1-c8ce32c8e30845f9b54173767041696c.jsonl",
+    "exitCode": 0,
+    "stdout": "{\n  \"file\": \"outputs\\\\e0-correction-evidence\\\\20261019-125600-E0_1-c8ce32c8e30845f9b54173767041696c.jsonl\",\n  \"valid\": true,\n  \"issues\": [],\n  \"runs\": {\n    \"c8ce32c8e30845f9b54173767041696c\": {\n      \"exp\": \"E0.1\",\n      \"events\": 6,\n      \"verdict\": \"GTA_VERIFIED\",\n      \"start\": true,\n      \"cleanup\": true\n    }\n  },\n  \"offlineReadyDoesNotProveGta\": true\n}\n",
+    "stderr": ""
+  }
+]

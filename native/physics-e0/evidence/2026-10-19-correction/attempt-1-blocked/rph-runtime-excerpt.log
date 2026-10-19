@@ -1,0 +1,20 @@
+[10/19/2026 8:54:55 AM.372] Started new log on 10/19/2026 8:54:55 AM.372
+[10/19/2026 8:54:55 AM.444] Version: RAGE Plugin Hook v1.132.1428.17748 for Grand Theft Auto V
+[10/19/2026 8:54:55 AM.538] Product version: 1.0.1158.16
+[10/19/2026 8:54:55 AM.538] Is enhanced version: True
+[10/19/2026 8:55:05 AM.617] D3D12 loaded successfully
+[10/19/2026 8:55:56 AM.862] Loading plugin "<GTA_ROOT>\Plugins\LSA.WPS.Lab.dll".
+[10/19/2026 8:55:56 AM.924] Loaded plugin "LSA WPS E0 Lab" (LSA.WPS.Lab.dll), version 0.0.0.0, file version 0.0.0.0, product version 0.0.0.0.
+[10/19/2026 8:55:58 AM.349] [WPS-LAB] Pre-shot suite queued: E0.0-E0.3 ONLY; no shooting or world changes. It waits for safe story-mode free roam. WPSE0Cancel stops it.
+[10/19/2026 8:55:58 AM.350] LSA WPS E0 Lab: [WPS-LAB] Pre-shot suite queued: E0.0-E0.3 ONLY; no shooting or world changes. It waits for safe story-mode free roam. WPSE0Cancel stops it.
+[10/19/2026 8:55:58 AM.350] LSA WPS E0 Lab: [WPS-LAB] E0 ready. Console: WPSE0Start E0.0, WPSE0Status, WPSE0Cancel, WPSE0Reset, WPSE0ArmBudget
+[10/19/2026 8:55:58 AM.373] [WPS-LAB] Started E0.0 run 2929b0ab (WPSE0Cancel is emergency stop)
+[10/19/2026 8:55:58 AM.374] LSA WPS E0 Lab: [WPS-LAB] Started E0.0 run 2929b0ab (WPSE0Cancel is emergency stop)
+[10/19/2026 8:56:00 AM.518] [WPS-LAB] E0.0 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-125558-E0_0-2929b0abe1374665985398f2a351f963.jsonl
+[10/19/2026 8:56:00 AM.518] LSA WPS E0 Lab: [WPS-LAB] E0.0 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-125558-E0_0-2929b0abe1374665985398f2a351f963.jsonl
+[10/19/2026 8:56:00 AM.695] [WPS-LAB] Started E0.1 run c8ce32c8 (WPSE0Cancel is emergency stop)
+[10/19/2026 8:56:00 AM.695] LSA WPS E0 Lab: [WPS-LAB] Started E0.1 run c8ce32c8 (WPSE0Cancel is emergency stop)
+[10/19/2026 8:56:00 AM.731] [WPS-LAB] E0.1 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-125600-E0_1-c8ce32c8e30845f9b54173767041696c.jsonl
+[10/19/2026 8:56:00 AM.731] LSA WPS E0 Lab: [WPS-LAB] E0.1 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-125600-E0_1-c8ce32c8e30845f9b54173767041696c.jsonl
+[10/19/2026 8:56:30 AM.765] [WPS-LAB] Pre-shot suite blocked_safe_navigation_or_collision_timeout. Manifest: 20261019-125558-pre-shot-57a78f0620d2446188fbd191e0c02dbd.suite.json
+[10/19/2026 8:56:30 AM.765] LSA WPS E0 Lab: [WPS-LAB] Pre-shot suite blocked_safe_navigation_or_collision_timeout. Manifest: 20261019-125558-pre-shot-57a78f0620d2446188fbd191e0c02dbd.suite.json

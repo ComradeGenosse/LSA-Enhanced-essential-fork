@@ -1,0 +1,36 @@
+[10/19/2026 9:04:51 AM.700] Started new log on 10/19/2026 9:04:51 AM.700
+[10/19/2026 9:04:51 AM.773] Version: RAGE Plugin Hook v1.132.1428.17748 for Grand Theft Auto V
+[10/19/2026 9:04:51 AM.894] Product version: 1.0.1158.16
+[10/19/2026 9:04:51 AM.894] Is enhanced version: True
+[10/19/2026 9:05:01 AM.967] D3D12 loaded successfully
+[10/19/2026 9:05:54 AM.665] Loading plugin "<GTA_ROOT>\Plugins\LSA.WPS.Lab.dll".
+[10/19/2026 9:05:54 AM.725] Loaded plugin "LSA WPS E0 Lab" (LSA.WPS.Lab.dll), version 0.0.0.0, file version 0.0.0.0, product version 0.0.0.0.
+[10/19/2026 9:05:56 AM.182] [WPS-LAB] Pre-shot suite queued: E0.0-E0.3 ONLY; no shooting or world changes. It waits for safe story-mode free roam. WPSE0Cancel stops it.
+[10/19/2026 9:05:56 AM.182] LSA WPS E0 Lab: [WPS-LAB] Pre-shot suite queued: E0.0-E0.3 ONLY; no shooting or world changes. It waits for safe story-mode free roam. WPSE0Cancel stops it.
+[10/19/2026 9:05:56 AM.182] LSA WPS E0 Lab: [WPS-LAB] E0 ready. Console: WPSE0Start E0.0, WPSE0Status, WPSE0Cancel, WPSE0Reset, WPSE0ArmBudget
+[10/19/2026 9:05:56 AM.205] [WPS-LAB] Started E0.0 run b4fc2e3a (WPSE0Cancel is emergency stop)
+[10/19/2026 9:05:56 AM.205] LSA WPS E0 Lab: [WPS-LAB] Started E0.0 run b4fc2e3a (WPSE0Cancel is emergency stop)
+[10/19/2026 9:05:58 AM.416] [WPS-LAB] E0.0 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-130556-E0_0-b4fc2e3a5db9454bb55018b41caf7550.jsonl
+[10/19/2026 9:05:58 AM.416] LSA WPS E0 Lab: [WPS-LAB] E0.0 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-130556-E0_0-b4fc2e3a5db9454bb55018b41caf7550.jsonl
+[10/19/2026 9:05:58 AM.586] [WPS-LAB] Started E0.1 run 7c9129a1 (WPSE0Cancel is emergency stop)
+[10/19/2026 9:05:58 AM.586] LSA WPS E0 Lab: [WPS-LAB] Started E0.1 run 7c9129a1 (WPSE0Cancel is emergency stop)
+[10/19/2026 9:05:58 AM.636] [WPS-LAB] E0.1 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-130558-E0_1-7c9129a13fd94500ac3068c6c0f1e70d.jsonl
+[10/19/2026 9:05:58 AM.636] LSA WPS E0 Lab: [WPS-LAB] E0.1 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-130558-E0_1-7c9129a13fd94500ac3068c6c0f1e70d.jsonl
+[10/19/2026 9:05:59 AM.135] [WPS-LAB] Requested bounded navigation region for private sample site.
+[10/19/2026 9:05:59 AM.135] LSA WPS E0 Lab: [WPS-LAB] Requested bounded navigation region for private sample site.
+[10/19/2026 9:06:00 AM.653] [WPS-LAB] Relocated to safe pavement near private samples; waiting for collision. Original location will be restored.
+[10/19/2026 9:06:00 AM.653] LSA WPS E0 Lab: [WPS-LAB] Relocated to safe pavement near private samples; waiting for collision. Original location will be restored.
+[10/19/2026 9:06:02 AM.284] [WPS-LAB] Destination collision confirmed after 1636 ms / 35 polls; starting E0.2/E0.3.
+[10/19/2026 9:06:02 AM.284] LSA WPS E0 Lab: [WPS-LAB] Destination collision confirmed after 1636 ms / 35 polls; starting E0.2/E0.3.
+[10/19/2026 9:06:02 AM.292] [WPS-LAB] Started E0.2 run 1882d2d5 (WPSE0Cancel is emergency stop)
+[10/19/2026 9:06:02 AM.292] LSA WPS E0 Lab: [WPS-LAB] Started E0.2 run 1882d2d5 (WPSE0Cancel is emergency stop)
+[10/19/2026 9:06:04 AM.084] [WPS-LAB] E0.2 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-130602-E0_2-1882d2d5598d4c87ae3bc8359e265e4f.jsonl
+[10/19/2026 9:06:04 AM.084] LSA WPS E0 Lab: [WPS-LAB] E0.2 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-130602-E0_2-1882d2d5598d4c87ae3bc8359e265e4f.jsonl
+[10/19/2026 9:06:04 AM.099] [WPS-LAB] Started E0.3 run f4482235 (WPSE0Cancel is emergency stop)
+[10/19/2026 9:06:04 AM.099] LSA WPS E0 Lab: [WPS-LAB] Started E0.3 run f4482235 (WPSE0Cancel is emergency stop)
+[10/19/2026 9:06:05 AM.380] [WPS-LAB] E0.3 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-130604-E0_3-f4482235fda642898c750cf9af313a6d.jsonl
+[10/19/2026 9:06:05 AM.380] LSA WPS E0 Lab: [WPS-LAB] E0.3 GTA_VERIFIED: observations_captured_review_hypothesis log 20261019-130604-E0_3-f4482235fda642898c750cf9af313a6d.jsonl
+[10/19/2026 9:06:05 AM.382] [WPS-LAB] Pre-shot suite completed (returning player to original area). Manifest: 20261019-130556-pre-shot-016609b140414d319a44800287bdbe0a.suite.json
+[10/19/2026 9:06:05 AM.382] LSA WPS E0 Lab: [WPS-LAB] Pre-shot suite completed (returning player to original area). Manifest: 20261019-130556-pre-shot-016609b140414d319a44800287bdbe0a.suite.json
+[10/19/2026 9:06:05 AM.799] [WPS-LAB] Original player position and streamed collision restored.
+[10/19/2026 9:06:05 AM.800] LSA WPS E0 Lab: [WPS-LAB] Original player position and streamed collision restored.
