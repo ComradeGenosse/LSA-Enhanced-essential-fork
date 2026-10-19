@@ -29,6 +29,8 @@ copyFileSync(path.join(repo,'native/physics-e0/LSA.WPS.Lab.example.json'),
   path.join(dir,'LSA.WPS.Lab.example.json'));
 copyFileSync(path.join(repo,'native/physics-e0/LSA.WPS.Lab.samples.example.json'),
   path.join(dir,'LSA.WPS.Lab.samples.example.json'));
+run(['run','--project','tools/physics-e0/rph-import-audit/RphSignatureAudit.csproj',
+  '--configuration','Release','--',rph,built,path.join(dir,'RPH-IMPORT-AUDIT.json')]);
 writeFileSync(path.join(dir,'BUILD-RECEIPT.json'),JSON.stringify({
   productionArtifact:'LSA.WPS.Lab.dll',target:'net481',realSdk:'RagePluginHook 1.124.0',
   sdkSha256:actual,pluginSha256:createHash('sha256').update(readFileSync(built)).digest('hex'),
