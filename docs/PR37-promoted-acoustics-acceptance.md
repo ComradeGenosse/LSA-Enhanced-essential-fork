@@ -120,3 +120,9 @@ Monitoring is strictly bounded: 32 pending Core callback facts, 4 concurrent spe
 
 **Actual audio requirements still blocked:** a stable source-specific pre-mix signal and the rendered PCM time cursor from Essential's sole mixer. Only after this is exposed can per-speaker stereo pan, distance gain, cabin low-pass and sample-continuous smoothing be applied without double rendering or corrupting unrelated voices. The NPC-to-NPC text bridge also requires a proven generated-text-to-native-playback binding and intervals; no cancelled/unplayed words are distributed.
 
+### Source-isolated DSP prepared, not yet wired
+
+`native/intelligence/PromotedVoiceDsp.cs` provides the **actual sample processor** planned for the Essential pre-mix render path: per-voice distance gain, equal-power stereo pan, low-pass filtering through cabin/occlusion, ~35 ms gain/pan ramps, ~60 ms cutoff ramps, and immediate reset on cancellation. Its `PromotedVoiceMixTarget.FromAcoustic` uses the same `SpeechAcousticGrade` vocabulary as the native hearing monitor. Invalid geometry or unknown source conditions map to silent targets. The kernel takes isolated per-voice mono float samples and adds to a stereo float bus; it contains no socket, player, model call or GTA native.
+
+**Deployment gate:** the kernel is compiled into the promoted-character native assembly and tested, but **no runtime invocation exists** because the pinned Essential `NpcSpatialAudio` public ABI does not expose isolated pre-mix render buffers or reliable playout timestamps. Hooking the existing global mixed output would be wrong; altering early provider PCM once cannot account for walking away halfway through already-buffered speech. Do not describe this kernel as an audible in-game feature until that seam exists and GTA acceptance confirms it.
+
