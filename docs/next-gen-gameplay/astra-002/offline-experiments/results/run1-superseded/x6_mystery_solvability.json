@@ -1,0 +1,44 @@
+{
+  "experiment": "X-6 mystery fair-play and repair (offline logic)",
+  "cases": 3000,
+  "unchecked_authoring": {
+    "n": 3000,
+    "unique_rate": 0.511,
+    "ambiguous_rate": 0.2287,
+    "misleading_rate": 0.0443,
+    "no_suspect_rate": 0.216,
+    "deduction_depth_distribution": {
+      "1": 813,
+      "2": 641,
+      "3": 73,
+      "4": 6
+    },
+    "mean_redundancy": 0.762
+  },
+  "solver_guided": {
+    "n": 3000,
+    "unique_rate": 1.0,
+    "ambiguous_rate": 0.0,
+    "misleading_rate": 0.0,
+    "no_suspect_rate": 0.0,
+    "deduction_depth_distribution": {
+      "2": 2455,
+      "3": 511,
+      "4": 33,
+      "5": 1
+    },
+    "mean_redundancy": 0.414
+  },
+  "guided_clue_count_distribution": {
+    "3": 1492,
+    "4": 1126,
+    "5": 284,
+    "6": 97,
+    "7": 1
+  },
+  "single_clue_loss_repair": {
+    "repaired": 6340,
+    "still_solvable": 2591
+  },
+  "caveat": "Logic only. Placement, discoverability and interaction verification are separate E0/E5 questions."
+}

@@ -13,6 +13,8 @@ Preserve the complete 100-idea brainstorming catalog, the player's **28 explicit
 ## Astra research handoff
 [**ASTRA-001 — Breakthrough Research: Persistent Ballistic & Structural Destruction**](ASTRA-001-BALLISTICS-DESTRUCTION-RESEARCH-PROMPT.md) is the ready-to-use, source-grounded first research assignment. It references the player-confirmed vision; this is a *prompt and research charter*, **not** completed feasibility research or permission to alter gameplay code. PR #35 contextual-ballistics perception is explicitly distinguished from physical projectile/destructible-world mechanics.
 
+[**ASTRA-002 — General-purpose AI Game Master (research dossier, 2026-10-19)**](astra-002/README.md) covers #20, #23, #3, #6 and #72: source audit, external evidence, competing architectures, a gameplay generation/execution contract, the E0–E8 experiment ladder and self-contained offline prototypes. Research only; no gameplay code was changed and nothing was run in GTA.
+
 ## Reading order
 1. [First Astra candidate: player-approved ballistics and destruction vision](ballistics-destruction-vision-20261018.md): nine answered questions, active scope, non-goals and staged research targets.
 2. [Selected 28 — player-experience definitions](28-favorite-experiences.md): individually numbered gameplay fantasies, first genuinely fun playable slices, unique flair, and experiential pass questions. All are **draft proposals awaiting player review**.

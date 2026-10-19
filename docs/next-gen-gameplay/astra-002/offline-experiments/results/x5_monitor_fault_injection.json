@@ -1,0 +1,78 @@
+{
+  "experiment": "X-5 objective monitor fault injection (offline, synthetic traces)",
+  "traces": 20000,
+  "monitors": {
+    "M0_any_true": {
+      "false_achieved_rate_on_never_true": 0.9328,
+      "early_achieved_rate_on_genuine": 0.8916,
+      "missed_rate_on_genuine": 0.0,
+      "latency_ms_p50": 139,
+      "latency_ms_p95": 1366,
+      "false_or_early_by_fault": {
+        "teleport": 1899,
+        "pre_activation": 1858,
+        "flicker": 1854,
+        "handle_reuse": 1822,
+        "ack": 1813,
+        "unauth": 1810,
+        "out_of_order": 1803,
+        "claim": 1796,
+        "early:flicker": 1793,
+        "early:pre_activation": 1793,
+        "stale_epoch": 1784,
+        "early:claim": 1773
+      }
+    },
+    "M1_receipts": {
+      "false_achieved_rate_on_never_true": 0.9328,
+      "early_achieved_rate_on_genuine": 0.8916,
+      "missed_rate_on_genuine": 0.0,
+      "latency_ms_p50": 139,
+      "latency_ms_p95": 1366,
+      "false_or_early_by_fault": {
+        "teleport": 1899,
+        "pre_activation": 1858,
+        "flicker": 1854,
+        "handle_reuse": 1822,
+        "ack": 1813,
+        "unauth": 1810,
+        "out_of_order": 1803,
+        "claim": 1796,
+        "early:flicker": 1793,
+        "early:pre_activation": 1793,
+        "stale_epoch": 1784,
+        "early:claim": 1773
+      }
+    },
+    "M2_single_native": {
+      "false_achieved_rate_on_never_true": 0.7672,
+      "early_achieved_rate_on_genuine": 0.7212,
+      "missed_rate_on_genuine": 0.0,
+      "latency_ms_p50": 131,
+      "latency_ms_p95": 800,
+      "false_or_early_by_fault": {
+        "teleport": 1899,
+        "pre_activation": 1858,
+        "flicker": 1854,
+        "handle_reuse": 1822,
+        "out_of_order": 1803,
+        "early:flicker": 1793,
+        "early:pre_activation": 1793,
+        "stale_epoch": 1784,
+        "early:stale_epoch": 1716,
+        "early:handle_reuse": 1703,
+        "early:teleport": 1650,
+        "early:out_of_order": 1582
+      }
+    },
+    "M3_evidence_ladder": {
+      "false_achieved_rate_on_never_true": 0.0,
+      "early_achieved_rate_on_genuine": 0.0,
+      "missed_rate_on_genuine": 0.0,
+      "latency_ms_p50": 634,
+      "latency_ms_p95": 1383,
+      "false_or_early_by_fault": {}
+    }
+  },
+  "caveat": "Synthetic traces. Demonstrates the contract's guards, not GTA sensor behaviour (E0/E1 measure that)."
+}

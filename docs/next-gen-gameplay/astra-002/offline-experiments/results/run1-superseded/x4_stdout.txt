@@ -1,0 +1,120 @@
+exp         cond      S   player    succ  unsat churn incoh brk calls limbo stall resumed
+courier_job normal    S0  planner   1.00  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job normal    S0  creative  1.00  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job normal    S0  chaotic   0.76  0.01  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job normal    S0  wanderer  0.24  0.02  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job normal    S1  planner   0.94  0.01  0.41  0.07  0.08 1.07  0.57  0.21  0.00
+courier_job normal    S1  creative  0.88  0.05  0.75  0.14  0.15 1.98  1.07  0.68  0.00
+courier_job normal    S1  chaotic   0.68  0.02  0.68  0.11  0.17 1.64  0.88  0.26  0.00
+courier_job normal    S1  wanderer  0.17  0.03  0.41  0.07  0.03 0.88  0.44  0.11  0.00
+courier_job normal    S2  planner   1.00  0.00  0.03  0.00  0.01 1.13  0.57  0.00  0.00
+courier_job normal    S2  creative  1.00  0.00  0.23  0.00  0.03 2.21  1.23  0.00  0.00
+courier_job normal    S2  chaotic   0.76  0.01  0.12  0.00  0.03 1.76  0.89  0.00  0.00
+courier_job normal    S2  wanderer  0.23  0.02  0.14  0.00  0.01 0.95  0.50  0.00  0.00
+courier_job normal    S3  planner   1.00  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job normal    S3  creative  1.00  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job normal    S3  chaotic   0.77  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.01
+courier_job normal    S3  wanderer  0.24  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.02
+courier_job normal    S4  planner   1.00  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job normal    S4  creative  1.00  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job normal    S4  chaotic   0.77  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.01
+courier_job normal    S4  wanderer  0.24  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.02
+courier_job turbulent S0  planner   1.00  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job turbulent S0  creative  0.98  0.02  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job turbulent S0  chaotic   0.72  0.03  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job turbulent S0  wanderer  0.25  0.05  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job turbulent S1  planner   0.95  0.00  0.37  0.06  0.07 1.07  0.60  0.16  0.00
+courier_job turbulent S1  creative  0.87  0.07  0.77  0.12  0.17 2.03  1.07  0.53  0.00
+courier_job turbulent S1  chaotic   0.69  0.03  0.59  0.07  0.16 1.52  0.82  0.19  0.00
+courier_job turbulent S1  wanderer  0.16  0.06  0.39  0.05  0.03 0.85  0.44  0.10  0.00
+courier_job turbulent S2  planner   1.00  0.00  0.04  0.00  0.01 1.11  0.61  0.00  0.00
+courier_job turbulent S2  creative  0.97  0.03  0.24  0.00  0.03 2.26  1.23  0.00  0.00
+courier_job turbulent S2  chaotic   0.76  0.03  0.12  0.00  0.03 1.63  0.82  0.00  0.00
+courier_job turbulent S2  wanderer  0.19  0.06  0.13  0.00  0.01 0.91  0.47  0.00  0.00
+courier_job turbulent S3  planner   1.00  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job turbulent S3  creative  1.00  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.02
+courier_job turbulent S3  chaotic   0.75  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.03
+courier_job turbulent S3  wanderer  0.26  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.05
+courier_job turbulent S4  planner   1.00  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+courier_job turbulent S4  creative  1.00  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.02
+courier_job turbulent S4  chaotic   0.75  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.03
+courier_job turbulent S4  wanderer  0.26  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.05
+outing      normal    S0  planner   0.95  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+outing      normal    S0  chaotic   0.50  0.01  0.00  0.00  0.00 0.00  0.00  0.16  0.00
+outing      normal    S0  wanderer  0.49  0.01  0.00  0.00  0.00 0.00  0.00  0.33  0.00
+outing      normal    S1  planner   0.95  0.00  0.01  0.00  0.01 0.04  0.02  0.00  0.00
+outing      normal    S1  chaotic   0.47  0.01  0.16  0.03  0.05 0.60  0.33  0.25  0.00
+outing      normal    S1  wanderer  0.42  0.01  0.03  0.00  0.03 0.28  0.12  0.23  0.00
+outing      normal    S2  planner   0.95  0.00  0.00  0.00  0.00 0.05  0.02  0.00  0.00
+outing      normal    S2  chaotic   0.51  0.01  0.03  0.00  0.01 0.68  0.34  0.07  0.00
+outing      normal    S2  wanderer  0.42  0.01  0.00  0.00  0.00 0.31  0.13  0.25  0.00
+outing      normal    S3  planner   0.98  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+outing      normal    S3  chaotic   0.63  0.00  0.00  0.00  0.00 0.00  0.00  0.09  0.00
+outing      normal    S3  wanderer  0.45  0.00  0.00  0.00  0.00 0.00  0.00  0.22  0.01
+outing      normal    S4  planner   0.98  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+outing      normal    S4  chaotic   0.72  0.00  0.09  0.00  0.00 0.09  0.00  0.09  0.00
+outing      normal    S4  wanderer  0.67  0.00  0.22  0.00  0.00 0.22  0.00  0.22  0.01
+outing      turbulent S0  planner   0.91  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+outing      turbulent S0  chaotic   0.35  0.03  0.00  0.00  0.00 0.00  0.00  0.04  0.00
+outing      turbulent S0  wanderer  0.38  0.03  0.00  0.00  0.00 0.00  0.00  0.27  0.00
+outing      turbulent S1  planner   0.89  0.00  0.03  0.01  0.02 0.14  0.05  0.06  0.00
+outing      turbulent S1  chaotic   0.38  0.03  0.12  0.02  0.04 0.54  0.29  0.13  0.00
+outing      turbulent S1  wanderer  0.30  0.03  0.03  0.01  0.02 0.32  0.17  0.23  0.00
+outing      turbulent S2  planner   0.89  0.00  0.02  0.01  0.01 0.15  0.05  0.06  0.00
+outing      turbulent S2  chaotic   0.39  0.03  0.03  0.00  0.01 0.57  0.33  0.05  0.00
+outing      turbulent S2  wanderer  0.30  0.03  0.00  0.00  0.00 0.35  0.17  0.23  0.00
+outing      turbulent S3  planner   0.96  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+outing      turbulent S3  chaotic   0.63  0.00  0.00  0.00  0.00 0.00  0.00  0.05  0.03
+outing      turbulent S3  wanderer  0.39  0.00  0.00  0.00  0.00 0.00  0.00  0.22  0.04
+outing      turbulent S4  planner   0.96  0.00  0.00  0.00  0.00 0.00  0.00  0.00  0.00
+outing      turbulent S4  chaotic   0.68  0.00  0.05  0.00  0.00 0.05  0.00  0.05  0.03
+outing      turbulent S4  wanderer  0.61  0.00  0.22  0.00  0.00 0.22  0.00  0.22  0.04
+--- sweep
+S1 planner {"p_bad": 0.05, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 0.99 unsat 0.01 churn 0.34 incoh 0.01 brk 0.02 calls 1.02 limbo 0.00
+S1 chaotic {"p_bad": 0.05, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 0.73 unsat 0.00 churn 0.63 incoh 0.02 brk 0.10 calls 1.67 limbo 0.00
+S2 planner {"p_bad": 0.05, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.06 incoh 0.00 brk 0.00 calls 1.02 limbo 0.00
+S2 chaotic {"p_bad": 0.05, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 0.76 unsat 0.00 churn 0.15 incoh 0.00 brk 0.03 calls 1.68 limbo 0.00
+S1 planner {"p_bad": 0.05, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 0.98 unsat 0.01 churn 0.32 incoh 0.02 brk 0.03 calls 1.02 limbo 0.53
+S1 chaotic {"p_bad": 0.05, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 0.74 unsat 0.00 churn 0.53 incoh 0.01 brk 0.05 calls 1.59 limbo 0.85
+S2 planner {"p_bad": 0.05, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.02 incoh 0.00 brk 0.00 calls 1.05 limbo 0.53
+S2 chaotic {"p_bad": 0.05, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 0.76 unsat 0.00 churn 0.13 incoh 0.00 brk 0.01 calls 1.62 limbo 0.84
+S1 planner {"p_bad": 0.05, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.19 incoh 0.00 brk 0.00 calls 1.00 limbo 1.52
+S1 chaotic {"p_bad": 0.05, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 0.76 unsat 0.01 churn 0.48 incoh 0.03 brk 0.02 calls 1.55 limbo 2.16
+S2 planner {"p_bad": 0.05, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.04 incoh 0.00 brk 0.00 calls 1.00 limbo 1.52
+S2 chaotic {"p_bad": 0.05, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 0.78 unsat 0.00 churn 0.10 incoh 0.00 brk 0.00 calls 1.57 limbo 2.19
+S1 planner {"p_bad": 0.15, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 0.95 unsat 0.02 churn 0.42 incoh 0.05 brk 0.06 calls 1.07 limbo 0.00
+S1 chaotic {"p_bad": 0.15, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 0.66 unsat 0.02 churn 0.78 incoh 0.12 brk 0.20 calls 1.73 limbo 0.00
+S2 planner {"p_bad": 0.15, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 0.99 unsat 0.00 churn 0.07 incoh 0.01 brk 0.01 calls 1.11 limbo 0.00
+S2 chaotic {"p_bad": 0.15, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 0.78 unsat 0.00 churn 0.19 incoh 0.00 brk 0.06 calls 1.91 limbo 0.00
+S1 planner {"p_bad": 0.15, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 0.94 unsat 0.02 churn 0.40 incoh 0.07 brk 0.07 calls 1.07 limbo 0.56
+S1 chaotic {"p_bad": 0.15, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 0.67 unsat 0.02 churn 0.71 incoh 0.12 brk 0.17 calls 1.67 limbo 0.93
+S2 planner {"p_bad": 0.15, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.03 incoh 0.00 brk 0.01 calls 1.12 limbo 0.57
+S2 chaotic {"p_bad": 0.15, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 0.76 unsat 0.00 churn 0.12 incoh 0.00 brk 0.03 calls 1.78 limbo 0.95
+S1 planner {"p_bad": 0.15, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 0.99 unsat 0.00 churn 0.20 incoh 0.01 brk 0.01 calls 1.01 limbo 1.53
+S1 chaotic {"p_bad": 0.15, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 0.66 unsat 0.03 churn 0.55 incoh 0.12 brk 0.07 calls 1.57 limbo 2.20
+S2 planner {"p_bad": 0.15, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.04 incoh 0.00 brk 0.00 calls 1.02 limbo 1.52
+S2 chaotic {"p_bad": 0.15, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 0.78 unsat 0.00 churn 0.11 incoh 0.00 brk 0.02 calls 1.65 limbo 2.27
+S1 planner {"p_bad": 0.3, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 0.88 unsat 0.04 churn 0.56 incoh 0.12 brk 0.16 calls 1.16 limbo 0.00
+S1 chaotic {"p_bad": 0.3, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 0.52 unsat 0.07 churn 0.94 incoh 0.33 brk 0.28 calls 1.82 limbo 0.00
+S2 planner {"p_bad": 0.3, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 0.99 unsat 0.00 churn 0.15 incoh 0.02 brk 0.04 calls 1.32 limbo 0.00
+S2 chaotic {"p_bad": 0.3, "latency": [0, 0], "q_world": 0.08, "p_reload": 0.0} succ 0.79 unsat 0.00 churn 0.19 incoh 0.00 brk 0.08 calls 2.43 limbo 0.00
+S1 planner {"p_bad": 0.3, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 0.87 unsat 0.04 churn 0.57 incoh 0.17 brk 0.18 calls 1.19 limbo 0.61
+S1 chaotic {"p_bad": 0.3, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 0.61 unsat 0.03 churn 0.80 incoh 0.22 brk 0.23 calls 1.66 limbo 0.92
+S2 planner {"p_bad": 0.3, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.06 incoh 0.00 brk 0.04 calls 1.32 limbo 0.62
+S2 chaotic {"p_bad": 0.3, "latency": [0, 1], "q_world": 0.08, "p_reload": 0.0} succ 0.77 unsat 0.00 churn 0.17 incoh 0.00 brk 0.07 calls 1.99 limbo 0.99
+S1 planner {"p_bad": 0.3, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 0.93 unsat 0.02 churn 0.30 incoh 0.09 brk 0.06 calls 1.09 limbo 1.65
+S1 chaotic {"p_bad": 0.3, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 0.62 unsat 0.06 churn 0.62 incoh 0.20 brk 0.15 calls 1.62 limbo 2.27
+S2 planner {"p_bad": 0.3, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.03 incoh 0.00 brk 0.02 calls 1.12 limbo 1.52
+S2 chaotic {"p_bad": 0.3, "latency": [1, 2], "q_world": 0.08, "p_reload": 0.0} succ 0.81 unsat 0.00 churn 0.10 incoh 0.00 brk 0.03 calls 1.85 limbo 2.48
+S3 planner {"coverage": 1.0, "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00
+S3 chaotic {"coverage": 1.0, "q_world": 0.08, "p_reload": 0.0} succ 0.78 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00
+S4 planner {"coverage": 1.0, "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00
+S4 chaotic {"coverage": 1.0, "q_world": 0.08, "p_reload": 0.0} succ 0.78 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00
+S3 planner {"coverage": 0.5, "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00
+S3 chaotic {"coverage": 0.5, "q_world": 0.08, "p_reload": 0.0} succ 0.78 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00
+S4 planner {"coverage": 0.5, "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00
+S4 chaotic {"coverage": 0.5, "q_world": 0.08, "p_reload": 0.0} succ 0.78 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00
+S3 planner {"coverage": 0.0, "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00
+S3 chaotic {"coverage": 0.0, "q_world": 0.08, "p_reload": 0.0} succ 0.78 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00
+S4 planner {"coverage": 0.0, "q_world": 0.08, "p_reload": 0.0} succ 1.00 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00
+S4 chaotic {"coverage": 0.0, "q_world": 0.08, "p_reload": 0.0} succ 0.78 unsat 0.00 churn 0.00 incoh 0.00 brk 0.00 calls 0.00 limbo 0.00

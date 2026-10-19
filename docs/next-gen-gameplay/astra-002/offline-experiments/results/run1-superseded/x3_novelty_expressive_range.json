@@ -1,0 +1,248 @@
+{
+  "template_baseline": {
+    "generated": 300,
+    "valid": 294,
+    "validity_rate": 0.98,
+    "diversity": {
+      "n": 294,
+      "unique_mechanical_signatures": 6,
+      "unique_mechanical_ratio": 0.0204,
+      "unique_surface_ratio": 0.8469,
+      "mean_pairwise_mechanic_jaccard_distance": 0.4698,
+      "distinct_mechanic_features": 7,
+      "mechanic_feature_entropy_bits": 2.651,
+      "distinct_archetype_sequences": 3,
+      "top_archetype_sequences": [
+        [
+          "kill_target",
+          104
+        ],
+        [
+          "deliver_item",
+          95
+        ],
+        [
+          "steal_car_deliver",
+          95
+        ]
+      ]
+    },
+    "expressive_range_grid_pressure_x_solution_shapes": {
+      "0,1": 42,
+      "0,2": 2,
+      "0,4": 19,
+      "1,1": 2,
+      "1,2": 1,
+      "1,4": 1,
+      "1,6": 227
+    },
+    "stage_count_distribution": {
+      "1": 294
+    },
+    "multi_archetype_share": 0.0,
+    "share_beyond_single_archetype_templates": 0.0,
+    "validation_bias_by_relation[generated,valid,rate]": {
+      "template:kill_target": [
+        105,
+        104,
+        0.99
+      ],
+      "template:steal_car": [
+        97,
+        95,
+        0.979
+      ],
+      "template:steal_object": [
+        98,
+        95,
+        0.969
+      ]
+    },
+    "mean_solution_shapes": 5.07,
+    "example_valid_ids": [
+      "tpl-0000",
+      "tpl-0001",
+      "tpl-0002",
+      "tpl-0003",
+      "tpl-0004"
+    ]
+  },
+  "algebra": {
+    "generated": 300,
+    "valid": 186,
+    "validity_rate": 0.62,
+    "diversity": {
+      "n": 186,
+      "unique_mechanical_signatures": 155,
+      "unique_mechanical_ratio": 0.8333,
+      "unique_surface_ratio": 0.9946,
+      "mean_pairwise_mechanic_jaccard_distance": 0.8263,
+      "distinct_mechanic_features": 137,
+      "mechanic_feature_entropy_bits": 5.466,
+      "distinct_archetype_sequences": 98,
+      "top_archetype_sequences": [
+        [
+          "investigate",
+          12
+        ],
+        [
+          "investigate > investigate",
+          8
+        ],
+        [
+          "retrieve_item > deliver_item",
+          8
+        ],
+        [
+          "hold_area",
+          7
+        ],
+        [
+          "steal_car_deliver",
+          7
+        ],
+        [
+          "meet",
+          7
+        ],
+        [
+          "race > investigate",
+          7
+        ],
+        [
+          "retrieve_item",
+          6
+        ],
+        [
+          "escort_rescue > investigate",
+          5
+        ],
+        [
+          "steal_car_deliver > steal_car_deliver",
+          4
+        ],
+        [
+          "tail > investigate",
+          4
+        ],
+        [
+          "deliver_item > investigate",
+          4
+        ]
+      ]
+    },
+    "expressive_range_grid_pressure_x_solution_shapes": {
+      "0,1": 17,
+      "0,2": 6,
+      "0,3": 3,
+      "0,4": 1,
+      "0,6": 4,
+      "1,1": 5,
+      "1,2": 3,
+      "1,3": 2,
+      "1,6": 69,
+      "2,1": 5,
+      "2,2": 2,
+      "2,4": 2,
+      "2,6": 42,
+      "3,1": 2,
+      "3,2": 3,
+      "3,3": 1,
+      "3,5": 1,
+      "3,6": 14,
+      "4,4": 1,
+      "4,6": 3
+    },
+    "stage_count_distribution": {
+      "1": 53,
+      "2": 96,
+      "3": 37
+    },
+    "multi_archetype_share": 0.613,
+    "share_beyond_single_archetype_templates": 0.715,
+    "validation_bias_by_relation[generated,valid,rate]": {
+      "rel:acquire": [
+        28,
+        15,
+        0.536
+      ],
+      "rel:deliver_item": [
+        74,
+        36,
+        0.486
+      ],
+      "rel:deliver_vehicle": [
+        58,
+        29,
+        0.5
+      ],
+      "rel:disable": [
+        35,
+        11,
+        0.314
+      ],
+      "rel:eliminate": [
+        11,
+        5,
+        0.455
+      ],
+      "rel:escort": [
+        22,
+        11,
+        0.5
+      ],
+      "rel:examine": [
+        153,
+        100,
+        0.654
+      ],
+      "rel:hold": [
+        60,
+        17,
+        0.283
+      ],
+      "rel:intercept": [
+        20,
+        10,
+        0.5
+      ],
+      "rel:meet": [
+        24,
+        19,
+        0.792
+      ],
+      "rel:reach": [
+        55,
+        41,
+        0.745
+      ],
+      "rel:rescue": [
+        18,
+        15,
+        0.833
+      ],
+      "rel:retrieve": [
+        64,
+        37,
+        0.578
+      ],
+      "rel:tail": [
+        27,
+        10,
+        0.37
+      ]
+    },
+    "mean_solution_shapes": 4.77,
+    "example_valid_ids": [
+      "alg-0001",
+      "alg-0003",
+      "alg-0004",
+      "alg-0005",
+      "alg-0006"
+    ],
+    "share_with_no_template_objective": 0.823
+  },
+  "seconds": 124.0,
+  "caveat": "Abstract model; validity = solvable+stakes in the model. Mechanical novelty is not evidence of fun.",
+  "plot": "x3_expressive_range.png"
+}

@@ -1,0 +1,769 @@
+{
+  "schema": "astra002.capability-catalog",
+  "version": 1,
+  "status": "desk census (E0-offline). Evidence tiers describe what was found in source/docs, NOT GTA runtime acceptance.",
+  "generatedFrom": {
+    "lsaMain": "cd6bb4e80a7d6537344ac66b7fd61b58e66f26ca",
+    "researchBase": "09c0df2960e84ceff37ac8a1e79765959b65cc00",
+    "nativeDb": "github.com/alloc8or/gta5-nativedb-data@424fb51b089049a9fbcebcc641500b1d44d255b4 natives_gen9.json",
+    "rphSdkDocs": "nuget RagePluginHook 1.124.0 (sha256 b48e24aa586a73b5f1f3b220ea7eb7576d388a52446a11d69fa29842f8508c36) RagePluginHook.xml",
+    "essentialCatalog": "docs/research/domains/essential/essential-action-catalog.json (Essential Hotfix #3 DLL sha256 9b6de42d...)"
+  },
+  "tiers": {
+    "A": "Observed in the owner's GTA V Enhanced runtime through LSA at some point (historical evidence; not a current-main acceptance).",
+    "B": "Production-path LSA source exists on main @cd6bb4e8; exact-build GTA acceptance not established.",
+    "C": "Native exists in the gen9 native DB or member is documented in the RPH SDK; no LSA source uses it; Enhanced/RPH 1.132 runtime behaviour unverified.",
+    "D": "Exists inside Essential (obfuscated Hotfix #3) per CLR metadata / IL audit; reachable only through Essential APIs; unused by LSA; behaviour unverified.",
+    "X": "Known unavailable on the owner's install, or blocked by architecture."
+  },
+  "fluents": [
+    {
+      "id": "exists",
+      "sig": [
+        "entity"
+      ],
+      "tier": "A",
+      "sensor": "anchor Validate / Entity.Exists",
+      "authority": "ps_anchor",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "native/intelligence/EntityAnchors.cs:27-80"
+    },
+    {
+      "id": "near",
+      "sig": [
+        "entity",
+        "place",
+        "radius"
+      ],
+      "tier": "A",
+      "sensor": "Entity.Position distance",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "native/intelligence/IntelligenceIntegration.cs:567 (discovery distance read)"
+    },
+    {
+      "id": "alive",
+      "sig": [
+        "ped"
+      ],
+      "tier": "A",
+      "sensor": "Ped.IsDead / IS_PED_INJURED",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "native/promoted-characters/PromotedCharactersIntegration.cs:420-424 (player.IsDead in spawn safety)"
+    },
+    {
+      "id": "dead",
+      "sig": [
+        "ped"
+      ],
+      "tier": "B",
+      "sensor": "sampled death edge (state producer)",
+      "authority": "ps_state",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "docs/PS6-PHASE-13A-RELIABILITY-AUDIT-20261017.md:13"
+    },
+    {
+      "id": "in_any_vehicle",
+      "sig": [
+        "ped"
+      ],
+      "tier": "A",
+      "sensor": "IS_PED_IN_ANY_VEHICLE",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "PromotedCharactersIntegration.cs:422"
+    },
+    {
+      "id": "in_vehicle",
+      "sig": [
+        "ped",
+        "vehicle"
+      ],
+      "tier": "B",
+      "sensor": "seat_occupancy adapter (anchored vehicle identity)",
+      "authority": "act_adapter",
+      "cost": 2,
+      "strength": "strong",
+      "ref": "docs/ACT3-status.md:25; native/activities/CompletionAdapters.cs"
+    },
+    {
+      "id": "interior",
+      "sig": [
+        "entity"
+      ],
+      "tier": "A",
+      "sensor": "GET_INTERIOR_FROM_ENTITY",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "PromotedCharactersIntegration.cs:422"
+    },
+    {
+      "id": "shooting",
+      "sig": [
+        "ped"
+      ],
+      "tier": "A",
+      "sensor": "IS_PED_SHOOTING @50ms",
+      "authority": "ps_state",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "native/intelligence/IntelligenceIntegration.cs:580; user-observed gunfire speech (IMPLEMENTATION-STATUS-20261017.md:37)"
+    },
+    {
+      "id": "los",
+      "sig": [
+        "entity",
+        "entity"
+      ],
+      "tier": "B",
+      "sensor": "HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT (budgeted)",
+      "authority": "ps_witness",
+      "cost": 20,
+      "strength": "medium",
+      "ref": "IntelligenceIntegration.cs:1243,1301"
+    },
+    {
+      "id": "damage_event",
+      "sig": [
+        "entity"
+      ],
+      "tier": "B",
+      "sensor": "DamageTrackerLib callbacks (off-fiber, owner-fiber verified <=100ms)",
+      "authority": "ps_damage",
+      "cost": 2,
+      "strength": "medium",
+      "ref": "native/intelligence/DamageSensors.cs:22-24"
+    },
+    {
+      "id": "speed",
+      "sig": [
+        "entity"
+      ],
+      "tier": "B",
+      "sensor": "GET_ENTITY_SPEED",
+      "authority": "act_adapter",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "ActivityDispatch.cs (ACT6 nav sampling)"
+    },
+    {
+      "id": "wanted_ge",
+      "sig": [
+        "int"
+      ],
+      "tier": "B",
+      "sensor": "GET_PLAYER_WANTED_LEVEL (M9 sampler, gated build)",
+      "authority": "m9_state",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "native/intelligence/IntelligenceIntegration.M9.cs:99-101"
+    },
+    {
+      "id": "player_wasted",
+      "sig": [],
+      "tier": "B",
+      "sensor": "M9 terminal edge (dead)",
+      "authority": "m9_state",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "native/intelligence/m9/M9StateSampler.cs:98"
+    },
+    {
+      "id": "player_busted",
+      "sig": [],
+      "tier": "B",
+      "sensor": "M9 terminal edge (IS_PLAYER_BEING_ARRESTED)",
+      "authority": "m9_state",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "M9StateSampler.cs:99"
+    },
+    {
+      "id": "zone",
+      "sig": [
+        "entity"
+      ],
+      "tier": "B",
+      "sensor": "GET_NAME_OF_ZONE (location_changed)",
+      "authority": "ps_state",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "lsa-essential-e1-candidate/src/perception/contracts.mjs:41-44"
+    },
+    {
+      "id": "on_road",
+      "sig": [
+        "place"
+      ],
+      "tier": "B",
+      "sensor": "IS_POINT_ON_ROAD / street node",
+      "authority": "act_adapter",
+      "cost": 3,
+      "strength": "strong",
+      "ref": "docs/ACT6-status.md:25"
+    },
+    {
+      "id": "held_item",
+      "sig": [
+        "ped",
+        "item"
+      ],
+      "tier": "B",
+      "sensor": "Essential NpcState held item",
+      "authority": "act_adapter",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "docs/ACT3-status.md:29"
+    },
+    {
+      "id": "conversed",
+      "sig": [
+        "ped"
+      ],
+      "tier": "A",
+      "sensor": "native playback_ended(completed) for exact turn tuple",
+      "authority": "essential_playback",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "docs/research/system-contract-register.md:85; OBS2 triage (8 completed playbacks)"
+    },
+    {
+      "id": "act_completed",
+      "sig": [
+        "activity"
+      ],
+      "tier": "B",
+      "sensor": "ACT PHYSICALLY_COMPLETED receipt",
+      "authority": "act_engine",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "lsa-essential-e1-candidate/src/activities/contracts.mjs:23"
+    },
+    {
+      "id": "scripted_state",
+      "sig": [],
+      "tier": "A",
+      "sensor": "cutscene/switch/GET_MISSION_FLAG",
+      "authority": "gm_monitor",
+      "cost": 3,
+      "strength": "strong",
+      "ref": "PromotedCharactersIntegration.cs:198"
+    },
+    {
+      "id": "vehicle_driveable",
+      "sig": [
+        "vehicle"
+      ],
+      "tier": "C",
+      "sensor": "IS_VEHICLE_DRIVEABLE",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "nativedb VEHICLE"
+    },
+    {
+      "id": "pickup_collected",
+      "sig": [
+        "pickup"
+      ],
+      "tier": "C",
+      "sensor": "HAS_PICKUP_BEEN_COLLECTED",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "nativedb OBJECT"
+    },
+    {
+      "id": "damaged_by",
+      "sig": [
+        "entity",
+        "entity"
+      ],
+      "tier": "C",
+      "sensor": "HAS_ENTITY_BEEN_DAMAGED_BY_ENTITY",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "medium",
+      "ref": "nativedb ENTITY"
+    },
+    {
+      "id": "killed_by",
+      "sig": [
+        "ped",
+        "entity"
+      ],
+      "tier": "C",
+      "sensor": "GET_PED_SOURCE_OF_DEATH",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "medium",
+      "ref": "nativedb PED"
+    },
+    {
+      "id": "in_combat",
+      "sig": [
+        "ped"
+      ],
+      "tier": "C",
+      "sensor": "Ped.IsInCombat (RPH)",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "medium",
+      "ref": "RPH 1.124 xmldoc P:Rage.Ped.IsInCombat"
+    },
+    {
+      "id": "fleeing",
+      "sig": [
+        "ped"
+      ],
+      "tier": "C",
+      "sensor": "Ped.IsFleeing (RPH)",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "medium",
+      "ref": "RPH 1.124 xmldoc P:Rage.Ped.IsFleeing"
+    },
+    {
+      "id": "on_screen",
+      "sig": [
+        "entity"
+      ],
+      "tier": "C",
+      "sensor": "IS_ENTITY_ON_SCREEN / IS_SPHERE_VISIBLE",
+      "authority": "gm_monitor",
+      "cost": 2,
+      "strength": "medium",
+      "ref": "nativedb ENTITY/CAMERA"
+    },
+    {
+      "id": "interacted",
+      "sig": [
+        "entity"
+      ],
+      "tier": "C",
+      "sensor": "composite: near<=2m + facing + IS_CONTROL_JUST_PRESSED (new sensor)",
+      "authority": "gm_monitor",
+      "cost": 3,
+      "strength": "medium",
+      "ref": "nativedb PAD/ENTITY"
+    },
+    {
+      "id": "door_locked",
+      "sig": [
+        "door"
+      ],
+      "tier": "C",
+      "sensor": "DOOR_SYSTEM_GET_DOOR_STATE",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "medium",
+      "ref": "nativedb OBJECT"
+    },
+    {
+      "id": "time_of_day",
+      "sig": [],
+      "tier": "C",
+      "sensor": "World.TimeOfDay (RPH)",
+      "authority": "gm_monitor",
+      "cost": 1,
+      "strength": "strong",
+      "ref": "RPH 1.124 xmldoc P:Rage.World.TimeOfDay"
+    },
+    {
+      "id": "player_utterance_intent",
+      "sig": [
+        "intent"
+      ],
+      "tier": "B",
+      "sensor": "accepted STT transcript classification (claim, not world fact)",
+      "authority": "companion_turn",
+      "cost": 0,
+      "strength": "claim_only",
+      "ref": "D-022 (docs/research/DECISIONS.md:28)"
+    }
+  ],
+  "actorPolicies": [
+    {
+      "id": "follow_player",
+      "actor": "promoted",
+      "tier": "A",
+      "authority": "p2/act",
+      "completion": "mode",
+      "ref": "PromotedCharactersIntegration.cs:444; ACT2"
+    },
+    {
+      "id": "hold_position",
+      "actor": "promoted",
+      "tier": "A",
+      "authority": "p2/act",
+      "completion": "mode",
+      "ref": "PromotedCharactersIntegration.cs:449; ACT2"
+    },
+    {
+      "id": "enter_vehicle_seat",
+      "actor": "promoted",
+      "tier": "B",
+      "authority": "act",
+      "completion": "finite",
+      "ref": "docs/ACT3-status.md:25"
+    },
+    {
+      "id": "walk_to_place",
+      "actor": "promoted",
+      "tier": "B",
+      "authority": "act(extension TASK_FOLLOW_NAV_MESH_TO_COORD)",
+      "completion": "finite",
+      "ref": "native/promoted-characters/ActivityDispatch.cs:391"
+    },
+    {
+      "id": "drive_to_place",
+      "actor": "promoted",
+      "tier": "B",
+      "authority": "act(extension TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE)",
+      "completion": "finite",
+      "ref": "ActivityDispatch.cs:393; GM6 notes reported failed navigation"
+    },
+    {
+      "id": "take_cover",
+      "actor": "promoted",
+      "tier": "B",
+      "authority": "act",
+      "completion": "mode",
+      "ref": "docs/ACT3-status.md:28"
+    },
+    {
+      "id": "scenario",
+      "actor": "promoted",
+      "tier": "B",
+      "authority": "act(NpcActions.UseScenario)",
+      "completion": "mode",
+      "ref": "docs/ACT3-status.md:27"
+    },
+    {
+      "id": "approach_player",
+      "actor": "promoted",
+      "tier": "B",
+      "authority": "act(approachperson)",
+      "completion": "finite",
+      "ref": "docs/ACT3-status.md:22"
+    },
+    {
+      "id": "gm_combat",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_COMBAT_PED",
+      "completion": "mode",
+      "ref": "nativedb TASK"
+    },
+    {
+      "id": "gm_combat_area",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_COMBAT_HATED_TARGETS_AROUND_PED",
+      "completion": "mode",
+      "ref": "nativedb TASK"
+    },
+    {
+      "id": "gm_flee",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_SMART_FLEE_PED",
+      "completion": "mode",
+      "ref": "nativedb TASK"
+    },
+    {
+      "id": "gm_vehicle_chase",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_VEHICLE_CHASE",
+      "completion": "mode",
+      "ref": "nativedb TASK"
+    },
+    {
+      "id": "gm_vehicle_flee",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_VEHICLE_DRIVE_WANDER/MISSION",
+      "completion": "mode",
+      "ref": "nativedb TASK"
+    },
+    {
+      "id": "gm_drive_to",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE",
+      "completion": "finite",
+      "ref": "nativedb TASK (LSA uses it for promoted drivers only)"
+    },
+    {
+      "id": "gm_walk_to",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_FOLLOW_NAV_MESH_TO_COORD",
+      "completion": "finite",
+      "ref": "nativedb TASK"
+    },
+    {
+      "id": "gm_guard_area",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_WANDER_IN_AREA + hate relationship",
+      "completion": "mode",
+      "ref": "nativedb TASK/PED"
+    },
+    {
+      "id": "gm_scenario_at",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_START_SCENARIO_AT_POSITION",
+      "completion": "mode",
+      "ref": "nativedb TASK"
+    },
+    {
+      "id": "gm_hands_up",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_HANDS_UP",
+      "completion": "mode",
+      "ref": "nativedb TASK"
+    },
+    {
+      "id": "gm_aim_at",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_AIM_GUN_AT_ENTITY",
+      "completion": "mode",
+      "ref": "nativedb TASK"
+    },
+    {
+      "id": "gm_escort",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_VEHICLE_ESCORT/FOLLOW",
+      "completion": "mode",
+      "ref": "nativedb TASK"
+    },
+    {
+      "id": "gm_enter_vehicle",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) TASK_ENTER_VEHICLE",
+      "completion": "finite",
+      "ref": "nativedb TASK"
+    },
+    {
+      "id": "gm_follow_player",
+      "actor": "scene",
+      "tier": "C",
+      "authority": "stage_executor(proposed) group membership SET_PED_AS_GROUP_MEMBER / RPH Group.AddMember",
+      "completion": "mode",
+      "ref": "nativedb PED; RPH 1.124 xmldoc M:Rage.Group.AddMember"
+    },
+    {
+      "id": "ess_attack_with_weapon",
+      "actor": "essential_managed",
+      "tier": "D",
+      "authority": "essential(attacktargetwithweapon, HANDLER_ONLY completion)",
+      "completion": "mode",
+      "ref": "essential-action-catalog.json"
+    },
+    {
+      "id": "ess_intimidate",
+      "actor": "essential_managed",
+      "tier": "D",
+      "authority": "essential(intimidatetargetwithweapon)",
+      "completion": "mode",
+      "ref": "essential-action-catalog.json"
+    },
+    {
+      "id": "ess_flee",
+      "actor": "essential_managed",
+      "tier": "D",
+      "authority": "essential(fleefromtarget)",
+      "completion": "mode",
+      "ref": "essential-action-catalog.json"
+    },
+    {
+      "id": "ess_directed_interaction",
+      "actor": "essential_managed",
+      "tier": "D",
+      "authority": "essential DirectedInteractionManager (ACT7 not implemented)",
+      "completion": "mode",
+      "ref": "docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md:712-744"
+    },
+    {
+      "id": "ess_hostage_scene",
+      "actor": "essential_scene",
+      "tier": "D",
+      "authority": "essential HostagePoliceResponseController",
+      "completion": "phase_machine",
+      "ref": "Extension_API_Analysis.md:1386-1476"
+    },
+    {
+      "id": "ess_generated_callout",
+      "actor": "essential_scene",
+      "tier": "X",
+      "authority": "essential generateCallout + PRBridge LspdfrDynamicDisturbanceCallout (LSPDFR loaded in 0/162 owner sessions)",
+      "completion": "lspdfr",
+      "ref": "upstream/server.bundle.mjs dN(); rph-1132 REPORT.md"
+    }
+  ],
+  "staging": [
+    {
+      "id": "spawn_promoted_near_player",
+      "tier": "A",
+      "authority": "p2",
+      "ref": "PromotedCharactersIntegration.cs:418-440 (2.5m offset, ground<=3m, not in vehicle/interior/air)"
+    },
+    {
+      "id": "spawn_scene_ped",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "RPH new Ped(model,pos,heading); nativedb CREATE_PED"
+    },
+    {
+      "id": "spawn_scene_vehicle",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "nativedb CREATE_VEHICLE"
+    },
+    {
+      "id": "spawn_prop",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "nativedb CREATE_OBJECT"
+    },
+    {
+      "id": "spawn_pickup",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "nativedb CREATE_PICKUP"
+    },
+    {
+      "id": "persist_entity",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "nativedb SET_ENTITY_AS_MISSION_ENTITY ('persistent')"
+    },
+    {
+      "id": "release_entity",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "Entity.Dismiss/Delete (RPH); P2 despawn A"
+    },
+    {
+      "id": "relationship_group",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "RPH RelationshipGroup.SetRelationshipWith; nativedb SET_RELATIONSHIP_BETWEEN_GROUPS"
+    },
+    {
+      "id": "give_weapon",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "nativedb GIVE_WEAPON_TO_PED"
+    },
+    {
+      "id": "blip_route",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "RPH Blip.EnableRoute"
+    },
+    {
+      "id": "weather_time",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "RPH World.TransitionToWeather/TimeOfDay"
+    },
+    {
+      "id": "timecycle_audio",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "nativedb SET_TIMECYCLE_MODIFIER/START_AUDIO_SCENE/TRIGGER_MUSIC_EVENT"
+    },
+    {
+      "id": "door_lock",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "nativedb DOOR_SYSTEM_SET_DOOR_STATE"
+    },
+    {
+      "id": "population_control",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "nativedb ADD_SCENARIO_BLOCKING_AREA/SET_PED_DENSITY_MULTIPLIER_THIS_FRAME"
+    },
+    {
+      "id": "set_wanted",
+      "tier": "C",
+      "authority": "stage_executor(proposed) \u2014 player-affecting, opt-in",
+      "ref": "nativedb SET_PLAYER_WANTED_LEVEL"
+    },
+    {
+      "id": "mission_flag",
+      "tier": "X",
+      "authority": "BLOCKED: GET_MISSION_FLAG makes P2/Director/UX treat the world as scripted",
+      "ref": "PromotedCharactersIntegration.cs:198; NativeCommands.cs:126; TalkTargetSelector.cs:473"
+    },
+    {
+      "id": "location_registry_read",
+      "tier": "D",
+      "authority": "essential LocationRegistry/ActivityPoint (RobCashRegister, RobSafe, UseAtm...)",
+      "ref": "Extension_API_Analysis.md:1183-1310"
+    }
+  ],
+  "presentation": [
+    {
+      "id": "promoted_speech_ticket",
+      "tier": "A",
+      "authority": "director(C-11)",
+      "ref": "lsa-essential-e1-candidate/src/perception/sceneDirectorOrchestrator.mjs"
+    },
+    {
+      "id": "social_scene_speech",
+      "tier": "B",
+      "authority": "director",
+      "ref": "docs/DIRECTOR-SOCIAL-SCENES.md"
+    },
+    {
+      "id": "ps4_lane_item",
+      "tier": "B",
+      "authority": "ps4(C-04)",
+      "ref": "docs/research/system-contract-register.md:168-191"
+    },
+    {
+      "id": "help_text",
+      "tier": "C",
+      "authority": "stage_executor(proposed)",
+      "ref": "nativedb BEGIN_TEXT_COMMAND_DISPLAY_HELP"
+    },
+    {
+      "id": "f11_menu",
+      "tier": "B",
+      "authority": "ux(GM0-GM6 gameplay menu)",
+      "ref": "docs/gm-menu-consolidation/GM6-acceptance-gates.md"
+    }
+  ],
+  "playerVerbs": [
+    "move",
+    "drive",
+    "steal_vehicle",
+    "shoot",
+    "melee",
+    "ram",
+    "pickup",
+    "use_explosive",
+    "talk",
+    "evade_police",
+    "wait",
+    "swim",
+    "fly"
+  ]
+}

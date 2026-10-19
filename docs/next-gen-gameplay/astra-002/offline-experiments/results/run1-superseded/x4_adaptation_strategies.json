@@ -1,0 +1,2889 @@
+{
+  "experiment": "X-4 adaptation strategies (offline, parameterised model behaviour)",
+  "episodes_per_cell": 120,
+  "conditions": {
+    "normal": {
+      "q_world": 0.03,
+      "p_reload": 0.1
+    },
+    "turbulent": {
+      "q_world": 0.08,
+      "p_reload": 0.3
+    }
+  },
+  "main": [
+    {
+      "experience": "courier_job",
+      "strategy": "S0",
+      "player": "planner",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S0",
+      "player": "creative",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S0",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 91,
+        "END_FAILURE": 28,
+        "aborted_by_reload": 1
+      },
+      "success": 0.758,
+      "unsatisfying": 0.008,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S0",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 29,
+        "END_FAILURE": 85,
+        "END_CONCLUDED": 4,
+        "aborted_by_reload": 2
+      },
+      "success": 0.242,
+      "unsatisfying": 0.017,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 113,
+        "END_FAILURE": 2,
+        "END_CONCLUDED": 4,
+        "dead_experience": 1
+      },
+      "success": 0.942,
+      "unsatisfying": 0.008,
+      "churn": 0.408,
+      "incoherent_shown": 0.067,
+      "coherence_breaks": 0.083,
+      "model_calls": 1.075,
+      "limbo_steps": 0.567,
+      "stall_steps": 0.208,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "creative",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 105,
+        "END_FAILURE": 3,
+        "END_CONCLUDED": 6,
+        "dead_experience": 6
+      },
+      "success": 0.875,
+      "unsatisfying": 0.05,
+      "churn": 0.75,
+      "incoherent_shown": 0.142,
+      "coherence_breaks": 0.15,
+      "model_calls": 1.983,
+      "limbo_steps": 1.075,
+      "stall_steps": 0.675,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 81,
+        "END_FAILURE": 29,
+        "END_CONCLUDED": 8,
+        "aborted_by_reload": 1,
+        "dead_experience": 1
+      },
+      "success": 0.675,
+      "unsatisfying": 0.017,
+      "churn": 0.675,
+      "incoherent_shown": 0.108,
+      "coherence_breaks": 0.167,
+      "model_calls": 1.642,
+      "limbo_steps": 0.875,
+      "stall_steps": 0.258,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_FAILURE": 90,
+        "END_SUCCESS": 21,
+        "END_CONCLUDED": 6,
+        "aborted_by_reload": 3
+      },
+      "success": 0.175,
+      "unsatisfying": 0.025,
+      "churn": 0.408,
+      "incoherent_shown": 0.067,
+      "coherence_breaks": 0.033,
+      "model_calls": 0.875,
+      "limbo_steps": 0.442,
+      "stall_steps": 0.108,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.033,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.008,
+      "model_calls": 1.133,
+      "limbo_steps": 0.575,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "creative",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.225,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.025,
+      "model_calls": 2.208,
+      "limbo_steps": 1.225,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 91,
+        "END_FAILURE": 25,
+        "END_CONCLUDED": 3,
+        "aborted_by_reload": 1
+      },
+      "success": 0.758,
+      "unsatisfying": 0.008,
+      "churn": 0.117,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.025,
+      "model_calls": 1.758,
+      "limbo_steps": 0.892,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 27,
+        "END_FAILURE": 87,
+        "END_CONCLUDED": 4,
+        "aborted_by_reload": 2
+      },
+      "success": 0.225,
+      "unsatisfying": 0.017,
+      "churn": 0.142,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.008,
+      "model_calls": 0.95,
+      "limbo_steps": 0.5,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "planner",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "creative",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 92,
+        "END_FAILURE": 28
+      },
+      "success": 0.767,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.008
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 29,
+        "END_FAILURE": 87,
+        "END_CONCLUDED": 4
+      },
+      "success": 0.242,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.017
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "planner",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "creative",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 92,
+        "END_FAILURE": 28
+      },
+      "success": 0.767,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.008
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 29,
+        "END_FAILURE": 87,
+        "END_CONCLUDED": 4
+      },
+      "success": 0.242,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.017
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S0",
+      "player": "planner",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S0",
+      "player": "creative",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 118,
+        "aborted_by_reload": 2
+      },
+      "success": 0.983,
+      "unsatisfying": 0.017,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S0",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 86,
+        "END_FAILURE": 30,
+        "aborted_by_reload": 4
+      },
+      "success": 0.717,
+      "unsatisfying": 0.033,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S0",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 30,
+        "END_FAILURE": 80,
+        "aborted_by_reload": 6,
+        "END_CONCLUDED": 4
+      },
+      "success": 0.25,
+      "unsatisfying": 0.05,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 114,
+        "END_FAILURE": 2,
+        "END_CONCLUDED": 4
+      },
+      "success": 0.95,
+      "unsatisfying": 0.0,
+      "churn": 0.367,
+      "incoherent_shown": 0.058,
+      "coherence_breaks": 0.067,
+      "model_calls": 1.067,
+      "limbo_steps": 0.6,
+      "stall_steps": 0.158,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "creative",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 104,
+        "END_CONCLUDED": 6,
+        "dead_experience": 5,
+        "aborted_by_reload": 3,
+        "END_FAILURE": 2
+      },
+      "success": 0.867,
+      "unsatisfying": 0.067,
+      "churn": 0.767,
+      "incoherent_shown": 0.125,
+      "coherence_breaks": 0.167,
+      "model_calls": 2.033,
+      "limbo_steps": 1.075,
+      "stall_steps": 0.533,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 83,
+        "END_FAILURE": 27,
+        "END_CONCLUDED": 6,
+        "aborted_by_reload": 3,
+        "dead_experience": 1
+      },
+      "success": 0.692,
+      "unsatisfying": 0.033,
+      "churn": 0.592,
+      "incoherent_shown": 0.075,
+      "coherence_breaks": 0.158,
+      "model_calls": 1.525,
+      "limbo_steps": 0.817,
+      "stall_steps": 0.192,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_FAILURE": 89,
+        "END_SUCCESS": 19,
+        "aborted_by_reload": 7,
+        "END_CONCLUDED": 5
+      },
+      "success": 0.158,
+      "unsatisfying": 0.058,
+      "churn": 0.392,
+      "incoherent_shown": 0.05,
+      "coherence_breaks": 0.033,
+      "model_calls": 0.85,
+      "limbo_steps": 0.442,
+      "stall_steps": 0.1,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.042,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.008,
+      "model_calls": 1.108,
+      "limbo_steps": 0.608,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "creative",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 117,
+        "aborted_by_reload": 3
+      },
+      "success": 0.975,
+      "unsatisfying": 0.025,
+      "churn": 0.242,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.033,
+      "model_calls": 2.258,
+      "limbo_steps": 1.225,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 91,
+        "END_FAILURE": 24,
+        "aborted_by_reload": 3,
+        "END_CONCLUDED": 2
+      },
+      "success": 0.758,
+      "unsatisfying": 0.025,
+      "churn": 0.125,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.025,
+      "model_calls": 1.633,
+      "limbo_steps": 0.817,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 23,
+        "END_FAILURE": 86,
+        "aborted_by_reload": 7,
+        "END_CONCLUDED": 4
+      },
+      "success": 0.192,
+      "unsatisfying": 0.058,
+      "churn": 0.133,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.008,
+      "model_calls": 0.908,
+      "limbo_steps": 0.475,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "planner",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "creative",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.017
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 90,
+        "END_FAILURE": 30
+      },
+      "success": 0.75,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.033
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 31,
+        "END_FAILURE": 85,
+        "END_CONCLUDED": 4
+      },
+      "success": 0.258,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.05
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "planner",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "creative",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.017
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 90,
+        "END_FAILURE": 30
+      },
+      "success": 0.75,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.033
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 31,
+        "END_FAILURE": 85,
+        "END_CONCLUDED": 4
+      },
+      "success": 0.258,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.05
+    },
+    {
+      "experience": "outing",
+      "strategy": "S0",
+      "player": "planner",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 114,
+        "END_CONCLUDED": 5,
+        "END_FAILURE": 1
+      },
+      "success": 0.95,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S0",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 60,
+        "END_CONCLUDED": 35,
+        "END_FAILURE": 24,
+        "aborted_by_reload": 1
+      },
+      "success": 0.5,
+      "unsatisfying": 0.008,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.158,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S0",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 59,
+        "END_CONCLUDED": 57,
+        "END_FAILURE": 3,
+        "aborted_by_reload": 1
+      },
+      "success": 0.492,
+      "unsatisfying": 0.008,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.333,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 114,
+        "END_CONCLUDED": 5,
+        "END_FAILURE": 1
+      },
+      "success": 0.95,
+      "unsatisfying": 0.0,
+      "churn": 0.008,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.008,
+      "model_calls": 0.042,
+      "limbo_steps": 0.017,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_FAILURE": 22,
+        "END_SUCCESS": 57,
+        "END_CONCLUDED": 40,
+        "aborted_by_reload": 1
+      },
+      "success": 0.475,
+      "unsatisfying": 0.008,
+      "churn": 0.158,
+      "incoherent_shown": 0.025,
+      "coherence_breaks": 0.05,
+      "model_calls": 0.6,
+      "limbo_steps": 0.325,
+      "stall_steps": 0.25,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S1",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_CONCLUDED": 66,
+        "END_SUCCESS": 51,
+        "END_FAILURE": 2,
+        "aborted_by_reload": 1
+      },
+      "success": 0.425,
+      "unsatisfying": 0.008,
+      "churn": 0.025,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.025,
+      "model_calls": 0.275,
+      "limbo_steps": 0.125,
+      "stall_steps": 0.225,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 114,
+        "END_CONCLUDED": 5,
+        "END_FAILURE": 1
+      },
+      "success": 0.95,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.05,
+      "limbo_steps": 0.017,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_FAILURE": 21,
+        "END_SUCCESS": 61,
+        "END_CONCLUDED": 37,
+        "aborted_by_reload": 1
+      },
+      "success": 0.508,
+      "unsatisfying": 0.008,
+      "churn": 0.025,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.008,
+      "model_calls": 0.675,
+      "limbo_steps": 0.342,
+      "stall_steps": 0.067,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S2",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_CONCLUDED": 67,
+        "END_SUCCESS": 50,
+        "END_FAILURE": 2,
+        "aborted_by_reload": 1
+      },
+      "success": 0.417,
+      "unsatisfying": 0.008,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.308,
+      "limbo_steps": 0.133,
+      "stall_steps": 0.25,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S3",
+      "player": "planner",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 118,
+        "END_FAILURE": 2
+      },
+      "success": 0.983,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S3",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 76,
+        "END_FAILURE": 32,
+        "END_CONCLUDED": 12
+      },
+      "success": 0.633,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.092,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S3",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_CONCLUDED": 59,
+        "END_SUCCESS": 54,
+        "END_FAILURE": 7
+      },
+      "success": 0.45,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.217,
+      "resumed": 0.008
+    },
+    {
+      "experience": "outing",
+      "strategy": "S4",
+      "player": "planner",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 118,
+        "END_FAILURE": 2
+      },
+      "success": 0.983,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S4",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 86,
+        "END_FAILURE": 33,
+        "END_CONCLUDED": 1
+      },
+      "success": 0.717,
+      "unsatisfying": 0.0,
+      "churn": 0.092,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.092,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.092,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S4",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.03,
+        "p_reload": 0.1
+      },
+      "outcomes": {
+        "END_SUCCESS": 80,
+        "END_CONCLUDED": 33,
+        "END_FAILURE": 7
+      },
+      "success": 0.667,
+      "unsatisfying": 0.0,
+      "churn": 0.217,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.217,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.217,
+      "resumed": 0.008
+    },
+    {
+      "experience": "outing",
+      "strategy": "S0",
+      "player": "planner",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 109,
+        "END_CONCLUDED": 9,
+        "END_FAILURE": 2
+      },
+      "success": 0.908,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S0",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 42,
+        "END_CONCLUDED": 51,
+        "END_FAILURE": 23,
+        "aborted_by_reload": 4
+      },
+      "success": 0.35,
+      "unsatisfying": 0.033,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.042,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S0",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 45,
+        "END_CONCLUDED": 64,
+        "aborted_by_reload": 4,
+        "END_FAILURE": 7
+      },
+      "success": 0.375,
+      "unsatisfying": 0.033,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.267,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 107,
+        "END_CONCLUDED": 11,
+        "END_FAILURE": 2
+      },
+      "success": 0.892,
+      "unsatisfying": 0.0,
+      "churn": 0.025,
+      "incoherent_shown": 0.008,
+      "coherence_breaks": 0.017,
+      "model_calls": 0.142,
+      "limbo_steps": 0.05,
+      "stall_steps": 0.058,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_FAILURE": 17,
+        "END_SUCCESS": 46,
+        "END_CONCLUDED": 54,
+        "aborted_by_reload": 3
+      },
+      "success": 0.383,
+      "unsatisfying": 0.025,
+      "churn": 0.117,
+      "incoherent_shown": 0.017,
+      "coherence_breaks": 0.042,
+      "model_calls": 0.542,
+      "limbo_steps": 0.292,
+      "stall_steps": 0.133,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S1",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_CONCLUDED": 73,
+        "END_SUCCESS": 36,
+        "aborted_by_reload": 4,
+        "END_FAILURE": 7
+      },
+      "success": 0.3,
+      "unsatisfying": 0.033,
+      "churn": 0.025,
+      "incoherent_shown": 0.008,
+      "coherence_breaks": 0.017,
+      "model_calls": 0.317,
+      "limbo_steps": 0.175,
+      "stall_steps": 0.225,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 107,
+        "END_CONCLUDED": 11,
+        "END_FAILURE": 2
+      },
+      "success": 0.892,
+      "unsatisfying": 0.0,
+      "churn": 0.017,
+      "incoherent_shown": 0.008,
+      "coherence_breaks": 0.008,
+      "model_calls": 0.15,
+      "limbo_steps": 0.05,
+      "stall_steps": 0.058,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_FAILURE": 17,
+        "END_SUCCESS": 47,
+        "END_CONCLUDED": 53,
+        "aborted_by_reload": 3
+      },
+      "success": 0.392,
+      "unsatisfying": 0.025,
+      "churn": 0.025,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.008,
+      "model_calls": 0.575,
+      "limbo_steps": 0.325,
+      "stall_steps": 0.05,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S2",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_CONCLUDED": 74,
+        "END_SUCCESS": 36,
+        "aborted_by_reload": 4,
+        "END_FAILURE": 6
+      },
+      "success": 0.3,
+      "unsatisfying": 0.033,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.35,
+      "limbo_steps": 0.175,
+      "stall_steps": 0.233,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S3",
+      "player": "planner",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 115,
+        "END_FAILURE": 5
+      },
+      "success": 0.958,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S3",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 76,
+        "END_FAILURE": 37,
+        "END_CONCLUDED": 7
+      },
+      "success": 0.633,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.05,
+      "resumed": 0.025
+    },
+    {
+      "experience": "outing",
+      "strategy": "S3",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_CONCLUDED": 56,
+        "END_SUCCESS": 47,
+        "END_FAILURE": 17
+      },
+      "success": 0.392,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.217,
+      "resumed": 0.042
+    },
+    {
+      "experience": "outing",
+      "strategy": "S4",
+      "player": "planner",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 115,
+        "END_FAILURE": 5
+      },
+      "success": 0.958,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "outing",
+      "strategy": "S4",
+      "player": "chaotic",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 81,
+        "END_FAILURE": 38,
+        "END_CONCLUDED": 1
+      },
+      "success": 0.675,
+      "unsatisfying": 0.0,
+      "churn": 0.05,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.05,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.05,
+      "resumed": 0.025
+    },
+    {
+      "experience": "outing",
+      "strategy": "S4",
+      "player": "wanderer",
+      "params": {
+        "q_world": 0.08,
+        "p_reload": 0.3
+      },
+      "outcomes": {
+        "END_SUCCESS": 73,
+        "END_CONCLUDED": 30,
+        "END_FAILURE": 17
+      },
+      "success": 0.608,
+      "unsatisfying": 0.0,
+      "churn": 0.217,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.217,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.217,
+      "resumed": 0.042
+    }
+  ],
+  "sweep": [
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 119,
+        "dead_experience": 1
+      },
+      "success": 0.992,
+      "unsatisfying": 0.008,
+      "churn": 0.342,
+      "incoherent_shown": 0.008,
+      "coherence_breaks": 0.017,
+      "model_calls": 1.017,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.05,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 88,
+        "END_FAILURE": 27,
+        "END_CONCLUDED": 5
+      },
+      "success": 0.733,
+      "unsatisfying": 0.0,
+      "churn": 0.633,
+      "incoherent_shown": 0.017,
+      "coherence_breaks": 0.1,
+      "model_calls": 1.667,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.025,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.058,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 1.025,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 91,
+        "END_FAILURE": 25,
+        "END_CONCLUDED": 4
+      },
+      "success": 0.758,
+      "unsatisfying": 0.0,
+      "churn": 0.15,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.025,
+      "model_calls": 1.683,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 118,
+        "END_CONCLUDED": 1,
+        "dead_experience": 1
+      },
+      "success": 0.983,
+      "unsatisfying": 0.008,
+      "churn": 0.317,
+      "incoherent_shown": 0.017,
+      "coherence_breaks": 0.033,
+      "model_calls": 1.025,
+      "limbo_steps": 0.525,
+      "stall_steps": 0.058,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 89,
+        "END_FAILURE": 26,
+        "END_CONCLUDED": 5
+      },
+      "success": 0.742,
+      "unsatisfying": 0.0,
+      "churn": 0.533,
+      "incoherent_shown": 0.008,
+      "coherence_breaks": 0.05,
+      "model_calls": 1.592,
+      "limbo_steps": 0.85,
+      "stall_steps": 0.017,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.017,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 1.05,
+      "limbo_steps": 0.533,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 91,
+        "END_FAILURE": 25,
+        "END_CONCLUDED": 4
+      },
+      "success": 0.758,
+      "unsatisfying": 0.0,
+      "churn": 0.133,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.008,
+      "model_calls": 1.617,
+      "limbo_steps": 0.842,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.192,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 1.0,
+      "limbo_steps": 1.525,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 91,
+        "END_FAILURE": 24,
+        "END_CONCLUDED": 4,
+        "dead_experience": 1
+      },
+      "success": 0.758,
+      "unsatisfying": 0.008,
+      "churn": 0.483,
+      "incoherent_shown": 0.025,
+      "coherence_breaks": 0.017,
+      "model_calls": 1.55,
+      "limbo_steps": 2.158,
+      "stall_steps": 0.125,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.042,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 1.0,
+      "limbo_steps": 1.525,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.05,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 94,
+        "END_FAILURE": 24,
+        "END_CONCLUDED": 2
+      },
+      "success": 0.783,
+      "unsatisfying": 0.0,
+      "churn": 0.1,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 1.575,
+      "limbo_steps": 2.192,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 114,
+        "END_FAILURE": 2,
+        "END_CONCLUDED": 2,
+        "dead_experience": 2
+      },
+      "success": 0.95,
+      "unsatisfying": 0.017,
+      "churn": 0.417,
+      "incoherent_shown": 0.05,
+      "coherence_breaks": 0.058,
+      "model_calls": 1.067,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.333,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 79,
+        "END_FAILURE": 31,
+        "END_CONCLUDED": 8,
+        "dead_experience": 2
+      },
+      "success": 0.658,
+      "unsatisfying": 0.017,
+      "churn": 0.783,
+      "incoherent_shown": 0.125,
+      "coherence_breaks": 0.2,
+      "model_calls": 1.733,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.35,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 119,
+        "END_CONCLUDED": 1
+      },
+      "success": 0.992,
+      "unsatisfying": 0.0,
+      "churn": 0.075,
+      "incoherent_shown": 0.008,
+      "coherence_breaks": 0.008,
+      "model_calls": 1.108,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.017,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 93,
+        "END_FAILURE": 24,
+        "END_CONCLUDED": 3
+      },
+      "success": 0.775,
+      "unsatisfying": 0.0,
+      "churn": 0.192,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.058,
+      "model_calls": 1.908,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 113,
+        "END_FAILURE": 2,
+        "END_CONCLUDED": 3,
+        "dead_experience": 2
+      },
+      "success": 0.942,
+      "unsatisfying": 0.017,
+      "churn": 0.4,
+      "incoherent_shown": 0.067,
+      "coherence_breaks": 0.075,
+      "model_calls": 1.067,
+      "limbo_steps": 0.558,
+      "stall_steps": 0.358,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 80,
+        "END_FAILURE": 30,
+        "END_CONCLUDED": 8,
+        "dead_experience": 2
+      },
+      "success": 0.667,
+      "unsatisfying": 0.017,
+      "churn": 0.708,
+      "incoherent_shown": 0.117,
+      "coherence_breaks": 0.167,
+      "model_calls": 1.667,
+      "limbo_steps": 0.925,
+      "stall_steps": 0.333,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.025,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.008,
+      "model_calls": 1.125,
+      "limbo_steps": 0.575,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 91,
+        "END_FAILURE": 26,
+        "END_CONCLUDED": 3
+      },
+      "success": 0.758,
+      "unsatisfying": 0.0,
+      "churn": 0.125,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.025,
+      "model_calls": 1.783,
+      "limbo_steps": 0.95,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 119,
+        "END_CONCLUDED": 1
+      },
+      "success": 0.992,
+      "unsatisfying": 0.0,
+      "churn": 0.2,
+      "incoherent_shown": 0.008,
+      "coherence_breaks": 0.008,
+      "model_calls": 1.008,
+      "limbo_steps": 1.533,
+      "stall_steps": 0.017,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 79,
+        "END_FAILURE": 29,
+        "END_CONCLUDED": 8,
+        "dead_experience": 4
+      },
+      "success": 0.658,
+      "unsatisfying": 0.033,
+      "churn": 0.55,
+      "incoherent_shown": 0.125,
+      "coherence_breaks": 0.067,
+      "model_calls": 1.575,
+      "limbo_steps": 2.2,
+      "stall_steps": 0.542,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.042,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 1.017,
+      "limbo_steps": 1.525,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.15,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 94,
+        "END_FAILURE": 24,
+        "END_CONCLUDED": 2
+      },
+      "success": 0.783,
+      "unsatisfying": 0.0,
+      "churn": 0.108,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.017,
+      "model_calls": 1.65,
+      "limbo_steps": 2.267,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 106,
+        "END_FAILURE": 6,
+        "END_CONCLUDED": 3,
+        "dead_experience": 5
+      },
+      "success": 0.883,
+      "unsatisfying": 0.042,
+      "churn": 0.558,
+      "incoherent_shown": 0.125,
+      "coherence_breaks": 0.158,
+      "model_calls": 1.158,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.808,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 62,
+        "END_FAILURE": 35,
+        "END_CONCLUDED": 15,
+        "dead_experience": 8
+      },
+      "success": 0.517,
+      "unsatisfying": 0.067,
+      "churn": 0.942,
+      "incoherent_shown": 0.325,
+      "coherence_breaks": 0.275,
+      "model_calls": 1.817,
+      "limbo_steps": 0.0,
+      "stall_steps": 1.133,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 119,
+        "END_CONCLUDED": 1
+      },
+      "success": 0.992,
+      "unsatisfying": 0.0,
+      "churn": 0.15,
+      "incoherent_shown": 0.017,
+      "coherence_breaks": 0.042,
+      "model_calls": 1.317,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.042,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          0,
+          0
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 95,
+        "END_FAILURE": 22,
+        "END_CONCLUDED": 3
+      },
+      "success": 0.792,
+      "unsatisfying": 0.0,
+      "churn": 0.192,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.083,
+      "model_calls": 2.433,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 104,
+        "END_FAILURE": 3,
+        "END_CONCLUDED": 8,
+        "dead_experience": 5
+      },
+      "success": 0.867,
+      "unsatisfying": 0.042,
+      "churn": 0.575,
+      "incoherent_shown": 0.167,
+      "coherence_breaks": 0.183,
+      "model_calls": 1.192,
+      "limbo_steps": 0.608,
+      "stall_steps": 0.733,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 73,
+        "END_CONCLUDED": 12,
+        "END_FAILURE": 31,
+        "dead_experience": 4
+      },
+      "success": 0.608,
+      "unsatisfying": 0.033,
+      "churn": 0.8,
+      "incoherent_shown": 0.217,
+      "coherence_breaks": 0.225,
+      "model_calls": 1.658,
+      "limbo_steps": 0.917,
+      "stall_steps": 0.667,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.058,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.042,
+      "model_calls": 1.317,
+      "limbo_steps": 0.625,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          0,
+          1
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 92,
+        "END_FAILURE": 24,
+        "END_CONCLUDED": 4
+      },
+      "success": 0.767,
+      "unsatisfying": 0.0,
+      "churn": 0.175,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.075,
+      "model_calls": 1.992,
+      "limbo_steps": 0.992,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 111,
+        "END_CONCLUDED": 7,
+        "dead_experience": 2
+      },
+      "success": 0.925,
+      "unsatisfying": 0.017,
+      "churn": 0.3,
+      "incoherent_shown": 0.092,
+      "coherence_breaks": 0.058,
+      "model_calls": 1.092,
+      "limbo_steps": 1.65,
+      "stall_steps": 0.408,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S1",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 75,
+        "END_FAILURE": 27,
+        "END_CONCLUDED": 11,
+        "dead_experience": 7
+      },
+      "success": 0.625,
+      "unsatisfying": 0.058,
+      "churn": 0.625,
+      "incoherent_shown": 0.2,
+      "coherence_breaks": 0.15,
+      "model_calls": 1.625,
+      "limbo_steps": 2.267,
+      "stall_steps": 0.908,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "planner",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.033,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.017,
+      "model_calls": 1.117,
+      "limbo_steps": 1.525,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S2",
+      "player": "chaotic",
+      "params": {
+        "p_bad": 0.3,
+        "latency": [
+          1,
+          2
+        ],
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 97,
+        "END_FAILURE": 21,
+        "END_CONCLUDED": 2
+      },
+      "success": 0.808,
+      "unsatisfying": 0.0,
+      "churn": 0.1,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.033,
+      "model_calls": 1.85,
+      "limbo_steps": 2.483,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "planner",
+      "params": {
+        "coverage": 1.0,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "chaotic",
+      "params": {
+        "coverage": 1.0,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 93,
+        "END_FAILURE": 27
+      },
+      "success": 0.775,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "planner",
+      "params": {
+        "coverage": 1.0,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "chaotic",
+      "params": {
+        "coverage": 1.0,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 93,
+        "END_FAILURE": 27
+      },
+      "success": 0.775,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "planner",
+      "params": {
+        "coverage": 0.5,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "chaotic",
+      "params": {
+        "coverage": 0.5,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_FAILURE": 26,
+        "END_SUCCESS": 94
+      },
+      "success": 0.783,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "planner",
+      "params": {
+        "coverage": 0.5,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "chaotic",
+      "params": {
+        "coverage": 0.5,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_FAILURE": 26,
+        "END_SUCCESS": 94
+      },
+      "success": 0.783,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "planner",
+      "params": {
+        "coverage": 0.0,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S3",
+      "player": "chaotic",
+      "params": {
+        "coverage": 0.0,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_FAILURE": 26,
+        "END_SUCCESS": 94
+      },
+      "success": 0.783,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "planner",
+      "params": {
+        "coverage": 0.0,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_SUCCESS": 120
+      },
+      "success": 1.0,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    },
+    {
+      "experience": "courier_job",
+      "strategy": "S4",
+      "player": "chaotic",
+      "params": {
+        "coverage": 0.0,
+        "q_world": 0.08,
+        "p_reload": 0.0
+      },
+      "outcomes": {
+        "END_FAILURE": 26,
+        "END_SUCCESS": 94
+      },
+      "success": 0.783,
+      "unsatisfying": 0.0,
+      "churn": 0.0,
+      "incoherent_shown": 0.0,
+      "coherence_breaks": 0.0,
+      "model_calls": 0.0,
+      "limbo_steps": 0.0,
+      "stall_steps": 0.0,
+      "resumed": 0.0
+    }
+  ],
+  "seconds": 900.0,
+  "caveat": "Abstract world and synthetic players. Model latency/bad-plan/critic rates are assumptions; see sweep."
+}

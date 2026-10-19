@@ -1,0 +1,174 @@
+{
+  "experiment": "X-1 capability census (offline)",
+  "n_generated": 300,
+  "catalog_tier_counts": {
+    "fluents": {
+      "A": 8,
+      "B": 13,
+      "C": 10
+    },
+    "actorPolicies": {
+      "A": 2,
+      "B": 6,
+      "C": 14,
+      "D": 5,
+      "X": 1
+    },
+    "staging": {
+      "A": 1,
+      "C": 14,
+      "D": 1,
+      "X": 1
+    },
+    "presentation": {
+      "A": 1,
+      "B": 3,
+      "C": 1
+    }
+  },
+  "valid_by_mode": {
+    "accepted": {
+      "valid": 0,
+      "of": 300,
+      "unique_mechanical_signatures": 0,
+      "error_codes": {
+        "H3_EVIDENCE_TIER": 4438,
+        "H11_PLACE": 7
+      }
+    },
+    "play": {
+      "valid": 7,
+      "of": 300,
+      "unique_mechanical_signatures": 2,
+      "error_codes": {
+        "H3_EVIDENCE_TIER": 2726,
+        "H11_PLACE": 7
+      }
+    },
+    "lab": {
+      "valid": 208,
+      "of": 300,
+      "unique_mechanical_signatures": 171,
+      "error_codes": {
+        "H7_UNSOLVABLE": 83,
+        "H11_PLACE": 7,
+        "H6_TRIVIAL": 2
+      }
+    },
+    "bridge": {
+      "valid": 208,
+      "of": 300,
+      "unique_mechanical_signatures": 171,
+      "error_codes": {
+        "H7_UNSOLVABLE": 83,
+        "H11_PLACE": 7,
+        "H6_TRIVIAL": 2
+      }
+    }
+  },
+  "top_play_mode_blockers": [
+    [
+      "spawn ped",
+      595
+    ],
+    [
+      "arm",
+      486
+    ],
+    [
+      "spawn vehicle",
+      341
+    ],
+    [
+      "fluent holding",
+      165
+    ],
+    [
+      "capability gm_guard_area",
+      154
+    ],
+    [
+      "fluent interacted",
+      154
+    ],
+    [
+      "spawn prop",
+      154
+    ],
+    [
+      "capability gm_vehicle_chase",
+      149
+    ],
+    [
+      "fluent vehicle_driveable",
+      146
+    ],
+    [
+      "spawn item",
+      112
+    ],
+    [
+      "capability gm_drive_to",
+      100
+    ],
+    [
+      "capability gm_combat",
+      95
+    ],
+    [
+      "capability gm_vehicle_flee",
+      26
+    ],
+    [
+      "capability gm_flee",
+      24
+    ],
+    [
+      "capability gm_follow_player",
+      22
+    ]
+  ],
+  "no_scene_actor_generator": {
+    "generated": 100,
+    "valid_in_play_mode": 91,
+    "unique_mechanical_signatures": 14,
+    "example": [
+      {
+        "id": "os1",
+        "kind": "success",
+        "formula": {
+          "held": {
+            "f": "near",
+            "args": [
+              "player",
+              "p1"
+            ]
+          },
+          "n": 4
+        }
+      },
+      {
+        "id": "fs1",
+        "kind": "failure",
+        "formula": {
+          "or": [
+            {
+              "f": "player_wasted",
+              "args": []
+            },
+            {
+              "f": "player_busted",
+              "args": []
+            }
+          ]
+        }
+      }
+    ],
+    "errors": {
+      "H6_TRIVIAL": 5,
+      "H7_UNSOLVABLE": 4
+    }
+  },
+  "seconds": 186.7,
+  "caveat": "Tiers come from a desk audit (source/docs). 'lab' validity means the abstract model finds a solution; it is not GTA feasibility."
+}

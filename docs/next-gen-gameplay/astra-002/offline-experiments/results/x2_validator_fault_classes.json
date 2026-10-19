@@ -1,0 +1,188 @@
+{
+  "experiment": "X-2 validator fault-class coverage (offline)",
+  "positives": 40,
+  "false_rejections_of_positives": [],
+  "operators": {
+    "f01_invented_capability": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H2_CAPABILITY": 40
+      }
+    },
+    "f02_narrative_claim": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H5_OBSERVABILITY": 40,
+        "H8_ORPHAN": 12
+      }
+    },
+    "f03_unobservable_fluent": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H5_OBSERVABILITY": 40,
+        "H8_ORPHAN": 12
+      }
+    },
+    "f04_claim_only_fluent": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H1_SCHEMA": 40,
+        "H5_OBSERVABILITY": 40,
+        "H8_ORPHAN": 12
+      }
+    },
+    "f05_control_player": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H4_AUTHORITY": 40
+      }
+    },
+    "f06_companion_without_consent": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H4_AUTHORITY": 40
+      }
+    },
+    "f07_scene_cap_on_companion": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H4_AUTHORITY": 40
+      }
+    },
+    "f08_boat_on_land": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H11_PLACE": 40
+      }
+    },
+    "f09_deliver_vehicle_indoors": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H11_PLACE": 40,
+        "H8_ORPHAN": 12
+      }
+    },
+    "f10_dangling_reference": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H1_SCHEMA": 40,
+        "H8_ORPHAN": 12
+      }
+    },
+    "f11_orphan_spawn": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H8_ORPHAN": 40
+      }
+    },
+    "f12_trivial_success": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 28,
+      "other_codes": {
+        "H6_TRIVIAL": 28,
+        "H8_ORPHAN": 12,
+        "H7_UNSOLVABLE": 1
+      }
+    },
+    "f13_unsolvable": {
+      "n": 40,
+      "rejected": 39,
+      "expected_code_hit": 27,
+      "other_codes": {
+        "H7_UNSOLVABLE": 27,
+        "H8_ORPHAN": 12
+      }
+    },
+    "f14_no_stakes": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H13_NO_STAKES": 40
+      }
+    },
+    "f15_no_timeout": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H10_TERMINATION": 40
+      }
+    },
+    "f16_budget_overflow": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H9_BUDGET": 40
+      }
+    },
+    "f17_forbidden_response": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H12_FORBIDDEN": 40
+      }
+    },
+    "f18_money_without_opt_in": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H12_FORBIDDEN": 40
+      }
+    },
+    "f19_blocked_capability": {
+      "n": 40,
+      "rejected": 40,
+      "expected_code_hit": 40,
+      "other_codes": {
+        "H3_EVIDENCE_TIER": 40,
+        "H4_AUTHORITY": 7
+      }
+    }
+  },
+  "total_negatives": 760,
+  "total_rejected": 759,
+  "total_expected_code_hits": 735,
+  "accepted_negatives": [
+    {
+      "id": "fx-outing:f13_unsolvable",
+      "expected": "H7_UNSOLVABLE",
+      "warnings": [
+        "S1_BRITTLE",
+        "S7_ONLY_VIA_ACCOMMODATION"
+      ]
+    }
+  ],
+  "play_mode_tier_rejections_of_lab_valid_specs": [
+    38,
+    40
+  ],
+  "seconds": 45.4,
+  "caveat": "Fault operators are researcher-authored; they measure critic coverage, not LLM error rates."
+}
