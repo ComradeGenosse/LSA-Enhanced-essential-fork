@@ -28,6 +28,7 @@ namespace LSA.WPS.Lab
                 if(!cfg.enabled){Game.LogTrivial("[WPS-LAB] Lab disabled; no probes active");return;}
                 runner=new LabRunner(root,cfg);
                 stop=false;
+                if(cfg.autoRunPreShot)runner.StartAuto();
                 Game.LogTrivial("[WPS-LAB] E0 ready. Console: WPSE0Start E0.0, WPSE0Status, WPSE0Cancel, WPSE0Reset, WPSE0ArmBudget");
                 while(!stop) {
                     while(commands.TryDequeue(out var command)) {try{command();}catch(Exception ex){Game.LogTrivial("[WPS-LAB] command_error "+ex.GetType().Name);}}
@@ -41,6 +42,8 @@ namespace LSA.WPS.Lab
         static void Queue(Action action){if(runner==null){Game.Console.Print("E0 lab not enabled or loaded");return;}commands.Enqueue(action);}
         [ConsoleCommand(Name="WPSE0Start",Description="Run exactly one E0 probe; world-changing probes require configured consent.")]
         public static void Start(string id)=>Queue(()=>runner.Start(id));
+        [ConsoleCommand(Name="WPSE0Auto",Description="Run safe E0.0-E0.3 unattended; never starts E0.4 or intrusive probes.")]
+        public static void Auto()=>Queue(()=>runner.StartAuto());
         [ConsoleCommand(Name="WPSE0Status",Description="Show active experiment and recorded verdicts.")]
         public static void Status()=>Queue(()=>runner.Status());
         [ConsoleCommand(Name="WPSE0Cancel",Description="Emergency stop; rollback owned entities, IPL and time scale.")]
