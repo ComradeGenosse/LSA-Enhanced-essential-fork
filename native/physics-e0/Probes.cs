@@ -34,7 +34,7 @@ namespace LSA.WPS.Lab
         int[] milestones={100,250,500,1000,2000};
         readonly List<object> evidence=new List<object>();
         // Deliberately limited to the four read-only pre-shot probes; never a gameplay automation loop.
-        bool autoActive;
+        bool autoActive, autoHadBlockers;
         int autoIndex;
         string autoId, autoManifest;
         long autoBegan;
@@ -135,7 +135,7 @@ namespace LSA.WPS.Lab
             if(autoActive || active!=null){Console("Cannot start unattended suite while a probe/suite is active");return;}
             autoId=Guid.NewGuid().ToString("N");
             autoManifest=Path.Combine(logDir,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-pre-shot-"+autoId+".suite.json");
-            autoHistory.Clear();autoIndex=0;autoActive=true;autoBegan=RealMs();
+            autoHistory.Clear();autoIndex=0;autoActive=true;autoHadBlockers=false;autoBegan=RealMs();
             WriteAuto("waiting_for_safe_story_mode");
             Console("Pre-shot suite queued: E0.0-E0.3 ONLY; no shooting or world changes. It waits for safe story-mode free roam. WPSE0Cancel stops it.");
         }
@@ -159,7 +159,7 @@ namespace LSA.WPS.Lab
         }
         bool WorldReady()
         {
-            try{int ped=Ped();return SafeWorld() && ped>0 && B("DOES_ENTITY_EXIST",ped);}
+            try{if(!SafeWorld())return false;int ped=Ped();return ped>0 && B("DOES_ENTITY_EXIST",ped);}
             catch{return false;}
         }
         void TickAuto()
@@ -167,7 +167,7 @@ namespace LSA.WPS.Lab
             if(!autoActive)return;
             if(RealMs()-autoBegan>900000){StopAuto("timed_out_waiting_for_safe_story_mode");return;}
             if(!WorldReady())return;
-            if(autoIndex>=PreShotPlan.Ids.Length){StopAuto("completed");return;}
+            if(autoIndex>=PreShotPlan.Ids.Length){StopAuto(autoHadBlockers?"completed_with_blockers":"completed");return;}
             string next=PreShotPlan.Ids[autoIndex];
             if(!PreShotPlan.Allows(next)){StopAuto("unsafe_probe_refused");return;}
             StartInternal(next);
@@ -282,12 +282,13 @@ namespace LSA.WPS.Lab
             bool suiteStep=autoActive && autoIndex<PreShotPlan.Ids.Length && active==PreShotPlan.Ids[autoIndex];
             if(suiteStep){
                 autoHistory.Add(new {probe=active,status,reason,log=Path.GetFileName(logFile),summary=Path.GetFileName(summaryFile)});
+                if(status!="GTA_VERIFIED")autoHadBlockers=true;
                 autoIndex++;
-                WriteAuto(autoIndex>=PreShotPlan.Ids.Length?"completed":"running");
+                WriteAuto(autoIndex>=PreShotPlan.Ids.Length?(autoHadBlockers?"completed_with_blockers":"completed"):"running");
             }
             active=null;run=null;logFile=summaryFile=null;
             evidence.Clear();frames.Clear();cancelling=false;
-            if(suiteStep && autoIndex>=PreShotPlan.Ids.Length)StopAuto("completed");
+            if(suiteStep && autoIndex>=PreShotPlan.Ids.Length)StopAuto(autoHadBlockers?"completed_with_blockers":"completed");
         }
         bool Cleanup()
         {
