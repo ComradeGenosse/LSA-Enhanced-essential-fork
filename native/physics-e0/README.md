@@ -51,6 +51,16 @@ The installer verifies the DLL against `BUILD-RECEIPT.json`, checks the 30+10 pr
 
 The asset-free converter script `native/physics-e0/asset-research/convert_codewalker_candidates.py` is versioned publicly. Run it on a private copy of `candidates.json` and `offline-ray-verification.json`, and do not commit its output into this public repository.
 
+## E0.2/E0.3 second-pass collision gate and anomaly confirmations
+
+The October 19 live measurement showed **28/30 material matches and 8/10 wall thicknesses within 1 cm**, but the destination collision gate accepted a recently teleported player via the "already nearby" path without confirming collision. The corrected lab now requires **three consecutive loaded-collision observations AND at least 800 ms settling** before either nearby or teleported E0.2/E0.3 runs. It writes a private suite `transport` summary with destination verification, elapsed time, collision polls, return-collision verification and actual return position/heading error. These are diagnostic observations, not proof that every streamed YBN/IPL/mod collision matches CodeWalker.
+
+The next full 30+10 rerun also emits additional `material_confirmation` or `wall_confirmation` events **500 ms after** any ray miss, indexed-material mismatch, opposite-entity hit, or >1 cm wall discrepancy. These confirmations are separate from the original 30/10 samples and **must never silently overwrite baseline results**. Compare recurring anomalies with the active IPL/DLC/Onigiri variants before attributing a physics limitation. Inside-solid rays are still reported separately, not assumed reliable. All shooting/world-changing permissions remain disabled.
+
+`install-pre-shot.ps1` stores previous DLL/config/sample copies under the game-root `LSA.WPS.Lab.Backups/` directory, explicitly **outside** `Plugins`, and migrates the legacy `LSA.WPS.Lab.dll.backup-YYYYMMDD-HHMMSS` backups out of plugin discovery. It never deletes previous lab versions.
+
+This correction is **CI-checked but not GTA-verified until the next run**. No assets or private sample coordinates are committed to public GitHub.
+
 ## Optional safe automatic positioning for E0.2/E0.3
 
 On a machine with the PRIVATE 30-material/10-wall `Plugins/LSA.WPS.Lab.samples.json`, set **all three** of these options in `Plugins/LSA.WPS.Lab.json`: `"enabled": true`, `"autoRunPreShot": true`, and `"autoTeleportForSamples": true`. The last option defaults to **false** independently of automatic test execution and is never required for E0.0/E0.1.
