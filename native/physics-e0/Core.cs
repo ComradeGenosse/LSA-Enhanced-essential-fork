@@ -53,6 +53,8 @@ namespace LSA.WPS.Lab
         public bool enabled {get;set;}
         // Only E0.0-E0.3; waits for valid story-mode free roam, never fires/spawns/changes the world.
         public bool autoRunPreShot {get;set;}
+        // Independent explicit opt-in: transport the player to validated CodeWalker sample area.
+        public bool autoTeleportForSamples {get;set;}
         public float x {get;set;}
         public float y {get;set;}
         public float z {get;set;}
@@ -123,6 +125,33 @@ namespace LSA.WPS.Lab
                 sample.Validate();
             }
         }
+    }
+    // Derived from locally loaded samples; no game-derived coordinates are embedded in source.
+    public sealed class AutoSampleSite
+    {
+        public double x {get;private set;}
+        public double y {get;private set;}
+        public double z {get;private set;}
+        public double spanXY {get;private set;}
+        public static AutoSampleSite Build(IEnumerable<Sample> surfaces,IEnumerable<Sample> walls)
+        {
+            var all=(surfaces??Enumerable.Empty<Sample>()).Concat(walls??Enumerable.Empty<Sample>()).ToArray();
+            if(all.Length<30)throw new ArgumentException("insufficient_sample_site_data");
+            var pts=all.SelectMany(a=>new[]{new[]{(double)a.ax,a.ay,a.az},new[]{(double)a.bx,a.by,a.bz}}).ToArray();
+            if(pts.Any(v=>v.Any(t=>double.IsNaN(t)||double.IsInfinity(t))))throw new ArgumentException("invalid_sample_site_coordinates");
+            double minX=pts.Min(v=>v[0]),maxX=pts.Max(v=>v[0]),minY=pts.Min(v=>v[1]),maxY=pts.Max(v=>v[1]);
+            double minZ=pts.Min(v=>v[2]),maxZ=pts.Max(v=>v[2]);
+            if(maxX-minX>220||maxY-minY>220||maxZ-minZ>90||
+                minZ<(-30)||maxZ>1100||minX<(-5000)||maxX>5000||minY<(-5000)||maxY>5000)
+                throw new ArgumentException("unsafe_or_scattered_sample_site");
+            return new AutoSampleSite{x=(minX+maxX)/2,y=(minY+maxY)/2,
+                z=(minZ+maxZ)/2,spanXY=Math.Max(maxX-minX,maxY-minY)};
+        }
+        public bool IsNearby(double px,double py) =>
+            Math.Sqrt((x-px)*(x-px)+(y-py)*(y-py))<=100;
+        public bool AcceptSafeCoord(double sx,double sy,double sz) =>
+            !double.IsNaN(sx)&&!double.IsNaN(sy)&&!double.IsNaN(sz)&&
+            Math.Sqrt((x-sx)*(x-sx)+(y-sy)*(y-sy))<=90 && Math.Abs(z-sz)<=32;
     }
     public sealed class Ledger
     {
