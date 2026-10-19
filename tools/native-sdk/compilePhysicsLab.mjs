@@ -31,6 +31,8 @@ copyFileSync(path.join(repo,'native/physics-e0/LSA.WPS.Lab.samples.example.json'
   path.join(dir,'LSA.WPS.Lab.samples.example.json'));
 copyFileSync(path.join(repo,'tools/physics-e0/pack-pre-shot.ps1'),
   path.join(dir,'pack-pre-shot.ps1'));
+copyFileSync(path.join(repo,'tools/physics-e0/install-pre-shot.ps1'),
+  path.join(dir,'install-pre-shot.ps1'));
 run(['run','--project','tools/physics-e0/rph-import-audit/RphSignatureAudit.csproj',
   '--configuration','Release','--',rph,built,path.join(dir,'RPH-IMPORT-AUDIT.json')]);
 writeFileSync(path.join(dir,'BUILD-RECEIPT.json'),JSON.stringify({
