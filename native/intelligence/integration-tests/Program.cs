@@ -47,6 +47,36 @@ class Program
         append.Invoke(null,new object[]{listener,1752,1760});
         Check(spans.Count==4 && (int)spans[3].GetType().GetField("End").GetValue(spans[3])==1760,
               "C01 adjacent positive windows merge without inventing across rejected intervals");
+        var eligible=typeof(IntelligenceIntegration).GetMethod("PromotedSpeechObserver",flags);
+        Check(eligible!=null,"promoted-only policy compiles in production");
+        var ordinary=new EntityAnchor {Kind="ped",Observer=true};
+        var promoted=new EntityAnchor {Kind="ped",Observer=true,
+            OwnerLifetime=Guid.NewGuid().ToString("D")};
+        Check(!(bool)eligible.Invoke(null,new object[]{ordinary}),
+              "ambient pedestrian never enters speech sampling");
+        Check((bool)eligible.Invoke(null,new object[]{promoted}),
+              "promoted active observer may enter speech sampling");
+        promoted.Observer=false;
+        Check(!(bool)eligible.Invoke(null,new object[]{promoted}),
+              "demoted observer stops entering new speech samples");
+        var grade=typeof(IntelligenceIntegration).GetMethod("SpeechAcousticGrade",flags);
+        Check(grade!=null,"production acoustic policy compiles");
+        Func<double,bool,string,string,bool,bool,string> classify=(meters,interior,source,listener,sameCar,los)=>
+            (string)grade.Invoke(null,new object[]{meters,interior,source,listener,sameCar,los});
+        Check(classify(3,true,"on_foot","on_foot",false,true)=="clear",
+              "nearby unoccluded speech stays clear");
+        Check(classify(2,true,"enclosed","on_foot",false,true)=="muffled",
+              "closed-car separation never authorizes clear speech");
+        Check(classify(2,true,"enclosed","enclosed",true,true)=="clear",
+              "two promoted occupants may hear clearly in the same car");
+        Check(classify(4,true,"on_foot","on_foot",false,false)=="muffled",
+              "occlusion never becomes a clear transcript interval");
+        Check(classify(15,true,"on_foot","on_foot",false,true)=="inaudible",
+              "moving out of range cuts clear hearing");
+        Check(classify(2,true,"unknown","on_foot",false,true)=="inaudible",
+              "unknown cabin state fails closed");
+        Check(classify(2,false,"on_foot","on_foot",false,true)=="muffled",
+              "interior separation does not silently grant words");
     }
     static void Check(bool condition,string name) {if(!condition) throw new Exception(name);assertions++;}
     static object Get(object target,string name)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).GetValue(target);
