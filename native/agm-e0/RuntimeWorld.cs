@@ -123,7 +123,7 @@ namespace LSA.AGM.E0
         {
             if(entity==null||!entity.Exists()||entity.MemoryAddress==IntPtr.Zero)
                 throw new InvalidOperationException("readback_failed");
-            var e=new Owned{Handle=entity.Handle,Address=entity.MemoryAddress.ToInt64(),Model=(uint)entity.Model.Hash,
+            var e=new Owned{Handle=Convert.ToInt32(entity.Handle),Address=entity.MemoryAddress.ToInt64(),Model=(uint)entity.Model.Hash,
                 CreatedGameMs=unchecked((uint)Game.GameTime),Kind=kind,Role=role,
                 Token=Guid.NewGuid().ToString("N"),Persistent=true,
                 StartX=entity.Position.X,StartY=entity.Position.Y,StartZ=entity.Position.Z};
