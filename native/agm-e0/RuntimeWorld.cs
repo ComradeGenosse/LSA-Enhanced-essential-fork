@@ -296,6 +296,20 @@ namespace LSA.AGM.E0
             var target=(hostile||task=="flee"||task=="follow"||task=="combat"||task=="chase")?MakePed("opponent"):null;
             Owned car=(task=="drive"||task=="chase")?MakeVehicle("actor_vehicle"):null;
             if(hostile && task!="combat") throw new InvalidOperationException("e0.4_select_combat");
+            if(hostile) {
+                var first=PedFor(actor);var second=PedFor(target);
+                if(first==null||second==null)throw new InvalidOperationException("hostile_actor_not_readable");
+                var a=new RelationshipGroup("LSA_AGM_E0_LAB_A");
+                var b=new RelationshipGroup("LSA_AGM_E0_LAB_B");
+                first.RelationshipGroup=a;second.RelationshipGroup=b;
+                a.SetRelationshipWith(b,Relationship.Hate);
+                b.SetRelationshipWith(a,Relationship.Hate);
+                int ab=NativeFunction.CallByName<int>("GET_RELATIONSHIP_BETWEEN_GROUPS",Hash("LSA_AGM_E0_LAB_A"),Hash("LSA_AGM_E0_LAB_B"));
+                int ba=NativeFunction.CallByName<int>("GET_RELATIONSHIP_BETWEEN_GROUPS",Hash("LSA_AGM_E0_LAB_B"),Hash("LSA_AGM_E0_LAB_A"));
+                Log("hostility",new {first=actor.Handle,second=target.Handle,relationshipAB=ab,relationshipBA=ba,
+                    ownedOnly=true, note="neutral-to-world assumed; inspect ambient collateral"});
+                if(ab!=5||ba!=5)throw new InvalidOperationException("relationship_readback_failed");
+            }
             if(condition!="essential_off"){
                 var applied=essential.Yield(actor.Handle,actor.Address,actor.Model,condition=="yield_on");
                 Log("yield_requested",new{actor=actor.Handle,condition,applied,essential=essential.Status});
@@ -420,6 +434,17 @@ namespace LSA.AGM.E0
                 avgSampleMs=samples==0?0:1000d*sampleTicks/Stopwatch.Frequency/samples,
                 maxSampleMs=1000d*sampleMaxTicks/Stopwatch.Frequency});
             CleanupOwned(reason);
+            if(lease.Probe=="e0.4"){
+                // Persistent group names are shared across the lab, not created
+                // per trial. Reset only our cross-group hostility on exit.
+                try{
+                    var a=new RelationshipGroup("LSA_AGM_E0_LAB_A");
+                    var b=new RelationshipGroup("LSA_AGM_E0_LAB_B");
+                    a.SetRelationshipWith(b,Relationship.Neutral);
+                    b.SetRelationshipWith(a,Relationship.Neutral);
+                    Log("hostility_reset",new{reset=true});
+                }catch(Exception e){Fail("relationship_reset_failed",e);}
+            }
             active=null;
             if(cleanupFailures==0) {try {if(File.Exists(journalPath))File.Delete(journalPath);}catch{}}
             else {journalRisk=true;halted=true;}
