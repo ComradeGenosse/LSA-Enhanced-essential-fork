@@ -153,7 +153,7 @@ namespace LSA.WPS.Lab
         }
         public void StartAuto()
         {
-            if(autoActive || active!=null){Console("Cannot start unattended suite while a probe/suite is active");return;}
+            if(autoActive || active!=null || returningHome){Console("Cannot start suite while a probe/suite or return transport is active");return;}
             autoId=Guid.NewGuid().ToString("N");
             autoManifest=Path.Combine(logDir,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-pre-shot-"+autoId+".suite.json");
             autoHistory.Clear();autoIndex=0;autoActive=true;autoHadBlockers=false;autoBegan=RealMs();
