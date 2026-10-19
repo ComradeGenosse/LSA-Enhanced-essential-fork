@@ -52,6 +52,15 @@ class Tests
         Check(!DestinationGate.Accept(true,true,1000,2),"requires_consecutive_loaded_frames");
         Check(!DestinationGate.Accept(false,true,1000,10),"loaded_collision_outside_site_not_accepted");
         Check(DestinationGate.Accept(true,true,800,3),"settled_collision_accepts");
+        var stability=new CollisionStability();
+        Check(!stability.Poll(true,false,700),"unloaded_resets_window");
+        Check(!stability.Poll(true,true,750),"first_loaded_poll_starts_window");
+        Check(!stability.Poll(true,true,780),"two_polls_insufficient");
+        Check(!stability.Poll(true,true,810),"three_polls_after_teleport_do_not_prove_800ms_loaded");
+        Check(stability.Poll(true,true,1550)&&stability.LoadedMs==800,"continuous_800ms_accepts");
+        Check(!stability.Poll(false,true,1600)&&stability.Checks==0,"leaving_region_resets_stability");
+        Check(!stability.Poll(true,true,1700),"new_window_after_failure");
+        Check(!stability.Poll(true,false,2400)&&stability.LoadedMs==0,"lost_collision_resets_duration");
         Check(DestinationGate.HeadingError(359.0,1.0)==2.0,"heading_wraparound");
         Check(DestinationGate.HeadingError(90.0,110.0)==20.0,"heading_delta");
         Check(PreShotPlan.Ids.SequenceEqual(new[]{"E0.0","E0.1","E0.2","E0.3"}),"safe_pre_shot_sequence");

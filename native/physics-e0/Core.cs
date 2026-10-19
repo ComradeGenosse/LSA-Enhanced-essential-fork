@@ -168,6 +168,21 @@ namespace LSA.WPS.Lab
             return Math.Min(d,360.0-d);
         }
     }
+    // The settle window starts at the first successful collision poll, not at
+    // relocation. A failed poll invalidates the entire continuous window.
+    public sealed class CollisionStability
+    {
+        long since=-1;
+        public int Checks {get;private set;}
+        public long LoadedMs {get;private set;}
+        public bool Poll(bool nearby,bool loaded,long now)
+        {
+            if(!nearby||!loaded){since=-1;Checks=0;LoadedMs=0;return false;}
+            if(since<0)since=now;
+            Checks++;LoadedMs=Math.Max(0,now-since);
+            return DestinationGate.Accept(nearby,loaded,LoadedMs,Checks);
+        }
+    }
     public sealed class Ledger
     {
         readonly Dictionary<string,string> states=Census.Ids.ToDictionary(id=>id,id=>"NOT_TESTED");

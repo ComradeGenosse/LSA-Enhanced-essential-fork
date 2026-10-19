@@ -53,6 +53,8 @@ namespace LSA.WPS.Lab
         static readonly int[] NavOffsetsY={0,0,0,16,-16,0,0,32,-32,48,-48,0,0};
         string positionStatus="not_requested";
         int destinationCollisionChecks, destinationStableFrames;
+        CollisionStability destinationStability=new CollisionStability();
+        long destinationLoadedMs;
         bool destinationCollisionVerified, returnCollisionVerified;
         long destinationSettleMs=-1, returnCollisionWaitMs=-1;
         double destinationDistanceM=-1, returnPositionErrorM=-1, returnHeadingErrorDeg=-1;
@@ -175,6 +177,7 @@ namespace LSA.WPS.Lab
             teleportedPlayer=false;teleportFrozen=false;previousPlayerHandle=0;autoSite=null;
             teleportWasPerformed=false;teleportRestoreSucceeded=false;returningHome=false;
             destinationCollisionChecks=destinationStableFrames=returnCollisionChecks=0;
+            destinationStability=new CollisionStability();destinationLoadedMs=0;
             navRegionRequested=navmeshLoaded=false;navQueries=navMisses=navRejected=0;
             lastNavigationStatus="not_started";
             destinationCollisionVerified=returnCollisionVerified=false;
@@ -193,7 +196,7 @@ namespace LSA.WPS.Lab
                 autoTeleportEnabled=cfg.autoTeleportForSamples,positionStatus,
                 transport=new {teleportWasPerformed,destinationCollisionVerified,
                     destinationCollisionChecks,destinationStableFrames,destinationSettleMs,
-                    destinationDistanceM,returnCollisionVerified,returnCollisionChecks,returnCollisionWaitMs,
+                    destinationDistanceM,destinationLoadedMs,returnCollisionVerified,returnCollisionChecks,returnCollisionWaitMs,
                     returnPositionErrorM,returnHeadingErrorDeg,
                     navRegionRequested,navmeshLoaded,navQueries,navMisses,navRejected,lastNavigationStatus},
                 restoredOriginalPosition=!teleportWasPerformed||teleportRestoreSucceeded,
@@ -320,9 +323,11 @@ namespace LSA.WPS.Lab
             bool loaded=B("HAS_COLLISION_LOADED_AROUND_ENTITY",ped);
             destinationCollisionChecks++;
             destinationDistanceM=Census.Distance(at.X,at.Y,0,autoSite.x,autoSite.y,0);
-            destinationStableFrames=nearby&&loaded?destinationStableFrames+1:0;
+            bool stable=destinationStability.Poll(nearby,loaded,RealMs());
+            destinationStableFrames=destinationStability.Checks;
+            destinationLoadedMs=destinationStability.LoadedMs;
             long settledFor=Math.Max(0,RealMs()-positionMoveSince);
-            if(!DestinationGate.Accept(nearby,loaded,settledFor,destinationStableFrames))
+            if(!stable)
             {
                 positionStatus=loaded?"waiting_for_collision_stability":"waiting_for_destination_collision";
                 return false;
