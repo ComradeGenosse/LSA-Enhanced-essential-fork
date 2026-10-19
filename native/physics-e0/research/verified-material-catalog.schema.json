@@ -1,0 +1,991 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LSA E0 private verified-material and geometry catalog proposal v1",
+  "description": "SCHEMA ONLY. This file contains no game asset geometry, coordinates, material tables or observations. A record is not CONFIRMED merely because JSON validates.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "visibility",
+    "catalogId",
+    "records"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "visibility": {
+      "const": "PRIVATE_LOCAL_ONLY"
+    },
+    "catalogId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generatedAtUtc": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "policyVersion": {
+      "type": "string"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    }
+  },
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "description": "Private GTA world-space XYZ, nominal metres, Z up; never publish actual values.",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "nullableVec3": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/vec3"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "hash": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assetRelativePath",
+        "decodedPayloadSha256",
+        "boundPath",
+        "polygonIndex",
+        "primitiveType",
+        "coordinateFrame",
+        "transformChain",
+        "liveWinnerStatus"
+      ],
+      "properties": {
+        "assetRelativePath": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Private YBN/embedded collision path; do not publish"
+        },
+        "decodedPayloadSha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "archiveRelativePath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "archiveSha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "boundPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "polygonIndex": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "faceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "primitiveType": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "Box",
+            "Triangle",
+            "Sphere",
+            "Capsule",
+            "Disc",
+            "Cylinder",
+            "Compound",
+            "Unknown",
+            null
+          ]
+        },
+        "materialSlot": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "surfaceFlags": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "coordinateFrame": {
+          "enum": [
+            "WORLD_STATIC_YBN",
+            "LOCAL_PLACED",
+            "LOCAL_MLO",
+            "EMBEDDED",
+            "UNRESOLVED"
+          ]
+        },
+        "transformChain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Provenance references to private transforms; no coordinates in public repository."
+        },
+        "ymapPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ymapEntityOrdinal": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "ytypPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "archetypeHash": {
+          "$ref": "#/$defs/hash"
+        },
+        "physicsDictionaryHash": {
+          "$ref": "#/$defs/hash"
+        },
+        "iplName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "interiorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "alternateSourceAssetIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "liveWinnerStatus": {
+          "enum": [
+            "INDEPENDENTLY_ESTABLISHED",
+            "CONFLICTING",
+            "UNKNOWN"
+          ]
+        }
+      }
+    },
+    "material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "materialName",
+        "materialIndex",
+        "expectedNativeHash",
+        "hashDerivation",
+        "materialTableProvenance"
+      ],
+      "properties": {
+        "category": {
+          "enum": [
+            "CONCRETE",
+            "BRICK",
+            "GLASS",
+            "BULLETPROOF_GLASS",
+            "WOOD",
+            "HOLLOW_WOOD",
+            "METAL",
+            "HOLLOW_METAL",
+            "CHAIN_LINK",
+            "DOOR",
+            "WINDOW",
+            "OTHER"
+          ]
+        },
+        "materialName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "materialIndex": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "expectedNativeHash": {
+          "$ref": "#/$defs/hash"
+        },
+        "hashDerivation": {
+          "enum": [
+            "JOAAT_NAME_UNDERSCORE_INDEX",
+            "SOURCE_NATIVE_TABLE",
+            "OTHER",
+            "UNVERIFIED"
+          ]
+        },
+        "materialTableProvenance": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "materialVariantId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ray": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rayId",
+        "purpose",
+        "start",
+        "end",
+        "traceFlags",
+        "optionFlags"
+      ],
+      "properties": {
+        "rayId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "enum": [
+            "PRIMARY",
+            "REVERSE_EXTERNAL",
+            "INSIDE_SOLID_EXPLORATORY",
+            "OFFSET_CONTROL",
+            "OFF_TARGET_NEGATIVE",
+            "FILTER_VARIANT",
+            "REPEAT"
+          ]
+        },
+        "start": {
+          "$ref": "#/$defs/vec3"
+        },
+        "end": {
+          "$ref": "#/$defs/vec3"
+        },
+        "traceFlags": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 511
+        },
+        "optionFlags": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "ignoreEntity": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expectedHitPoint": {
+          "$ref": "#/$defs/nullableVec3"
+        },
+        "expectedNormal": {
+          "$ref": "#/$defs/nullableVec3"
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observationId",
+        "runId",
+        "sessionId",
+        "rayId",
+        "timeUtc",
+        "shapeTestState",
+        "hit",
+        "hitPoint",
+        "normal",
+        "materialHash",
+        "entityHandle",
+        "traceFlags",
+        "optionFlags",
+        "destinationCollisionReady",
+        "notes"
+      ],
+      "properties": {
+        "observationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rayId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timeUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "shapeTestState": {
+          "type": "integer",
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "hit": {
+          "type": "boolean"
+        },
+        "hitPoint": {
+          "$ref": "#/$defs/nullableVec3"
+        },
+        "normal": {
+          "$ref": "#/$defs/nullableVec3"
+        },
+        "materialHash": {
+          "$ref": "#/$defs/hash"
+        },
+        "entityHandle": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "entityType": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "entityModelHash": {
+          "$ref": "#/$defs/hash"
+        },
+        "traceFlags": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 511
+        },
+        "optionFlags": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "destinationCollisionReady": {
+          "type": "boolean"
+        },
+        "continuousCollisionMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "hitPositionErrorM": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "normalErrorDeg": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 180
+        },
+        "thicknessM": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "thicknessErrorM": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "opposingEntityHandle": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "result": {
+          "enum": [
+            "MATCH",
+            "MISS",
+            "MISMATCH",
+            "UNRESOLVED",
+            "NATIVE_ERROR",
+            "BLOCKED"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gameEdition",
+        "gameBuild",
+        "rphBuild",
+        "pluginCommit",
+        "modFingerprintId",
+        "archiveWinningEvidenceId",
+        "iplStateEvidenceIds"
+      ],
+      "properties": {
+        "gameEdition": {
+          "const": "GTA_V_ENHANCED_SINGLE_PLAYER"
+        },
+        "gameBuild": {
+          "type": "string"
+        },
+        "rphBuild": {
+          "type": "string"
+        },
+        "pluginCommit": {
+          "type": "string"
+        },
+        "modFingerprintId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "modIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "archiveWinningEvidenceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "iplStateEvidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "navmeshReady": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "cameraMode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "interactiveRenderSession": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "uniqueOfflineHitCandidate",
+        "activeSourceIndependentlyVerified",
+        "evidenceIds",
+        "alternativeColliderIds",
+        "explanation"
+      ],
+      "properties": {
+        "method": {
+          "enum": [
+            "DYNAMIC_ENTITY_PLUS_SOURCE",
+            "STATIC_MULTISOURCE_TRIANGULATION",
+            "UNRESOLVED"
+          ]
+        },
+        "dynamicEntityModelHash": {
+          "$ref": "#/$defs/hash"
+        },
+        "uniqueOfflineHitCandidate": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "activeSourceIndependentlyVerified": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "alternativeColliderIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "explanation": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "screenshots",
+        "overlayRunIds",
+        "negativeControlObservationIds",
+        "privateFiles"
+      ],
+      "properties": {
+        "screenshots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "evidenceId",
+              "file",
+              "sha256",
+              "view",
+              "sampleId",
+              "runId",
+              "overlayReadable"
+            ],
+            "properties": {
+              "evidenceId": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "view": {
+                "enum": [
+                  "CONTEXT",
+                  "CLOSE_UP",
+                  "CODEWALKER_PRIVATE",
+                  "OTHER"
+                ]
+              },
+              "sampleId": {
+                "type": "string"
+              },
+              "runId": {
+                "type": "string"
+              },
+              "overlayReadable": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "overlayRunIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "negativeControlObservationIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "privateFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "captureMethod": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason",
+        "reviewedAtUtc",
+        "completedSessionCount",
+        "independentEvidenceIds"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "CONFIRMED",
+            "AMBIGUOUS",
+            "REJECTED"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewedAtUtc": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "completedSessionCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "independentEvidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "reviewer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "thicknessQualified": {
+          "type": "boolean"
+        }
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sampleId",
+        "revision",
+        "lineage",
+        "material",
+        "source",
+        "target",
+        "camera",
+        "rays",
+        "expected",
+        "environment",
+        "observations",
+        "identity",
+        "evidence",
+        "verification"
+      ],
+      "properties": {
+        "sampleId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lineage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "originSampleId",
+            "supersedes"
+          ],
+          "properties": {
+            "originSampleId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "supersedes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "material": {
+          "$ref": "#/$defs/material"
+        },
+        "source": {
+          "$ref": "#/$defs/provenance"
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "worldTarget",
+            "safeTeleportPosition",
+            "expectedSurfaceNormal"
+          ],
+          "properties": {
+            "worldTarget": {
+              "$ref": "#/$defs/vec3"
+            },
+            "safeTeleportPosition": {
+              "$ref": "#/$defs/nullableVec3"
+            },
+            "safeTeleportHeadingDeg": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "expectedSurfaceNormal": {
+              "$ref": "#/$defs/nullableVec3"
+            },
+            "semanticObjectDescription": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "camera": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "position",
+            "lookAt",
+            "fieldOfViewDeg"
+          ],
+          "properties": {
+            "position": {
+              "$ref": "#/$defs/nullableVec3"
+            },
+            "lookAt": {
+              "$ref": "#/$defs/nullableVec3"
+            },
+            "fieldOfViewDeg": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 170
+            }
+          }
+        },
+        "rays": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ray"
+          }
+        },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "hitPoint",
+            "normal",
+            "thicknessM",
+            "semantics"
+          ],
+          "properties": {
+            "hitPoint": {
+              "$ref": "#/$defs/nullableVec3"
+            },
+            "normal": {
+              "$ref": "#/$defs/nullableVec3"
+            },
+            "thicknessM": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "semantics": {
+              "enum": [
+                "SINGLE_SURFACE",
+                "SINGLE_SOLID",
+                "COMPOSITE_STRUCTURE",
+                "NEGATIVE_CONTROL",
+                "UNCLASSIFIED"
+              ]
+            }
+          }
+        },
+        "environment": {
+          "$ref": "#/$defs/environment"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/observation"
+          }
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        },
+        "verification": {
+          "$ref": "#/$defs/verification"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "verification": {
+                "properties": {
+                  "status": {
+                    "const": "CONFIRMED"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "verification": {
+                "properties": {
+                  "completedSessionCount": {
+                    "minimum": 2
+                  },
+                  "independentEvidenceIds": {
+                    "minItems": 2
+                  }
+                }
+              },
+              "observations": {
+                "minItems": 3
+              },
+              "identity": {
+                "properties": {
+                  "uniqueOfflineHitCandidate": {
+                    "const": true
+                  },
+                  "activeSourceIndependentlyVerified": {
+                    "const": true
+                  },
+                  "evidenceIds": {
+                    "minItems": 2
+                  }
+                }
+              },
+              "evidence": {
+                "properties": {
+                  "screenshots": {
+                    "minItems": 2
+                  },
+                  "negativeControlObservationIds": {
+                    "minItems": 1
+                  }
+                }
+              },
+              "source": {
+                "properties": {
+                  "liveWinnerStatus": {
+                    "const": "INDEPENDENTLY_ESTABLISHED"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
