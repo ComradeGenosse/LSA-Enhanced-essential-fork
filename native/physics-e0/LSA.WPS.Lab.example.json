@@ -18,5 +18,6 @@
   "permitBullet": false,
   "permitIpl": false,
   "permitHide": false,
-  "permitTimeScale": false
+  "permitTimeScale": false,
+  "explosionType": 0
 }

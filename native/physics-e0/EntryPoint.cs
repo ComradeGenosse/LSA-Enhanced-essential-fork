@@ -49,7 +49,7 @@ namespace LSA.WPS.Lab
         public static void Reset()=>Queue(()=>runner.Reset());
         [ConsoleCommand(Name="WPSE0ArmBudget",Description="One-use consent to E0.9 up to configured cap.")]
         public static void ArmBudget()=>Queue(()=>runner.ArmBudget());
-        [ConsoleCommand(Name="WPSE0Mode",Description="Set E0.4 manual fire mode: single, burst, auto, shotgun, npc.")]
+        [ConsoleCommand(Name="WPSE0Mode",Description="Set E0.4 firing mode or E0.9 budget type: single, burst, auto, shotgun, npc, props, fragments.")]
         public static void Mode(string value)=>Queue(()=>runner.Mode(value));
     }
 }

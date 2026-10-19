@@ -53,6 +53,7 @@ namespace LSA.WPS.Lab
         public float radius {get;set;}
         public int fragChild {get;set;}
         public int entityLimit {get;set;}
+        public int explosionType {get;set;}
         public bool permitExplosion {get;set;}
         public bool permitBullet {get;set;}
         public bool permitIpl {get;set;}
@@ -63,7 +64,7 @@ namespace LSA.WPS.Lab
         {
             if(!Finite(x)||!Finite(y)||!Finite(z)||!Finite(targetX)||!Finite(targetY)||!Finite(targetZ)||!Finite(radius))
                 throw new ArgumentException("nonfinite_location");
-            if(radius<0 || radius>10 || entityLimit<1 || entityLimit>2000 || fragChild<0 || fragChild>3)
+            if(radius<0 || radius>10 || entityLimit<1 || entityLimit>2000 || fragChild<0 || fragChild>3 || explosionType<0 || explosionType>14)
                 throw new ArgumentException("unsafe_probe_limits");
             foreach(var s in new[]{propModel,fragModel,pedModel,mapModel,ipl})
                 if(s!=null && (s.Length>90 || s.IndexOfAny(new[]{'\r','\n','\0'})>=0))

@@ -30,7 +30,7 @@ namespace LSA.WPS.Lab
         long lastTick, began, lastSample, startGame, lastGame;
         int step, frame, objectIndex, sampleIndex, ammoLast=-1, ammoSpent, impacts;
         uint weapon;
-        int target, collisionObject;
+        int target, collisionObject, losPedA, losPedB;
         int[] milestones={100,250,500,1000,2000};
         readonly List<object> evidence=new List<object>();
         public LabRunner(string gameRoot,Settings settings)
@@ -133,7 +133,7 @@ namespace LSA.WPS.Lab
             if(id=="E0.9")budgetArmed=false;
             active=id;run=Guid.NewGuid().ToString("N");began=RealMs();startGame=GameMs();step=frame=sampleIndex=0;
             objectIndex=0;cancelling=false;frames.Clear();evidence.Clear();
-            ammoLast=-1;ammoSpent=0;impacts=0;weapon=0;target=collisionObject=0;
+            ammoLast=-1;ammoSpent=0;impacts=0;weapon=0;target=collisionObject=losPedA=losPedB=0;
             lastSample=lastTick=RealMs();lastGame=startGame;
             logFile=Path.Combine(logDir,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-"+id.Replace(".","_")+"-"+run+".jsonl");
             summaryFile=Path.ChangeExtension(logFile,".summary.json");
@@ -399,22 +399,40 @@ namespace LSA.WPS.Lab
                 Note("before_prop",Describe(before));step++;return false;
             }
             if(step==1) {
-                if(!ModelReady(cfg.propModel))return false;
+                if(!ModelReady(cfg.propModel)||!ModelReady(cfg.pedModel))return false;
                 collisionObject=Spawn(cfg.propModel,Pos);
+                int left=Spawn(cfg.propModel,V(cfg.x,cfg.y+1.5f,cfg.z));
+                int right=Spawn(cfg.propModel,V(cfg.x,cfg.y-1.5f,cfg.z));
                 N("FREEZE_ENTITY_POSITION",collisionObject,true);
-                Note("prop_spawn",new {handle=collisionObject,model=cfg.propModel});step++;return false;
+                N("FREEZE_ENTITY_POSITION",left,true);
+                N("FREEZE_ENTITY_POSITION",right,true);
+                losPedA=N("CREATE_PED",4,Hash(cfg.pedModel),cfg.x-4,cfg.y,cfg.z,0f,false,false);
+                Require(losPedA>0,"los_ped_A_spawn_failed");owned.Own(losPedA);
+                losPedB=N("CREATE_PED",4,Hash(cfg.pedModel),cfg.x+4,cfg.y,cfg.z,0f,false,false);
+                Require(losPedB>0,"los_ped_B_spawn_failed");owned.Own(losPedB);
+                N("FREEZE_ENTITY_POSITION",losPedA,true);
+                N("FREEZE_ENTITY_POSITION",losPedB,true);
+                N("SET_BLOCKING_OF_NON_TEMPORARY_EVENTS",losPedA,true);
+                N("SET_BLOCKING_OF_NON_TEMPORARY_EVENTS",losPedB,true);
+                Note("prop_wall_spawn",new {center=collisionObject,left,right,
+                    labLosPedA=losPedA,labLosPedB=losPedB,
+                    provenance="all_entities_lab_owned"});
+                step++;return false;
             }
             if(step==2) {
                 Ray after=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z));
-                Note("prop_collision",Describe(after));
-                // Only the handle we created may be deleted.
-                DeleteOwned(collisionObject);Note("deleted",new {frame});
+                bool actorLos=B("HAS_ENTITY_CLEAR_LOS_TO_ENTITY",losPedA,losPedB,17);
+                Note("prop_collision",new {ray=Describe(after),actorLos});
+                DeleteOwned(collisionObject);
+                Note("deleted",new {frame,center=collisionObject});
                 step=3;objectIndex=frame;return false;
             }
             int elapsed=frame-objectIndex;
             if(elapsed==1||elapsed==5||elapsed==30) {
                 Ray r=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z));
-                Note("collision_after_delete",new {frames=elapsed,ms=RealMs()-began,ray=Describe(r)});
+                bool actorLos=B("HAS_ENTITY_CLEAR_LOS_TO_ENTITY",losPedA,losPedB,17);
+                Note("collision_after_delete",new {frames=elapsed,ms=RealMs()-began,
+                    ray=Describe(r),actorLos});
             }
             return elapsed>=30;
         }

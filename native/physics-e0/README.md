@@ -26,7 +26,7 @@ Commands:
 | --- | --- |
 | WPSE0Status | Show active test and verdicts |
 | WPSE0Start E0.0 | Start exactly one selected probe (E0.0 through E0.12) |
-| WPSE0Mode single | E0.4 sample mode: single, burst, auto, shotgun, or npc |
+| WPSE0Mode single | E0.4 manual fire modes (single, burst, auto, shotgun, npc); E0.9 modes props or fragments |
 | WPSE0ArmBudget | Single-use arming required before E0.9 |
 | WPSE0Cancel | Cancel active probe, delete owned entities, restore reversible mutations |
 | WPSE0Reset | Cancel, clean up, clear only in-memory verdicts |
@@ -52,3 +52,5 @@ Statuses: NOT_TESTED (never run), OFFLINE_READY (genuine build/test gates passed
 E0.4 records firing edges, ammo deltas, last-impact coordinate snapshots and bullet-area flags. These are not intrinsically unique per-round records, so a true independent shot count is required. The NPC arm creates and commands a separate lab-owned ped only after the explicit permitBullet opt-in and safe-site checks. It never tasks an Essential- or P2-managed ped; the native per-round impact evidence still needs GTA validation. E0.6 uses one native bullet per explicit offset against a lab-created target, but a definitive DamageTracker/World.PedShot attribution proof remains unimplemented. E0.5 collision and E0.8 fragment collision require attended traversal/bullet checks beyond the implemented shape probes. E0.9 measures bounded object budget, not RAGE's unbounded theoretical maximum. E0.10 includes passive detection and an opt-in zero-damage explosion plus attended grenade. E0.11 only uses a known operator-configured IPL, not an assumed swap. E0.12 time scaling measures clock ratios, while live debris/bullet behavior still needs visual testing.
 
 No E1/E2 is included. See E0-ACCEPTANCE.md and ASTRA-001 doc 04 for the exact experiment acceptance gates.
+
+For E0.9, use WPSE0Mode props or WPSE0Mode fragments, set an actual verified fragModel for the latter, then arm and start each run independently. For E0.10, config explosionType may be 0–14; repeat separate opt-in runs for each type and preserve all logs. Both variants remain disabled until explicitly started.
