@@ -36,9 +36,23 @@ namespace LSA.WPS.Lab
             hash+=(hash<<3);hash^=(hash>>11);hash+=(hash<<15);return hash;
         }
     }
+    // Strict allowlist for unattended, read-only experiments. No gunfire, spawns or world edits.
+    public static class PreShotPlan
+    {
+        public static readonly string[] Ids={"E0.0","E0.1","E0.2","E0.3"};
+        public static bool Allows(string id)=>Array.IndexOf(Ids,id)>=0;
+        public static string MissingGroundTruth(string id,int samples)
+        {
+            if(id=="E0.2" && samples<30)return "need_30_codewalker_ground_truth_surfaces";
+            if(id=="E0.3" && samples<10)return "need_10_codewalker_measured_walls";
+            return null;
+        }
+    }
     public sealed class Settings
     {
         public bool enabled {get;set;}
+        // Only E0.0-E0.3; waits for valid story-mode free roam, never fires/spawns/changes the world.
+        public bool autoRunPreShot {get;set;}
         public float x {get;set;}
         public float y {get;set;}
         public float z {get;set;}
