@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from adapter import adapt_codewalker_candidates
+from provenance import graph_from_extraction, joaat
 from gt0 import (
     ANOMALY_BASELINE, GT0Error, discover_spawnable_candidates, geom_world,
     hit_primitive, load_json, plan_filter_tests, public_export,
@@ -227,6 +228,71 @@ class AdapterAndDiscoveryTests(unittest.TestCase):
                             for x in out["plan"]))
         self.assertEqual(out["baseline"]["material_misses"], [2, 6])
         self.assertEqual(out["baseline"]["wall_different_entities"], [3, 4])
+
+
+
+class ProvenanceTests(unittest.TestCase):
+    def test_reference_graph_tracks_variants_and_unresolved_archetypes(self):
+        # Entirely synthetic YMAP/YBN graph; not a GTA location or asset.
+        h = joaat("SYNTHETIC_WORLD")
+        y = joaat("SYNTHETIC_PARENT")
+        manifest = {
+            "schemaVersion": 1,
+            "assets": [
+                {"originalPath": "SYNTHETIC/SYNTHETIC_WORLD.ybn",
+                 "topArchive": "SYNTHETIC_BASE.rpf", "decodedPayloadSha256": "0" * 64},
+                {"originalPath": "SYNTHETIC/SYNTHETIC_PARENT.ymap",
+                 "topArchive": "SYNTHETIC_BASE.rpf"},
+                {"originalPath": "SYNTHETIC/SYNTHETIC_CHILD.ymap",
+                 "topArchive": "SYNTHETIC_BASE.rpf"},
+            ],
+            "archives": [{"path": "SYNTHETIC_BASE.rpf", "sha256": "a" * 64}],
+            "relationships": [{
+                "ymap": "SYNTHETIC/SYNTHETIC_CHILD.ymap",
+                "parentHash": y,
+                "physicsDictionaryHashes": [h],
+                "archetypeHashes": [12345],
+            }],
+        }
+        g = graph_from_extraction(manifest)
+        self.assertEqual(len(g["nodes"]), 3)
+        self.assertEqual(len(g["edges"]), 3)
+        self.assertEqual(g["summary"]["unresolvedReferences"], 1)
+        self.assertFalse(g["summary"]["activeCollisionPrecedenceVerified"])
+        self.assertTrue(all(n["runtimeActiveStatus"] == "UNKNOWN" for n in g["nodes"]))
+        self.assertEqual(len(next(e for e in g["edges"]
+                                  if e["relation"] == "YMAP_PHYSICS_DICTIONARY")["potentialTargets"]), 1)
+
+    def test_missing_parent_and_dictionary_remain_unresolved(self):
+        m = {"schemaVersion": 1,
+             "assets": [{"originalPath": "SYNTHETIC/A.ymap"}],
+             "archives": [],
+             "relationships": [{"ymap": "SYNTHETIC/A.ymap",
+                                "parentHash": 123, "physicsDictionaryHashes": [456],
+                                "archetypeHashes": []}]}
+        g = graph_from_extraction(m)
+        self.assertEqual(g["summary"]["unresolvedReferences"], 2)
+
+    def test_manifest_rejects_path_traversal_and_missing_source(self):
+        m = {"schemaVersion": 1,
+             "assets": [{"originalPath": "../private.xbn"}], "relationships": []}
+        with self.assertRaisesRegex(GT0Error, "traversing"):
+            graph_from_extraction(m)
+        m = {"schemaVersion": 1, "assets": [],
+             "relationships": [{"ymap": "SYNTHETIC/not_in_assets.ymap"}]}
+        with self.assertRaisesRegex(GT0Error, "absent"):
+            graph_from_extraction(m)
+
+    def test_empty_ray_list_duplicate_ray_ids_and_public_scene_disallowed(self):
+        s = scene()
+        with self.assertRaisesRegex(GT0Error, "nonempty"):
+            scene_trace(s, [])
+        with self.assertRaisesRegex(GT0Error, "duplicate private ray"):
+            scene_trace(s, [ray(), ray()])
+        s["visibility"] = "PUBLIC"
+        with self.assertRaisesRegex(GT0Error, "private source"):
+            scene_trace(s, [ray()])
+
 
 
 class CatalogTests(unittest.TestCase):
