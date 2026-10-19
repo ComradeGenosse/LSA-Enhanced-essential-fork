@@ -78,6 +78,82 @@ class Program
         Check(classify(2,false,"on_foot","on_foot",false,true)=="muffled",
               "interior separation does not silently grant words");
     }
+    static void PromotedPlaybackAcousticCoverage()
+    {
+        var anchors=new EntityAnchors();long clock=1000;
+        var player=new Ped {Handle=210,MemoryAddress=new IntPtr(210),
+            Position=new Rage.Vector3 {X=0,Y=0,Z=0}};
+        var nathan=new Ped {Handle=211,MemoryAddress=new IntPtr(211),
+            Position=new Rage.Vector3 {X=2,Y=0,Z=0}};
+        var sarah=new Ped {Handle=212,MemoryAddress=new IntPtr(212),
+            Position=new Rage.Vector3 {X=3,Y=0,Z=0}};
+        var ordinary=new Ped {Handle=213,MemoryAddress=new IntPtr(213),
+            Position=new Rage.Vector3 {X=1,Y=0,Z=0}};
+        EntityAnchor Owned(Ped p)=>anchors.Retain(p,(ulong)p.Handle,p.MemoryAddress,"ped",
+            Guid.NewGuid().ToString("D"),()=>p.Existing,clock,true);
+        var source=Owned(nathan),listener=Owned(sarah);
+        var ambient=anchors.Retain(ordinary,(ulong)ordinary.Handle,ordinary.MemoryAddress,
+            "ped",null,()=>ordinary.Existing,clock,true);
+        Check(source!=null && listener!=null && ambient!=null,
+            "promoted acoustic test anchors have exact lifetimes");
+        var acoustics=new PromotedPlaybackAcousticMonitor();
+        var logs=new List<string>();
+        bool CurrentOwner(EntityAnchor a)=>a?.OwnerLifetime!=null;
+        int budget=8;
+        var normal=new PromotedPlaybackAcousticMonitor.PlaybackFact{
+            Starting=true,Speaker=ordinary,PedId=ordinary.Handle.ToString(),
+            TurnId="ambient-turn",Generation=1};
+        acoustics.Enqueue(normal);
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(acoustics.ActiveCount==0 && logs.Count==0,
+            "ordinary pedestrian playback never enters promoted hearing");
+        var start=new PromotedPlaybackAcousticMonitor.PlaybackFact{
+            Starting=true,Speaker=nathan,PedId=nathan.Handle.ToString(),
+            TurnId="nathan-turn",Generation=4};
+        acoustics.Enqueue(start);clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(acoustics.ActiveCount==1 && logs.Any(x=>x.Contains("event=start")),
+            "promoted exact native speaker enters a bounded playback timeline");
+        Check(logs.Any(x=>x.Contains("listener=player")&&x.Contains("grade=clear")),
+            "nearby player has clear expected acoustics during native playback");
+        Check(logs.Any(x=>x.Contains("grade=clear")&&x.Contains("listener=")&&
+              !x.Contains("listener=player")),
+            "second promoted NPC gets independent acoustic samples");
+        Check(logs.All(x=>!x.Contains("ambient-turn")&&!x.Contains("knowledge_grants=1")),
+            "ambient speech and invented knowledge never appear in timeline");
+        var car=new Vehicle{Handle=214,MemoryAddress=new IntPtr(214)};
+        nathan.CurrentVehicle=car;clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(logs.Any(x=>x.Contains("listener=player")&&x.Contains("grade=muffled")),
+            "cabined Nathan vs outside player transitions to expected muffling");
+        player.Position=new Rage.Vector3{X=25,Y=0,Z=0};clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(logs.Any(x=>x.Contains("listener=player")&&x.Contains("grade=inaudible")),
+            "walking away from promoted speaker cuts expected acoustic coverage");
+        player.Position=new Rage.Vector3{X=2,Y=0,Z=0};
+        nathan.CurrentVehicle=null;
+        Rage.Native.NativeFunction.AcousticLos=false;
+        clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Rage.Native.NativeFunction.AcousticLos=true;
+        Check(logs.Any(x=>x.Contains("listener=player")&&x.Contains("reason=los_blocked")),
+            "obstruction is independently sampled, never inferred from distance");
+        acoustics.Enqueue(new PromotedPlaybackAcousticMonitor.PlaybackFact{
+            Starting=false,Speaker=nathan,PedId=nathan.Handle.ToString(),
+            TurnId="nathan-turn",Generation=4,Interrupted=true,HadAudio=true,
+            PlaybackStarted=true});
+        clock+=150;budget=8;acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(acoustics.ActiveCount==0 && logs.Any(x=>x.Contains("event=end")&&x.Contains("interrupted=1")),
+            "exact interrupted native turn retires its source and speaker");
+        acoustics.Enqueue(start);clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        nathan.Existing=false;clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(acoustics.ActiveCount==0,"despawn or recycled lifetime retires acoustic turn");
+        acoustics.Clear();
+        Check(logs.All(x=>!x.Contains("applied_gain=0.5")&&!x.Contains("pcm_processed=1")),
+            "diagnostic model never fabricates audible DSP");
+    }
     static void Check(bool condition,string name) {if(!condition) throw new Exception(name);assertions++;}
     static object Get(object target,string name)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).GetValue(target);
     static void Set(object target,string name,object value)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).SetValue(target,value);
@@ -439,11 +515,12 @@ class Program
         if(args.Length==1 && args[0]=="--c01-only") {
             try {
                 C01SpeechPolicyCoverage();
+                PromotedPlaybackAcousticCoverage();
                 Console.WriteLine("PASS C01 native policy assertions="+assertions);
             } catch(Exception e) {Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}
             return;
         }
-        try{C01SpeechPolicyCoverage();SocialScenesCoverage();Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
+        try{C01SpeechPolicyCoverage();PromotedPlaybackAcousticCoverage();SocialScenesCoverage();Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
             if(args.Length==1&&args[0]=="--d2-source-only-wire")
                 foreach(var frame in SourceOnlyTests.WireFrames)Console.WriteLine("D2_WIRE "+new JavaScriptSerializer().Serialize(frame));
         }catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
