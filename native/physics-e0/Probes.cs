@@ -52,6 +52,11 @@ namespace LSA.WPS.Lab
         static readonly int[] NavOffsetsX={0,16,-16,0,0,32,-32,32,-32,0,0,48,-48};
         static readonly int[] NavOffsetsY={0,0,0,16,-16,0,0,32,-32,48,-48,0,0};
         string positionStatus="not_requested";
+        int destinationCollisionChecks, destinationStableFrames;
+        bool destinationCollisionVerified, returnCollisionVerified;
+        long destinationSettleMs=-1, returnCollisionWaitMs=-1;
+        double destinationDistanceM=-1, returnPositionErrorM=-1, returnHeadingErrorDeg=-1;
+        int returnCollisionChecks;
         public LabRunner(string gameRoot,Settings settings)
         {
             root=gameRoot;cfg=settings;cfg.Validate();
@@ -163,6 +168,10 @@ namespace LSA.WPS.Lab
             siteReady=false;positionAttemptSince=0;positionMoveSince=0;navSiteAttempt=0;positionStatus=cfg.autoTeleportForSamples?"pending":"not_requested";
             teleportedPlayer=false;teleportFrozen=false;previousPlayerHandle=0;autoSite=null;
             teleportWasPerformed=false;teleportRestoreSucceeded=false;returningHome=false;
+            destinationCollisionChecks=destinationStableFrames=returnCollisionChecks=0;
+            destinationCollisionVerified=returnCollisionVerified=false;
+            destinationSettleMs=returnCollisionWaitMs=-1;
+            destinationDistanceM=returnPositionErrorM=returnHeadingErrorDeg=-1;
             autoTerminalState="";
             WriteAuto("waiting_for_safe_story_mode");
             Console("Pre-shot suite queued: E0.0-E0.3 ONLY; no shooting or world changes. It waits for safe story-mode free roam. WPSE0Cancel stops it.");
@@ -174,6 +183,10 @@ namespace LSA.WPS.Lab
             var report=new {type="E0_pre_shot_unattended",run=autoId,state,readOnly=true,
                 planned=PreShotPlan.Ids,next,active,results=autoHistory.ToArray(),
                 autoTeleportEnabled=cfg.autoTeleportForSamples,positionStatus,
+                transport=new {teleportWasPerformed,destinationCollisionVerified,
+                    destinationCollisionChecks,destinationStableFrames,destinationSettleMs,
+                    destinationDistanceM,returnCollisionVerified,returnCollisionChecks,returnCollisionWaitMs,
+                    returnPositionErrorM,returnHeadingErrorDeg},
                 restoredOriginalPosition=!teleportWasPerformed||teleportRestoreSucceeded,
                 materialReferenceCount=surfaceSamples.Count,wallReferenceCount=wallSamples.Count,
                 missingMaterialReference=PreShotPlan.MissingGroundTruth("E0.2",surfaceSamples.Count),
@@ -217,10 +230,16 @@ namespace LSA.WPS.Lab
                 positionStatus="blocked_player_not_on_foot_and_stable";
                 StopAuto(positionStatus);return false;
             }
-            if(autoSite.IsNearby(Game.LocalPlayer.Character.Position.X,Game.LocalPlayer.Character.Position.Y))
+            // A nearby ped still needs verified collision; after teleport this MUST
+            // execute before any nearby shortcut (old gate-ordering bug).
+            Rage.Vector3 current=Game.LocalPlayer.Character.Position;
+            if(teleportedPlayer)
+                return CheckDestinationReady(ped);
+            if(autoSite.IsNearby(current.X,current.Y))
             {
-                positionStatus="already_within_100m_of_samples";siteReady=true;
-                WriteAuto("nearby_no_teleport");return true;
+                if(positionMoveSince==0)positionMoveSince=RealMs();
+                positionStatus="nearby_waiting_for_collision";
+                return CheckDestinationReady(ped);
             }
             if(!teleportedPlayer)
             {
@@ -247,7 +266,8 @@ namespace LSA.WPS.Lab
                         N("FREEZE_ENTITY_POSITION",ped,true);teleportFrozen=true;
                         N("SET_ENTITY_COORDS_NO_OFFSET",ped,safe.X,safe.Y,safe.Z+.75f,false,true,true);
                         N("REQUEST_COLLISION_AT_COORD",safe.X,safe.Y,safe.Z);
-                        positionMoveSince=RealMs();positionStatus="waiting_for_collision";
+                        positionMoveSince=RealMs();destinationStableFrames=0;
+                        positionStatus="waiting_for_collision";
                         WriteAuto("teleporting");
                         Console("Relocated to safe pavement near private samples; waiting for collision. Original location will be restored.");
                     }
@@ -259,14 +279,30 @@ namespace LSA.WPS.Lab
                 }
                 return false;
             }
+            return CheckDestinationReady(ped);
+        }
+        bool CheckDestinationReady(int ped)
+        {
+            if(autoSite==null)return false;
             Rage.Vector3 at=Game.LocalPlayer.Character.Position;
             N("REQUEST_COLLISION_AT_COORD",at.X,at.Y,at.Z);
-            if(RealMs()-positionMoveSince<400)return false;
-            if(!autoSite.IsNearby(at.X,at.Y)||!B("HAS_COLLISION_LOADED_AROUND_ENTITY",ped))return false;
+            bool nearby=autoSite.IsNearby(at.X,at.Y);
+            bool loaded=B("HAS_COLLISION_LOADED_AROUND_ENTITY",ped);
+            destinationCollisionChecks++;
+            destinationDistanceM=Census.Distance(at.X,at.Y,0,autoSite.x,autoSite.y,0);
+            destinationStableFrames=nearby&&loaded?destinationStableFrames+1:0;
+            long settledFor=Math.Max(0,RealMs()-positionMoveSince);
+            if(!DestinationGate.Accept(nearby,loaded,settledFor,destinationStableFrames))
+            {
+                positionStatus=loaded?"waiting_for_collision_stability":"waiting_for_destination_collision";
+                return false;
+            }
+            destinationSettleMs=settledFor;
+            destinationCollisionVerified=true;
             if(teleportFrozen){N("FREEZE_ENTITY_POSITION",ped,false);teleportFrozen=false;}
-            siteReady=true;positionStatus="streamed_safe_pavement_verified";
+            siteReady=true;positionStatus=teleportedPlayer?"destination_collision_verified":"nearby_collision_verified";
             WriteAuto("position_ready");
-            Console("Sample area streaming loaded; starting E0.2/E0.3.");
+            Console("Destination collision confirmed after "+settledFor+" ms / "+destinationCollisionChecks+" polls; starting E0.2/E0.3.");
             return true;
         }
         // Returning a player across streamed regions also needs collision before unfreezing.
@@ -313,6 +349,7 @@ namespace LSA.WPS.Lab
         {
             if(!returningHome)return;
             bool collision=false;
+            returnCollisionChecks++;
             try
             {
                 if(!B("NETWORK_IS_SESSION_ACTIVE") && Ped()==previousPlayerHandle &&
@@ -320,8 +357,11 @@ namespace LSA.WPS.Lab
                 {
                     N("REQUEST_COLLISION_AT_COORD",previousPlayerPos.X,previousPlayerPos.Y,previousPlayerPos.Z);
                     var current=Game.LocalPlayer.Character.Position;
-                    collision=Census.Distance(current.X,current.Y,current.Z,
-                        previousPlayerPos.X,previousPlayerPos.Y,previousPlayerPos.Z)<5 &&
+                    returnPositionErrorM=Census.Distance(current.X,current.Y,current.Z,
+                        previousPlayerPos.X,previousPlayerPos.Y,previousPlayerPos.Z);
+                    returnHeadingErrorDeg=DestinationGate.HeadingError(previousPlayerHeading,
+                        F("GET_ENTITY_HEADING",previousPlayerHandle));
+                    collision=returnPositionErrorM<5 &&
                         B("HAS_COLLISION_LOADED_AROUND_ENTITY",previousPlayerHandle);
                 }
             }
@@ -329,12 +369,15 @@ namespace LSA.WPS.Lab
             if(collision && RealMs()-returnStarted>=400)
             {
                 ReleaseTransportFreeze();returningHome=false;
-                teleportRestoreSucceeded=true;positionStatus+="_original_position_restored";
+                teleportRestoreSucceeded=true;returnCollisionVerified=true;
+                returnCollisionWaitMs=RealMs()-returnStarted;
+                positionStatus+="_original_position_restored";
                 WriteAuto(autoTerminalState);Console("Original player position and streamed collision restored.");
             }
             else if(RealMs()-returnStarted>30000)
             {
                 ReleaseTransportFreeze();returningHome=false;
+                returnCollisionWaitMs=RealMs()-returnStarted;
                 positionStatus+="_return_collision_timeout_unverified";
                 WriteAuto(autoTerminalState+"_return_collision_not_verified");
                 Console("WARNING: original area collision not verified after return; manual check required.");
