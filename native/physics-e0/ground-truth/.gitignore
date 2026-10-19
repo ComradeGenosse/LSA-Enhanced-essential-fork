@@ -1,0 +1,15 @@
+# Defense in depth: full catalog, geometry, screenshot and Rockstar asset derivatives are PRIVATE
+*.private.json
+*.private.jsonl
+*.private.csv
+*.ybn
+*.ymap
+*.ytyp
+*.rpf
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.xml
+__pycache__/
+*.pyc
