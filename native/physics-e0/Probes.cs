@@ -57,6 +57,9 @@ namespace LSA.WPS.Lab
         long destinationSettleMs=-1, returnCollisionWaitMs=-1;
         double destinationDistanceM=-1, returnPositionErrorM=-1, returnHeadingErrorDeg=-1;
         int returnCollisionChecks;
+        bool navRegionRequested, navmeshLoaded;
+        int navQueries, navMisses, navRejected;
+        string lastNavigationStatus="not_started";
         Sample confirmationSample;
         long confirmationAt;
         int confirmationOrdinal;
@@ -172,6 +175,8 @@ namespace LSA.WPS.Lab
             teleportedPlayer=false;teleportFrozen=false;previousPlayerHandle=0;autoSite=null;
             teleportWasPerformed=false;teleportRestoreSucceeded=false;returningHome=false;
             destinationCollisionChecks=destinationStableFrames=returnCollisionChecks=0;
+            navRegionRequested=navmeshLoaded=false;navQueries=navMisses=navRejected=0;
+            lastNavigationStatus="not_started";
             destinationCollisionVerified=returnCollisionVerified=false;
             destinationSettleMs=returnCollisionWaitMs=-1;
             destinationDistanceM=returnPositionErrorM=returnHeadingErrorDeg=-1;
@@ -189,7 +194,8 @@ namespace LSA.WPS.Lab
                 transport=new {teleportWasPerformed,destinationCollisionVerified,
                     destinationCollisionChecks,destinationStableFrames,destinationSettleMs,
                     destinationDistanceM,returnCollisionVerified,returnCollisionChecks,returnCollisionWaitMs,
-                    returnPositionErrorM,returnHeadingErrorDeg},
+                    returnPositionErrorM,returnHeadingErrorDeg,
+                    navRegionRequested,navmeshLoaded,navQueries,navMisses,navRejected,lastNavigationStatus},
                 restoredOriginalPosition=!teleportWasPerformed||teleportRestoreSucceeded,
                 materialReferenceCount=surfaceSamples.Count,wallReferenceCount=wallSamples.Count,
                 missingMaterialReference=PreShotPlan.MissingGroundTruth("E0.2",surfaceSamples.Count),
@@ -201,6 +207,7 @@ namespace LSA.WPS.Lab
         {
             if(!autoActive)return;
             autoActive=false;autoTerminalState=state;RestoreAutoPosition();
+            ReleaseNavigationRegion();
             WriteAuto(returningHome?"returning_home":state);
             Console("Pre-shot suite "+state+(returningHome?" (returning player to original area)":"")+
                 ". Manifest: "+Path.GetFileName(autoManifest));
@@ -214,6 +221,7 @@ namespace LSA.WPS.Lab
             if(positionAttemptSince==0)positionAttemptSince=RealMs();
             if(RealMs()-positionAttemptSince>30000)
             {
+                lastNavigationStatus=positionStatus;
                 positionStatus="blocked_safe_navigation_or_collision_timeout";
                 StopAuto(positionStatus);return false;
             }
@@ -246,6 +254,18 @@ namespace LSA.WPS.Lab
             }
             if(!teleportedPlayer)
             {
+                // Collision requests do not stream distant navigation polygons.
+                // Request one bounded region before querying safe pavement. Never
+                // teleport to sample geometry or weaken the safe-coordinate gate.
+                if(!navRegionRequested)
+                {
+                    N("ADD_NAVMESH_REQUIRED_REGION",(float)autoSite.x,(float)autoSite.y,100f);
+                    navRegionRequested=true;
+                    Console("Requested bounded navigation region for private sample site.");
+                }
+                navmeshLoaded=B("IS_NAVMESH_LOADED_IN_AREA",
+                    (float)(autoSite.x-50),(float)(autoSite.y-50),(float)(autoSite.z-32),
+                    (float)(autoSite.x+50),(float)(autoSite.y+50),(float)(autoSite.z+32));
                 int index=navSiteAttempt++%NavOffsetsX.Length;
                 float searchX=(float)autoSite.x+NavOffsetsX[index];
                 float searchY=(float)autoSite.y+NavOffsetsY[index];
@@ -255,11 +275,12 @@ namespace LSA.WPS.Lab
                     // 14 excludes isolated, interior and water navmesh.
                     bool found=B("GET_SAFE_COORD_FOR_PED",searchX,searchY,
                         (float)(autoSite.z+3),true,outPos,14);
-                    if(!found){positionStatus="searching_safe_pavement";return false;}
+                    navQueries++;
+                    if(!found){navMisses++;positionStatus="searching_safe_pavement";return false;}
                     Rage.Vector3 safe=outPos.GetValue<Rage.Vector3>();
                     if(!autoSite.AcceptSafeCoord(safe.X,safe.Y,safe.Z))
                     {
-                        positionStatus="searching_safe_pavement_inside_bounded_area";return false;
+                        navRejected++;positionStatus="searching_safe_pavement_inside_bounded_area";return false;
                     }
                     previousPlayerPos=Game.LocalPlayer.Character.Position;
                     previousPlayerHeading=F("GET_ENTITY_HEADING",ped);
@@ -283,6 +304,12 @@ namespace LSA.WPS.Lab
                 return false;
             }
             return CheckDestinationReady(ped);
+        }
+        void ReleaseNavigationRegion()
+        {
+            if(!navRegionRequested)return;
+            try{N("REMOVE_NAVMESH_REQUIRED_REGIONS");navRegionRequested=false;}
+            catch(Exception e){Console("Navigation region release failed: "+e.GetType().Name);}
         }
         bool CheckDestinationReady(int ped)
         {
