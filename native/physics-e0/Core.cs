@@ -155,6 +155,19 @@ namespace LSA.WPS.Lab
             !double.IsNaN(sx)&&!double.IsNaN(sy)&&!double.IsNaN(sz)&&
             Math.Sqrt((x-sx)*(x-sx)+(y-sy)*(y-sy))<=90 && Math.Abs(z-sz)<=32;
     }
+    // Pure gate: position proximity alone never proves streamed collision.
+    public static class DestinationGate
+    {
+        public const int SettleMs=800;
+        public const int ConsecutiveFrames=3;
+        public static bool Accept(bool nearby,bool collisionLoaded,long elapsedMs,int consecutiveFrames) =>
+            nearby && collisionLoaded && elapsedMs>=SettleMs && consecutiveFrames>=ConsecutiveFrames;
+        public static double HeadingError(double expected,double actual)
+        {
+            double d=Math.Abs((expected-actual)%360.0);
+            return Math.Min(d,360.0-d);
+        }
+    }
     public sealed class Ledger
     {
         readonly Dictionary<string,string> states=Census.Ids.ToDictionary(id=>id,id=>"NOT_TESTED");
