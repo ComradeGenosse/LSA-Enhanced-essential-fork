@@ -339,7 +339,24 @@ namespace LSA.WPS.Lab
         bool Shots()
         {
             int ped=Ped();Require(ped>0,"player_ped_unavailable");
-            if(mode=="npc")throw new InvalidOperationException("BLOCKED:npc_shooter_needs_isolated_actor_control_no_existing_peds");
+            if(mode=="npc") {
+                Require(cfg.permitBullet && cfg.HasSite && cfg.HasTarget,
+                    "npc_fire_requires_explicit_permitBullet_and_safe_site");
+                RequireSite();
+                if(step==0) {
+                    if(!ModelReady(cfg.pedModel))return false;
+                    target=N("CREATE_PED",4,Hash(cfg.pedModel),cfg.x,cfg.y,cfg.z,0f,false,false);
+                    Require(target>0,"lab_shooter_spawn_failed");
+                    owned.Own(target);
+                    N("SET_BLOCKING_OF_NON_TEMPORARY_EVENTS",target,true);
+                    N("GIVE_WEAPON_TO_PED",target,Hash("WEAPON_PISTOL"),60,false,true);
+                    N("TASK_SHOOT_AT_COORD",target,cfg.targetX,cfg.targetY,cfg.targetZ,10000,Hash("FIRING_PATTERN_FULL_AUTO"));
+                    Note("npc_shooter_started",new {target,shooterSite=Vec(Pos),aimPoint=Vec(Target),
+                        provenance="lab_owned_ped_only",durationMs=10000});
+                    step=1;return false;
+                }
+                ped=target;
+            }
             int current=N("GET_SELECTED_PED_WEAPON",ped);
             if(weapon==0)weapon=unchecked((uint)current);
             int ammo=ReadAmmo(ped,weapon);
@@ -347,16 +364,16 @@ namespace LSA.WPS.Lab
             ammoLast=ammo;
             bool fire=B("IS_PED_SHOOTING",ped);
             var impact=LastImpact(ped);
-            bool area=cfg.HasTarget && B("HAS_BULLET_IMPACTED_IN_AREA",cfg.targetX,cfg.targetY,cfg.targetZ,10f,true,false);
-            // A last-impact coordinate is a snapshot, not proof of one impact per round.
+            bool area=cfg.HasTarget && B("HAS_BULLET_IMPACTED_IN_AREA",cfg.targetX,cfg.targetY,cfg.targetZ,10f,mode!="npc",false);
+            // Last-impact coordinates may remain latched over several frames.
             if(impact.valid)impacts++;
-            if(fire || impact.valid || (frame%60)==0)
-                Note("shot_sample",new {mode,fire,ammo,ammoSpent,impactValid=impact.valid,
+            if(fire || impact.valid || frame%60==0)
+                Note("shot_sample",new {mode,shooter=ped,fire,ammo,ammoSpent,impactValid=impact.valid,
                     impact=impact.valid?Vec(impact.point):null,area,frame});
-            if(RealMs()-began<15000)return false;
+            if(RealMs()-began<(mode=="npc"?11000:15000))return false;
             Note("shot_coverage",new {mode,ammoSpent,impactFrameSamples=impacts,
                 ratioUpperBound=Census.Coverage(ammoSpent,impacts),
-                caveat="Impact coordinate may remain stale. Frame samples are not unique rounds; NPC and shotgun pellets need further proof."});
+                caveat="Impact coordinate may remain stale. Frame samples are not unique rounds; independent proof is required for individual bullets and pellets."});
             return true;
         }
         bool ModelReady(string name)
@@ -419,32 +436,41 @@ namespace LSA.WPS.Lab
                 N("SET_BLOCKING_OF_NON_TEMPORARY_EVENTS",target,true);
                 N("FREEZE_ENTITY_POSITION",target,true);
                 originalWanted=N("GET_PLAYER_WANTED_LEVEL",N("PLAYER_ID"));
-                Note("ped_target_spawned",new {target,originalWanted,position=Vec(Target)});step++;return false;
+                Note("ped_target_spawned",new {target,originalWanted,position=Vec(Target)});
+                step=1;return false;
             }
-            // One bullet for each start-offset arm, capped at 5 total. No free-running loops.
-            if(step>=1 && step<=5) {
-                float offset=new[]{.005f,.01f,.02f,.05f,.10f}[step-1];
+            if(step>10)return true;
+            int index=(step-1)/2;
+            float offset=new[]{.005f,.01f,.02f,.05f,.10f}[index];
+            if(step%2==1) {
                 float dx=cfg.targetX-cfg.x,dy=cfg.targetY-cfg.y,dz=cfg.targetZ-cfg.z;
                 float length=(float)Math.Sqrt(dx*dx+dy*dy+dz*dz);
                 Require(length>1 && length<=30,"continuation_range_1_to_30m");
                 int owner=Ped(),weaponHash=Hash("WEAPON_PISTOL");
                 float startX=cfg.x+(dx/length)*offset,startY=cfg.y+(dy/length)*offset,startZ=cfg.z+(dz/length)*offset;
                 int previous=N("GET_ENTITY_HEALTH",target);
-                // The 21-parameter gen9 signature is used, not the older 18-parameter variant.
+                int playerBefore=N("GET_ENTITY_HEALTH",owner);
+                // NativeDB 21-argument gen9 form: owner is ignored for collision;
+                // lab target is the explicitly designated targetEntity.
+                N("CLEAR_ENTITY_LAST_DAMAGE_ENTITY",target);
                 N("SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW",
                     startX,startY,startZ,cfg.targetX,cfg.targetY,cfg.targetZ,5,false,weaponHash,owner,
                     false,true,-1f,owner,false,false,target,false,0,0,0);
-                Note("continuation_fired",new {offsetM=offset,previousHealth=previous,
-                    ownerPlayerPed=owner,target,bulletCount=1,attribution="pending_native_evidence"});
+                Note("continuation_fired",new {index,offsetM=offset,previousHealth=previous,
+                    playerHealthBefore=playerBefore,ownerPlayerPed=owner,target,bulletCount=1});
                 step++;objectIndex=frame;return false;
             }
             if(frame-objectIndex<8)return false;
-            Note("continuation_followup",new {targetHealth=N("GET_ENTITY_HEALTH",target),
-                playerHealth=N("GET_ENTITY_HEALTH",Ped()),
+            int currentHealth=N("GET_ENTITY_HEALTH",target);
+            int playerHealth=N("GET_ENTITY_HEALTH",Ped());
+            bool nativeAttribution=B("HAS_ENTITY_BEEN_DAMAGED_BY_ENTITY",target,Ped(),true);
+            Note("continuation_followup",new {index,offsetM=offset,targetHealth=currentHealth,
+                playerHealth,damageAttributedToPlayerNative=nativeAttribution,
                 wantedLevel=N("GET_PLAYER_WANTED_LEVEL",N("PLAYER_ID")),
-                attribution="not_proven_without_damage_callback",
-                duplicatePrevention="one_emission_per_explicit_offset"});
-            return true;
+                attributionNote="Native damage flag is supporting evidence, not a DamageTracker or World.PedShot event.",
+                duplicationNote="Sequential emission: exactly one native request per offset; observe health delta for multiple hits."});
+            step++;
+            return step>10;
         }
         bool ModelHide()
         {
