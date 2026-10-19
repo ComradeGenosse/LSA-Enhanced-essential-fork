@@ -27,6 +27,9 @@ jobs:
       - name: Offline pre-shot ZIP evidence scope test
         shell: powershell
         run: ./tools/physics-e0/tests/pack-pre-shot.tests.ps1
+      - name: Offline safe sample installer
+        shell: pwsh
+        run: ./tools/physics-e0/tests/install-pre-shot.tests.ps1
   genuine-sdk:
     runs-on: windows-latest
     steps:
@@ -50,3 +53,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate log parser and verdict requirements
         run: python3 tools/physics-e0/analyze.py --self-test
+      - name: Compile CodeWalker private candidate converter source
+        run: python3 -m py_compile native/physics-e0/asset-research/convert_codewalker_candidates.py
