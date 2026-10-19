@@ -83,12 +83,13 @@ namespace LSA.WPS.Lab
         public float by {get;set;}
         public float bz {get;set;}
         public string expectedMaterial {get;set;}
+        public int materialIndex {get;set;}
         public double expectedThicknessM {get;set;}
         public void Validate()
         {
             if(string.IsNullOrWhiteSpace(label)||label.Length>80 ||
                new[]{ax,ay,az,bx,by,bz}.Any(x=>float.IsNaN(x)||float.IsInfinity(x)) ||
-               expectedThicknessM<0 || expectedThicknessM>20)
+               expectedThicknessM<0 || expectedThicknessM>20 || materialIndex<0 || materialIndex>255)
                 throw new ArgumentException("invalid_sample");
         }
     }
@@ -110,5 +111,6 @@ namespace LSA.WPS.Lab
         public void Own(int handle){if(handle>0)objects.Add(handle);}
         public int[] Drain(){var v=objects.ToArray();objects.Clear();return v;}
         public bool Owns(int handle)=>objects.Contains(handle);
+        public bool Forget(int handle)=>objects.Remove(handle);
     }
 }

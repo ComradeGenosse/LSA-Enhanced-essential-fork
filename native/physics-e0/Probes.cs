@@ -23,7 +23,7 @@ namespace LSA.WPS.Lab
         readonly JavaScriptSerializer json=new JavaScriptSerializer { MaxJsonLength=1048576 };
         readonly List<double> frames=new List<double>();
         readonly List<Sample> samples=new List<Sample>();
-        string logDir, logFile, summaryFile, run, active, mode="single", failure;
+        string logDir, logFile, summaryFile, run, active, mode="single";
         bool cancelling, budgetArmed, hidden, changedIpl, originalIpl, changedTime;
         float originalScale=1f;
         int originalWanted=-1;
@@ -81,7 +81,7 @@ namespace LSA.WPS.Lab
                 scriptHookVDotNet=Version(Path.Combine(root,"ScriptHookVDotNet.asi")),
                 openRpf=Version(Path.Combine(root,"OpenRPF.asi")),
                 codeWalker="not_detected_external",
-                cfg=cfg,gameRootHash=Sha(exe) /* file fingerprint, never serialized path */};
+                cfg=cfg};
         }
         void Event(string kind,object details=null)
         {
@@ -132,7 +132,7 @@ namespace LSA.WPS.Lab
             if(id=="E0.9"&&!budgetArmed){Console("BLOCKED: WPSE0ArmBudget required for each E0.9 run");return;}
             if(id=="E0.9")budgetArmed=false;
             active=id;run=Guid.NewGuid().ToString("N");began=RealMs();startGame=GameMs();step=frame=sampleIndex=0;
-            objectIndex=0;failure=null;cancelling=false;frames.Clear();evidence.Clear();
+            objectIndex=0;cancelling=false;frames.Clear();evidence.Clear();
             ammoLast=-1;ammoSpent=0;impacts=0;weapon=0;target=collisionObject=0;
             lastSample=lastTick=RealMs();lastGame=startGame;
             logFile=Path.Combine(logDir,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-"+id.Replace(".","_")+"-"+run+".jsonl");
@@ -224,7 +224,7 @@ namespace LSA.WPS.Lab
             if(hidden){try{N("REMOVE_MODEL_HIDE",cfg.x,cfg.y,cfg.z,cfg.radius,Hash(cfg.mapModel),true);}
                 catch{ok=false;}hidden=false;}
             foreach(int h in owned.Drain()){
-                try{int handle=h;using(var p=new NativePointer(8)){p.SetValue<int>(handle);N("SET_ENTITY_AS_MISSION_ENTITY",handle,true,true);N("DELETE_ENTITY",p);}}
+                try{if(!B("DOES_ENTITY_EXIST",h))continue;int handle=h;using(var p=new NativePointer(8)){p.SetValue<int>(handle);N("SET_ENTITY_AS_MISSION_ENTITY",handle,true,true);N("DELETE_ENTITY",p);}}
                 catch{ok=false;}
             }
             if(originalWanted>=0){try{N("SET_PLAYER_WANTED_LEVEL",N("PLAYER_ID"),originalWanted,false);
@@ -285,7 +285,7 @@ namespace LSA.WPS.Lab
             call("GET_AMMO_IN_CLIP",()=>ReadAmmo(Ped(),unchecked((uint)N("GET_SELECTED_PED_WEAPON",Ped()))));
             call("GET_PED_LAST_WEAPON_IMPACT_COORD",()=>LastImpact(Ped()).valid);
             call("START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE+GET_SHAPE_TEST_RESULT_INCLUDING_MATERIAL",()=>Describe(Trace(Pos,Target)));
-            call("GET_TIME_SCALE",()=>F("GET_TIME_SCALE"));
+            call("RPH Game.TimeScale",()=>Game.TimeScale);
             Note("native_matrix",results);
             // Mutating natives are checked only in their dedicated opt-in probes, never as side effects of E0.1.
             Note("native_matrix_deferred",new {names=new[]{"REQUEST_MODEL","CREATE_OBJECT_NO_OFFSET","DELETE_ENTITY",
@@ -316,7 +316,7 @@ namespace LSA.WPS.Lab
             Sample item=samples[sampleIndex++];
             Ray r=Trace(V(item.ax,item.ay,item.az),V(item.bx,item.by,item.bz));
             int expectedName=Hash(item.expectedMaterial??"");
-            int expectedIndex=Hash((item.expectedMaterial??"")+"_"+(sampleIndex-1));
+            int expectedIndex=Hash((item.expectedMaterial??"")+"_"+item.materialIndex);
             Note("material",new {sampleIndex,item.label,item.expectedMaterial,
                 joaatName=unchecked((uint)expectedName),joaatIndexed=unchecked((uint)expectedIndex),
                 shape=Describe(r),nameMatches=expectedName==r.material,indexMatches=expectedIndex==r.material});
@@ -406,7 +406,7 @@ namespace LSA.WPS.Lab
             Require(owned.Owns(handle),"foreign_entity_delete_refused");
             int x=handle;
             using(var p=new NativePointer(8)) {p.SetValue<int>(x);N("DELETE_OBJECT",p);}
-            // The set still owns the stale handle; cleanup will check existence.
+            owned.Forget(handle);
         }
         bool Continuation()
         {
@@ -485,7 +485,7 @@ namespace LSA.WPS.Lab
             RequireSite();
             int limit=Census.Limit("E0.9",cfg.entityLimit,true);
             if(step==0){if(!ModelReady(cfg.propModel))return false;step=1;return false;}
-            if(frames.Count>=30 && Census.Percentile(frames.TakeLast(30),.95)>60)
+            if(frames.Count>=30 && Census.Percentile(frames.Skip(Math.Max(0,frames.Count-30)),.95)>60)
                 throw new InvalidOperationException("BLOCKED:frame_budget_watchdog_exceeded_60ms");
             // Max 8 spawns each frame. Exact milestone receipts with p95/p99.
             int count=Math.Min(8,limit-objectIndex);
@@ -538,7 +538,7 @@ namespace LSA.WPS.Lab
         {
             Require(cfg.permitTimeScale,"permitTimeScale_not_set");
             if(step==0) {
-                originalScale=F("GET_TIME_SCALE");Require(originalScale>0 && originalScale<=1.5f,"unknown_initial_timescale");
+                originalScale=Game.TimeScale;Require(originalScale>0 && originalScale<=1.5f,"unknown_initial_timescale");
                 Note("timescale_baseline",new {originalScale});
                 N("SET_TIME_SCALE",.2f);changedTime=true;step=1;objectIndex=frame;lastGame=GameMs();lastSample=RealMs();return false;
             }
@@ -549,7 +549,7 @@ namespace LSA.WPS.Lab
                 N("SET_TIME_SCALE",originalScale);changedTime=false;step=2;lastGame=GameMs();lastSample=RealMs();return false;
             }
             if(step==2 && RealMs()-lastSample>=1000) {
-                Note("timescale_restored",new {value=F("GET_TIME_SCALE"),
+                Note("timescale_restored",new {value=Game.TimeScale,
                     realMs=RealMs()-lastSample,gameMs=GameMs()-lastGame});return true;
             }
             return false;
