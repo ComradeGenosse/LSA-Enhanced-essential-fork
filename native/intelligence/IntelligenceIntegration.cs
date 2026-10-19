@@ -300,7 +300,9 @@ namespace LSA.Intelligence
             if(duration<1)return;
             var witnesses=new List<object>();
             foreach(var l in w.Listeners.Values) {
-                if(anchors.Resolve(l.Ref)==null || l.Overflow)continue;
+                // A valid entity alone is not a promoted listener. A cancelled
+                // ownership lease or a PS observer demotion revokes this receipt.
+                if(!PromotedSpeechObserver(anchors.Resolve(l.Ref)) || l.Overflow)continue;
                 var segments=l.Intervals
                     .Where(i=>i.End>i.Start && i.Start<duration)
                     .Select(i=>new SpeechSpan{Start=i.Start,End=Math.Min(duration,i.End)})
