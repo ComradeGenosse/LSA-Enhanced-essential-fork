@@ -40,6 +40,13 @@ namespace LSA.WPS.Lab
         string autoId, autoManifest;
         long autoBegan;
         readonly List<object> autoHistory=new List<object>();
+        AutoSampleSite autoSite;
+        Rage.Vector3 previousPlayerPos;
+        float previousPlayerHeading;
+        int previousPlayerHandle;
+        bool teleportedPlayer, teleportFrozen, siteReady;
+        long positionAttemptSince, positionMoveSince;
+        string positionStatus="not_requested";
         public LabRunner(string gameRoot,Settings settings)
         {
             root=gameRoot;cfg=settings;cfg.Validate();
@@ -148,6 +155,8 @@ namespace LSA.WPS.Lab
             autoId=Guid.NewGuid().ToString("N");
             autoManifest=Path.Combine(logDir,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-pre-shot-"+autoId+".suite.json");
             autoHistory.Clear();autoIndex=0;autoActive=true;autoHadBlockers=false;autoBegan=RealMs();
+            siteReady=false;positionAttemptSince=0;positionMoveSince=0;positionStatus=cfg.autoTeleportForSamples?"pending":"not_requested";
+            teleportedPlayer=false;teleportFrozen=false;previousPlayerHandle=0;autoSite=null;
             WriteAuto("waiting_for_safe_story_mode");
             Console("Pre-shot suite queued: E0.0-E0.3 ONLY; no shooting or world changes. It waits for safe story-mode free roam. WPSE0Cancel stops it.");
         }
@@ -157,6 +166,8 @@ namespace LSA.WPS.Lab
             var next=autoIndex<PreShotPlan.Ids.Length?PreShotPlan.Ids[autoIndex]:null;
             var report=new {type="E0_pre_shot_unattended",run=autoId,state,readOnly=true,
                 planned=PreShotPlan.Ids,next,active,results=autoHistory.ToArray(),
+                autoTeleportEnabled=cfg.autoTeleportForSamples,positionStatus,
+                restoredOriginalPosition=!teleportedPlayer,
                 materialReferenceCount=surfaceSamples.Count,wallReferenceCount=wallSamples.Count,
                 missingMaterialReference=PreShotPlan.MissingGroundTruth("E0.2",surfaceSamples.Count),
                 missingWallReference=PreShotPlan.MissingGroundTruth("E0.3",wallSamples.Count),
@@ -166,8 +177,117 @@ namespace LSA.WPS.Lab
         void StopAuto(string state)
         {
             if(!autoActive)return;
-            autoActive=false;WriteAuto(state);
+            autoActive=false;RestoreAutoPosition();
+            WriteAuto(state);
             Console("Pre-shot suite "+state+". Manifest: "+Path.GetFileName(autoManifest));
+        }
+        // Opt-in transport applies only to the pre-shot suite, never to manual experiments.
+        // Samples define a search region; their collision points are never used for ped placement.
+        bool PrepareAutoPosition()
+        {
+            if(!cfg.autoTeleportForSamples)return true;
+            if(siteReady)return true;
+            if(positionAttemptSince==0)positionAttemptSince=RealMs();
+            if(RealMs()-positionAttemptSince>30000)
+            {
+                positionStatus="blocked_safe_navigation_or_collision_timeout";
+                StopAuto(positionStatus);return false;
+            }
+            if(surfaceSamples.Count<30 && wallSamples.Count<10)
+            {
+                positionStatus="skipped_no_samples";siteReady=true;return true;
+            }
+            if(autoSite==null)
+            {
+                try{autoSite=AutoSampleSite.Build(surfaceSamples,wallSamples);}
+                catch(ArgumentException e){positionStatus="blocked_"+e.Message;StopAuto(positionStatus);return false;}
+            }
+            int ped=Ped();
+            if(ped<=0||B("IS_PED_IN_ANY_VEHICLE",ped,false)||B("IS_PED_DEAD_OR_DYING",ped,true)||
+                B("IS_PED_RAGDOLL",ped))
+            {
+                positionStatus="blocked_player_not_on_foot_and_stable";
+                StopAuto(positionStatus);return false;
+            }
+            if(autoSite.IsNearby(Game.LocalPlayer.Character.Position.X,Game.LocalPlayer.Character.Position.Y))
+            {
+                positionStatus="already_within_100m_of_samples";siteReady=true;
+                WriteAuto("nearby_no_teleport");return true;
+            }
+            if(!teleportedPlayer)
+            {
+                N("REQUEST_COLLISION_AT_COORD",(float)autoSite.x,(float)autoSite.y,(float)autoSite.z);
+                using(var outPos=new NativePointer(24))
+                {
+                    // 14 excludes isolated, interior and water navmesh.
+                    bool found=B("GET_SAFE_COORD_FOR_PED",(float)autoSite.x,(float)autoSite.y,
+                        (float)(autoSite.z+3),true,outPos,14);
+                    if(!found){positionStatus="waiting_for_safe_pavement";return false;}
+                    Rage.Vector3 safe=outPos.GetValue<Rage.Vector3>();
+                    if(!autoSite.AcceptSafeCoord(safe.X,safe.Y,safe.Z))
+                    {
+                        positionStatus="blocked_navigation_location_outside_reference_area";
+                        StopAuto(positionStatus);return false;
+                    }
+                    previousPlayerPos=Game.LocalPlayer.Character.Position;
+                    previousPlayerHeading=F("GET_ENTITY_HEADING",ped);
+                    previousPlayerHandle=ped;teleportedPlayer=true;
+                    try
+                    {
+                        N("FREEZE_ENTITY_POSITION",ped,true);teleportFrozen=true;
+                        N("SET_ENTITY_COORDS_NO_OFFSET",ped,safe.X,safe.Y,safe.Z+.75f,false,true,true);
+                        N("REQUEST_COLLISION_AT_COORD",safe.X,safe.Y,safe.Z);
+                        positionMoveSince=RealMs();positionStatus="waiting_for_collision";
+                        WriteAuto("teleporting");
+                        Console("Relocated to safe pavement near private samples; waiting for collision. Original location will be restored.");
+                    }
+                    catch
+                    {
+                        positionStatus="failed_during_teleport";
+                        RestoreAutoPosition();throw;
+                    }
+                }
+                return false;
+            }
+            Rage.Vector3 at=Game.LocalPlayer.Character.Position;
+            N("REQUEST_COLLISION_AT_COORD",at.X,at.Y,at.Z);
+            if(RealMs()-positionMoveSince<400)return false;
+            if(!autoSite.IsNearby(at.X,at.Y)||!B("HAS_COLLISION_LOADED_AROUND_ENTITY",ped))return false;
+            if(teleportFrozen){N("FREEZE_ENTITY_POSITION",ped,false);teleportFrozen=false;}
+            siteReady=true;positionStatus="streamed_safe_pavement_verified";
+            WriteAuto("position_ready");
+            Console("Sample area streaming loaded; starting E0.2/E0.3.");
+            return true;
+        }
+        void RestoreAutoPosition()
+        {
+            if(!teleportedPlayer)return;
+            try
+            {
+                if(!B("NETWORK_IS_SESSION_ACTIVE") &&
+                    previousPlayerHandle>0 && Ped()==previousPlayerHandle &&
+                    B("DOES_ENTITY_EXIST",previousPlayerHandle))
+                {
+                    int ped=previousPlayerHandle;
+                    N("REQUEST_COLLISION_AT_COORD",previousPlayerPos.X,previousPlayerPos.Y,previousPlayerPos.Z);
+                    N("SET_ENTITY_COORDS_NO_OFFSET",ped,previousPlayerPos.X,previousPlayerPos.Y,previousPlayerPos.Z,false,true,true);
+                    N("SET_ENTITY_HEADING",ped,previousPlayerHeading);
+                    positionStatus+="_original_position_restored";
+                }
+                else positionStatus+="_restoration_blocked_player_identity_or_session";
+            }
+            catch(Exception e){positionStatus+="_restoration_error_"+e.GetType().Name;}
+            finally
+            {
+                if(teleportFrozen)
+                {
+                    try{if(previousPlayerHandle>0 && Ped()==previousPlayerHandle)
+                            N("FREEZE_ENTITY_POSITION",previousPlayerHandle,false);}
+                    catch{}
+                    teleportFrozen=false;
+                }
+                teleportedPlayer=false;
+            }
         }
         bool WorldReady()
         {
@@ -182,6 +302,12 @@ namespace LSA.WPS.Lab
             if(autoIndex>=PreShotPlan.Ids.Length){StopAuto(autoHadBlockers?"completed_with_blockers":"completed");return;}
             string next=PreShotPlan.Ids[autoIndex];
             if(!PreShotPlan.Allows(next)){StopAuto("unsafe_probe_refused");return;}
+            if(autoIndex>=2)
+            {
+                try{if(!PrepareAutoPosition())return;}
+                catch(Exception e){positionStatus="position_error_"+e.GetType().Name;
+                    StopAuto("position_error");return;}
+            }
             StartInternal(next);
             if(active!=next)StopAuto("start_blocked_"+next);
             else WriteAuto("running");
