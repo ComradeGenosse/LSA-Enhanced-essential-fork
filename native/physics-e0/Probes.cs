@@ -33,6 +33,12 @@ namespace LSA.WPS.Lab
         int target, collisionObject, losPedA, losPedB;
         int[] milestones={100,250,500,1000,2000};
         readonly List<object> evidence=new List<object>();
+        // Deliberately limited to the four read-only pre-shot probes; never a gameplay automation loop.
+        bool autoActive;
+        int autoIndex;
+        string autoId, autoManifest;
+        long autoBegan;
+        readonly List<object> autoHistory=new List<object>();
         public LabRunner(string gameRoot,Settings settings)
         {
             root=gameRoot;cfg=settings;cfg.Validate();
@@ -124,7 +130,56 @@ namespace LSA.WPS.Lab
             Require(Census.Distance(p.X,p.Y,p.Z,cfg.x,cfg.y,cfg.z)>30,
                 "test_site_must_be_at_least_30m_from_player");
         }
+        public void StartAuto()
+        {
+            if(autoActive || active!=null){Console("Cannot start unattended suite while a probe/suite is active");return;}
+            autoId=Guid.NewGuid().ToString("N");
+            autoManifest=Path.Combine(logDir,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-pre-shot-"+autoId+".suite.json");
+            autoHistory.Clear();autoIndex=0;autoActive=true;autoBegan=RealMs();
+            WriteAuto("waiting_for_safe_story_mode");
+            Console("Pre-shot suite queued: E0.0-E0.3 ONLY; no shooting or world changes. It waits for safe story-mode free roam. WPSE0Cancel stops it.");
+        }
+        void WriteAuto(string state)
+        {
+            if(string.IsNullOrEmpty(autoManifest))return;
+            var next=autoIndex<PreShotPlan.Ids.Length?PreShotPlan.Ids[autoIndex]:null;
+            var report=new {type="E0_pre_shot_unattended",run=autoId,state,readOnly=true,
+                planned=PreShotPlan.Ids,next,active,results=autoHistory.ToArray(),
+                materialReferenceCount=samples.Count,
+                missingMaterialReference=PreShotPlan.MissingGroundTruth("E0.2",samples.Count),
+                missingWallReference=PreShotPlan.MissingGroundTruth("E0.3",samples.Count),
+                caveat="Missing CodeWalker material/wall ground truth is BLOCKED, not verified. No E0.4 or E0.5-E0.12 is authorized."};
+            File.WriteAllText(autoManifest,json.Serialize(report),Encoding.UTF8);
+        }
+        void StopAuto(string state)
+        {
+            if(!autoActive)return;
+            autoActive=false;WriteAuto(state);
+            Console("Pre-shot suite "+state+". Manifest: "+Path.GetFileName(autoManifest));
+        }
+        bool WorldReady()
+        {
+            try{int ped=Ped();return SafeWorld() && ped>0 && B("DOES_ENTITY_EXIST",ped);}
+            catch{return false;}
+        }
+        void TickAuto()
+        {
+            if(!autoActive)return;
+            if(RealMs()-autoBegan>900000){StopAuto("timed_out_waiting_for_safe_story_mode");return;}
+            if(!WorldReady())return;
+            if(autoIndex>=PreShotPlan.Ids.Length){StopAuto("completed");return;}
+            string next=PreShotPlan.Ids[autoIndex];
+            if(!PreShotPlan.Allows(next)){StopAuto("unsafe_probe_refused");return;}
+            StartInternal(next);
+            if(active!=next)StopAuto("start_blocked_"+next);
+            else WriteAuto("running");
+        }
         public void Start(string id)
+        {
+            if(autoActive){Console("Pre-shot suite is active; use WPSE0Cancel before manual probes");return;}
+            StartInternal(id);
+        }
+        void StartInternal(string id)
         {
             if(!Census.ValidId(id)){Console("Unknown probe: "+id);return;}
             if(active!=null){Console("Probe already active; cancel first");return;}
@@ -143,6 +198,9 @@ namespace LSA.WPS.Lab
         }
         public void Status()
         {
+            if(autoActive)Console("Pre-shot suite: "+(autoIndex+1)+"/"+PreShotPlan.Ids.Length+
+                " "+(active??"waiting for safe story-mode")+"; manifest: "+Path.GetFileName(autoManifest));
+            else if(!string.IsNullOrEmpty(autoManifest))Console("Last pre-shot suite: "+Path.GetFileName(autoManifest));
             Console("Active: "+(active??"none")+" "+(active==null?"":"frame "+frame)+"; stored verdicts: "+
                 string.Join(", ",ledger.Snapshot().Select(x=>x.Key+"="+x.Value)));
             if(active!=null)Console("Log: "+logFile);
@@ -155,18 +213,28 @@ namespace LSA.WPS.Lab
         }
         public void ArmBudget(){budgetArmed=true;Console("E0.9 armed for exactly one run; capped at "+cfg.entityLimit);}
         public void SignalCancel(){cancelling=true;}
-        public void Cancel(string reason){cancelling=true;if(active!=null)Finish("NOT_TESTED",reason);}
+        public void Cancel(string reason)
+        {
+            cancelling=true;
+            if(active!=null)Finish("NOT_TESTED",reason);
+            if(autoActive)StopAuto("cancelled_"+reason);
+        }
         public void Reset()
         {
             Cancel("reset");
             foreach(var id in Census.Ids)ledger.Mark(id,"NOT_TESTED");
             budgetArmed=false;Console("Memory reset; on-disk experiment evidence retained.");
         }
-        public void Shutdown(){cancelling=true;if(active!=null)Finish("NOT_TESTED","unload");else Cleanup();}
+        public void Shutdown()
+        {
+            cancelling=true;
+            if(active!=null)Finish("NOT_TESTED","unload");else Cleanup();
+            if(autoActive)StopAuto("unloaded");
+        }
         public void Tick()
         {
-            if(active==null)return;
-            if(cancelling){Finish("NOT_TESTED","cancel_requested");return;}
+            if(active==null){TickAuto();return;}
+            if(cancelling){Finish("NOT_TESTED","cancel_requested");if(autoActive)StopAuto("cancelled");return;}
             frame++;
             long now=RealMs();
             if(frame>1 && now-lastTick>=0 && now-lastTick<2000) {
@@ -175,7 +243,7 @@ namespace LSA.WPS.Lab
             }
             lastTick=now;
             if(now-began>90000){Finish("FAILED","watchdog_90s");return;}
-            if(!SafeWorld()){Finish("BLOCKED","world_gate_changed");return;}
+            if(!SafeWorld()){Finish("BLOCKED","world_gate_changed");if(autoActive)StopAuto("world_gate_changed");return;}
             try {
                 bool finished=Dispatch();
                 if(finished)Finish("GTA_VERIFIED","observations_captured_review_hypothesis");
@@ -211,8 +279,15 @@ namespace LSA.WPS.Lab
             Note("verdict",new {status,reason,frame,probe=active});
             SaveSummary(status,reason);
             Console(active+" "+status+": "+reason+" log "+Path.GetFileName(logFile));
+            bool suiteStep=autoActive && autoIndex<PreShotPlan.Ids.Length && active==PreShotPlan.Ids[autoIndex];
+            if(suiteStep){
+                autoHistory.Add(new {probe=active,status,reason,log=Path.GetFileName(logFile),summary=Path.GetFileName(summaryFile)});
+                autoIndex++;
+                WriteAuto(autoIndex>=PreShotPlan.Ids.Length?"completed":"running");
+            }
             active=null;run=null;logFile=summaryFile=null;
             evidence.Clear();frames.Clear();cancelling=false;
+            if(suiteStep && autoIndex>=PreShotPlan.Ids.Length)StopAuto("completed");
         }
         bool Cleanup()
         {
@@ -268,8 +343,15 @@ namespace LSA.WPS.Lab
             materialHash=unchecked((uint)r.material),entity=r.entity};
         bool Natives()
         {
-            Require(cfg.HasSite && cfg.HasTarget,"configure_safe_test_site");
             if(step++>0)return true;
+            // E0.1 is read-only: when site coordinates are missing, a short local ray is
+            // sufficient for an API-callability census, but NOT calibrated geometry evidence.
+            Rage.Vector3 source=cfg.HasSite?Pos:Game.LocalPlayer.Character.Position;
+            if(!cfg.HasSite)source=V(source.X,source.Y,source.Z+1.2f);
+            Rage.Vector3 destination=cfg.HasTarget?Target:V(source.X+6f,source.Y,source.Z);
+            Note("matrix_ray_context",new {source=Vec(source),destination=Vec(destination),
+                calibrated=cfg.HasSite&&cfg.HasTarget,
+                caveat="Local fallback ray only checks callability; it is not CodeWalker ground truth."});
             var results=new List<object>();
             Action<string,Func<object>> call=(name,read)=>{
                 try{results.Add(new {name,callable=true,result=read(),error=(string)null});}
@@ -284,7 +366,7 @@ namespace LSA.WPS.Lab
             call("GET_OBJECT_FRAGMENT_DAMAGE_HEALTH",()=>F("GET_OBJECT_FRAGMENT_DAMAGE_HEALTH",0,true));
             call("GET_AMMO_IN_CLIP",()=>ReadAmmo(Ped(),unchecked((uint)N("GET_SELECTED_PED_WEAPON",Ped()))));
             call("GET_PED_LAST_WEAPON_IMPACT_COORD",()=>LastImpact(Ped()).valid);
-            call("START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE+GET_SHAPE_TEST_RESULT_INCLUDING_MATERIAL",()=>Describe(Trace(Pos,Target)));
+            call("START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE+GET_SHAPE_TEST_RESULT_INCLUDING_MATERIAL",()=>Describe(Trace(source,destination)));
             call("RPH Game.TimeScale",()=>Game.TimeScale);
             Note("native_matrix",results);
             // Mutating natives are checked only in their dedicated opt-in probes, never as side effects of E0.1.
