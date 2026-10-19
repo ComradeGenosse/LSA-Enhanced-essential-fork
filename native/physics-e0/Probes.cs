@@ -363,7 +363,8 @@ namespace LSA.WPS.Lab
             call("IS_IPL_ACTIVE",()=>B("IS_IPL_ACTIVE",string.IsNullOrEmpty(cfg.ipl)?"hei_carrier":cfg.ipl));
             call("IS_EXPLOSION_IN_SPHERE",()=>B("IS_EXPLOSION_IN_SPHERE",0,cfg.x,cfg.y,cfg.z,3f));
             call("GET_OWNER_OF_EXPLOSION_IN_SPHERE",()=>N("GET_OWNER_OF_EXPLOSION_IN_SPHERE",0,cfg.x,cfg.y,cfg.z,3f));
-            call("GET_OBJECT_FRAGMENT_DAMAGE_HEALTH",()=>F("GET_OBJECT_FRAGMENT_DAMAGE_HEALTH",0,true));
+            // Never pass a fabricated/invalid entity handle in unattended tests.
+            // This native is exercised only by E0.8 after spawning a verified lab-owned fragment prop.
             call("GET_AMMO_IN_CLIP",()=>ReadAmmo(Ped(),unchecked((uint)N("GET_SELECTED_PED_WEAPON",Ped()))));
             call("GET_PED_LAST_WEAPON_IMPACT_COORD",()=>LastImpact(Ped()).valid);
             call("START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE+GET_SHAPE_TEST_RESULT_INCLUDING_MATERIAL",()=>Describe(Trace(source,destination)));
@@ -372,7 +373,8 @@ namespace LSA.WPS.Lab
             // Mutating natives are checked only in their dedicated opt-in probes, never as side effects of E0.1.
             Note("native_matrix_deferred",new {names=new[]{"REQUEST_MODEL","CREATE_OBJECT_NO_OFFSET","DELETE_ENTITY",
                 "FREEZE_ENTITY_POSITION","BREAK_OBJECT_FRAGMENT_CHILD","CREATE_MODEL_HIDE",
-                "REMOVE_MODEL_HIDE","SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW",
+                "REMOVE_MODEL_HIDE","GET_OBJECT_FRAGMENT_DAMAGE_HEALTH",
+                "SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW",
                 "REQUEST_IPL","REMOVE_IPL","SET_TIME_SCALE","ADD_EXPLOSION"},
                 reason="unsafe_without_dedicated_test_context"});
             return true;
