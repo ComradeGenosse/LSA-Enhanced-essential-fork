@@ -24,6 +24,9 @@ namespace LSA.AGM.E0
         private int spawnRound, spawnSuccess, spawnTotal, nativeWrites;
         private long sampleTicks, sampleMaxTicks, logBytes;
         private bool disposed, halted, journalRisk;
+        private int cleanupFailures;
+        private readonly int processId=Process.GetCurrentProcess().Id;
+        private readonly long processStartUtc=Process.GetCurrentProcess().StartTime.ToUniversalTime().Ticks;
         private string site="terminal", condition="essential_off", task="walk", day="day", nathan="absent";
         private string lastSensor="unknown";
         private readonly EssentialDomain essential;
@@ -49,11 +52,11 @@ namespace LSA.AGM.E0
             gameMs=Game.GameTime,probe=active?.Probe,site,day,nathan,condition,task,payload};
         public void Log(string evt,object data)
         {
-            if(disposed)return;
+            if(disposed||halted)return;
             try {
                 var json=Serializer.Serialize(new {type=evt,record=Stamp(data)});
                 logBytes+=Encoding.UTF8.GetByteCount(json)+1;
-                if(logBytes>Limits.MaxLogBytes) {halted=true;Print("Log budget exceeded; cancelling.");Stop("log_budget");return;}
+                if(logBytes>Limits.MaxLogBytes) {Print("Log budget exceeded; cancelling.");Stop("log_budget");halted=true;return;}
                 writer.WriteLine(json);
             }catch {halted=true; }
         }
@@ -125,14 +128,28 @@ namespace LSA.AGM.E0
                 Token=Guid.NewGuid().ToString("N"),Persistent=true,
                 StartX=entity.Position.X,StartY=entity.Position.Y,StartZ=entity.Position.Z};
             entity.IsPersistent=true;
-            if(!entity.Exists()||entity.Model.Hash!=(int)e.Model)
+            if(!entity.Exists()||(uint)entity.Model.Hash!=e.Model)
                 throw new InvalidOperationException("model_readback_failed");
             Record(e);return e;
+        }
+        private Vector3 ScatteredPosition()
+        {
+            var origin=Offscreen();
+            int index=active?.Entities.Count??0;
+            var x=origin.X+((index%4)-1.5f)*6f;
+            var y=origin.Y+(index/4)*6f;
+            var candidate=new Vector3(x,y,origin.Z);
+            var ground=World.GetGroundZ(candidate,true,false);
+            if(!ground.HasValue)throw new InvalidOperationException("scatter_ground_missing");
+            candidate.Z=ground.Value+0.25f;
+            if(NativeFunction.CallByName<bool>("IS_SPHERE_VISIBLE",candidate.X,candidate.Y,candidate.Z,3f))
+                throw new InvalidOperationException("scatter_visible");
+            return candidate;
         }
         private Owned MakePed(string role,Vector3? position=null)
         {
             if(!Limits.CanAdd(active,"ped")) throw new InvalidOperationException("ped_budget");
-            var p=position??Offscreen();
+            var p=position??ScatteredPosition();
             Ped ped=null;
             try{
                 ped=new Ped(SafeModel(PedName,"ped"),p,0f);
@@ -143,7 +160,7 @@ namespace LSA.AGM.E0
         private Owned MakeVehicle(string role,Vector3? position=null)
         {
             if(!Limits.CanAdd(active,"vehicle"))throw new InvalidOperationException("vehicle_budget");
-            var p=position??Offscreen();
+            var p=position??ScatteredPosition();
             p=World.GetNextPositionOnStreet(p);
             if(NativeFunction.CallByName<bool>("IS_SPHERE_VISIBLE",p.X,p.Y,p.Z,4f))
                 throw new InvalidOperationException("vehicle_site_visible");
@@ -159,7 +176,7 @@ namespace LSA.AGM.E0
             if(!Limits.CanAdd(active,"prop"))throw new InvalidOperationException("prop_budget");
             Rage.Object item=null;
             try {
-                item=new Rage.Object(SafeModel(PropName,"prop"),Offscreen());
+                item=new Rage.Object(SafeModel(PropName,"prop"),ScatteredPosition());
                 if(Scripted())throw new InvalidOperationException("world_changed_while_spawning");
                 return Register(item,"prop",role);
             }catch{try{if(item!=null&&item.Exists())item.Delete();}catch{}throw;}
@@ -167,7 +184,7 @@ namespace LSA.AGM.E0
         private Owned MakePickup(string role)
         {
             if(!Limits.CanAdd(active,"pickup"))throw new InvalidOperationException("pickup_budget");
-            var p=Offscreen();int handle=0;
+            var p=ScatteredPosition();int handle=0;
             try {
                 handle=NativeFunction.CallByName<int>("CREATE_PICKUP",Hash(PickupName),p.X,p.Y,p.Z,0,1,true,Hash(PropName));
                 if(handle==0 || !NativeFunction.CallByName<bool>("DOES_PICKUP_EXIST",handle))
@@ -237,10 +254,10 @@ namespace LSA.AGM.E0
         }
         public void Run(string name)
         {
-            if(halted){Print("Runtime halted; restart plugin after investigating log.");return;}
+            if(halted||journalRisk){Print("Runtime blocked by halt or unresolved orphan journal. Restart GTA or inspect/recover first.");return;}
             var denial=Limits.Deny(name,condition,site,true,Scripted(),active!=null);
             if(denial!=null){Print("DENIED "+denial);Log("denied",new{probe=name,denial});return;}
-            if(condition=="essential_off" && essential.Available){
+            if(condition=="essential_off" && essential.IsLoaded){
                 Print("DENIED: Essential is loaded. essential_off requires Essential unloaded.");return;
             }
             if(condition!="essential_off" && !essential.Available){
@@ -280,7 +297,7 @@ namespace LSA.AGM.E0
             Owned car=(task=="drive"||task=="chase")?MakeVehicle("actor_vehicle"):null;
             if(hostile && task!="combat") throw new InvalidOperationException("e0.4_select_combat");
             if(condition!="essential_off"){
-                var applied=essential.Yield(actor.Handle,condition=="yield_on");
+                var applied=essential.Yield(actor.Handle,actor.Address,actor.Model,condition=="yield_on");
                 Log("yield_requested",new{actor=actor.Handle,condition,applied,essential=essential.Status});
                 if(!applied)throw new InvalidOperationException("essential_yield_not_available");
             }
@@ -398,12 +415,15 @@ namespace LSA.AGM.E0
             if(active==null)return;
             var lease=active;
             lease.Cancelled=true;
+            cleanupFailures=0;
             Log("probe_stop",new{reason,lease=lease.Id,samples,spawnTotal,spawnSuccess,nativeWrites,
                 avgSampleMs=samples==0?0:1000d*sampleTicks/Stopwatch.Frequency/samples,
                 maxSampleMs=1000d*sampleMaxTicks/Stopwatch.Frequency});
             CleanupOwned(reason);
-            active=null;try {if(File.Exists(journalPath))File.Delete(journalPath);}catch{}
-            Print("Ended "+lease.Probe+" reason="+reason+" (cleanup attempted; inspect analyzer).");
+            active=null;
+            if(cleanupFailures==0) {try {if(File.Exists(journalPath))File.Delete(journalPath);}catch{}}
+            else {journalRisk=true;halted=true;}
+            Print("Ended "+lease.Probe+" reason="+reason+" cleanupFailures="+cleanupFailures+" (inspect analyzer).");
         }
         private void CleanupOwned(string why)
         {
@@ -423,7 +443,8 @@ namespace LSA.AGM.E0
                     }
                 }catch(Exception ex){Log("cleanup_error",new{e.Handle,why,error=ex.GetType().Name});}
                 Log("cleanup",new{e.Handle,e.Incarnation,e.Kind,why,matched,deleted,orphan=!deleted});
-                active.Entities.Remove(e.Handle);
+                if(deleted)active.Entities.Remove(e.Handle);
+                else cleanupFailures++;
                 Journal();
             }
         }
@@ -433,23 +454,61 @@ namespace LSA.AGM.E0
             try{
                 var temp=journalPath+".tmp";
                 File.WriteAllText(temp,Serializer.Serialize(new{runId=RunId,epoch=Epoch,
-                    gameMs=Game.GameTime,lease=active.Id,entities=active.Entities.Values.ToArray()}));
+                    gameMs=Game.GameTime,processId,processStartUtc,lease=active.Id,entities=active.Entities.Values.ToArray()}));
                 if(File.Exists(journalPath))File.Delete(journalPath);
                 File.Move(temp,journalPath);
             }catch(Exception e){Log("journal_error",new{error=e.GetType().Name});}
+        }
+        private sealed class PendingJournal
+        {
+            public string runId,epoch,lease;
+            public uint gameMs;
+            public int processId;
+            public long processStartUtc;
+            public Owned[] entities;
         }
         private void Recovery()
         {
             if(!File.Exists(journalPath))return;
             journalRisk=true;
             try {
-                var raw=File.ReadAllText(journalPath);
-                Log("unresolved_prior_lease",new{bytes=raw.Length,policy="never delete unknown reincarnated handles",
-                    procedure="manual GTA reload if orphans visible; no unsafe cross-run handle-only deletion"});
-            }catch {}
-            // Crash recovery is deliberately fail-closed: a new game host run cannot
-            // prove stale handle/incarnation ownership with RPH handles alone.
-            // The journal is retained until operator inspection, not discarded.
+                var previous=Serializer.Deserialize<PendingJournal>(File.ReadAllText(journalPath));
+                if(previous==null||previous.entities==null)throw new InvalidOperationException("invalid_journal");
+                bool sameProcess=previous.processId==processId && previous.processStartUtc==processStartUtc;
+                bool timeSafe=unchecked((uint)Game.GameTime)>=previous.gameMs;
+                if(!sameProcess||!timeSafe||Scripted()) {
+                    Log("recovery_refused",new{sameProcess,timeSafe,scripted=Scripted(),count=previous.entities.Length,
+                        policy="manual inspection and fresh GTA process required"});
+                    return;
+                }
+                // Handle+native address+model+position+OS process identity must all match.
+                // If any element cannot be proven, never delete by numeric handle alone.
+                var remaining=new List<Owned>();
+                foreach(var e in previous.entities) {
+                    bool deleted=false;
+                    if(e.Kind!="pickup"){
+                        var entity=Find(e);
+                        if(entity!=null){
+                            var p=entity.Position;
+                            double distance=Math.Sqrt(Math.Pow(p.X-e.StartX,2)+Math.Pow(p.Y-e.StartY,2)+Math.Pow(p.Z-e.StartZ,2));
+                            if(distance<=200){
+                                try{entity.Delete();deleted=!entity.Exists();}catch{}
+                            }
+                        }
+                    }
+                    if(!deleted)remaining.Add(e);
+                    Log("recovery_sweep",new{e.Handle,e.Incarnation,e.Kind,deleted,mode="same_process_guarded"});
+                }
+                if(remaining.Count==0){
+                    File.Delete(journalPath);journalRisk=false;
+                }else{
+                    // Keep the durable journal, including collected pickup handles.
+                    File.WriteAllText(journalPath,Serializer.Serialize(new {
+                        previous.runId,previous.epoch,previous.lease,previous.gameMs,
+                        previous.processId,previous.processStartUtc,entities=remaining.ToArray()}));
+                    Log("recovery_incomplete",new{remaining=remaining.Count});
+                }
+            }catch(Exception e){Log("recovery_error",new{type=e.GetType().Name});}
         }
         public void Dispose()
         {

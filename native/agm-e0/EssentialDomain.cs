@@ -12,6 +12,7 @@ namespace LSA.AGM.E0
     {
         private readonly LabEssentialProbe probe;
         public bool Available {get;private set;}
+        public bool IsLoaded {get;private set;}
         public bool CanYield => probe!=null && Status=="pinned_ready";
         public string Status {get;private set;}="not_loaded";
         public EssentialDomain(string folder)
@@ -24,6 +25,7 @@ namespace LSA.AGM.E0
                 foreach(var domain in Domains()) {
                     if(!domain.FriendlyName.StartsWith("PreInitializedDomain_",StringComparison.Ordinal)
                         && domain.FriendlyName!="LosSantosAlive_AppDomain")continue;
+                    IsLoaded=true;
                     try{
                         var temp=(LabEssentialProbe)domain.CreateInstanceFromAndUnwrap(location,typeof(LabEssentialProbe).FullName);
                         if(temp.CoreStatus!="core_ready")continue;
