@@ -44,7 +44,7 @@ namespace LSA.WPS.Lab
         Rage.Vector3 previousPlayerPos;
         float previousPlayerHeading;
         int previousPlayerHandle;
-        bool teleportedPlayer, teleportFrozen, siteReady;
+        bool teleportedPlayer, teleportFrozen, siteReady, teleportWasPerformed, teleportRestoreSucceeded;
         long positionAttemptSince, positionMoveSince;
         string positionStatus="not_requested";
         public LabRunner(string gameRoot,Settings settings)
@@ -157,6 +157,7 @@ namespace LSA.WPS.Lab
             autoHistory.Clear();autoIndex=0;autoActive=true;autoHadBlockers=false;autoBegan=RealMs();
             siteReady=false;positionAttemptSince=0;positionMoveSince=0;positionStatus=cfg.autoTeleportForSamples?"pending":"not_requested";
             teleportedPlayer=false;teleportFrozen=false;previousPlayerHandle=0;autoSite=null;
+            teleportWasPerformed=false;teleportRestoreSucceeded=false;
             WriteAuto("waiting_for_safe_story_mode");
             Console("Pre-shot suite queued: E0.0-E0.3 ONLY; no shooting or world changes. It waits for safe story-mode free roam. WPSE0Cancel stops it.");
         }
@@ -167,7 +168,7 @@ namespace LSA.WPS.Lab
             var report=new {type="E0_pre_shot_unattended",run=autoId,state,readOnly=true,
                 planned=PreShotPlan.Ids,next,active,results=autoHistory.ToArray(),
                 autoTeleportEnabled=cfg.autoTeleportForSamples,positionStatus,
-                restoredOriginalPosition=!teleportedPlayer,
+                restoredOriginalPosition=!teleportWasPerformed||teleportRestoreSucceeded,
                 materialReferenceCount=surfaceSamples.Count,wallReferenceCount=wallSamples.Count,
                 missingMaterialReference=PreShotPlan.MissingGroundTruth("E0.2",surfaceSamples.Count),
                 missingWallReference=PreShotPlan.MissingGroundTruth("E0.3",wallSamples.Count),
@@ -231,7 +232,7 @@ namespace LSA.WPS.Lab
                     }
                     previousPlayerPos=Game.LocalPlayer.Character.Position;
                     previousPlayerHeading=F("GET_ENTITY_HEADING",ped);
-                    previousPlayerHandle=ped;teleportedPlayer=true;
+                    previousPlayerHandle=ped;teleportedPlayer=true;teleportWasPerformed=true;
                     try
                     {
                         N("FREEZE_ENTITY_POSITION",ped,true);teleportFrozen=true;
@@ -272,7 +273,7 @@ namespace LSA.WPS.Lab
                     N("REQUEST_COLLISION_AT_COORD",previousPlayerPos.X,previousPlayerPos.Y,previousPlayerPos.Z);
                     N("SET_ENTITY_COORDS_NO_OFFSET",ped,previousPlayerPos.X,previousPlayerPos.Y,previousPlayerPos.Z,false,true,true);
                     N("SET_ENTITY_HEADING",ped,previousPlayerHeading);
-                    positionStatus+="_original_position_restored";
+                    positionStatus+="_original_position_restored";teleportRestoreSucceeded=true;
                 }
                 else positionStatus+="_restoration_blocked_player_identity_or_session";
             }
