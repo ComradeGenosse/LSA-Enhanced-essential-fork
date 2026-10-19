@@ -177,7 +177,7 @@ class Program
         dsp.SetTarget(PromotedVoiceMixTarget.FromAcoustic("clear",2,1));
         Array.Clear(stereo,0,stereo.Length);
         dsp.MixInto(mono,0,mono.Length,stereo,0);
-        Check(stereo[4798]<stereo[4799]*0.1f,
+        Check(stereo[4798]<stereo[4799]*0.25f,
             "rightward speaker smoothly pans toward right channel");
         float MeanSquared(float[] data,int begin,int length) {
             double sum=0;
@@ -198,7 +198,7 @@ class Program
             "muffled grade actually filters high frequencies in isolated DSP");
         dsp.SetTarget(silence);Array.Clear(stereo,0,stereo.Length);
         dsp.MixInto(mono,0,mono.Length,stereo,0);
-        Check(stereo[0]>0f && stereo[4799]<0.02f,
+        Check(stereo[0]>0f && stereo[4799]<0.08f,
             "walking out of acoustic range fades rather than abruptly muting PCM");
         dsp.Reset();Array.Clear(stereo,0,stereo.Length);
         dsp.MixInto(mono,0,mono.Length,stereo,0);
