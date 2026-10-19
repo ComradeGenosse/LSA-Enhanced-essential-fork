@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from adapter import adapt_codewalker_candidates
+from provenance import graph_from_extraction
 from gt0 import (
     GT0Error, discover_spawnable_candidates, load_json, plan_filter_tests,
     public_export, scene_trace, validate_catalog, validate_scene, write_json
@@ -18,7 +19,7 @@ DEFAULT_SCHEMA = Path(__file__).resolve().parent.parent / "research" / "verified
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="command", required=True)
-    for command in ("validate", "adapt-codewalker", "trace", "plan-filters",
+    for command in ("validate", "adapt-codewalker", "build-provenance", "trace", "plan-filters",
                     "discover-spawnables", "export-aggregate"):
         c = sub.add_parser(command)
         c.add_argument("input", type=Path)
@@ -37,6 +38,8 @@ def main(argv=None):
         return 0 if not errors else 2
     if opts.command == "adapt-codewalker":
         result = adapt_codewalker_candidates(data)
+    elif opts.command == "build-provenance":
+        result = graph_from_extraction(data)
     elif opts.command == "trace":
         result = scene_trace(data, load_json(opts.rays))
     elif opts.command == "plan-filters":
