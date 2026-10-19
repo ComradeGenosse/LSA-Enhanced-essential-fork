@@ -108,6 +108,22 @@ namespace LSA.WPS.Lab
                 throw new ArgumentException("invalid_sample");
         }
     }
+    public sealed class SampleSets
+    {
+        public int schemaVersion {get;set;}
+        public Sample[] surfaces {get;set;}
+        public Sample[] walls {get;set;}
+        public void Validate()
+        {
+            if(schemaVersion!=1 || surfaces==null || walls==null || surfaces.Length>64 || walls.Length>64)
+                throw new ArgumentException("invalid_sample_sets");
+            foreach(var sample in surfaces.Concat(walls))
+            {
+                if(sample==null)throw new ArgumentException("null_sample");
+                sample.Validate();
+            }
+        }
+    }
     public sealed class Ledger
     {
         readonly Dictionary<string,string> states=Census.Ids.ToDictionary(id=>id,id=>"NOT_TESTED");
