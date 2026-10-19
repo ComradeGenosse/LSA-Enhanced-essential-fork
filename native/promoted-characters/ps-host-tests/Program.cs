@@ -24,9 +24,9 @@ static class Program
             if(elapsed>=21100) {PromotedCharactersIntegration.Instance.LoseAvailability();return;}
             Thread.Sleep(milliseconds);
         };
-        var config="{\"enabled\":true,\"worldProfileId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"intelligence\":{\"mode\":\"shadow\"}"+
+        var config="{\"enabled\":true,\"personalTestMode\":false,\"worldProfileId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"intelligence\":{\"mode\":\"shadow\"}"+
             (scenario=="source-only"?",\"memoryK\":{\"capabilities\":{\"ps1.producers\":\"off\"}}":"")+"}";
-        Check(!RuntimeEntry.Start("{\"enabled\":true,\"intelligence\":{\"producers\":{\"state\":true}}}"),"invalid producer mode cannot acquire native host start claim");
+        Check(!RuntimeEntry.Start("{\"enabled\":true,\"personalTestMode\":false,\"intelligence\":{\"producers\":{\"state\":true}}}"),"invalid producer mode cannot acquire native host start claim");
         Check(RuntimeEntry.Start(config),"real RuntimeEntry starts");
         var intelligence=LSA.Intelligence.IntelligenceIntegration.Instance;
         if(scenario=="source-only")Check(!intelligence.ProducerPolicy.Any,"real RuntimeEntry passes master-off policy to the existing integration");
@@ -121,6 +121,8 @@ namespace LSA.Intelligence
         public void Initialize()=>IsAvailable=true;
         public void Update(){UpdateCalls++;}
         public void OwnerRetired(string lifetime){}
+        public void EnableCaptureShadow(){}
+        public void EnableCaptureExperimental(){}
         internal void Shutdown(string reason){ShutdownCalls++;ShutdownReason=reason;IsAvailable=false;}
         internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls;
         internal static void LogStatus(string text)=>Rage.Game.LogTrivial(text);

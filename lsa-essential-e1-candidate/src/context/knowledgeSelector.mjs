@@ -13,6 +13,8 @@ export function projectKnowledgeClaim(claim,observation,observer,radioCurrentlyP
   if(claim.kind==='dead' && modality==='visual' && claim.target) return {...common,kind:'dead',subject:subject(claim.target,observer)};
   if(claim.kind==='firing' && modality==='visual' && claim.source) return {...common,kind:'firing',subject:subject(claim.source,observer)};
   if(claim.kind==='firing' && modality==='self' && claim.source?.captureRef===observer) return {...common,kind:'firing',subject:'self'};
+  if(modality==='auditory' && observation.eventType==='speech_heard' && claim.kind==='sound')
+    return {...common,kind:'overheard_speech_presence',origin:'unidentified_player_voice'};
   if(modality==='auditory' && observation.eventType==='firing_burst' && ['sound','firing'].includes(claim.kind)) return {...common,kind:'gunfire_sound',origin:claim.source?subject(claim.source,observer):'unidentified'};
   if(claim.kind==='sound' && modality==='auditory' && observation.eventType==='radio_heard' && claim.details?.soundType==='radio') {
     const rendered=renderRadioContext(observation,{currentlyPlaying:radioCurrentlyPlaying});
@@ -75,10 +77,20 @@ export function selectKnowledge(inputs,{includePerceived=true,radioInput=''}={})
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes) {omissions.budget_excluded++;return false;}poolBytes+=bytes;return true;
   });
   for(const pair of [...ordered.filter(p=>p.decision.context==='must_include'),...ordered.filter(p=>p.decision.context!=='must_include')]) {
+    const o=pair.observation;
     const radioCurrentlyPlaying=inputs.radioCurrentEpisodeIds===undefined ||
       inputs.radioCurrentEpisodeIds.includes(pair.observation.episodeId);
     const claims=pair.observation.claims.map(claim=>projectKnowledgeClaim(claim,pair.observation,observer,radioCurrentlyPlaying)).filter(Boolean);
-    omissions.unsupported_claim_detail+=pair.observation.claims.length-claims.length;if(!claims.length) continue;
+    // A source-time full-coverage per-observer grant is required for quoted
+    // words. Presence-only reports never borrow the current actor's input.
+    const words=inputs.speechEvidence?.[o.observationId];
+    if(o.eventType==='speech_heard' && typeof words==='string' &&
+       words.trim() && words.length<=512 &&
+       claims.some(c=>c.kind==='overheard_speech_presence')) {
+      claims.push({kind:'overheard_player_words',modality:'auditory',
+        certainty:'supported',asReportedSpeech:true,text:words.toWellFormed()});
+    }
+    omissions.unsupported_claim_detail+=Math.max(0,pair.observation.claims.length-claims.length);if(!claims.length) continue;
     const item={event:pair.observation.eventType,claims,freshness:'recent'};
     const safety=pair.decision.context==='must_include',bytes=jsonBytes({observations:[...result.observations,item]}),limit=KNOWLEDGE_LIMITS.perceivedBytes-(safety?0:result.safetyBudget.remainingBytes);
     if(result.observations.length>=KNOWLEDGE_LIMITS.observations || bytes>limit) {omissions.budget_excluded++;if(pair.decision.context==='must_include') omissions.safety_overflow++;continue;}

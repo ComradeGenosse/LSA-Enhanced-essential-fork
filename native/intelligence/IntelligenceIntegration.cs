@@ -72,7 +72,275 @@ namespace LSA.Intelligence
             public long GenerationId;
             public bool Started,Interrupted,HadAudio,PlaybackStarted;
         }
+        readonly PromotedPlaybackAcousticMonitor promotedAcoustic=new PromotedPlaybackAcousticMonitor();
         EssentialMicState directorMic;
+        LSA.PromotedCharacters.SpeechCaptureAdapter speechCapture;
+        bool captureShadow,proximityExperimental;
+        public void EnableCaptureShadow() { if(!started) captureShadow=true; }
+        // Native-owner opt-in only. Never take permission from a companion
+        // request or a model decision.
+        public void EnableCaptureExperimental() {
+            if(!started) {captureShadow=true;proximityExperimental=true;}
+        }
+
+        // Phase 9: source-time speech presence/coverage is sampled only by
+        // the already-owned native Update fiber. A listener never gets a
+        // transcript simply from distance or from the STT result.
+        sealed class SpeechSpan {public int Start,End;}
+        sealed class SpeechListener {
+            public string Ref;
+            public uint Tick,PositiveTick;
+            public double Distance,PositiveDistance;
+            public string PositiveSourceVehicle="unknown",PositiveObserverVehicle="unknown";
+            public long LastSample=-1;
+            public string Path="unknown",SourceVehicle="unknown",ObserverVehicle="unknown",Interior="unknown",Reason="acoustic_unknown";
+            public bool Overflow;
+            public readonly List<SpeechSpan> Intervals=new List<SpeechSpan>();
+        }
+        sealed class SpeechWindow {
+            public string Id,SourceRef,HostRunId;
+            public int WorldEpoch;
+            public uint StartTick;
+            public long StartMs,LastSweep=-1;
+            public int ProbeCursor,AcousticLogs;
+            public readonly Dictionary<string,SpeechListener> Listeners=new Dictionary<string,SpeechListener>();
+        }
+        SpeechWindow speechWindow;
+        long speechSequence;
+        long speechProbes,speechRejected;
+        static bool SamePhysicalPed(Ped x,Ped y) {
+            try {return x!=null && y!=null && x.Exists() && y.Exists() &&
+                x.Handle==y.Handle && x.MemoryAddress!=IntPtr.Zero &&
+                x.MemoryAddress==y.MemoryAddress;} catch {return false;}
+        }
+        void StartSpeechWindow(LSA.PromotedCharacters.SpeechCaptureAdapter.Fact item) {
+            speechWindow=null;
+            if(!proximityExperimental || item?.phase!="started" ||
+                item.worldEpoch!=host.WorldEpoch)return;
+            var p=Game.LocalPlayer.Character;
+            var player=anchors.Current.FirstOrDefault(a=>a.Kind=="player" &&
+                a.Entity is Ped ped && SamePhysicalPed(ped,p) &&
+                anchors.Resolve(a.CaptureRef)!=null);
+            if(player==null)return;
+            speechWindow=new SpeechWindow{Id=item.utteranceId,SourceRef=player.CaptureRef,
+                HostRunId=item.hostRunId,WorldEpoch=item.worldEpoch,
+                StartTick=item.gameTick,StartMs=item.monotonicMs};
+        }
+        // Hearing is strictly a promoted-owner activity, not a PS ambient-Ped
+        // feature. Select this lane before any geometry, LOS or vehicle reads.
+        internal static bool PromotedSpeechObserver(EntityAnchor a) =>
+            a!=null && a.Observer && a.Kind=="ped" &&
+            !string.IsNullOrEmpty(a.OwnerLifetime);
+
+        // Conservative grades, not a substitute for GTA acoustic ray tracing.
+        // Only "clear" permits transcript-covered intervals. Muffled/unknown
+        // observations do not receive words; the pinned Essential mixer does
+        // not expose per-speaker DSP controls.
+        internal static string SpeechAcousticGrade(double meters,bool sameInterior,
+            string sourceMode,string listenerMode,bool sameVehicle,bool clearLos) {
+            if(double.IsNaN(meters)||double.IsInfinity(meters)||meters<0||
+                meters>18 || sourceMode=="unknown" || listenerMode=="unknown")
+                return "inaudible";
+            if(!sameInterior)return "muffled";
+            if((sourceMode=="enclosed"||listenerMode=="enclosed")&&!sameVehicle)
+                return meters<=8?"muffled":"inaudible";
+            if(!clearLos)return meters<=8?"muffled":"inaudible";
+            if(sameVehicle)return meters<=6?"clear":"muffled";
+            return meters<=12?"clear":"inaudible";
+        }
+        void SpeechGrade(SpeechWindow w,SpeechListener l,string grade,
+            string reason,int elapsed) {
+            if((l.Path!=grade || l.Reason!=reason) && w.AcousticLogs<48) {
+                w.AcousticLogs++;
+                LogStatus("[C01_ACOUSTIC] tick="+Game.GameTime+
+                    " host_ms="+host.MonotonicMs+" utterance="+TraceCode(w.Id)+
+                    " observer="+TraceCode(l.Ref)+" class="+grade+
+                    " reason="+reason+" distance_m="+Math.Round(l.Distance,1)+
+                    " source_vehicle="+l.SourceVehicle+
+                    " listener_vehicle="+l.ObserverVehicle+
+                    " interior="+l.Interior+
+                    " window_evidence=unknown dsp=unavailable"+
+                    " offset_ms="+elapsed);
+            }
+            l.Path=grade;l.Reason=reason;
+            if(grade!="clear")l.LastSample=-1;
+        }
+        static string VehicleMode(Ped ped) {
+            try {return NativeFunction.CallByName<bool>("IS_PED_IN_ANY_VEHICLE",ped,false) ?
+                "enclosed":"on_foot";} catch {return "unknown";}
+        }
+        // Rotate the first LOS probe rather than starving lower-priority observers.
+        // We still enforce the original 16-observer cap and three LOS reads per sweep.
+        static int SpeechProbeIndex(int start,int slot,int count) {
+            return count>0 && start>=0 && slot>=0?(int)(((long)start+slot)%count):-1;
+        }
+        static int SpeechSampleStart(int relative,long lastSample,bool firstInterval) {
+            int from=lastSample>=0 && relative>=lastSample && relative-lastSample<=150
+                ?(int)lastSample:relative;
+            // Original source edge can have one initial sweep of latency.
+            if(firstInterval && relative<=100)return 0;
+            // A single positive probe proves presence at its sample instant,
+            // never the entire unsampled gap. One millisecond stays partial.
+            return from==relative && relative>0?relative-1:from;
+        }
+        static void AppendSpeechSpan(SpeechListener listener,int from,int until) {
+            if(until<=from)return;
+            var tail=listener.Intervals.Count>0
+                ?listener.Intervals[listener.Intervals.Count-1]:null;
+            if(tail!=null && from<=tail.End) {
+                tail.End=Math.Max(tail.End,until);return;
+            }
+            // Retain at most four DISTINCT positive windows. Evicting an old
+            // segment cannot create full-word coverage; it only preserves
+            // recent partial speech-presence evidence for rotated listeners.
+            if(listener.Intervals.Count>=4)listener.Intervals.RemoveAt(0);
+            listener.Intervals.Add(new SpeechSpan{Start=from,End=until});
+        }
+        void SweepSpeechWindow() {
+            var w=speechWindow;
+            if(w==null || w.WorldEpoch!=host.WorldEpoch) {speechWindow=null;return;}
+            long now=host.MonotonicMs;
+            if(now-w.StartMs>30000) {speechWindow=null;speechRejected++;return;}
+            if(w.LastSweep>=0 && now-w.LastSweep<75)return;
+            w.LastSweep=now;
+            var player=Game.LocalPlayer.Character;
+            var source=anchors.Resolve(w.SourceRef);
+            if(!(source?.Entity is Ped sourcePed) || !SamePhysicalPed(sourcePed,player)) {
+                speechWindow=null;speechRejected++;return;
+            }
+            int relative=(int)Math.Max(0,now-w.StartMs);
+            int speechLosBudget=Math.Min(3,lineOfSightBudget);
+            var candidates=anchors.Current.Where(PromotedSpeechObserver)
+                .OrderByDescending(a=>a.OwnerLifetime!=null)
+                .ThenBy(a=>a.Entity is Ped ped ? ped.Position.DistanceTo(player.Position):float.MaxValue)
+                .ThenBy(a=>a.CaptureRef,StringComparer.Ordinal).Take(16).ToArray();
+            var eligibleRefs=new HashSet<string>(candidates.Select(a=>a.CaptureRef),StringComparer.Ordinal);
+            // A missing/demoted observer is not continuously hearing while absent.
+            foreach(var known in w.Listeners)
+                if(!eligibleRefs.Contains(known.Key))known.Value.LastSample=-1;
+            int cursor=candidates.Length>0?w.ProbeCursor%candidates.Length:0;
+            if(candidates.Length>0)
+                w.ProbeCursor=(cursor+Math.Min(3,candidates.Length))%candidates.Length;
+            for(int slot=0;slot<candidates.Length;slot++) {
+                var a=candidates[SpeechProbeIndex(cursor,slot,candidates.Length)];
+                if(anchors.Resolve(a.CaptureRef)==null || !(a.Entity is Ped observer) ||
+                    !observer.Exists() || a.CaptureRef==w.SourceRef) {
+                    if(w.Listeners.TryGetValue(a.CaptureRef,out var stale))stale.LastSample=-1;
+                    continue;
+                }
+                var distance=observer.Position.DistanceTo(player.Position);
+                if(float.IsNaN(distance) || float.IsInfinity(distance) || distance>18) {
+                    if(w.Listeners.TryGetValue(a.CaptureRef,out var outlier)) {
+                        outlier.Distance=distance;
+                        SpeechGrade(w,outlier,"inaudible","out_of_range",relative);
+                    }
+                    continue;
+                }
+                if(!w.Listeners.TryGetValue(a.CaptureRef,out var l)) {
+                    if(w.Listeners.Count>=16)break;
+                    l=new SpeechListener{Ref=a.CaptureRef};w.Listeners.Add(a.CaptureRef,l);
+                }
+                l.Distance=distance;l.Tick=unchecked((uint)Game.GameTime);
+                try {
+                    var vehicleSource=VehicleMode(player);
+                    var vehicleObserver=VehicleMode(observer);
+                    l.SourceVehicle=vehicleSource;l.ObserverVehicle=vehicleObserver;
+                    int aInterior=NativeFunction.CallByName<int>("GET_INTERIOR_FROM_ENTITY",player);
+                    int bInterior=NativeFunction.CallByName<int>("GET_INTERIOR_FROM_ENTITY",observer);
+                    bool sameInterior=aInterior==bInterior;
+                    l.Interior=sameInterior?"same":"different";
+                    bool sameVehicle=false;
+                    if(vehicleSource=="enclosed" && vehicleObserver=="enclosed") {
+                        var sv=player.CurrentVehicle;var ov=observer.CurrentVehicle;
+                        sameVehicle=sv!=null && ov!=null && sv.Exists() && ov.Exists() &&
+                            sv.MemoryAddress==ov.MemoryAddress && sv.MemoryAddress!=IntPtr.Zero;
+                    }
+                    // Interior and vehicle barriers can establish a conservative
+                    // muffled/inaudible grade but never authorize heard words.
+                    // Windows are unknown in this pinned host; do not infer open.
+                    if(!sameInterior || vehicleSource=="unknown" || vehicleObserver=="unknown" ||
+                       (vehicleSource=="enclosed"||vehicleObserver=="enclosed")&&!sameVehicle) {
+                        var grade=SpeechAcousticGrade(distance,sameInterior,vehicleSource,
+                            vehicleObserver,sameVehicle,false);
+                        SpeechGrade(w,l,grade,grade=="muffled"?"barrier_unverified":"acoustic_unavailable",relative);
+                        continue;
+                    }
+                    if(distance>(sameVehicle?6:12)) {
+                        SpeechGrade(w,l,"inaudible","out_of_clear_range",relative);continue;
+                    }
+                    // The existing global LOS allowance also belongs to
+                    // shooting witnesses; never steal an extra probe.
+                    if(speechLosBudget<=0 || lineOfSightBudget<=0) {
+                        SpeechGrade(w,l,"unknown","sampling_budget",relative);continue;
+                    }
+                    speechLosBudget--;lineOfSightBudget--;
+                    bool clear=NativeFunction.CallByName<bool>(
+                        "HAS_ENTITY_CLEAR_LOS_TO_ENTITY",observer,player,17);
+                    string acoustic=SpeechAcousticGrade(distance,sameInterior,vehicleSource,
+                        vehicleObserver,sameVehicle,clear);
+                    if(acoustic!="clear") {
+                        SpeechGrade(w,l,acoustic,"occluded_or_out_of_range",relative);continue;
+                    }
+                    SpeechGrade(w,l,"clear","heard",relative);speechProbes++;
+                    l.PositiveTick=l.Tick;l.PositiveDistance=l.Distance;
+                    l.PositiveSourceVehicle=vehicleSource;l.PositiveObserverVehicle=vehicleObserver;
+                    // Never bridge a rejected, absent or unprobed listener.
+                    int from=SpeechSampleStart(relative,l.LastSample,l.Intervals.Count==0);
+                    AppendSpeechSpan(l,from,relative);
+                    l.LastSample=relative;
+                } catch {SpeechGrade(w,l,"unknown","sample_failed",relative);}
+            }
+        }
+        void CompleteSpeechWindow(LSA.PromotedCharacters.SpeechCaptureAdapter.Fact fact) {
+            var w=speechWindow;speechWindow=null;
+            if(!proximityExperimental || w==null || fact==null ||
+               fact.utteranceId!=w.Id || fact.terminal!="released" ||
+               fact.worldEpoch!=w.WorldEpoch || w.WorldEpoch!=host.WorldEpoch ||
+               fact.monotonicMs<w.StartMs || fact.monotonicMs-w.StartMs>30000 ||
+               anchors.Resolve(w.SourceRef)==null) {speechRejected++;return;}
+            int duration=(int)(fact.monotonicMs-w.StartMs);
+            if(duration<1)return;
+            var witnesses=new List<object>();
+            foreach(var l in w.Listeners.Values) {
+                // A valid entity alone is not a promoted listener. A cancelled
+                // ownership lease or a PS observer demotion revokes this receipt.
+                if(!PromotedSpeechObserver(anchors.Resolve(l.Ref)) || l.Overflow)continue;
+                var segments=l.Intervals
+                    .Where(i=>i.End>i.Start && i.Start<duration)
+                    .Select(i=>new SpeechSpan{Start=i.Start,End=Math.Min(duration,i.End)})
+                    .ToList();
+                // A terminal source edge must be evidenced by a recent positive
+                // native sample; otherwise never authorize a full transcript.
+                if(segments.Count>0 && l.LastSample>=0 &&
+                   duration-l.LastSample>=0 && duration-l.LastSample<=100)
+                    segments[segments.Count-1].End=duration;
+                bool audible=segments.Any(i=>i.End>i.Start);
+                if(!audible)continue; // no positive source-time witness
+                witnesses.Add(new {observer=new {captureRef=l.Ref,kind="ped"},
+                    sampledGameTick=l.PositiveTick,distanceMeters=l.PositiveDistance,
+                    acousticPath="clear",
+                    audibleIntervalsMs=segments.Where(i=>i.End>i.Start)
+                        .Select(i=>new {start=i.Start,end=i.End}).ToArray(),
+                    hearing="heard",
+                    reasonCodes=new[]{"sampled_speech"},
+                    acousticContext=new {occlusion="clear",
+                        interior="same",sourceVehicle=l.PositiveSourceVehicle,
+                        observerVehicle=l.PositiveObserverVehicle,
+                        sourceFacingToObserver="unknown",attention="unknown"}});
+            }
+            // All time values below are NATIVE-HOST monotonic, not Node time.
+            // The companion translates using ageMs only after frame receipt.
+            channel?.Send("speech_receipt",new {speechVersion=2,
+                nativeHostRunId=w.HostRunId,worldEpoch=w.WorldEpoch,
+                fact.utteranceId,source=new {captureRef=w.SourceRef,kind="player"},
+                startGameTick=w.StartTick,endGameTick=fact.gameTick,
+                startMonotonicMs=w.StartMs,endMonotonicMs=fact.monotonicMs,
+                durationMs=duration,ageMs=Math.Min(30000,Math.Max(0,host.MonotonicMs-fact.monotonicMs)),
+                producerSequence=++speechSequence,captureReceiptRef=Guid.NewGuid().ToString("D"),
+                observers=witnesses.ToArray()});
+        }
+
+
         IntelligenceChannel channel;
         IDamageSensors damage;
         volatile HashSet<string> criticalIndex=new HashSet<string>();
@@ -300,13 +568,14 @@ namespace LSA.Intelligence
             this.host.WorldChanged+=WorldChanged;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);
         }
         void WorldChanged(int epoch,string reason) {
+            speechCapture?.Reset();speechWindow=null;promotedAcoustic.Clear();
             if(!IsAvailable) return;
             director.Reset();ps3Receipts.Reset();socialScenes.Reset();originalTurns.Reset();bodyDiscovery.Reset();nextBodyDiscovery=0;bodyDiscoveryCursor=0;protagonistSensor.Revoke();protagonistConsumerConnection=0;protagonistConsumerWorld=0;lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();ResetM9();radioProbe=null;radioCoveredOwned.Clear();nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;ResetRadioRoutes();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
             if(channel?.Send("world_epoch",new {epoch,reason})!=true) {
-                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow||protagonistEvidenceEnabled,memoryCurrentOwnerPlayerSample!=null,M9Compiled&&producerPolicy.M9);channel.Start();connectionVersion=0;
+                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow||protagonistEvidenceEnabled,memoryCurrentOwnerPlayerSample!=null,M9Compiled&&producerPolicy.M9,speechCapture!=null);channel.Start();connectionVersion=0;
             }
             nextRefresh=nextDiscovery=nextState=nextShot=0;
             LogStatus("[PS] clock_reset");
@@ -328,7 +597,9 @@ namespace LSA.Intelligence
                  if(directorShadow)LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Attach();
                 anchors.Retired+=OnRetired;anchors.Retirement+=OnRetirement;
                 InitializeProducerAdapters();
-                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow||protagonistEvidenceEnabled,memoryCurrentOwnerPlayerSample!=null,M9Compiled&&producerPolicy.M9);channel.Start();
+                if(captureShadow) speechCapture=LSA.PromotedCharacters.SpeechCaptureAdapter.Attach(host);
+                if(proximityExperimental && speechCapture!=null) capabilities["playerSpeech"]=true;
+                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow||protagonistEvidenceEnabled,memoryCurrentOwnerPlayerSample!=null,M9Compiled&&producerPolicy.M9,speechCapture!=null);channel.Start();
                 // W07: the pinned Core supplies partial C-06 quiet evidence, but
                 // no global normal-turn or Essential terminal-idle proof. Report
                 // the exact missing gates once, without publishing an idle permit.
@@ -351,7 +622,7 @@ namespace LSA.Intelligence
             if(M9Compiled&&producerPolicy.M9)InitializeM9();
             // Do not load a second tracker assembly. Essential owns its load.
             if(producerPolicy.Damage) {AppDomain.CurrentDomain.AssemblyLoad+=AssemblyLoaded;QueueDamagePin();}
-            try {if(producerPolicy.Allows("playback")||directorShadow) {
+            try {if(producerPolicy.Allows("playback")||directorShadow||proximityExperimental) {
                 NpcPlaybackCoordinator.PlaybackStarted+=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded+=PlaybackEnded;
                 playback=true;capabilities["playback"]=producerPolicy.Allows("playback");
             }}catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
@@ -478,7 +749,7 @@ namespace LSA.Intelligence
                     nextRefresh=0;
                     // Previously confirmed listeners require a fresh native
                     // receipt on an authenticated consumer reconnect.
-                    radioCoveredOwned.Clear();nextRadio=0;
+                    radioCoveredOwned.Clear();nextRadio=0;promotedAcoustic.Clear();
                 }
                 // Existing owner fiber only; never sample a model without the
                 // exact approved receiver, connection and native host epoch.
@@ -568,6 +839,35 @@ namespace LSA.Intelligence
                         var p=e as Ped;var ownership=p==null?null:discoveryOwned.FirstOrDefault(o=>o.Ped==p);
                         Retain(ownership?.Ped??e,p==null?"vehicle":"ped",ownership?.Lifetime,false,ownership?.Current);
                     }
+                }
+                // Drain C-01 only after the owner's regular anchor discovery and
+                // observer roster update. A Ped without an exact, current
+                // shared captureRef remains unbound, never inferred by name.
+                if(speechCapture!=null) {
+                    speechCapture.Reconcile();
+                    for(int c01=0;c01<8;c01++) {
+                        var item=speechCapture.Take();
+                        if(item==null)break;
+                        // Ephemeral identity: an absent/mismatched mic Ped stays unbound.
+                        var anchor=anchors.Current.FirstOrDefault(a=>a.Kind=="ped" &&
+                            a.Entity is Ped retained && SamePhysicalPed(retained,item.Ped) &&
+                            a.Handle==Convert.ToUInt64(item.Ped.Handle) && a.Address==item.Address &&
+                            anchors.Resolve(a.CaptureRef)!=null);
+                        if(proximityExperimental && item.worldEpoch==host.WorldEpoch) {
+                            if(item.phase=="started")StartSpeechWindow(item);
+                            else CompleteSpeechWindow(item);
+                        }
+                        if(item.worldEpoch==host.WorldEpoch)
+                            channel.Send("utterance",new {utteranceVersion=1,item.utteranceId,item.phase,item.terminal,
+                                item.hostRunId,item.worldEpoch,item.gameTick,item.monotonicMs,
+                                item.inputSource,micPedRef=anchor?.CaptureRef});
+                    }
+                }
+                if(proximityExperimental) {
+                    SweepSpeechWindow();
+                    promotedAcoustic.Update(anchors,a=>Association(a)!=null,
+                        Game.LocalPlayer.Character,host.WorldEpoch,now,
+                        ref lineOfSightBudget,LogStatus);
                 }
                 DrainDirectorCorePlayback();
                 DrainDirectorPreview();
@@ -1530,6 +1830,10 @@ namespace LSA.Intelligence
         {
             try {
                 Lifecycle("playback_started",e.PedId,e.SpeakerPed,false,false);
+                if(proximityExperimental)promotedAcoustic.Enqueue(
+                    new PromotedPlaybackAcousticMonitor.PlaybackFact{
+                        Starting=true,Speaker=e.SpeakerPed,PedId=e.PedId,
+                        TurnId=e.TurnId,Generation=e.GenerationId});
                 EnqueueDirectorPlayback(new DirectorPlaybackEvent{
                     Started=true,Speaker=e.SpeakerPed,PedId=e.PedId,
                     TurnId=e.TurnId,GenerationId=e.GenerationId});
@@ -1539,6 +1843,11 @@ namespace LSA.Intelligence
         {
             try {
                 Lifecycle("playback_ended",e.PedId,e.SpeakerPed,e.WasInterrupted,e.HadAudio);
+                if(proximityExperimental)promotedAcoustic.Enqueue(
+                    new PromotedPlaybackAcousticMonitor.PlaybackFact{
+                        Speaker=e.SpeakerPed,PedId=e.PedId,TurnId=e.TurnId,
+                        Generation=e.GenerationId,Interrupted=e.WasInterrupted,
+                        HadAudio=e.HadAudio,PlaybackStarted=e.PlaybackStarted});
                 EnqueueDirectorPlayback(new DirectorPlaybackEvent{
                     Speaker=e.SpeakerPed,PedId=e.PedId,TurnId=e.TurnId,
                     GenerationId=e.GenerationId,Reason=e.Reason,
@@ -1593,6 +1902,8 @@ namespace LSA.Intelligence
                     LogStatus("[PS] turn_actor_capture_unavailable reason=observer_slot_unavailable");return;
                 }
                 var block=new Dictionary<string,object>{{"version",1},{"hostRunId",host.HostRunId},{"worldEpoch",host.WorldEpoch},{"captureRef",anchor.CaptureRef},{"sampledGameTick",unchecked((uint)Game.GameTime)}};
+                var exactMic=speechCapture?.ActiveIdFor(ped);
+                if(exactMic!=null)block["micUtteranceId"]=exactMic;
                 var association=Association(anchor);if(association!=null) {
                     // Only an exact current P2 registration can receive
                     // continuing priority. Ordinary P0 witnesses stay bounded
@@ -1611,6 +1922,7 @@ namespace LSA.Intelligence
         internal void Shutdown(string reason)
         {
             if(stopped) return;shutdownReason=reason;stopped=true;sensors.Enabled=false;protagonistSensor.Revoke();
+            speechCapture?.Detach();speechCapture=null;promotedAcoustic.Clear();
             LogStatus("[PS] shutdown "+RuntimeStatus());
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;

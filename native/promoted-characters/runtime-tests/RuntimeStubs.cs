@@ -139,6 +139,10 @@ namespace LSA.Intelligence
     {
         public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null,bool protagonistEvidenceEnabled=false) { }
         public void OwnerRetired(string incarnationId) { }
+        // C01 opt-in native host contract: offline RuntimeEntry only verifies
+        // the configuration route; this stub never creates microphone evidence.
+        public void EnableCaptureShadow() { }
+        public void EnableCaptureExperimental() { }
         public void Shutdown() { }
         public void Shutdown(string reason) { }
         public void Initialize() { }

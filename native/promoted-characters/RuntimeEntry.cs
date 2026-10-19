@@ -99,6 +99,8 @@ namespace LSA.PromotedCharacters
                             intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,host,config.intelligence.directorMode=="shadow" || config.intelligence.directorMode=="experimental",config.intelligence.directorMode=="experimental",config.intelligence.radio,directorAttemptsPerMinute,integration.SampleMemoryNativeAuthority,
                                 integration.SampleMemoryCurrentOwnerPlayer,producerPolicy,
                                 config.intelligence.protagonistEvidence=="negotiated_v1");
+                            if(config.intelligence.captureMode=="shadow") intelligence.EnableCaptureShadow();
+                            else if(config.intelligence.captureMode=="experimental") intelligence.EnableCaptureExperimental();
                             integration.OwnerRetired+=intelligence.OwnerRetired;
                             IntegrationManager.Register(intelligence);intelligence.Initialize();
                         } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
@@ -222,7 +224,7 @@ namespace LSA.PromotedCharacters
             } catch {return 0.015f;}
         }
         public sealed class NativeMemoryKConfig {public System.Collections.Generic.Dictionary<string,object> capabilities {get;set;}}
-        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string radio {get;set;}="off";public object directorAttemptPreset {get;set;}="normal";public string pipeName {get;set;}="LSA.Intelligence.v1";public string protagonistEvidence {get;set;}="off";public System.Collections.Generic.Dictionary<string,object> producers {get;set;}}
+        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string captureMode {get;set;}="off";public string radio {get;set;}="off";public object directorAttemptPreset {get;set;}="normal";public string pipeName {get;set;}="LSA.Intelligence.v1";public string protagonistEvidence {get;set;}="off";public System.Collections.Generic.Dictionary<string,object> producers {get;set;}}
         // Default off. Only the literal strings "shadow" and "on" enable anything; "on" is the only mode that animates.
         public sealed class ReactionsConfig {public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Reactions.v1";public string[] disabled {get;set;}=new string[0];public string[] enabled {get;set;}=new string[0];public object allowDuringOwnedBehavior {get;set;}=false;public object diagnostics {get;set;}=false;}
         public sealed class ActivitiesConfig {public object dialogueReceipts {get;set;}=false;public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Activities.v1";}

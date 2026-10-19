@@ -14,6 +14,205 @@ using LosSantosAlive.NPC.Perception;
 class Program
 {
     static int assertions;
+    static void C01SpeechPolicyCoverage()
+    {
+        // Exercise production-native sampling helpers, not a mock duplicate.
+        var flags=BindingFlags.NonPublic|BindingFlags.Static;
+        var pick=typeof(IntelligenceIntegration).GetMethod("SpeechProbeIndex",flags);
+        var start=typeof(IntelligenceIntegration).GetMethod("SpeechSampleStart",flags);
+        Check(pick!=null && start!=null,"C01 native hearing policy helpers are compiled");
+        int[] visited=new int[16];int cursor=0;
+        for(int sweep=0;sweep<16;sweep++) {
+            for(int slot=0;slot<3;slot++)
+                visited[(int)pick.Invoke(null,new object[]{cursor,slot,16})]++;
+            cursor=(cursor+3)%16;
+        }
+        Check(visited.All(count=>count==3),"C01 rotating three-probe budget visits every eligible observer equally");
+        Check((int)pick.Invoke(null,new object[]{0,0,0})==-1,"C01 no candidate gives no LOS probe");
+        Check((int)start.Invoke(null,new object[]{300,-1,false})==299 &&
+              (int)start.Invoke(null,new object[]{300,100,false})==299,
+              "C01 broken acoustic coverage does not bridge unobserved gaps");
+        Check((int)start.Invoke(null,new object[]{300,230,false})==230 &&
+              (int)start.Invoke(null,new object[]{80,-1,true})==0,
+              "C01 adjacent and first-sweep coverage remain explicitly bounded");
+        var listenerType=typeof(IntelligenceIntegration).GetNestedType("SpeechListener",BindingFlags.NonPublic);
+        var append=typeof(IntelligenceIntegration).GetMethod("AppendSpeechSpan",flags);
+        Check(listenerType!=null && append!=null,"C01 native bounded-window helper is compiled");
+        var listener=Activator.CreateInstance(listenerType,true);
+        for(int i=0;i<8;i++)
+            append.Invoke(null,new object[]{listener,i*250+1,i*250+2});
+        var spans=(System.Collections.IList)listenerType.GetField("Intervals").GetValue(listener);
+        Check(spans.Count==4 && (int)spans[0].GetType().GetField("Start").GetValue(spans[0])==1001,
+              "C01 sixteen-observer rotation keeps latest bounded PARTIAL evidence without overflow");
+        append.Invoke(null,new object[]{listener,1752,1760});
+        Check(spans.Count==4 && (int)spans[3].GetType().GetField("End").GetValue(spans[3])==1760,
+              "C01 adjacent positive windows merge without inventing across rejected intervals");
+        var eligible=typeof(IntelligenceIntegration).GetMethod("PromotedSpeechObserver",flags);
+        Check(eligible!=null,"promoted-only policy compiles in production");
+        var ordinary=new EntityAnchor {Kind="ped",Observer=true};
+        var promoted=new EntityAnchor {Kind="ped",Observer=true,
+            OwnerLifetime=Guid.NewGuid().ToString("D")};
+        Check(!(bool)eligible.Invoke(null,new object[]{ordinary}),
+              "ambient pedestrian never enters speech sampling");
+        Check((bool)eligible.Invoke(null,new object[]{promoted}),
+              "promoted active observer may enter speech sampling");
+        promoted.Observer=false;
+        Check(!(bool)eligible.Invoke(null,new object[]{promoted}),
+              "demoted observer stops entering new speech samples");
+        var grade=typeof(IntelligenceIntegration).GetMethod("SpeechAcousticGrade",flags);
+        Check(grade!=null,"production acoustic policy compiles");
+        Func<double,bool,string,string,bool,bool,string> classify=(meters,interior,source,listener,sameCar,los)=>
+            (string)grade.Invoke(null,new object[]{meters,interior,source,listener,sameCar,los});
+        Check(classify(3,true,"on_foot","on_foot",false,true)=="clear",
+              "nearby unoccluded speech stays clear");
+        Check(classify(2,true,"enclosed","on_foot",false,true)=="muffled",
+              "closed-car separation never authorizes clear speech");
+        Check(classify(2,true,"enclosed","enclosed",true,true)=="clear",
+              "two promoted occupants may hear clearly in the same car");
+        Check(classify(4,true,"on_foot","on_foot",false,false)=="muffled",
+              "occlusion never becomes a clear transcript interval");
+        Check(classify(15,true,"on_foot","on_foot",false,true)=="inaudible",
+              "moving out of range cuts clear hearing");
+        Check(classify(2,true,"unknown","on_foot",false,true)=="inaudible",
+              "unknown cabin state fails closed");
+        Check(classify(2,false,"on_foot","on_foot",false,true)=="muffled",
+              "interior separation does not silently grant words");
+    }
+    static void PromotedPlaybackAcousticCoverage()
+    {
+        var anchors=new EntityAnchors();long clock=1000;
+        var player=new Ped {Handle=210,MemoryAddress=new IntPtr(210),
+            Position=new Rage.Vector3 {X=0,Y=0,Z=0}};
+        var nathan=new Ped {Handle=211,MemoryAddress=new IntPtr(211),
+            Position=new Rage.Vector3 {X=2,Y=0,Z=0}};
+        var sarah=new Ped {Handle=212,MemoryAddress=new IntPtr(212),
+            Position=new Rage.Vector3 {X=3,Y=0,Z=0}};
+        var ordinary=new Ped {Handle=213,MemoryAddress=new IntPtr(213),
+            Position=new Rage.Vector3 {X=1,Y=0,Z=0}};
+        EntityAnchor Owned(Ped p)=>anchors.Retain(p,(ulong)p.Handle,p.MemoryAddress,"ped",
+            Guid.NewGuid().ToString("D"),()=>p.Existing,clock,true);
+        var source=Owned(nathan);var listener=Owned(sarah);
+        var ambient=anchors.Retain(ordinary,(ulong)ordinary.Handle,ordinary.MemoryAddress,
+            "ped",null,()=>ordinary.Existing,clock,true);
+        Check(source!=null && listener!=null && ambient!=null,
+            "promoted acoustic test anchors have exact lifetimes");
+        var acoustics=new PromotedPlaybackAcousticMonitor();
+        var logs=new List<string>();
+        bool CurrentOwner(EntityAnchor a)=>a?.OwnerLifetime!=null;
+        int budget=8;
+        var normal=new PromotedPlaybackAcousticMonitor.PlaybackFact{
+            Starting=true,Speaker=ordinary,PedId=ordinary.Handle.ToString(),
+            TurnId="ambient-turn",Generation=1};
+        acoustics.Enqueue(normal);
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(acoustics.ActiveCount==0 && logs.Count==0,
+            "ordinary pedestrian playback never enters promoted hearing");
+        var start=new PromotedPlaybackAcousticMonitor.PlaybackFact{
+            Starting=true,Speaker=nathan,PedId=nathan.Handle.ToString(),
+            TurnId="nathan-turn",Generation=4};
+        acoustics.Enqueue(start);clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(acoustics.ActiveCount==1 && logs.Any(x=>x.Contains("event=start")),
+            "promoted exact native speaker enters a bounded playback timeline");
+        Check(logs.Any(x=>x.Contains("listener=player")&&x.Contains("grade=clear")),
+            "nearby player has clear expected acoustics during native playback");
+        Check(logs.Any(x=>x.Contains("grade=clear")&&x.Contains("listener=")&&
+              !x.Contains("listener=player")),
+            "second promoted NPC gets independent acoustic samples");
+        Check(logs.All(x=>!x.Contains("ambient-turn")&&!x.Contains("knowledge_grants=1")),
+            "ambient speech and invented knowledge never appear in timeline");
+        var car=new Vehicle{Handle=214,MemoryAddress=new IntPtr(214)};
+        nathan.CurrentVehicle=car;clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(logs.Any(x=>x.Contains("listener=player")&&x.Contains("grade=muffled")),
+            "cabined Nathan vs outside player transitions to expected muffling");
+        player.Position=new Rage.Vector3{X=25,Y=0,Z=0};clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(logs.Any(x=>x.Contains("listener=player")&&x.Contains("grade=inaudible")),
+            "walking away from promoted speaker cuts expected acoustic coverage");
+        player.Position=new Rage.Vector3{X=2,Y=0,Z=0};
+        nathan.CurrentVehicle=null;
+        Rage.Native.NativeFunction.AcousticLos=false;
+        clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Rage.Native.NativeFunction.AcousticLos=true;
+        Check(logs.Any(x=>x.Contains("listener=player")&&x.Contains("reason=los_blocked")),
+            "obstruction is independently sampled, never inferred from distance");
+        acoustics.Enqueue(new PromotedPlaybackAcousticMonitor.PlaybackFact{
+            Starting=false,Speaker=nathan,PedId=nathan.Handle.ToString(),
+            TurnId="nathan-turn",Generation=4,Interrupted=true,HadAudio=true,
+            PlaybackStarted=true});
+        clock+=150;budget=8;acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(acoustics.ActiveCount==0 && logs.Any(x=>x.Contains("event=end")&&x.Contains("interrupted=1")),
+            "exact interrupted native turn retires its source and speaker");
+        acoustics.Enqueue(start);clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        nathan.Existing=false;clock+=150;budget=8;
+        acoustics.Update(anchors,CurrentOwner,player,1,clock,ref budget,logs.Add);
+        Check(acoustics.ActiveCount==0,"despawn or recycled lifetime retires acoustic turn");
+        acoustics.Clear();
+        Check(logs.All(x=>!x.Contains("applied_gain=0.5")&&!x.Contains("pcm_processed=1")),
+            "diagnostic model never fabricates audible DSP");
+    }
+    static void SpatialVoiceDspCoverage()
+    {
+        var silence=PromotedVoiceMixTarget.FromAcoustic("unknown",2,0);
+        var clear=PromotedVoiceMixTarget.FromAcoustic("clear",2,0);
+        var muffled=PromotedVoiceMixTarget.FromAcoustic("muffled",2,0);
+        Check(silence.Gain==0 && clear.Gain>muffled.Gain &&
+            clear.CutoffHz>muffled.CutoffHz,
+            "shared acoustic classes map to conservative pre-mix DSP targets");
+        Check(PromotedVoiceMixTarget.FromAcoustic("clear",double.NaN,0).Gain==0,
+            "invalid geometry cannot make DSP audible");
+        var dsp=new PromotedVoiceDsp(24000);
+        var mono=Enumerable.Repeat(1f,2400).ToArray(),stereo=new float[4800];
+        dsp.SetTarget(silence);dsp.MixInto(mono,0,mono.Length,stereo,0);
+        Check(stereo.All(v=>v==0),"unverified acoustic source remains silent in DSP");
+        dsp.Reset();dsp.SetTarget(clear);
+        Array.Clear(stereo,0,stereo.Length);
+        dsp.MixInto(mono,0,mono.Length,stereo,0);
+        Check(stereo[4700]>0.3f && stereo[4701]>0.3f &&
+            Math.Abs(stereo[4700]-stereo[4701])<0.02f,
+            "pre-mix clear source becomes balanced stereo with smoothed gain");
+        dsp.SetTarget(PromotedVoiceMixTarget.FromAcoustic("clear",2,1));
+        Array.Clear(stereo,0,stereo.Length);
+        dsp.MixInto(mono,0,mono.Length,stereo,0);
+        Check(stereo[4798]<stereo[4799]*0.25f,
+            "rightward speaker smoothly pans toward right channel");
+        float MeanSquared(float[] data,int begin,int length) {
+            double sum=0;
+            for(int i=begin;i<begin+length;i++)sum+=data[i]*data[i];
+            return (float)(sum/length);
+        }
+        var high=new float[4800];
+        for(int i=0;i<high.Length;i++)
+            high[i]=(float)Math.Sin(2*Math.PI*6000*i/24000);
+        float HighEnergy(PromotedVoiceMixTarget target) {
+            var test=new PromotedVoiceDsp(24000);
+            test.SetTarget(target);
+            var output=new float[9600];
+            test.MixInto(high,0,4800,output,0);
+            return MeanSquared(output,8000,1600);
+        }
+        Check(HighEnergy(muffled)<HighEnergy(clear)*0.1f,
+            "muffled grade actually filters high frequencies in isolated DSP");
+        dsp.SetTarget(silence);Array.Clear(stereo,0,stereo.Length);
+        dsp.MixInto(mono,0,mono.Length,stereo,0);
+        Check(stereo[0]>0f && stereo[4799]<0.08f,
+            "walking out of acoustic range fades rather than abruptly muting PCM");
+        dsp.Reset();Array.Clear(stereo,0,stereo.Length);
+        dsp.MixInto(mono,0,mono.Length,stereo,0);
+        Check(stereo.All(v=>v==0) && dsp.MixedFrames==2400,
+            "interrupted turn resets filters and cannot bleed into next speaker");
+        var alternative=new PromotedVoiceDsp(24000);
+        alternative.SetTarget(clear);
+        var otherOut=new float[4800];alternative.MixInto(mono,0,mono.Length,otherOut,0);
+        Check(otherOut[4799]>0.2f && stereo[4799]==0,
+            "separate promoted voices retain strictly isolated DSP state");
+        bool threw=false;
+        try {dsp.MixInto(mono,0,3000,stereo,0);} catch(ArgumentOutOfRangeException){threw=true;}
+        Check(threw,"invalid audio buffer bounds are rejected before mixing");
+    }
     static void Check(bool condition,string name) {if(!condition) throw new Exception(name);assertions++;}
     static object Get(object target,string name)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).GetValue(target);
     static void Set(object target,string name,object value)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).SetValue(target,value);
@@ -372,7 +571,16 @@ class Program
 
     static void Main(string[] args)
     {
-        try{SocialScenesCoverage();Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
+        if(args.Length==1 && args[0]=="--c01-only") {
+            try {
+                C01SpeechPolicyCoverage();
+                PromotedPlaybackAcousticCoverage();
+                SpatialVoiceDspCoverage();
+                Console.WriteLine("PASS C01 native policy assertions="+assertions);
+            } catch(Exception e) {Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}
+            return;
+        }
+        try{C01SpeechPolicyCoverage();PromotedPlaybackAcousticCoverage();SpatialVoiceDspCoverage();SocialScenesCoverage();Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
             if(args.Length==1&&args[0]=="--d2-source-only-wire")
                 foreach(var frame in SourceOnlyTests.WireFrames)Console.WriteLine("D2_WIRE "+new JavaScriptSerializer().Serialize(frame));
         }catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}

@@ -167,7 +167,12 @@ export class OpenAIConnection {
   sendText(text) {
     this.#ensureTurn();
     this.#metrics?.event('input_ready', { inputChars: String(this.#turn.inputText || text || '').trim().length, role: 'typed' });
-    return Promise.resolve(this.#launch({ input: this.#turn.inputText || String(text || '').trim() }));
+    const input = this.#turn.inputText || String(text || '').trim();
+    const launched = this.#launch({input});
+    if(launched && this.#turn.source==='player_text' && input.trim()) {
+      try {this.#runtime.intelligence?.recordTypedUtterance?.(this.#turn.identity);} catch {}
+    }
+    return Promise.resolve(launched);
   }
 
   startRealtimeInput() {
@@ -179,6 +184,13 @@ export class OpenAIConnection {
     this.#mic = [];
     this.#micBytes = 0;
     this.#micOverflow = false;
+    try {this.#runtime.intelligence?.reserveMicUtterance?.({
+      identity:this.#turn.identity,
+      actorRef:this.#turn.knowledgeInputs?.association?.captureRef,
+      utteranceId:this.#turn.knowledgeInputs?.micUtteranceId,
+      hostRunId:this.#turn.knowledgeInputs?.hostRunId,
+      worldEpoch:this.#turn.knowledgeInputs?.worldEpoch
+    });} catch {}
     this.#voice('captureStarted', this.#turn.identity);
     return Promise.resolve(true);
   }
@@ -232,6 +244,7 @@ export class OpenAIConnection {
       this.#voice('captureEnded', this.#turn.identity, { submitted: false, reason: 'no_audio' });
       throw new Error('PTT input did not contain microphone audio.');
     }
+    try {this.#runtime.intelligence?.finishMicUtterance?.(this.#turn.identity,pcm.length);} catch {}
     this.#voice('captureEnded', this.#turn.identity, { submitted: true });
     this.#launch({ pcm: new Uint8Array(pcm), sampleRate: 16_000 });
     return Promise.resolve(true);
@@ -262,6 +275,7 @@ export class OpenAIConnection {
   abortTurn(identity, reason = 'cancelled') {
     if (!sameIdentity(this.#turn?.identity, identity)) return false;
     this.#retired = true;
+    try {this.#runtime.intelligence?.cancelMicUtterance?.(identity);} catch {}
     this.#metrics?.event(String(reason).includes('supersed') ? 'supersession_requested' : 'cancellation_requested', { reason });
     this.#inputStarted = false;
     this.#mic = [];

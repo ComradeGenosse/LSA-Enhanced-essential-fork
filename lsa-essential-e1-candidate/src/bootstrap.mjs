@@ -665,6 +665,9 @@ export async function createRuntimeForBundle(options = {}) {
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
   runtime.services.projectTurnContext = input => runtime.intelligence?.projectTurnContext(input) ?? null;
   runtime.services.acknowledgeTurnContext = (projection,outcome='delivered') => runtime.intelligence?.acknowledgeTurnContext(projection,outcome) ?? false;
+  runtime.services.acceptCapturedPlayerUtterance = input =>
+    runtime.intelligence?.acceptCapturedPlayerUtterance(input) ??
+      {accepted:false,reason:'c01_unavailable'};
   if(config.activities.mode==='shadow' || config.activities.mode==='on') {
     const checkpoint=owner.checkpoint();
     try {

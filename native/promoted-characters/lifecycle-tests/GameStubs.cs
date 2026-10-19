@@ -251,6 +251,10 @@ namespace LSA.Intelligence
             bool directorShadow,bool directorExperimental,string radioMode,int maxAttemptsPerMinute,
             Func<object> sampleNativeAuthority,Func<object> sampleOwnerPlayer,object producerPolicy,bool protagonistEvidenceEnabled=false) { }
         public void OwnerRetired(string incarnationId) { }
+        // Bridge and lifecycle harnesses link no production intelligence host.
+        // These opt-in configuration seams are inert; no mic capture is faked.
+        public void EnableCaptureShadow() { }
+        public void EnableCaptureExperimental() { }
         public void Initialize() { }
         internal void Shutdown(string reason) { }
         internal string RuntimeStatus() => "test";

@@ -4,6 +4,9 @@ import { ObservationStore } from './observationStore.mjs';
 import { EpisodeStore } from './episodeStore.mjs';
 import { EpisodeCorrelator } from './episodeCorrelator.mjs';
 import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
+import { UtteranceLifecycle } from './utteranceLifecycle.mjs';
+import {normalizeSpeechReceiptV2} from './speechReceiptV2.mjs';
+import {publishSpeechObservations} from './speechEvents.mjs';
 import { SalienceCache, situationFromCharacterView, sameSalienceSituationPolicy } from './salienceEngine.mjs';
 import { readHostContext } from '../context/hostContext.mjs';
 import { RadioTrackTextCatalog, normalizeRadioSignal } from './radioTrackTextCatalog.mjs';
@@ -38,7 +41,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 export class ShadowRuntime {
   constructor({ mode='off', radio='off', radioCatalog=null, ambientSpeech=false, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null, m9Events=null, trace=null, stall=null }={}) {
     this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
-    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialManualResult=null;this.socialScenes=new Map();this.socialDiagnostics={accepted:0,replayed:0,stale:0,manualAccepted:0,manualRejected:0};this.situationProvider=situationFor;
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.utteranceLifecycleVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialManualResult=null;this.socialScenes=new Map();this.socialDiagnostics={accepted:0,replayed:0,stale:0,manualAccepted:0,manualRejected:0};this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -62,6 +65,9 @@ export class ShadowRuntime {
     this.episodes=ps2?new EpisodeStore({now,current:ref=>this.current(ref)}):null;
     this.correlator=ps2?new EpisodeCorrelator({episodes:this.episodes,observations:this.observations,now,current:ref=>this.current(ref),anchor:ref=>this.anchors.get(ref)}):null;
     this.transcripts=ps2?new SharedTranscriptStore({now,current:ref=>this.current(ref)}):null;
+    this.utterances=ps2?new UtteranceLifecycle({now,current:ref=>this.current(ref)}):null;
+    this.speechRights=new Map();
+    this.speechDiagnostics={receipts:0,accepted:0,observations:0,rejected:0};
     this.salience=ps3?new SalienceCache({now,ambientSpeech}):null;
     this.ps2Diagnostics={correlated:0,witnessed:0,ownedWitnessed:0,duplicates:0,dropped:0,speechGate:'unsupported_capture_receipt'};
     // M3 opt-in synchronous acceptance tap. Off by default. It may enqueue a
@@ -149,8 +155,8 @@ export class ShadowRuntime {
     const kind=['initialization','disconnect','fault','timeout','manual'].includes(reason)?reason:'manual';
     this.lastResetReason='reset_'+kind;
     for(const ref of this.anchors.keys())this.recordMissingRef(ref,this.lastResetReason);
-    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.m9Events?.reset();this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialManualResult=null;this.socialScenes.clear();this.socialDiagnostics={accepted:0,replayed:0,stale:0,manualAccepted:0,manualRejected:0};
-    this.anchors.clear();this.signals=[];this.producers.clear();this.observations?.clear();this.episodes?.clear();this.correlator?.clear();this.salience?.clear();this.transcripts?.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.leaseBase=0;this.stallNotified=false;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.m9Events?.reset();this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.utteranceLifecycleVersion=null;this.directorPriority=null;this.directorReceipts=[];this.socialManualResult=null;this.socialScenes.clear();this.socialDiagnostics={accepted:0,replayed:0,stale:0,manualAccepted:0,manualRejected:0};
+    this.anchors.clear();this.signals=[];this.producers.clear();this.observations?.clear();this.episodes?.clear();this.correlator?.clear();this.salience?.clear();this.transcripts?.setActiveRun(null);this.utterances?.clear();this.speechRights.clear();this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.leaseBase=0;this.stallNotified=false;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
   }
   current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.leaseNow() && this.epoch);}
@@ -190,6 +196,8 @@ export class ShadowRuntime {
     }
     for(const [ref,a] of this.anchors) if(a.expires<=this.leaseNow()) this.retire(ref,'lease_expired');
     this.signals=this.signals.filter(s=>{ if(s.expires<=this.now()) {this.bump(this.historyDiagnostics,'expired');return false;} return true; });
+    for(const [id,right] of this.speechRights)
+      if(right.expires<=this.now() || !this.current(right.observerRef)) this.speechRights.delete(id);
     this.observations?.expire();
     this.episodes?.expire();
     this.salience?.expire(this.now());
@@ -212,7 +220,7 @@ export class ShadowRuntime {
     if(this.mode!=='shadow' || !authenticated) return false;
     this.expire();
     if(!validateFrame(v)) {this.count('malformed');return false;}
-    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.memoryCurrentOwnerPlayerVersion=v.memoryCurrentOwnerPlayerVersion??null;this.m9SampleVersion=v.m9SampleVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.directorRequestVersion=v.directorRequestVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts?.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
+    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.memoryCurrentOwnerPlayerVersion=v.memoryCurrentOwnerPlayerVersion??null;this.m9SampleVersion=v.m9SampleVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.directorRequestVersion=v.directorRequestVersion??null;this.utteranceLifecycleVersion=v.utteranceLifecycleVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts?.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
     if(v.adapterEpoch!==this.epoch || v.streamId!==this.stream) {this.count('stale');return false;}
     if(v.sequence<=this.sequence) {this.count('duplicate');return false;}
     if(v.sequence!==this.sequence+1) {this.count('gaps');this.reset('fault');return false;}
@@ -222,8 +230,8 @@ export class ShadowRuntime {
       if(v.payload.epoch===this.hostContext.worldEpoch) return true;
       const context=Object.freeze({...this.hostContext,worldEpoch:v.payload.epoch});
       const epoch=this.epoch,stream=this.stream,sequence=this.sequence,capabilities=this.capabilities;
-      const m9SampleVersion=this.m9SampleVersion,memoryCurrentOwnerPlayerVersion=this.memoryCurrentOwnerPlayerVersion,observerIndexVersion=this.observerIndexVersion,observerSituationVersion=this.observerSituationVersion,primaryBehaviorOwnerVersion=this.primaryBehaviorOwnerVersion,directorRequestVersion=this.directorRequestVersion;
-      this.reset('manual');this.m9SampleVersion=m9SampleVersion;this.memoryCurrentOwnerPlayerVersion=memoryCurrentOwnerPlayerVersion;this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
+      const m9SampleVersion=this.m9SampleVersion,memoryCurrentOwnerPlayerVersion=this.memoryCurrentOwnerPlayerVersion,observerIndexVersion=this.observerIndexVersion,observerSituationVersion=this.observerSituationVersion,primaryBehaviorOwnerVersion=this.primaryBehaviorOwnerVersion,directorRequestVersion=this.directorRequestVersion,utteranceLifecycleVersion=this.utteranceLifecycleVersion;
+      this.reset('manual');this.m9SampleVersion=m9SampleVersion;this.memoryCurrentOwnerPlayerVersion=memoryCurrentOwnerPlayerVersion;this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.utteranceLifecycleVersion=utteranceLifecycleVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
       this.capabilities=capabilities;this.transcripts?.setActiveRun(epoch);this.lastReceipt=this.now();return true;
     }
     // EA protagonist frame only confirms transport/order + current native host.
@@ -324,6 +332,41 @@ export class ShadowRuntime {
       const receivedAt=replay?old.receivedAt:at;
       this.socialScenes.set(p.speakerCaptureRef,
         Object.freeze({...p,receivedAt,refreshedAt:at}));
+      return true;
+    }
+    if(v.type==='utterance') {
+      if(this.utteranceLifecycleVersion!==1 || !this.hostContext)return false;
+      const accepted=this.utterances?.accept(v.payload,this.hostContext);
+      if(accepted && v.payload.phase==='ended')
+        this.commitQualifiedSpeech(v.payload.utteranceId);
+      return accepted;
+    }
+    if(v.type==='speech_receipt') {
+      // Native receipt may arrive before the terminal mic fact. Retain only
+      // a source-equal receipt and commit once both terminal and STT exist.
+      if(this.utteranceLifecycleVersion!==1 ||
+         this.capabilities.playerSpeech!==true || !this.hostContext) return false;
+      const n=v.payload,e=this.utterances.entries.get(n.utteranceId);
+      const receipt=normalizeSpeechReceiptV2(n,{host:this.hostContext,
+        adapterEpoch:this.epoch,now:this.now()});
+      if(!receipt || !e || e.started?.inputSource!=='essential_mic' ||
+         e.started.monotonicMs!==n.startMonotonicMs ||
+         e.started.gameTick!==n.startGameTick ||
+         e.started.hostRunId!==n.nativeHostRunId ||
+         e.started.worldEpoch!==n.worldEpoch || e.proximity ||
+         !this.current(receipt.source.captureRef) ||
+         this.anchors.get(receipt.source.captureRef)?.kind!=='player' ||
+         // No ordinary GTA pedestrian can enter this acoustic receipt,
+         // regardless of whether an ambient PS observer saw the player.
+         receipt.observers.some(w=>!this.current(w.observer.captureRef) ||
+           this.anchors.get(w.observer.captureRef)?.kind!=='ped' ||
+           this.anchors.get(w.observer.captureRef)?.observer!==true ||
+           !this.owned(w.observer.captureRef))) {
+        this.speechDiagnostics.rejected++;return false;
+      }
+      e.proximity={receipt,sourceEnd:n.endMonotonicMs,endTick:n.endGameTick};
+      this.speechDiagnostics.receipts++;
+      this.commitQualifiedSpeech(n.utteranceId);
       return true;
     }
     if(v.type==='director_priority') {
@@ -752,6 +795,60 @@ export class ShadowRuntime {
       }
       return decision;
     } catch { this.ps3Diagnostics.faults=Math.min(MAX_COUNTER,this.ps3Diagnostics.faults+1); return null; }
+  }
+  commitQualifiedSpeech(utteranceId) {
+    const entry=this.utterances?.entries.get(utteranceId);
+    if(!entry || entry.speechCommitted || !entry.proximity ||
+       !entry.sttConsumed || !entry.transcript ||
+       entry.ended?.terminal!=='released' ||
+       entry.ended.monotonicMs!==entry.proximity.sourceEnd ||
+       entry.ended.gameTick!==entry.proximity.endTick ||
+       !entry.started.micPedRef ||
+       // Hearing grants require the *explicit native P0 microphone ID*.
+       // Shadow diagnostics may retain bounded timestamp association, but
+       // it is not strong enough to fan speech out to other observers.
+       entry.join?.expectedId!==utteranceId ||
+       !this.current(entry.started.micPedRef) ||
+       this.capabilities.playerSpeech!==true)return false;
+    // Only accepted, current Essential/P0 player_mic turn data can cross
+    // this gate. Do not recapture STT or distribute to separate chat turns.
+    entry.speechCommitted=true;
+    const {receipt}=entry.proximity;
+    // Source-time eligibility expires on demotion or identity retirement.
+    // Recheck after STT/terminal: hearing does not grant an enduring lease.
+    const currentReceipt={...receipt,observers:receipt.observers.filter(w=>
+      this.current(w.observer.captureRef) &&
+      this.anchors.get(w.observer.captureRef)?.kind==='ped' &&
+      this.anchors.get(w.observer.captureRef)?.observer===true &&
+      this.owned(w.observer.captureRef))};
+    const accepted=this.transcripts.accept({capability:true,
+      receipt:currentReceipt,text:entry.transcript.text});
+    if(!accepted?.accepted || accepted.duplicate) {
+      this.speechDiagnostics.rejected++;return false;
+    }
+    this.speechDiagnostics.accepted++;
+    const count=publishSpeechObservations({receipt:currentReceipt,perceptions:accepted.perceptions,
+      now:this.now,current:ref=>this.current(ref),episodes:this.episodes,
+      observations:this.observations,noteSalience:o=>this.noteSalience(o),
+      rights:this.speechRights});
+    this.speechDiagnostics.observations+=count;
+    return true;
+  }
+  acceptCapturedPlayerUtterance({identity,text}={}) {
+    if(this.utteranceLifecycleVersion!==1 || !this.epoch)
+      return {accepted:false,reason:'c01_unavailable'};
+    const result=this.utterances.acceptStt({identity,text,host:this.hostContext});
+    if(result.accepted)this.commitQualifiedSpeech(result.utteranceId);
+    return result;
+  }
+  resolveSpeechForObserver(observationId,observerRef) {
+    const right=this.speechRights.get(observationId);
+    if(!right || right.observerRef!==observerRef ||
+       right.expires<=this.now() || !this.current(observerRef) ||
+       ![...this.observations.entries.values()].some(e=>
+         e.value.observationId===observationId &&
+         e.value.observer.captureRef===observerRef))return null;
+    return this.transcripts.resolveForObserver(right.transcriptRef,observerRef)?.text??null;
   }
   acceptPlayerTranscript({text,receipt=null}={}) {
     return this.transcripts?.accept({capability:this.capabilities.playerSpeech===true,receipt,text})??null;
