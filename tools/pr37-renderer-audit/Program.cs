@@ -88,6 +88,7 @@ foreach(var (owner,mh) in inspected) {
         name.Contains("Filter",StringComparison.OrdinalIgnoreCase);
     if(!interesting || m.RelativeVirtualAddress==0)continue;
     var il=pe.GetMethodBody(m.RelativeVirtualAddress).GetILBytes();
+    if(il==null)continue;
     Console.WriteLine("BODY "+owner+"."+name+" token=0x"+MetadataTokens.GetToken(mh).ToString("X8")+
         " il_bytes="+il.Length);
     int pos=0,edges=0;
