@@ -1,6 +1,7 @@
 {
   "enabled": false,
   "autoRunPreShot": false,
+  "autoTeleportForSamples": false,
   "x": 0,
   "y": 0,
   "z": 0,
