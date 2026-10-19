@@ -48,6 +48,9 @@ namespace LSA.WPS.Lab
         long returnStarted;
         string autoTerminalState;
         long positionAttemptSince, positionMoveSince;
+        int navSiteAttempt;
+        static readonly int[] NavOffsetsX={0,16,-16,0,0,32,-32,32,-32,0,0,48,-48};
+        static readonly int[] NavOffsetsY={0,0,0,16,-16,0,0,32,-32,48,-48,0,0};
         string positionStatus="not_requested";
         public LabRunner(string gameRoot,Settings settings)
         {
@@ -157,7 +160,7 @@ namespace LSA.WPS.Lab
             autoId=Guid.NewGuid().ToString("N");
             autoManifest=Path.Combine(logDir,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-pre-shot-"+autoId+".suite.json");
             autoHistory.Clear();autoIndex=0;autoActive=true;autoHadBlockers=false;autoBegan=RealMs();
-            siteReady=false;positionAttemptSince=0;positionMoveSince=0;positionStatus=cfg.autoTeleportForSamples?"pending":"not_requested";
+            siteReady=false;positionAttemptSince=0;positionMoveSince=0;navSiteAttempt=0;positionStatus=cfg.autoTeleportForSamples?"pending":"not_requested";
             teleportedPlayer=false;teleportFrozen=false;previousPlayerHandle=0;autoSite=null;
             teleportWasPerformed=false;teleportRestoreSucceeded=false;returningHome=false;
             autoTerminalState="";
@@ -221,18 +224,20 @@ namespace LSA.WPS.Lab
             }
             if(!teleportedPlayer)
             {
-                N("REQUEST_COLLISION_AT_COORD",(float)autoSite.x,(float)autoSite.y,(float)autoSite.z);
+                int index=navSiteAttempt++%NavOffsetsX.Length;
+                float searchX=(float)autoSite.x+NavOffsetsX[index];
+                float searchY=(float)autoSite.y+NavOffsetsY[index];
+                N("REQUEST_COLLISION_AT_COORD",searchX,searchY,(float)autoSite.z);
                 using(var outPos=new NativePointer(24))
                 {
                     // 14 excludes isolated, interior and water navmesh.
-                    bool found=B("GET_SAFE_COORD_FOR_PED",(float)autoSite.x,(float)autoSite.y,
+                    bool found=B("GET_SAFE_COORD_FOR_PED",searchX,searchY,
                         (float)(autoSite.z+3),true,outPos,14);
-                    if(!found){positionStatus="waiting_for_safe_pavement";return false;}
+                    if(!found){positionStatus="searching_safe_pavement";return false;}
                     Rage.Vector3 safe=outPos.GetValue<Rage.Vector3>();
                     if(!autoSite.AcceptSafeCoord(safe.X,safe.Y,safe.Z))
                     {
-                        positionStatus="blocked_navigation_location_outside_reference_area";
-                        StopAuto(positionStatus);return false;
+                        positionStatus="searching_safe_pavement_inside_bounded_area";return false;
                     }
                     previousPlayerPos=Game.LocalPlayer.Character.Position;
                     previousPlayerHeading=F("GET_ENTITY_HEADING",ped);
