@@ -101,7 +101,7 @@ namespace LSA.Intelligence
             public int WorldEpoch;
             public uint StartTick;
             public long StartMs,LastSweep=-1;
-            public int ProbeCursor;
+            public int ProbeCursor,AcousticLogs;
             public readonly Dictionary<string,SpeechListener> Listeners=new Dictionary<string,SpeechListener>();
         }
         SpeechWindow speechWindow;
@@ -124,6 +124,45 @@ namespace LSA.Intelligence
             speechWindow=new SpeechWindow{Id=item.utteranceId,SourceRef=player.CaptureRef,
                 HostRunId=item.hostRunId,WorldEpoch=item.worldEpoch,
                 StartTick=item.gameTick,StartMs=item.monotonicMs};
+        }
+        // Hearing is strictly a promoted-owner activity, not a PS ambient-Ped
+        // feature. Select this lane before any geometry, LOS or vehicle reads.
+        static bool PromotedSpeechObserver(EntityAnchor a) =>
+            a!=null && a.Observer && a.Kind=="ped" &&
+            !string.IsNullOrEmpty(a.OwnerLifetime);
+
+        // Conservative grades, not a substitute for GTA acoustic ray tracing.
+        // Only "clear" permits transcript-covered intervals. Muffled/unknown
+        // observations do not receive words; the pinned Essential mixer does
+        // not expose per-speaker DSP controls.
+        static string SpeechAcousticGrade(double meters,bool sameInterior,
+            string sourceMode,string listenerMode,bool sameVehicle,bool clearLos) {
+            if(double.IsNaN(meters)||double.IsInfinity(meters)||meters<0||
+                meters>18 || sourceMode=="unknown" || listenerMode=="unknown")
+                return "inaudible";
+            if(!sameInterior)return "muffled";
+            if((sourceMode=="enclosed"||listenerMode=="enclosed")&&!sameVehicle)
+                return meters<=8?"muffled":"inaudible";
+            if(!clearLos)return meters<=8?"muffled":"inaudible";
+            if(sameVehicle)return meters<=6?"clear":"muffled";
+            return meters<=12?"clear":"inaudible";
+        }
+        void SpeechGrade(SpeechWindow w,SpeechListener l,string grade,
+            string reason,int elapsed) {
+            if(l.Path!=grade && w.AcousticLogs<48) {
+                w.AcousticLogs++;
+                LogStatus("[C01_ACOUSTIC] tick="+Game.GameTime+
+                    " host_ms="+host.MonotonicMs+" utterance="+TraceCode(w.Id)+
+                    " observer="+TraceCode(l.Ref)+" class="+grade+
+                    " reason="+reason+" distance_m="+Math.Round(l.Distance,1)+
+                    " source_vehicle="+l.SourceVehicle+
+                    " listener_vehicle="+l.ObserverVehicle+
+                    " interior="+l.Interior+
+                    " window_evidence=unknown dsp=unavailable"+
+                    " offset_ms="+elapsed);
+            }
+            l.Path=grade;l.Reason=reason;
+            if(grade!="clear")l.LastSample=-1;
         }
         static string VehicleMode(Ped ped) {
             try {return NativeFunction.CallByName<bool>("IS_PED_IN_ANY_VEHICLE",ped,false) ?
@@ -170,7 +209,7 @@ namespace LSA.Intelligence
             }
             int relative=(int)Math.Max(0,now-w.StartMs);
             int speechLosBudget=Math.Min(3,lineOfSightBudget);
-            var candidates=anchors.Current.Where(a=>a.Observer && a.Kind=="ped")
+            var candidates=anchors.Current.Where(PromotedSpeechObserver)
                 .OrderByDescending(a=>a.OwnerLifetime!=null)
                 .ThenBy(a=>a.Entity is Ped ped ? ped.Position.DistanceTo(player.Position):float.MaxValue)
                 .ThenBy(a=>a.CaptureRef,StringComparer.Ordinal).Take(16).ToArray();
@@ -208,28 +247,39 @@ namespace LSA.Intelligence
                     int bInterior=NativeFunction.CallByName<int>("GET_INTERIOR_FROM_ENTITY",observer);
                     bool sameInterior=aInterior==bInterior;
                     l.Interior=sameInterior?"same":"different";
-                    if(!sameInterior) {l.Path="blocked";l.Reason="different_interior";l.LastSample=-1;continue;}
-                    if(vehicleSource=="unknown" || vehicleObserver=="unknown") {
-                        l.Path="unknown";l.Reason="vehicle_policy_reject";l.LastSample=-1;continue;
-                    }
                     bool sameVehicle=false;
                     if(vehicleSource=="enclosed" && vehicleObserver=="enclosed") {
                         var sv=player.CurrentVehicle;var ov=observer.CurrentVehicle;
                         sameVehicle=sv!=null && ov!=null && sv.Exists() && ov.Exists() &&
                             sv.MemoryAddress==ov.MemoryAddress && sv.MemoryAddress!=IntPtr.Zero;
                     }
-                    bool allowed=vehicleSource=="on_foot" && vehicleObserver=="on_foot" ||
-                        sameVehicle;
-                    double radius=vehicleSource=="enclosed" || vehicleObserver=="enclosed"?6:12;
-                    if(!allowed) {l.Path="unknown";l.Reason="vehicle_policy_reject";l.LastSample=-1;continue;}
-                    if(distance>radius) {l.Path="blocked";l.Reason="out_of_range";l.LastSample=-1;continue;}
-                    // Share the existing native LOS limit with shooting witnesses.
-                    if(speechLosBudget<=0 || lineOfSightBudget<=0) {l.Path="unknown";l.Reason="sampling_budget";l.LastSample=-1;continue;}
-                    speechLosBudget--;lineOfSightBudget--;
-                    if(!NativeFunction.CallByName<bool>("HAS_ENTITY_CLEAR_LOS_TO_ENTITY",observer,player,17)) {
-                        l.Path="blocked";l.Reason="acoustic_path_blocked";l.LastSample=-1;continue;
+                    // Interior and vehicle barriers can establish a conservative
+                    // muffled/inaudible grade but never authorize heard words.
+                    // Windows are unknown in this pinned host; do not infer open.
+                    if(!sameInterior || vehicleSource=="unknown" || vehicleObserver=="unknown" ||
+                       (vehicleSource=="enclosed"||vehicleObserver=="enclosed")&&!sameVehicle) {
+                        var grade=SpeechAcousticGrade(distance,sameInterior,vehicleSource,
+                            vehicleObserver,sameVehicle,false);
+                        SpeechGrade(w,l,grade,grade=="muffled"?"barrier_unverified":"acoustic_unavailable",relative);
+                        continue;
                     }
-                    l.Path="clear";l.Reason="heard";speechProbes++;
+                    if(distance>(sameVehicle?6:12)) {
+                        SpeechGrade(w,l,"inaudible","out_of_clear_range",relative);continue;
+                    }
+                    // The existing global LOS allowance also belongs to
+                    // shooting witnesses; never steal an extra probe.
+                    if(speechLosBudget<=0 || lineOfSightBudget<=0) {
+                        SpeechGrade(w,l,"unknown","sampling_budget",relative);continue;
+                    }
+                    speechLosBudget--;lineOfSightBudget--;
+                    bool clear=NativeFunction.CallByName<bool>(
+                        "HAS_ENTITY_CLEAR_LOS_TO_ENTITY",observer,player,17);
+                    string acoustic=SpeechAcousticGrade(distance,sameInterior,vehicleSource,
+                        vehicleObserver,sameVehicle,clear);
+                    if(acoustic!="clear") {
+                        SpeechGrade(w,l,acoustic,"occluded_or_out_of_range",relative);continue;
+                    }
+                    SpeechGrade(w,l,"clear","heard",relative);speechProbes++;
                     l.PositiveTick=l.Tick;l.PositiveDistance=l.Distance;
                     l.PositiveSourceVehicle=vehicleSource;l.PositiveObserverVehicle=vehicleObserver;
                     // Never bridge a rejected, absent or unprobed listener.
