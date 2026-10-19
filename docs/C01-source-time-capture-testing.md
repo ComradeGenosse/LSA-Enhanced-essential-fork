@@ -1,5 +1,12 @@
 # C-01 source-time microphone lifecycle — experimental GTA test
 
+> PR #37 now targets promoted-only bidirectional hearing and real spatial audio.
+> This is the original **player-mic C-01** acceptance record, not proof of
+> NPC-to-NPC sound or player-facing DSP. See
+> [PR37 promoted acoustics acceptance](PR37-promoted-acoustics-acceptance.md)
+> for the new end-to-end gates and known Essential renderer blockers.
+
+
 **Scope:** C-01's optional native microphone lifecycle and experimental
 Phase 9 proximity listener. The **shadow** setting collects source-time
 microphone/turn diagnostics, without distributing speech. The **experimental**
