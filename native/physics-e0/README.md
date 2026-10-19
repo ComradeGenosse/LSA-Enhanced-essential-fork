@@ -1,6 +1,6 @@
 # E0 — Isolated WPS native capability census
 
-This is an EXPERIMENTAL, opt-in, independently loaded GTA V Enhanced RAGE Plugin Hook lab. Nothing is activated on startup. It does not link to Essential, promoted characters, ACT, Memory K, Director, or any gameplay system. **GTA Online / FiveM are prohibited.**
+This is an EXPERIMENTAL, opt-in, independently loaded GTA V Enhanced RAGE Plugin Hook lab. Nothing is activated on startup unless the operator explicitly enables the **read-only pre-shot suite** via `autoRunPreShot: true`. The startup suite can never run E0.4+. It does not link to Essential, promoted characters, ACT, Memory K, Director, or any gameplay system. **GTA Online / FiveM are prohibited.**
 
 ## Genuine SDK build
 
@@ -15,16 +15,16 @@ The builder restores the real NuGet RagePluginHook 1.124.0 SDK, verifies its SHA
 ## Install, operate and roll back
 
 1. Copy only the built LSA.WPS.Lab.dll into your game's **Plugins** directory.
-2. Copy LSA.WPS.Lab.example.json to Plugins/LSA.WPS.Lab.json. Set enabled=true only after specifying known isolated single-player test coordinates for x,y,z and targetX,targetY,targetZ. No tests start automatically.
+2. Copy `LSA.WPS.Lab.example.json` to `Plugins/LSA.WPS.Lab.json`, set `"enabled": true`. You can leave coordinates at zero for the unattended E0.0/E0.1 smoke tests: E0.1 uses a read-only player-local fallback ray. For the material/wall acceptance probes and all destructive tests, you must still supply real, verified locations. By default **no tests start automatically**; use `WPSE0Auto`, or explicitly set `"autoRunPreShot": true` to run the safe sequence after loading the plugin.
 3. For material/thickness experiments, copy LSA.WPS.Lab.samples.example.json to Plugins/LSA.WPS.Lab.samples.json and provide precise CodeWalker-observed surfaces (at least 30 for E0.2, 10 for E0.3). Sample fields: label, ax, ay, az, bx, by, bz, expectedMaterial, materialIndex, expectedThicknessM. Never invent sample coordinates.
-4. Load the plugin using RPH in story-mode free roam, then use its console commands.
+4. Load the plugin using RPH in story-mode free roam, then use its console commands. A safe pre-shot suite requires no movement or shooting. RPH must load the DLL; merely putting it in `Plugins` is not proof that it is loaded.
 5. For rollback, issue WPSE0Cancel; unload the plugin, close GTA, and remove the lab DLL/JSON. Logs can be archived separately. No base-game archives or GTA saves are modified.
 
 Commands:
 
 | Console command | Action |
 | --- | --- |
-| WPSE0Status | Show active test and verdicts |
+| WPSE0Status | Show active test, safe-suite progress, manifest filename and verdicts |\n| WPSE0Auto | Start unattended, **read-only E0.0 -> E0.1 -> E0.2 -> E0.3**; stops before E0.4 |
 | WPSE0Start E0.0 | Start exactly one selected probe (E0.0 through E0.12) |
 | WPSE0Mode single | E0.4 manual fire modes (single, burst, auto, shotgun, npc); E0.9 modes props or fragments |
 | WPSE0ArmBudget | Single-use arming required before E0.9 |
@@ -33,11 +33,21 @@ Commands:
 
 Dangerous operations require **separate explicit JSON opt-ins**: permitBullet, permitExplosion, permitHide, permitIpl and permitTimeScale. All default false. A capped entityLimit (1–2000) controls E0.9, max eight objects created per game frame, with an automatic frame-time watchdog. No test touches an already existing game/ped object. E0.7 requires mapModel and known coordinates; E0.8 requires verified fragModel and child 0–3; E0.11 requires a separately verified vanilla IPL identifier.
 
-The plugin enforces single-player, no cutscene/loading/mission, and a 90-second watchdog. If GTA crashes during a time-scale or IPL test, restart to recover temporary session changes, and validate the original world with probe measurements; do not assume that restoration succeeded. Aggressive experiments are only safe in an empty area, away from civilian peds and vehicles.
+The plugin enforces single-player, no cutscene/loading/mission, and a 90-second watchdog per probe. If GTA crashes during a time-scale or IPL test, restart to recover temporary session changes, and validate the original world with probe measurements; do not assume that restoration succeeded. Aggressive experiments are only safe in an empty area, away from civilian peds and vehicles.
+
+## Unattended, remote-friendly pre-shot suite
+
+**Option A: one console command.** With `enabled: true` and the plugin loaded, enter `WPSE0Auto` once. It runs E0.0–E0.3 sequentially and stops automatically. Use `WPSE0Status` for progress and `WPSE0Cancel` to stop. No second GTA launch is needed. All intrusive permit flags can remain false. The suite does **not** run E0.4, shoot, spawn actors/props, change time scale, hide geometry, toggle IPLs or trigger explosions.
+
+**Option B: no console interaction after RPH loads the plugin.** In `Plugins/LSA.WPS.Lab.json`, set `"enabled": true` and `"autoRunPreShot": true`. Load the DLL using RPH; the runner waits up to 15 minutes for an actual game player ped in safe story-mode free roam, then executes the same E0.0–E0.3 plan automatically. It will not run in GTA Online, missions, cutscenes or while loading. Both `enabled` and `autoRunPreShot` must be true. Keep `autoRunPreShot` false when you want to run manual tests without the suite starting.
+
+**What is and isn't automatic:** E0.0 needs no setup. E0.1 tests read-only native callability; without configured locations, it uses a short ray near the player and records that it was uncalibrated. E0.2 only verifies material hashes if **30 actual CodeWalker-labeled surface samples** were preloaded. E0.3 only checks **10 CodeWalker-measured wall samples** if preloaded. If either dataset is missing, the suite writes a `BLOCKED` run and explicit reason; it does not manufacture material labels, wall thickness or a verified pass. You can still get useful E0.0/E0.1 logs while away from home. E0.4 manual/player shots and the optional separately authorized NPC-shooter run are outside this unattended suite.
+
+**Remote session note:** GTA/RPH physics and fibers may stop advancing if GTA loses focus or the remote solution suspends its rendering/game loop. Use a streaming-control solution that leaves the game running on the host (e.g. Sunshine/Moonlight or Parsec) rather than assuming Windows RDP will preserve an active GTA session. The safe suite is frame-driven, not a Windows background job; logs and its `.suite.json` manifest show what actually completed.
 
 ## Evidence
 
-Each run writes a timestamped JSONL and a readable .summary.json under Plugins/LSA.WPS.Lab.Results. Every JSONL row is prefixed [WPS-LAB], includes experiment/run ID, game and RPH versions, frame and game/real timestamps and measurement details. The summary includes a plugin fingerprint and p50/p95/p99/max frame time. Optional OpenRPF/ScriptHook presence is recorded; manually note external CodeWalker version and local asset hashes.
+Each probe run writes a timestamped JSONL and a readable `.summary.json` under `Plugins/LSA.WPS.Lab.Results`. Each unattended invocation additionally writes one `*-pre-shot-*.suite.json` manifest with per-probe statuses, reasons, log filenames and unmet ground-truth prerequisites; upload these files together for review. Every JSONL row is prefixed [WPS-LAB], includes experiment/run ID, game and RPH versions, frame and game/real timestamps and measurement details. The summary includes a plugin fingerprint and p50/p95/p99/max frame time. Optional OpenRPF/ScriptHook presence is recorded; manually note external CodeWalker version and local asset hashes.
 
 To analyze a run:
 
