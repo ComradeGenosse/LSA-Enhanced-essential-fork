@@ -37,7 +37,7 @@ class Tests
         var book=new CleanupBook();book.Own(0);book.Own(10);book.Own(10);book.Own(11);
         Check(book.Count==2&&book.Owns(11),"only_created");
         Check(book.Forget(10)&&!book.Owns(10)&&book.Count==1,"delete_cannot_retarget_foreign_handle");
-        Check(book.Drain().Length==2&&book.Count==0,"cleanup_idempotent");
+        Check(book.Drain().Length==1&&book.Count==0,"cleanup_idempotent");
         var defaults=Settings.Defaults();
         Check(!defaults.enabled,"never_autostart");
         defaults.Validate();defaults.radius=100;Throws(()=>defaults.Validate(),"safety_radius");
