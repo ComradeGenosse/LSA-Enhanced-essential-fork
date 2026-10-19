@@ -77,7 +77,9 @@ foreach ($p in @($dstDll,$dstConfig,$dstSamples)) {
 # Move only older lab backups created by previous versions of this installer.
 # Never move a live plugin or unrelated file.
 Get-ChildItem -LiteralPath $plugins -File |
-    Where-Object { $_.Name -match '^LSA\.WPS\.Lab\.(dll|json|samples\.json)\.backup-[0-9]{8}-[0-9]{6} -LiteralPath $dll -Destination $dstDll -Force
+    Where-Object { $_.Name -match '^LSA\.WPS\.Lab\.(dll|json|samples\.json)\.backup-[0-9]{8}-[0-9]{6}$' } |
+    ForEach-Object { Move-Item -LiteralPath $_.FullName -Destination (Join-Path $backupDir $_.Name) -ErrorAction Stop }
+Copy-Item -LiteralPath $dll -Destination $dstDll -Force
 Copy-Item -LiteralPath $PrivateSamples -Destination $dstSamples -Force
 $cfg | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $dstConfig -Encoding UTF8
 $actual = (Get-FileHash -LiteralPath $dstDll -Algorithm SHA256).Hash.ToLowerInvariant()
