@@ -55,7 +55,7 @@ def convert(candidates, verification):
                     x["forward"]["materialIndex"] == idx and x["reverse"]["materialIndex"] == idx and
                     math.isclose(x["measuredOfflineRayThicknessM"],
                         sample["encodedPrimitiveThicknessM"], abs_tol=.01)]
-                thickness = float(sample["encodedPrimitiveThicknessM"])
+                thickness = float(supporting[0]["measuredOfflineRayThicknessM"])
                 if not 0 < thickness <= 20:
                     raise ValueError("invalid wall thickness")
             if not supporting:
