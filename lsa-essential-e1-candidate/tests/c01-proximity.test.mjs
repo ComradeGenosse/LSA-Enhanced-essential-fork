@@ -13,6 +13,7 @@ const make=()=>{
   const hostRunId=randomUUID(),worldEpoch=1,adapterEpoch=randomUUID(),streamId=randomUUID();
   const hello={version:1,type:'hello',adapterEpoch,streamId,
     hostContextVersion:1,hostRunId,worldEpoch,utteranceLifecycleVersion:1,
+    observerIndexVersion:1,
     capabilities:Object.fromEntries(CAPABILITIES.map(c=>[c,
       c==='playerSpeech'||c==='witness']))};
   const runtime=new ShadowRuntime({mode:'shadow',now:()=>now});
@@ -20,11 +21,15 @@ const make=()=>{
   const send=(type,payload)=>runtime.ingest(frame(type,payload),{authenticated:true});
   assert.equal(runtime.ingest(hello,{authenticated:true}),true);
   assert.equal(send('anchors',[
-    {captureRef:actor,kind:'ped',observer:true},
-    {captureRef:heard,kind:'ped',observer:true},
-    {captureRef:far,kind:'ped',observer:true},
-    {captureRef:player,kind:'player',observer:false}
+    {captureRef:actor,kind:'ped',observer:true,owned:true},
+    {captureRef:heard,kind:'ped',observer:true,owned:true},
+    {captureRef:far,kind:'ped',observer:true,owned:true},
+    {captureRef:player,kind:'player',observer:false,owned:false}
   ]),true);
+  assert.equal(send('observer_index',[actor,heard,far].map(captureRef=>({
+    captureRef,kind:'ped',owned:true,
+    encounterId:randomUUID(),incarnationId:randomUUID()
+  }))),true);
   const utteranceId=randomUUID(),identity={pedId:'17',sessionNonce:2,turnId:'mic-42',generationId:3};
   const fact=(phase,terminal,monotonicMs,gameTick)=>({
     utteranceVersion:1,utteranceId,phase,terminal,hostRunId,worldEpoch,
@@ -138,4 +143,31 @@ test('C-01 failed acoustic evidence cannot cause PS3/PS4 speech or transcript ou
  assert.equal(f.runtime.acceptCapturedPlayerUtterance({identity:f.identity,text:'Private'}).accepted,true);
  assert.equal(f.runtime.transcripts.entries.size,0);
  assert.equal(f.runtime.observations.entries.size,0);
+});
+
+test('C-01 ordinary GTA pedestrians cannot enter even a well-formed speech receipt',()=>{
+  const f=make(),ordinary=randomUUID();
+  assert.equal(f.send('anchors',[{captureRef:ordinary,kind:'ped',
+    observer:true,owned:false}]),true);
+  assert.equal(f.send('observer_index',[{captureRef:ordinary,kind:'ped',
+    owned:false}]),true);
+  const p=f.receipt({observer:ordinary});
+  assert.equal(f.send('speech_receipt',p),false);
+  assert.equal(f.runtime.transcripts.entries.size,0);
+  assert.equal(f.runtime.speechDiagnostics.rejected,1);
+});
+
+test('C-01 demoted promoted NPC loses hearing before STT can authorize words',()=>{
+  const f=make(),text='Do not give this to a retired observer.';
+  assert.equal(f.runtime.utterances.reserveMicTurn({identity:f.identity,
+    actorRef:f.actor,utteranceId:f.utteranceId,...f.host},f.host),true);
+  assert.equal(f.send('utterance',f.fact('started',null,5000,100)),true);
+  assert.equal(f.runtime.utterances.finishPcm(f.identity,12000),true);
+  assert.equal(f.send('speech_receipt',f.receipt()),true);
+  assert.equal(f.send('anchors',[{captureRef:f.heard,kind:'ped',
+    observer:false,owned:true}]),true);
+  assert.equal(f.send('utterance',f.fact('ended','released',5900,110)),true);
+  assert.equal(f.runtime.acceptCapturedPlayerUtterance({identity:f.identity,text}).accepted,true);
+  assert.equal(f.runtime.speechDiagnostics.observations,0);
+  assert.equal(f.runtime.observations.entries.size,0);
 });
