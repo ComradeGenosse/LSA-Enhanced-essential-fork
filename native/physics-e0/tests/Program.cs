@@ -39,7 +39,11 @@ class Tests
         Check(book.Forget(10)&&!book.Owns(10)&&book.Count==1,"delete_cannot_retarget_foreign_handle");
         Check(book.Drain().Length==1&&book.Count==0,"cleanup_idempotent");
         var defaults=Settings.Defaults();
-        Check(!defaults.enabled,"never_autostart");
+        Check(!defaults.enabled && !defaults.autoRunPreShot,"never_autostart");
+        Check(PreShotPlan.Ids.SequenceEqual(new[]{"E0.0","E0.1","E0.2","E0.3"}),"safe_pre_shot_sequence");
+        Check(PreShotPlan.Ids.All(PreShotPlan.Allows) && !PreShotPlan.Allows("E0.4") && !PreShotPlan.Allows("E0.9"),"no_fire_or_world_mutation_auto");
+        Check(PreShotPlan.MissingGroundTruth("E0.2",29)!=null && PreShotPlan.MissingGroundTruth("E0.2",30)==null,"30_material_references_required");
+        Check(PreShotPlan.MissingGroundTruth("E0.3",9)!=null && PreShotPlan.MissingGroundTruth("E0.3",10)==null,"10_wall_references_required");
         defaults.Validate();defaults.radius=100;Throws(()=>defaults.Validate(),"safety_radius");
         defaults=Settings.Defaults();defaults.entityLimit=2001;Throws(()=>defaults.Validate(),"safety_limit");
         var sample=new Sample{label="codewalker-wall",ax=1,ay=2,az=3,bx=4,by=5,bz=6,expectedThicknessM=.2};
