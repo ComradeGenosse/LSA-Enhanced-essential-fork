@@ -39,6 +39,18 @@ The plugin enforces single-player, no cutscene/loading/mission, and a 90-second 
 
 The sample arrays are **not bundled with the public DLL**, because they contain game-derived geometry. Generate them privately from `candidates.json` and `offline-ray-verification.json` only after checking the extracted archive hashes. The two arrays are independent; E0.3 does not reuse the first ten material rays. Put the resulting `.samples.json` next to the DLL's config in `Plugins/`, and reload the plugin so it reads the new file. The `dt1_19` police-hub sample set uses downtown Los Santos coordinates near X 440, Y -990; the player must get close enough for that block's collision to stream. If the block is not loaded, native rays may miss even though the offline CodeWalker verification passed. Check active IPL/DLC/Onigiri collision precedence before interpreting any discrepancies. All intrusive permits remain false for this batch. Re-run `WPSE0Auto` or allow `autoRunPreShot` after plugin reload, then inspect `material` and `exit_faces` evidence including misses/mismatches; `GTA_VERIFIED` means observations collected, **not** automatic confirmation of material names or wall identities.
 
+## One-command private deployment (recommended for remote use)
+
+Download the **latest successful PR #285** `E0-Research-Lab-UNVERIFIED-IN-GTA` workflow artifact; extract it locally. Keep the CodeWalker sample JSON **outside GitHub's public repo**. Then, in PowerShell **when GTA is closed**, run:
+
+```powershell
+./install-pre-shot.ps1 -GameRoot 'C:\\path\\to\\Grand Theft Auto V Enhanced' -ArtifactDirectory '.' -PrivateSamples 'C:\\private\\LSA.WPS.Lab.samples.json'
+```
+
+The installer verifies the DLL against `BUILD-RECEIPT.json`, checks the 30+10 private samples, backs up the old DLL/config/samples, enables `enabled`, `autoRunPreShot`, and `autoTeleportForSamples`, and **forces all five destructive permit flags off**. The regular startup `ReloadAllPlugins` can load it; no special RPH launcher arguments are needed. Launch RPH through the **known working interactive Windows session**, not a restricted shell. Its files and the CodeWalker data are never uploaded by the installer. If automatic navmesh positioning is unavailable, the suite records a blocker and does not blindly teleport into collision geometry.
+
+The asset-free converter script `native/physics-e0/asset-research/convert_codewalker_candidates.py` is versioned publicly. Run it on a private copy of `candidates.json` and `offline-ray-verification.json`, and do not commit its output into this public repository.
+
 ## Optional safe automatic positioning for E0.2/E0.3
 
 On a machine with the PRIVATE 30-material/10-wall `Plugins/LSA.WPS.Lab.samples.json`, set **all three** of these options in `Plugins/LSA.WPS.Lab.json`: `"enabled": true`, `"autoRunPreShot": true`, and `"autoTeleportForSamples": true`. The last option defaults to **false** independently of automatic test execution and is never required for E0.0/E0.1.
