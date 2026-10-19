@@ -25,6 +25,23 @@ try {
   }
   $installed=(Get-FileHash (Join-Path $game 'Plugins\LSA.WPS.Lab.dll') -Algorithm SHA256).Hash.ToLowerInvariant()
   if($installed -ne $hash){throw 'Wrong installed DLL'}
-  Write-Output 'PASS: offline install validates hash, copies private samples, enables opt-in teleport and disables destructive permits'
+  $plugins=Join-Path $game 'Plugins'
+  # Simulate the old defective installer leaving a discoverable DLL backup.
+  $legacy=Join-Path $plugins 'LSA.WPS.Lab.dll.backup-20261019-080000'
+  Set-Content -LiteralPath $legacy -Value 'previous lab binary'
+  & (Join-Path $PSScriptRoot '..\install-pre-shot.ps1') -GameRoot $game -ArtifactDirectory $artifact -PrivateSamples $samplePath | Out-Null
+  if (Test-Path -LiteralPath $legacy) { throw 'Legacy discoverable DLL backup was not moved out of Plugins' }
+  $backupRoot=Join-Path $game 'LSA.WPS.Lab.Backups'
+  $saved=@(Get-ChildItem -LiteralPath $backupRoot -Recurse -File)
+  if (@($saved | Where-Object Name -eq 'LSA.WPS.Lab.dll').Count -lt 1) {
+    throw 'Previous installed DLL was not retained outside Plugins'
+  }
+  if (@($saved | Where-Object Name -eq 'LSA.WPS.Lab.dll.backup-20261019-080000').Count -ne 1) {
+    throw 'Previous legacy DLL backup not migrated safely'
+  }
+  if (@(Get-ChildItem -LiteralPath $plugins -File | Where-Object { $_.Name -match '\.dll\.backup-' }).Count -ne 0) {
+    throw 'Discoverable lab DLL backups remain in Plugins'
+  }
+  Write-Output 'PASS: installer checksum, private samples, destructive permits off, backups outside Plugins and migration'
 }
 finally {if(Test-Path $root){Remove-Item $root -Force -Recurse}}
