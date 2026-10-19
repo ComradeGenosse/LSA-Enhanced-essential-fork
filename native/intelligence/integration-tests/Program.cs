@@ -154,6 +154,65 @@ class Program
         Check(logs.All(x=>!x.Contains("applied_gain=0.5")&&!x.Contains("pcm_processed=1")),
             "diagnostic model never fabricates audible DSP");
     }
+    static void SpatialVoiceDspCoverage()
+    {
+        var silence=PromotedVoiceMixTarget.FromAcoustic("unknown",2,0);
+        var clear=PromotedVoiceMixTarget.FromAcoustic("clear",2,0);
+        var muffled=PromotedVoiceMixTarget.FromAcoustic("muffled",2,0);
+        Check(silence.Gain==0 && clear.Gain>muffled.Gain &&
+            clear.CutoffHz>muffled.CutoffHz,
+            "shared acoustic classes map to conservative pre-mix DSP targets");
+        Check(PromotedVoiceMixTarget.FromAcoustic("clear",double.NaN,0).Gain==0,
+            "invalid geometry cannot make DSP audible");
+        var dsp=new PromotedVoiceDsp(24000);
+        var mono=Enumerable.Repeat(1f,2400).ToArray(),stereo=new float[4800];
+        dsp.SetTarget(silence);dsp.MixInto(mono,0,mono.Length,stereo,0);
+        Check(stereo.All(v=>v==0),"unverified acoustic source remains silent in DSP");
+        dsp.Reset();dsp.SetTarget(clear);
+        Array.Clear(stereo,0,stereo.Length);
+        dsp.MixInto(mono,0,mono.Length,stereo,0);
+        Check(stereo[4700]>0.3f && stereo[4701]>0.3f &&
+            Math.Abs(stereo[4700]-stereo[4701])<0.02f,
+            "pre-mix clear source becomes balanced stereo with smoothed gain");
+        dsp.SetTarget(PromotedVoiceMixTarget.FromAcoustic("clear",2,1));
+        Array.Clear(stereo,0,stereo.Length);
+        dsp.MixInto(mono,0,mono.Length,stereo,0);
+        Check(stereo[4798]<stereo[4799]*0.1f,
+            "rightward speaker smoothly pans toward right channel");
+        float MeanSquared(float[] data,int begin,int length) {
+            double sum=0;
+            for(int i=begin;i<begin+length;i++)sum+=data[i]*data[i];
+            return (float)(sum/length);
+        }
+        var high=new float[4800];
+        for(int i=0;i<high.Length;i++)
+            high[i]=(float)Math.Sin(2*Math.PI*6000*i/24000);
+        float HighEnergy(PromotedVoiceMixTarget target) {
+            var test=new PromotedVoiceDsp(24000);
+            test.SetTarget(target);
+            var output=new float[9600];
+            test.MixInto(high,0,4800,output,0);
+            return MeanSquared(output,8000,1600);
+        }
+        Check(HighEnergy(muffled)<HighEnergy(clear)*0.1f,
+            "muffled grade actually filters high frequencies in isolated DSP");
+        dsp.SetTarget(silence);Array.Clear(stereo,0,stereo.Length);
+        dsp.MixInto(mono,0,mono.Length,stereo,0);
+        Check(stereo[0]>0f && stereo[4799]<0.02f,
+            "walking out of acoustic range fades rather than abruptly muting PCM");
+        dsp.Reset();Array.Clear(stereo,0,stereo.Length);
+        dsp.MixInto(mono,0,mono.Length,stereo,0);
+        Check(stereo.All(v=>v==0) && dsp.MixedFrames==2400,
+            "interrupted turn resets filters and cannot bleed into next speaker");
+        var alternative=new PromotedVoiceDsp(24000);
+        alternative.SetTarget(clear);
+        var otherOut=new float[4800];alternative.MixInto(mono,0,mono.Length,otherOut,0);
+        Check(otherOut[4799]>0.2f && stereo[4799]==0,
+            "separate promoted voices retain strictly isolated DSP state");
+        bool threw=false;
+        try {dsp.MixInto(mono,0,3000,stereo,0);} catch(ArgumentOutOfRangeException){threw=true;}
+        Check(threw,"invalid audio buffer bounds are rejected before mixing");
+    }
     static void Check(bool condition,string name) {if(!condition) throw new Exception(name);assertions++;}
     static object Get(object target,string name)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).GetValue(target);
     static void Set(object target,string name,object value)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).SetValue(target,value);
@@ -516,11 +575,12 @@ class Program
             try {
                 C01SpeechPolicyCoverage();
                 PromotedPlaybackAcousticCoverage();
+                SpatialVoiceDspCoverage();
                 Console.WriteLine("PASS C01 native policy assertions="+assertions);
             } catch(Exception e) {Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}
             return;
         }
-        try{C01SpeechPolicyCoverage();PromotedPlaybackAcousticCoverage();SocialScenesCoverage();Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
+        try{C01SpeechPolicyCoverage();PromotedPlaybackAcousticCoverage();SpatialVoiceDspCoverage();SocialScenesCoverage();Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
             if(args.Length==1&&args[0]=="--d2-source-only-wire")
                 foreach(var frame in SourceOnlyTests.WireFrames)Console.WriteLine("D2_WIRE "+new JavaScriptSerializer().Serialize(frame));
         }catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
