@@ -22,7 +22,8 @@ namespace LSA.WPS.Lab
         readonly Stopwatch clock=Stopwatch.StartNew();
         readonly JavaScriptSerializer json=new JavaScriptSerializer { MaxJsonLength=1048576 };
         readonly List<double> frames=new List<double>();
-        readonly List<Sample> samples=new List<Sample>();
+        readonly List<Sample> surfaceSamples=new List<Sample>();
+        readonly List<Sample> wallSamples=new List<Sample>();
         string logDir, logFile, summaryFile, run, active, mode="single";
         bool cancelling, budgetArmed, hidden, changedIpl, originalIpl, changedTime;
         float originalScale=1f;
@@ -51,9 +52,20 @@ namespace LSA.WPS.Lab
             var path=Path.Combine(root,"Plugins","LSA.WPS.Lab.samples.json");
             if(!File.Exists(path))return;
             if(new FileInfo(path).Length>65536)throw new InvalidOperationException("samples_file_oversize");
-            var a=json.Deserialize<Sample[]>(File.ReadAllText(path));
-            if(a==null||a.Length>64)throw new InvalidOperationException("samples_file_invalid");
-            foreach(var item in a){item.Validate();samples.Add(item);}
+            string content=File.ReadAllText(path);
+            if(content.TrimStart().StartsWith("["))
+            {
+                // Legacy arrays are material samples only. Never quietly treat them as walls.
+                var legacy=json.Deserialize<Sample[]>(content);
+                if(legacy==null||legacy.Length>64)throw new InvalidOperationException("samples_file_invalid");
+                foreach(var item in legacy){item.Validate();surfaceSamples.Add(item);}
+                return;
+            }
+            var groups=json.Deserialize<SampleSets>(content);
+            if(groups==null)throw new InvalidOperationException("samples_file_invalid");
+            groups.Validate();
+            surfaceSamples.AddRange(groups.surfaces);
+            wallSamples.AddRange(groups.walls);
         }
         static object Vec(Rage.Vector3 p)=>new {x=p.X,y=p.Y,z=p.Z};
         Rage.Vector3 Pos=>new Rage.Vector3(cfg.x,cfg.y,cfg.z);
@@ -145,9 +157,9 @@ namespace LSA.WPS.Lab
             var next=autoIndex<PreShotPlan.Ids.Length?PreShotPlan.Ids[autoIndex]:null;
             var report=new {type="E0_pre_shot_unattended",run=autoId,state,readOnly=true,
                 planned=PreShotPlan.Ids,next,active,results=autoHistory.ToArray(),
-                materialReferenceCount=samples.Count,
-                missingMaterialReference=PreShotPlan.MissingGroundTruth("E0.2",samples.Count),
-                missingWallReference=PreShotPlan.MissingGroundTruth("E0.3",samples.Count),
+                materialReferenceCount=surfaceSamples.Count,wallReferenceCount=wallSamples.Count,
+                missingMaterialReference=PreShotPlan.MissingGroundTruth("E0.2",surfaceSamples.Count),
+                missingWallReference=PreShotPlan.MissingGroundTruth("E0.3",wallSamples.Count),
                 caveat="Missing CodeWalker material/wall ground truth is BLOCKED, not verified. No E0.4 or E0.5-E0.12 is authorized."};
             File.WriteAllText(autoManifest,json.Serialize(report),Encoding.UTF8);
         }
@@ -193,7 +205,7 @@ namespace LSA.WPS.Lab
             logFile=Path.Combine(logDir,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-"+id.Replace(".","_")+"-"+run+".jsonl");
             summaryFile=Path.ChangeExtension(logFile,".summary.json");
             Note("start",new {probe=id,settings=cfg,mode,environment=Metadata(),sampleCount=samples.Count,
-                inputEvidence="user_configured",allowNoop=false});
+                inputEvidence="user_configured",surfaceSampleCount=surfaceSamples.Count,wallSampleCount=wallSamples.Count,allowNoop=false});
             Console("Started "+id+" run "+run.Substring(0,8)+" (WPSE0Cancel is emergency stop)");
         }
         public void Status()
@@ -396,9 +408,9 @@ namespace LSA.WPS.Lab
         }
         bool Materials()
         {
-            Require(samples.Count>=30,"need_30_codewalker_ground_truth_surfaces");
+            Require(surfaceSamples.Count>=30,"need_30_codewalker_ground_truth_surfaces");
             if(sampleIndex>=30)return true;
-            Sample item=samples[sampleIndex++];
+            Sample item=surfaceSamples[sampleIndex++];
             Ray r=Trace(V(item.ax,item.ay,item.az),V(item.bx,item.by,item.bz));
             int expectedName=Hash(item.expectedMaterial??"");
             int expectedIndex=Hash((item.expectedMaterial??"")+"_"+item.materialIndex);
@@ -409,9 +421,9 @@ namespace LSA.WPS.Lab
         }
         bool Thickness()
         {
-            Require(samples.Count>=10,"need_10_codewalker_measured_walls");
+            Require(wallSamples.Count>=10,"need_10_codewalker_measured_walls");
             if(sampleIndex>=10)return true;
-            Sample s=samples[sampleIndex++];
+            Sample s=wallSamples[sampleIndex++];
             var a=V(s.ax,s.ay,s.az);var b=V(s.bx,s.by,s.bz);
             Ray forward=Trace(a,b),reverse=Trace(b,a),inside=Trace(V((a.X+b.X)/2,(a.Y+b.Y)/2,(a.Z+b.Z)/2),b);
             double measured=forward.hit&&reverse.hit?Census.Distance(forward.where.X,forward.where.Y,forward.where.Z,
