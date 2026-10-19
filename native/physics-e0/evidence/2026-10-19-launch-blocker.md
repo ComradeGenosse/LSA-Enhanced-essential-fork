@@ -1,24 +1,33 @@
-# E0 pre-shot smoke attempt — 2026-10-19
+# E0 unattended GTA smoke results — 2026-10-19
 
-## Outcome
+The suite ran automatically in GTA V Enhanced 1.0.1158.16 under RPH 1.132.1428.17748, completing at 07:29:07 America/New_York (11:29:07 UTC). RPH logged the lab DLL loading at 07:29:00. No player movement or shooting was needed. Startup already contained `ReloadAllPlugins`, so no launcher selection change was necessary.
 
-The verified lab DLL and safe pre-shot configuration were staged in the local GTA V Enhanced Plugins directory. RAGE Plugin Hook was launched, but its process terminated immediately with CLR exception code `0xE0434352`. Windows Error Reporting recorded a `CLR20r3` event for `RAGEPluginHook.exe` 1.132.1428.17748, fault module `System` 4.8.9340.0, exception signature `System.ComponentModel.Win32` (P7 3010, P8 29b). No new RPH log was written. The existing root RPH log remained dated 2026-10-18.
+| Probe | Actual verdict | Scope / prerequisite |
+|---|---|---|
+| E0.0 | GTA_VERIFIED | Environment inventory and DOES_ENTITY_EXIST observation captured. |
+| E0.1 | GTA_VERIFIED | Ten read-only matrix entries callable with no reported errors. Uncalibrated local ray completed with no hit; this verifies callability only. |
+| E0.2 | BLOCKED | Requires 30 CodeWalker ground-truth surfaces; reference count 0. |
+| E0.3 | BLOCKED | Requires 10 CodeWalker measured walls. |
 
-The session did not reach GTA single-player free roam and did not load the lab plugin. **E0.0, E0.1, E0.2, and E0.3: NOT RUN.** There is no JSONL output or suite manifest from this attempt. E0.2/E0.3 are not labeled BLOCKED because their prerequisite evaluation never ran.
+Suite `4b4651f7ad214abdbc0204c5bd7e75cc` finished `completed_with_blockers`. Every probe recorded successful cleanup, zero lab-owned entities remaining, and restored state. All destructive permission flags stayed false. The recorded frame-time percentiles are zero with zero timing samples, so they do not establish performance.
 
-## Build provenance and fingerprints
+## Evidence
 
-- Successful Windows workflow: [run 39240965340](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/39240965340), branch `experiment/physics-e0-native-capability-census`, commit `f5740c662ffd9a250da32dad5e8a97ca38d72337`.
-- Workflow artifact: `E0-Research-Lab-UNVERIFIED-IN-GTA`, artifact ID `12181496567`, GitHub SHA-256 digest `d89bf23d68b45e4bb670a4192799f1805d1b978d46a313e6965def48e4e98157`.
-- Supplied local ZIP SHA-256: `4b4ead5a80bf870ff7a08ae72cc4cc92c6ff827f63fee5b3bc0b490ffc26faa4`. This does **not** match the GitHub artifact digest, so the ZIP bytes themselves are not verified as the exact downloaded workflow artifact.
-- Embedded build receipt pins `LSA.WPS.Lab.dll` SHA-256 `9fbdb4c7082bd8341ed2149f25fe0c58447b0770d707923dcb564d15793daf46`; the DLL extracted from the supplied ZIP matched this hash.
-- Installed configuration SHA-256: `362972034bc6201abababd20c1d9e8e6f749f7aff987596b655882d8f6d01752`.
-- Configuration: `enabled=true`, `autoRunPreShot=true`; `permitExplosion`, `permitBullet`, `permitIpl`, `permitHide`, and `permitTimeScale` are all false. Other values use the package example defaults because no existing lab config was present.
+[Sanitized evidence bundle](2026-10-19-runtime.evidence.json) contains all four original JSONL logs, four summaries, suite manifest, config, build receipt, deployment fingerprints, startup command, and relevant RPH startup/plugin/suite excerpts. File contents are preserved as strings under the `files` map. Personal paths in RPH excerpts were replaced with placeholders; unrelated logs were excluded.
 
-## Evidence available
+## Launch correction
 
-This report records deployment fingerprints, launch attempt, and the sanitized Windows Error Reporting signature. No RPH startup/error log from the attempt, lab JSONL, or suite manifest exists because RPH exited before writing a fresh log. No unrelated logs or personal filesystem paths are included.
+The initial restricted-shell launches exited with `0xE0434352`. The .NET Runtime stack identified a Win32Exception in `Process.StartWithShellExecuteEx` during RPH application startup. Retrying the authorized launch outside the restricted shell resolved it; GTA then reached story mode and the suite ran. The earlier NOT RUN report described only those failed attempts and is superseded by these actual results.
 
-## Next step
+## Fingerprints and provenance limits
 
-Resolve the RAGE Plugin Hook launch failure, then relaunch interactively through RPH and confirm single-player free roam. Recheck the downloaded artifact against GitHub's published digest before treating its archive provenance as exact. Only after runtime starts can the auto-run suite produce E0 verdicts; missing CodeWalker reference data should then be recorded by the suite as BLOCKED for E0.2/E0.3.
+- Runtime DLL SHA-256: `9fbdb4c7082bd8341ed2149f25fe0c58447b0770d707923dcb564d15793daf46` (matches embedded receipt and runtime inventory).
+- Config SHA-256: `362972034bc6201abababd20c1d9e8e6f749f7aff987596b655882d8f6d01752`.
+- Supplied ZIP SHA-256: `4b4ead5a80bf870ff7a08ae72cc4cc92c6ff827f63fee5b3bc0b490ffc26faa4`.
+- Successful workflow inspected: [39240965340](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/39240965340), commit `f5740c662ffd9a250da32dad5e8a97ca38d72337`.
+- Artifact 12181496567 digest: `d89bf23d68b45e4bb670a4192799f1805d1b978d46a313e6965def48e4e98157`. It differs from the supplied ZIP, so exact correspondence to that CI archive remains unresolved. Embedded-receipt matching alone does not prove CI provenance.
+- The original build receipt's `gtaTested:false` is retained unchanged as build-time metadata; the new runtime logs document this run.
+
+## Next steps
+
+Provide real CodeWalker references for E0.2/E0.3 and rerun the safe suite. Reconcile the supplied archive with its originating CI artifact for exact build provenance. E0.1's fallback ray does not establish material correctness or wall thickness, and deferred destructive native calls remain untested.
