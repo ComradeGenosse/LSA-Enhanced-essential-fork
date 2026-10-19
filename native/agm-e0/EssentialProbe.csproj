@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net481</TargetFramework>
+    <AssemblyName>LSA.AGM.E0.EssentialProbe</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <Deterministic>true</Deterministic>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="EssentialProbe.cs" />
+    <Reference Include="RagePluginHook"><HintPath>$(RphReferencePath)</HintPath><Private>false</Private></Reference>
+    <Reference Include="LosSantosAlive"><HintPath>../../lsa-essential-e1-candidate/upstream/LosSantosAlive.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>
