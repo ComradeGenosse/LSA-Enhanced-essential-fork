@@ -63,10 +63,36 @@ SetOption 'autoTeleportForSamples' $true
 foreach ($name in @('permitExplosion','permitBullet','permitIpl','permitHide','permitTimeScale')) {
     SetOption $name $false
 }
+# RPH enumerates files in Plugins. Keep every saved DLL outside that tree:
+# an adjacent *.dll.backup-* was previously discovered and caused a loader error.
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$backupRoot = Join-Path $GameRoot 'LSA.WPS.Lab.Backups'
+$backupDir = Join-Path $backupRoot ($stamp + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))
+New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 foreach ($p in @($dstDll,$dstConfig,$dstSamples)) {
-    if (Test-Path -LiteralPath $p) { Copy-Item -LiteralPath $p -Destination ($p+'.backup-'+$stamp) -Force }
+    if (Test-Path -LiteralPath $p) {
+        Copy-Item -LiteralPath $p -Destination (Join-Path $backupDir ([IO.Path]::GetFileName($p))) -Force
+    }
 }
+# Move only older lab backups created by previous versions of this installer.
+# Never move a live plugin or unrelated file.
+Get-ChildItem -LiteralPath $plugins -File |
+    Where-Object { $_.Name -match '^LSA\.WPS\.Lab\.(dll|json|samples\.json)\.backup-[0-9]{8}-[0-9]{6} -LiteralPath $dll -Destination $dstDll -Force
+Copy-Item -LiteralPath $PrivateSamples -Destination $dstSamples -Force
+$cfg | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $dstConfig -Encoding UTF8
+$actual = (Get-FileHash -LiteralPath $dstDll -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actual -ne $dllSha) { throw 'DLL post-install hash check failed.' }
+Write-Output 'E0 private pre-shot lab installed and verified.'
+Write-Output 'Automatic safe E0.0-E0.3 and automatic location positioning enabled.'
+Write-Output 'All destructive experiment permits are disabled.'
+Write-Output 'Start GTA with your NORMAL working RPH launch method; the existing ReloadAllPlugins command should load this DLL.'
+Write-Output "Config: $dstConfig"
+Write-Output "Samples: $dstSamples"
+Write-Output "Backups stored outside Plugins: $backupDir"
+Write-Output "DLL SHA256: $actual"
+Write-Output 'Afterward, use pack-pre-shot.ps1 from this artifact directory to package ONLY the result logs.'
+ } |
+    ForEach-Object { Move-Item -LiteralPath $_.FullName -Destination (Join-Path $backupDir $_.Name) -ErrorAction Stop }
 Copy-Item -LiteralPath $dll -Destination $dstDll -Force
 Copy-Item -LiteralPath $PrivateSamples -Destination $dstSamples -Force
 $cfg | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $dstConfig -Encoding UTF8
