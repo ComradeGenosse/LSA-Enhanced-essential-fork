@@ -72,6 +72,7 @@ namespace LSA.Intelligence
             public long GenerationId;
             public bool Started,Interrupted,HadAudio,PlaybackStarted;
         }
+        readonly PromotedPlaybackAcousticMonitor promotedAcoustic=new PromotedPlaybackAcousticMonitor();
         EssentialMicState directorMic;
         LSA.PromotedCharacters.SpeechCaptureAdapter speechCapture;
         bool captureShadow,proximityExperimental;
@@ -127,7 +128,7 @@ namespace LSA.Intelligence
         }
         // Hearing is strictly a promoted-owner activity, not a PS ambient-Ped
         // feature. Select this lane before any geometry, LOS or vehicle reads.
-        static bool PromotedSpeechObserver(EntityAnchor a) =>
+        internal static bool PromotedSpeechObserver(EntityAnchor a) =>
             a!=null && a.Observer && a.Kind=="ped" &&
             !string.IsNullOrEmpty(a.OwnerLifetime);
 
@@ -135,7 +136,7 @@ namespace LSA.Intelligence
         // Only "clear" permits transcript-covered intervals. Muffled/unknown
         // observations do not receive words; the pinned Essential mixer does
         // not expose per-speaker DSP controls.
-        static string SpeechAcousticGrade(double meters,bool sameInterior,
+        internal static string SpeechAcousticGrade(double meters,bool sameInterior,
             string sourceMode,string listenerMode,bool sameVehicle,bool clearLos) {
             if(double.IsNaN(meters)||double.IsInfinity(meters)||meters<0||
                 meters>18 || sourceMode=="unknown" || listenerMode=="unknown")
@@ -567,7 +568,7 @@ namespace LSA.Intelligence
             this.host.WorldChanged+=WorldChanged;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);
         }
         void WorldChanged(int epoch,string reason) {
-            speechCapture?.Reset();speechWindow=null;
+            speechCapture?.Reset();speechWindow=null;promotedAcoustic.Clear();
             if(!IsAvailable) return;
             director.Reset();ps3Receipts.Reset();socialScenes.Reset();originalTurns.Reset();bodyDiscovery.Reset();nextBodyDiscovery=0;bodyDiscoveryCursor=0;protagonistSensor.Revoke();protagonistConsumerConnection=0;protagonistConsumerWorld=0;lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();ResetM9();radioProbe=null;radioCoveredOwned.Clear();nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;ResetRadioRoutes();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
@@ -621,7 +622,7 @@ namespace LSA.Intelligence
             if(M9Compiled&&producerPolicy.M9)InitializeM9();
             // Do not load a second tracker assembly. Essential owns its load.
             if(producerPolicy.Damage) {AppDomain.CurrentDomain.AssemblyLoad+=AssemblyLoaded;QueueDamagePin();}
-            try {if(producerPolicy.Allows("playback")||directorShadow) {
+            try {if(producerPolicy.Allows("playback")||directorShadow||proximityExperimental) {
                 NpcPlaybackCoordinator.PlaybackStarted+=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded+=PlaybackEnded;
                 playback=true;capabilities["playback"]=producerPolicy.Allows("playback");
             }}catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
@@ -748,7 +749,7 @@ namespace LSA.Intelligence
                     nextRefresh=0;
                     // Previously confirmed listeners require a fresh native
                     // receipt on an authenticated consumer reconnect.
-                    radioCoveredOwned.Clear();nextRadio=0;
+                    radioCoveredOwned.Clear();nextRadio=0;promotedAcoustic.Clear();
                 }
                 // Existing owner fiber only; never sample a model without the
                 // exact approved receiver, connection and native host epoch.
@@ -862,7 +863,12 @@ namespace LSA.Intelligence
                                 item.inputSource,micPedRef=anchor?.CaptureRef});
                     }
                 }
-                if(proximityExperimental)SweepSpeechWindow();
+                if(proximityExperimental) {
+                    SweepSpeechWindow();
+                    promotedAcoustic.Update(anchors,a=>Association(a)!=null,
+                        Game.LocalPlayer.Character,host.WorldEpoch,now,
+                        ref lineOfSightBudget,LogStatus);
+                }
                 DrainDirectorCorePlayback();
                 DrainDirectorPreview();
                 if(ownsHost) host.Cleanup(16,()=>budget.Elapsed.TotalMilliseconds<1);UpdateIndexes();
@@ -1824,6 +1830,10 @@ namespace LSA.Intelligence
         {
             try {
                 Lifecycle("playback_started",e.PedId,e.SpeakerPed,false,false);
+                if(proximityExperimental)promotedAcoustic.Enqueue(
+                    new PromotedPlaybackAcousticMonitor.PlaybackFact{
+                        Starting=true,Speaker=e.SpeakerPed,PedId=e.PedId,
+                        TurnId=e.TurnId,Generation=e.GenerationId});
                 EnqueueDirectorPlayback(new DirectorPlaybackEvent{
                     Started=true,Speaker=e.SpeakerPed,PedId=e.PedId,
                     TurnId=e.TurnId,GenerationId=e.GenerationId});
@@ -1833,6 +1843,11 @@ namespace LSA.Intelligence
         {
             try {
                 Lifecycle("playback_ended",e.PedId,e.SpeakerPed,e.WasInterrupted,e.HadAudio);
+                if(proximityExperimental)promotedAcoustic.Enqueue(
+                    new PromotedPlaybackAcousticMonitor.PlaybackFact{
+                        Speaker=e.SpeakerPed,PedId=e.PedId,TurnId=e.TurnId,
+                        Generation=e.GenerationId,Interrupted=e.WasInterrupted,
+                        HadAudio=e.HadAudio,PlaybackStarted=e.PlaybackStarted});
                 EnqueueDirectorPlayback(new DirectorPlaybackEvent{
                     Speaker=e.SpeakerPed,PedId=e.PedId,TurnId=e.TurnId,
                     GenerationId=e.GenerationId,Reason=e.Reason,
@@ -1907,7 +1922,7 @@ namespace LSA.Intelligence
         internal void Shutdown(string reason)
         {
             if(stopped) return;shutdownReason=reason;stopped=true;sensors.Enabled=false;protagonistSensor.Revoke();
-            speechCapture?.Detach();speechCapture=null;
+            speechCapture?.Detach();speechCapture=null;promotedAcoustic.Clear();
             LogStatus("[PS] shutdown "+RuntimeStatus());
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;
