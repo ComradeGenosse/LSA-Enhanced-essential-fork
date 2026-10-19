@@ -1,0 +1,33 @@
+name: PR37 pinned Essential renderer capability census
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/pr37-renderer-audit/**'
+      - '.github/workflows/pr37-renderer-census.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-renderer:
+    name: Metadata and IL call-graph census (no GTA)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Verify metadata-only inspector compiles
+        run: dotnet build tools/pr37-renderer-audit/RendererAudit.csproj -c Release
+      - name: Inspect pinned genuine Essential renderer and audio graph
+        shell: pwsh
+        run: |
+          dotnet run --no-build -c Release --project tools/pr37-renderer-audit/RendererAudit.csproj -- 'lsa-essential-e1-candidate/upstream/LosSantosAlive.dll' 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/pr37-renderer-census.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Attach factual call-graph inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr37-pinned-essential-renderer-census
+          path: ${{ runner.temp }}/pr37-renderer-census.txt
+          retention-days: 7
+# Source metadata analysis only; no assembly rewriting or claims of acoustic DSP.
