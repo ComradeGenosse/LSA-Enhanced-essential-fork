@@ -30,6 +30,9 @@ namespace LSA.AGM.E0
         private string site="terminal", condition="essential_off", task="walk", day="day", nathan="absent";
         private string lastSensor="unknown";
         private readonly EssentialDomain essential;
+        private Ped[] samplePeds;
+        private Vehicle[] sampleVehicles;
+        private Rage.Object[] sampleObjects;
         public readonly string RunId=Guid.NewGuid().ToString("N");
         private readonly string Epoch=Guid.NewGuid().ToString("N");
         public LabRuntime(string path, EntryPoint.Settings settings)
@@ -199,9 +202,9 @@ namespace LSA.AGM.E0
         private Entity Find(Owned e)
         {
             try {
-                if(e.Kind=="ped")return World.GetAllPeds().FirstOrDefault(x=>Same(e,x));
-                if(e.Kind=="vehicle")return World.GetAllVehicles().FirstOrDefault(x=>Same(e,x));
-                if(e.Kind=="prop")return World.GetAllObjects().FirstOrDefault(x=>Same(e,x));
+                if(e.Kind=="ped")return (samplePeds??World.GetAllPeds()).FirstOrDefault(x=>Same(e,x));
+                if(e.Kind=="vehicle")return (sampleVehicles??World.GetAllVehicles()).FirstOrDefault(x=>Same(e,x));
+                if(e.Kind=="prop")return (sampleObjects??World.GetAllObjects()).FirstOrDefault(x=>Same(e,x));
             }catch{}
             return null;
         }
@@ -257,8 +260,8 @@ namespace LSA.AGM.E0
             if(halted||journalRisk){Print("Runtime blocked by halt or unresolved orphan journal. Restart GTA or inspect/recover first.");return;}
             var denial=Limits.Deny(name,condition,site,true,Scripted(),active!=null);
             if(denial!=null){Print("DENIED "+denial);Log("denied",new{probe=name,denial});return;}
-            if(condition=="essential_off" && essential.IsLoaded){
-                Print("DENIED: Essential is loaded. essential_off requires Essential unloaded.");return;
+            if(condition=="essential_off" && (essential.IsLoaded||!essential.AbsenceProven)){
+                Print("DENIED: Essential is loaded or its absence could not be verified.");return;
             }
             if(condition!="essential_off" && !essential.Available){
                 Print("DENIED: Essential bridge unavailable. Cannot claim yield comparison.");return;
@@ -346,6 +349,19 @@ namespace LSA.AGM.E0
             }catch(Exception ex){Log("spawn_trial",new{kind=k,round=spawnRound,result="fail",reason=ex.Message});}
             CleanupOwned("e0.1_iteration");
         }
+        private static string TaskNative(string policy)
+        {
+            switch(policy){
+                case "walk":return "TASK_FOLLOW_NAV_MESH_TO_COORD";
+                case "drive":return "TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE";
+                case "flee":return "TASK_SMART_FLEE_PED";
+                case "guard":return "TASK_GUARD_CURRENT_POSITION";
+                case "chase":return "TASK_VEHICLE_CHASE";
+                case "follow":return "TASK_FOLLOW_TO_OFFSET_OF_ENTITY";
+                case "combat":return "TASK_COMBAT_PED";
+                default:return null;
+            }
+        }
         private int NavHash(string policy) => policy=="walk"?unchecked((int)0x2A89B8A7u):
             policy=="drive"?unchecked((int)0x21D33957u):0;
         private void Sample(Owned e)
@@ -363,7 +379,12 @@ namespace LSA.AGM.E0
                 return;
             }
             var p=entity.Position;
-            int taskStatus=-999;
+            int taskStatus=-999, rphTaskStatus=-999;
+            var ownedPed=entity as Ped;
+            if(e.Task!=null && ownedPed!=null) {
+                string taskName=TaskNative(e.Task);
+                if(taskName!=null)try{rphTaskStatus=(int)Rage.Task.GetTask(ownedPed,taskName).Status;}catch{}
+            }
             if(e.Task!=null&&NavHash(e.Task)!=0)
                 try{taskStatus=NativeFunction.CallByName<int>("GET_SCRIPT_TASK_STATUS",entity,NavHash(e.Task));}catch{}
             bool driveable=false, inCombat=false, fleeing=false, alive=true;
@@ -378,7 +399,7 @@ namespace LSA.AGM.E0
             float distance=player!=null&&player.Exists()?Vector3.Distance(player.Position,p):-1f;
             lastSensor=e.Kind=="vehicle"?(driveable?"vehicle_driveable":"vehicle_undriveable"):"entity_exists";
             Log("sample",new{e.Handle,e.Incarnation,e.Kind,e.Role,e.Task,position=new[]{p.X,p.Y,p.Z},moved,
-                distance,taskStatus,driveable,inCombat,fleeing,alive,persistent=entity.IsPersistent,
+                distance,taskStatus,rphTaskStatus,driveable,inCombat,fleeing,alive,persistent=entity.IsPersistent,
                 essential=condition=="essential_off"?"not_loaded":essential.Snapshot(e.Handle)});
         }
         public void Truth(string value)
@@ -409,6 +430,9 @@ namespace LSA.AGM.E0
                     if(spawnRound>=80){Log("readback_summary",new{trials=spawnTotal,passed=spawnSuccess});Stop("completed");}
                     return;
                 }
+                samplePeds=World.GetAllPeds();
+                sampleVehicles=World.GetAllVehicles();
+                sampleObjects=World.GetAllObjects();
                 foreach(var e in active.Entities.Values.ToArray())Sample(e);
                 if(active.Probe=="e0.8")Log("pools",new{pedCapacity=World.PedCapacity,vehicleCapacity=World.VehicleCapacity,
                     objectCapacity=World.ObjectCapacity,actorCount=active.Entities.Count,
@@ -421,6 +445,7 @@ namespace LSA.AGM.E0
                 if(unchecked(ms-active.StartedGameMs)>=Duration()) Stop("completed");
             }catch(Exception e){Fail("probe_failure",e);Stop("probe_exception");}
             finally {
+                samplePeds=null;sampleVehicles=null;sampleObjects=null;
                 watch.Stop();sampleTicks+=watch.ElapsedTicks;sampleMaxTicks=Math.Max(sampleMaxTicks,watch.ElapsedTicks);
             }
         }

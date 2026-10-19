@@ -13,6 +13,7 @@ namespace LSA.AGM.E0
         private readonly LabEssentialProbe probe;
         public bool Available {get;private set;}
         public bool IsLoaded {get;private set;}
+        public bool AbsenceProven {get;private set;}
         public bool CanYield => probe!=null && Status=="pinned_ready";
         public string Status {get;private set;}="not_loaded";
         public EssentialDomain(string folder)
@@ -22,20 +23,27 @@ namespace LSA.AGM.E0
                 if(!File.Exists(location)){Status="bridge_missing";return;}
                 AppDomain found=null;
                 LabEssentialProbe bridge=null;
+                int unknown=0;
                 foreach(var domain in Domains()) {
                     if(!domain.FriendlyName.StartsWith("PreInitializedDomain_",StringComparison.Ordinal)
                         && domain.FriendlyName!="LosSantosAlive_AppDomain")continue;
-                    IsLoaded=true;
                     try{
                         var temp=(LabEssentialProbe)domain.CreateInstanceFromAndUnwrap(location,typeof(LabEssentialProbe).FullName);
-                        if(temp.CoreStatus!="core_ready")continue;
+                        var core=temp.CoreStatus;
+                        if(core=="core_missing")continue;
+                        if(core=="core_ambiguous"){unknown++;continue;}
+                        IsLoaded=true;
+                        if(core!="core_ready"){Status=core;return;}
                         if(found!=null){Status="essential_domain_ambiguous";return;}
                         found=domain;bridge=temp;
-                    }catch{}
+                    }catch{unknown++;}
                 }
                 probe=bridge;
                 if(probe!=null){Available=true;Status=probe.Start()?"pinned_ready":"start_rejected";}
-                else if(Status=="not_loaded")Status="not_found";
+                else if(Status=="not_loaded"){
+                    AbsenceProven=unknown==0;
+                    Status=AbsenceProven?"essential_absent_verified":"essential_presence_unresolved";
+                }
             }catch(Exception e){Status="bridge_error_"+e.GetType().Name;}
         }
         public bool Yield(int handle,long address,uint model,bool enable)

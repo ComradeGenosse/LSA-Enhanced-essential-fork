@@ -31,7 +31,8 @@ namespace LSA.AGM.E0
             get{
                 try{
                     var cores=AppDomain.CurrentDomain.GetAssemblies().Where(a=>a.GetName().Name=="LosSantosAlive").ToArray();
-                    if(cores.Length!=1)return "core_missing_or_ambiguous";
+                    if(cores.Length==0)return "core_missing";
+                    if(cores.Length!=1)return "core_ambiguous";
                     using(var sha=SHA256.Create()){
                         var actual=BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(cores[0].Location)))
                             .Replace("-","").ToLowerInvariant();
