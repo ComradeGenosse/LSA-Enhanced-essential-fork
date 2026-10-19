@@ -135,8 +135,10 @@ namespace LSA.WPS.Lab
         public double spanXY {get;private set;}
         public static AutoSampleSite Build(IEnumerable<Sample> surfaces,IEnumerable<Sample> walls)
         {
-            var all=(surfaces??Enumerable.Empty<Sample>()).Concat(walls??Enumerable.Empty<Sample>()).ToArray();
-            if(all.Length<30)throw new ArgumentException("insufficient_sample_site_data");
+            var a=(surfaces??Enumerable.Empty<Sample>()).ToArray();
+            var b=(walls??Enumerable.Empty<Sample>()).ToArray();
+            if(a.Length<30 && b.Length<10)throw new ArgumentException("insufficient_sample_site_data");
+            var all=a.Concat(b).ToArray();
             var pts=all.SelectMany(a=>new[]{new[]{(double)a.ax,a.ay,a.az},new[]{(double)a.bx,a.by,a.bz}}).ToArray();
             if(pts.Any(v=>v.Any(t=>double.IsNaN(t)||double.IsInfinity(t))))throw new ArgumentException("invalid_sample_site_coordinates");
             double minX=pts.Min(v=>v[0]),maxX=pts.Max(v=>v[0]),minY=pts.Min(v=>v[1]),maxY=pts.Max(v=>v[1]);
