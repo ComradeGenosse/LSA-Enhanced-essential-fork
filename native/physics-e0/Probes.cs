@@ -57,6 +57,9 @@ namespace LSA.WPS.Lab
         long destinationSettleMs=-1, returnCollisionWaitMs=-1;
         double destinationDistanceM=-1, returnPositionErrorM=-1, returnHeadingErrorDeg=-1;
         int returnCollisionChecks;
+        Sample confirmationSample;
+        long confirmationAt;
+        int confirmationOrdinal;
         public LabRunner(string gameRoot,Settings settings)
         {
             root=gameRoot;cfg=settings;cfg.Validate();
@@ -420,6 +423,7 @@ namespace LSA.WPS.Lab
             if(id=="E0.9")budgetArmed=false;
             active=id;run=Guid.NewGuid().ToString("N");began=RealMs();startGame=GameMs();step=frame=sampleIndex=0;
             objectIndex=0;cancelling=false;frames.Clear();evidence.Clear();
+            confirmationSample=null;confirmationOrdinal=0;confirmationAt=0;
             ammoLast=-1;ammoSpent=0;impacts=0;weapon=0;target=collisionObject=losPedA=losPedB=0;
             lastSample=lastTick=RealMs();lastGame=startGame;
             logFile=Path.Combine(logDir,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-"+id.Replace(".","_")+"-"+run+".jsonl");
@@ -633,32 +637,83 @@ namespace LSA.WPS.Lab
                 return (ok,ok?point.GetValue<Rage.Vector3>():V(0,0,0));
             }
         }
+        // This is a second independent observation only for a failed baseline,
+        // captured >= 500 ms later; it never overwrites the original 30/10 sample verdicts.
+        void ScheduleConfirmation(Sample sample,int ordinal)
+        {
+            confirmationSample=sample;confirmationOrdinal=ordinal;confirmationAt=RealMs()+500;
+        }
         bool Materials()
         {
             Require(surfaceSamples.Count>=30,"need_30_codewalker_ground_truth_surfaces");
+            if(confirmationSample!=null)
+            {
+                if(RealMs()<confirmationAt)return false;
+                Sample item=confirmationSample;
+                Ray second=Trace(V(item.ax,item.ay,item.az),V(item.bx,item.by,item.bz));
+                int expected=Hash((item.expectedMaterial??"")+"_"+item.materialIndex);
+                Note("material_confirmation",new {sampleIndex=confirmationOrdinal,item.label,
+                    delayMs=RealMs()-(confirmationAt-500),shape=Describe(second),
+                    indexedHashMatches=second.hit&&second.material==expected,
+                    note="Second delayed observation of an earlier baseline mismatch; not another ground-truth sample."});
+                confirmationSample=null;
+                return sampleIndex>=30;
+            }
             if(sampleIndex>=30)return true;
-            Sample item=surfaceSamples[sampleIndex++];
-            Ray r=Trace(V(item.ax,item.ay,item.az),V(item.bx,item.by,item.bz));
-            int expectedName=Hash(item.expectedMaterial??"");
-            int expectedIndex=Hash((item.expectedMaterial??"")+"_"+item.materialIndex);
-            Note("material",new {sampleIndex,item.label,item.expectedMaterial,
+            Sample item0=surfaceSamples[sampleIndex++];
+            Ray r=Trace(V(item0.ax,item0.ay,item0.az),V(item0.bx,item0.by,item0.bz));
+            int expectedName=Hash(item0.expectedMaterial??"");
+            int expectedIndex=Hash((item0.expectedMaterial??"")+"_"+item0.materialIndex);
+            bool matches=r.hit&&r.material==expectedIndex;
+            Note("material",new {sampleIndex,item0.label,item0.expectedMaterial,
                 joaatName=unchecked((uint)expectedName),joaatIndexed=unchecked((uint)expectedIndex),
-                shape=Describe(r),nameMatches=expectedName==r.material,indexMatches=expectedIndex==r.material});
-            return sampleIndex==30;
+                shape=Describe(r),nameMatches=r.hit&&expectedName==r.material,indexMatches=matches,
+                diagnostic=(!r.hit?"ray_miss":!matches?"material_mismatch":"match")});
+            if(!matches)ScheduleConfirmation(item0,sampleIndex);
+            return sampleIndex>=30&&confirmationSample==null;
         }
         bool Thickness()
         {
             Require(wallSamples.Count>=10,"need_10_codewalker_measured_walls");
+            if(confirmationSample!=null)
+            {
+                if(RealMs()<confirmationAt)return false;
+                Sample w=confirmationSample;
+                Ray a1=Trace(V(w.ax,w.ay,w.az),V(w.bx,w.by,w.bz));
+                Ray b1=Trace(V(w.bx,w.by,w.bz),V(w.ax,w.ay,w.az));
+                double thickness=a1.hit&&b1.hit?Census.Distance(a1.where.X,a1.where.Y,a1.where.Z,
+                    b1.where.X,b1.where.Y,b1.where.Z):-1;
+                bool same=a1.hit&&b1.hit&&a1.entity==b1.entity;
+                bool within=thickness>=0&&Math.Abs(thickness-w.expectedThicknessM)<=.01;
+                Note("wall_confirmation",new {sampleIndex=confirmationOrdinal,w.label,
+                    delayMs=RealMs()-(confirmationAt-500),measuredM=thickness,
+                    errorM=thickness<0?null:(double?)(thickness-w.expectedThicknessM),
+                    sameEntity=same,withinOneCentimeter=within,
+                    forward=Describe(a1),reverse=Describe(b1),
+                    note="Second delayed observation only; original wall baseline retained."});
+                confirmationSample=null;
+                return sampleIndex>=10;
+            }
             if(sampleIndex>=10)return true;
-            Sample s=wallSamples[sampleIndex++];
-            var a=V(s.ax,s.ay,s.az);var b=V(s.bx,s.by,s.bz);
+            Sample w0=wallSamples[sampleIndex++];
+            var a=V(w0.ax,w0.ay,w0.az);var b=V(w0.bx,w0.by,w0.bz);
             Ray forward=Trace(a,b),reverse=Trace(b,a),inside=Trace(V((a.X+b.X)/2,(a.Y+b.Y)/2,(a.Z+b.Z)/2),b);
             double measured=forward.hit&&reverse.hit?Census.Distance(forward.where.X,forward.where.Y,forward.where.Z,
                 reverse.where.X,reverse.where.Y,reverse.where.Z):-1;
-            Note("exit_faces",new {s.label,s.expectedThicknessM,measuredM=measured,
-                errorM=measured<0?null:(double?)(measured-s.expectedThicknessM),
+            double error=measured<0?0:measured-w0.expectedThicknessM;
+            int expected=Hash((w0.expectedMaterial??"")+"_"+w0.materialIndex);
+            bool sameEntity=forward.hit&&reverse.hit&&forward.entity==reverse.entity;
+            bool bothExpected=forward.hit&&reverse.hit&&forward.material==expected&&reverse.material==expected;
+            bool withinOneCentimeter=measured>=0&&Math.Abs(error)<=.01;
+            Note("exit_faces",new {sampleIndex,w0.label,w0.expectedThicknessM,measuredM=measured,
+                errorM=measured<0?null:(double?)error,sameEntity,bothExpectedMaterial=bothExpected,
+                withinOneCentimeter,insideSolidHit=inside.hit,
+                diagnostic=(!sameEntity?"different_entities":!bothExpected?"material_mismatch":
+                    !withinOneCentimeter?"thickness_mismatch":"match"),
                 forward=Describe(forward),reverse=Describe(reverse),inside=Describe(inside)});
-            return sampleIndex==10;
+            if(!sameEntity||!bothExpected||!withinOneCentimeter)
+                ScheduleConfirmation(w0,sampleIndex);
+            return sampleIndex>=10&&confirmationSample==null;
         }
         bool Shots()
         {
