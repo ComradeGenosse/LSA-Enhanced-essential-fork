@@ -5,7 +5,7 @@ Implements [GT0 from the E0 implementation roadmap](../research/IMPLEMENTATION-R
 ## What actually works today
 
 - **Candidate-source ray index:** Deterministic finite-segment hits against private triangular and oriented-box primitives. Returns *all* plausible intersections, distance-sorted, with material index and exact **source/variant/bound/primitive** identifiers. Marks overlapping/competing sources and incomplete world coverage explicitly. Supports nested row-vector transforms for placed objects, MLOs and embedded collision; refuses to double-transform static world-space YBNs or assume sheared boxes are rectangles.
-- **Existing CodeWalker import:** Reads locally generated private `candidates.json` and its candidate pool; deduplicates box primitives by source asset, bound and polygon index. It **does not fabricate triangles** when the existing output contains only centroid/normal/area. It marks incomplete YMAP/embedded coverage and unknown active IPL/mod precedence; no import yields "PROVEN_ACTIVE" without independent evidence.
+- **Private provenance graph:** Reads the existing extraction manifest's YBN/YMAP resource paths, decoded/archive fingerprints, YMAP parent hashes, physicsDictionary hashes and referenced archetype hashes. Resolves potential parent/dictionary candidates while explicitly leaving unidentified YTYP providers and active mod/IPL winners UNRESOLVED. No binary assets read.\n- **Existing CodeWalker import:** Reads locally generated private `candidates.json` and its candidate pool; deduplicates box primitives by source asset, bound and polygon index. It **does not fabricate triangles** when the existing output contains only centroid/normal/area. It marks incomplete YMAP/embedded coverage and unknown active IPL/mod precedence; no import yields "PROVEN_ACTIVE" without independent evidence.
 - **Catalog validator:** Validates against the research JSON Schema and adds source/active-winner, independent identity, collision/screenshot, session repeat, hit/normal/material and thickness gates before any record can be marked CONFIRMED. Missing evidence is not inferred from an ordinary material hash match. Preserve all attempts in the private catalog.
 - **Future GTA filter matrix planner:** Generates the existing `traceFlags=17, optionFlags=7` baseline plus four read-only variant requests, on exactly the *same* private start/end; marks all requests NOT_RUN. It retains the 2/6 material misses, 3/4 wall identity failures and 0/10 inside-solid failures as historical baseline. **The planner never calls GTA**.
 - **Optional spawnable discovery:** Accepts verified-syntax model hashes from local object lists, including user-curated Durty or CodeWalker data, as `CANDIDATE_ONLY`. It does **not** require Menyoo/Durty, assume collision exists or attempt spawning. GT2 would use the separately reviewed lab's own spawn/ownership/cleanup.
@@ -18,6 +18,8 @@ Python 3.10+ and `jsonschema>=4,<5`. On Windows PowerShell, `python -m pip insta
 `python native/physics-e0/ground-truth/cli.py validate "D:\private\e0\catalog.private.json"`
 
 `python native/physics-e0/ground-truth/cli.py adapt-codewalker "D:\private\e0\candidates.json" --output "D:\private\e0\scene.private.json"`
+
+`python native/physics-e0/ground-truth/cli.py build-provenance "D:\private\e0\manifest.json" --output "D:\private\e0\source-graph.private.json"`
 
 `python native/physics-e0/ground-truth/cli.py trace "D:\private\e0\scene.private.json" --rays "D:\private\e0\rays.private.json" --output "D:\private\e0\trace-results.private.json"`
 
