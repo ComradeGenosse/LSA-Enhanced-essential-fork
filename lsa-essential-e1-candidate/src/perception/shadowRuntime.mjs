@@ -355,7 +355,13 @@ export class ShadowRuntime {
          e.started.hostRunId!==n.nativeHostRunId ||
          e.started.worldEpoch!==n.worldEpoch || e.proximity ||
          !this.current(receipt.source.captureRef) ||
-         this.anchors.get(receipt.source.captureRef)?.kind!=='player') {
+         this.anchors.get(receipt.source.captureRef)?.kind!=='player' ||
+         // No ordinary GTA pedestrian can enter this acoustic receipt,
+         // regardless of whether an ambient PS observer saw the player.
+         receipt.observers.some(w=>!this.current(w.observer.captureRef) ||
+           this.anchors.get(w.observer.captureRef)?.kind!=='ped' ||
+           this.anchors.get(w.observer.captureRef)?.observer!==true ||
+           !this.owned(w.observer.captureRef))) {
         this.speechDiagnostics.rejected++;return false;
       }
       e.proximity={receipt,sourceEnd:n.endMonotonicMs,endTick:n.endGameTick};
@@ -808,13 +814,20 @@ export class ShadowRuntime {
     // this gate. Do not recapture STT or distribute to separate chat turns.
     entry.speechCommitted=true;
     const {receipt}=entry.proximity;
+    // Source-time eligibility expires on demotion or identity retirement.
+    // Recheck after STT/terminal: hearing does not grant an enduring lease.
+    const currentReceipt={...receipt,observers:receipt.observers.filter(w=>
+      this.current(w.observer.captureRef) &&
+      this.anchors.get(w.observer.captureRef)?.kind==='ped' &&
+      this.anchors.get(w.observer.captureRef)?.observer===true &&
+      this.owned(w.observer.captureRef))};
     const accepted=this.transcripts.accept({capability:true,
-      receipt,text:entry.transcript.text});
+      receipt:currentReceipt,text:entry.transcript.text});
     if(!accepted?.accepted || accepted.duplicate) {
       this.speechDiagnostics.rejected++;return false;
     }
     this.speechDiagnostics.accepted++;
-    const count=publishSpeechObservations({receipt,perceptions:accepted.perceptions,
+    const count=publishSpeechObservations({receipt:currentReceipt,perceptions:accepted.perceptions,
       now:this.now,current:ref=>this.current(ref),episodes:this.episodes,
       observations:this.observations,noteSalience:o=>this.noteSalience(o),
       rights:this.speechRights});
