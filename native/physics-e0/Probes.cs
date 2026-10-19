@@ -44,7 +44,9 @@ namespace LSA.WPS.Lab
         Rage.Vector3 previousPlayerPos;
         float previousPlayerHeading;
         int previousPlayerHandle;
-        bool teleportedPlayer, teleportFrozen, siteReady, teleportWasPerformed, teleportRestoreSucceeded;
+        bool teleportedPlayer, teleportFrozen, siteReady, teleportWasPerformed, teleportRestoreSucceeded, returningHome;
+        long returnStarted;
+        string autoTerminalState;
         long positionAttemptSince, positionMoveSince;
         string positionStatus="not_requested";
         public LabRunner(string gameRoot,Settings settings)
@@ -157,7 +159,8 @@ namespace LSA.WPS.Lab
             autoHistory.Clear();autoIndex=0;autoActive=true;autoHadBlockers=false;autoBegan=RealMs();
             siteReady=false;positionAttemptSince=0;positionMoveSince=0;positionStatus=cfg.autoTeleportForSamples?"pending":"not_requested";
             teleportedPlayer=false;teleportFrozen=false;previousPlayerHandle=0;autoSite=null;
-            teleportWasPerformed=false;teleportRestoreSucceeded=false;
+            teleportWasPerformed=false;teleportRestoreSucceeded=false;returningHome=false;
+            autoTerminalState="";
             WriteAuto("waiting_for_safe_story_mode");
             Console("Pre-shot suite queued: E0.0-E0.3 ONLY; no shooting or world changes. It waits for safe story-mode free roam. WPSE0Cancel stops it.");
         }
@@ -178,9 +181,10 @@ namespace LSA.WPS.Lab
         void StopAuto(string state)
         {
             if(!autoActive)return;
-            autoActive=false;RestoreAutoPosition();
-            WriteAuto(state);
-            Console("Pre-shot suite "+state+". Manifest: "+Path.GetFileName(autoManifest));
+            autoActive=false;autoTerminalState=state;RestoreAutoPosition();
+            WriteAuto(returningHome?"returning_home":state);
+            Console("Pre-shot suite "+state+(returningHome?" (returning player to original area)":"")+
+                ". Manifest: "+Path.GetFileName(autoManifest));
         }
         // Opt-in transport applies only to the pre-shot suite, never to manual experiments.
         // Samples define a search region; their collision points are never used for ped placement.
@@ -260,6 +264,7 @@ namespace LSA.WPS.Lab
             Console("Sample area streaming loaded; starting E0.2/E0.3.");
             return true;
         }
+        // Returning a player across streamed regions also needs collision before unfreezing.
         void RestoreAutoPosition()
         {
             if(!teleportedPlayer)return;
@@ -270,24 +275,64 @@ namespace LSA.WPS.Lab
                     B("DOES_ENTITY_EXIST",previousPlayerHandle))
                 {
                     int ped=previousPlayerHandle;
+                    N("FREEZE_ENTITY_POSITION",ped,true);teleportFrozen=true;
                     N("REQUEST_COLLISION_AT_COORD",previousPlayerPos.X,previousPlayerPos.Y,previousPlayerPos.Z);
                     N("SET_ENTITY_COORDS_NO_OFFSET",ped,previousPlayerPos.X,previousPlayerPos.Y,previousPlayerPos.Z,false,true,true);
                     N("SET_ENTITY_HEADING",ped,previousPlayerHeading);
-                    positionStatus+="_original_position_restored";teleportRestoreSucceeded=true;
+                    returningHome=true;returnStarted=RealMs();
+                    positionStatus+="_return_streaming";
                 }
                 else positionStatus+="_restoration_blocked_player_identity_or_session";
             }
             catch(Exception e){positionStatus+="_restoration_error_"+e.GetType().Name;}
             finally
             {
-                if(teleportFrozen)
-                {
-                    try{if(previousPlayerHandle>0 && Ped()==previousPlayerHandle)
-                            N("FREEZE_ENTITY_POSITION",previousPlayerHandle,false);}
-                    catch{}
-                    teleportFrozen=false;
-                }
                 teleportedPlayer=false;
+                // Keep frozen until collision actually streams; if restoring was not started,
+                // release an owned freeze so the player is not left stuck.
+                if(!returningHome)ReleaseTransportFreeze();
+            }
+        }
+        void ReleaseTransportFreeze()
+        {
+            if(!teleportFrozen)return;
+            try
+            {
+                if(previousPlayerHandle>0 && Ped()==previousPlayerHandle)
+                    N("FREEZE_ENTITY_POSITION",previousPlayerHandle,false);
+            }
+            catch{}
+            teleportFrozen=false;
+        }
+        void TickReturn()
+        {
+            if(!returningHome)return;
+            bool collision=false;
+            try
+            {
+                if(!B("NETWORK_IS_SESSION_ACTIVE") && Ped()==previousPlayerHandle &&
+                    B("DOES_ENTITY_EXIST",previousPlayerHandle))
+                {
+                    N("REQUEST_COLLISION_AT_COORD",previousPlayerPos.X,previousPlayerPos.Y,previousPlayerPos.Z);
+                    var current=Game.LocalPlayer.Character.Position;
+                    collision=Census.Distance(current.X,current.Y,current.Z,
+                        previousPlayerPos.X,previousPlayerPos.Y,previousPlayerPos.Z)<5 &&
+                        B("HAS_COLLISION_LOADED_AROUND_ENTITY",previousPlayerHandle);
+                }
+            }
+            catch{}
+            if(collision && RealMs()-returnStarted>=400)
+            {
+                ReleaseTransportFreeze();returningHome=false;
+                teleportRestoreSucceeded=true;positionStatus+="_original_position_restored";
+                WriteAuto(autoTerminalState);Console("Original player position and streamed collision restored.");
+            }
+            else if(RealMs()-returnStarted>30000)
+            {
+                ReleaseTransportFreeze();returningHome=false;
+                positionStatus+="_return_collision_timeout_unverified";
+                WriteAuto(autoTerminalState+"_return_collision_not_verified");
+                Console("WARNING: original area collision not verified after return; manual check required.");
             }
         }
         bool WorldReady()
@@ -369,10 +414,17 @@ namespace LSA.WPS.Lab
             cancelling=true;
             if(active!=null)Finish("NOT_TESTED","unload");else Cleanup();
             if(autoActive)StopAuto("unloaded");
+            if(returningHome)
+            {
+                // The plugin is unloading, so it cannot keep polling for collision.
+                returningHome=false;ReleaseTransportFreeze();
+                positionStatus+="_unload_before_return_collision_confirmed";
+                WriteAuto(autoTerminalState+"_return_unverified");
+            }
         }
         public void Tick()
         {
-            if(active==null){TickAuto();return;}
+            if(active==null){TickReturn();TickAuto();return;}
             if(cancelling){Finish("NOT_TESTED","cancel_requested");if(autoActive)StopAuto("cancelled");return;}
             frame++;
             long now=RealMs();
