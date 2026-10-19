@@ -246,14 +246,16 @@ def validate_scene(scene):
     """Validate *candidate* active-world input without claiming runtime completeness."""
     if not isinstance(scene, dict) or scene.get("sceneSchemaVersion") != 1:
         raise GT0Error("unsupported scene schema")
+    if scene.get("visibility") != "PRIVATE_LOCAL_ONLY":
+        raise GT0Error("private source graph designation is required")
     coverage = scene.get("coverage")
     if not isinstance(coverage, dict) or any(
         type(coverage.get(key)) is not bool for key in
         ("sourceSetComplete", "includesPlaced", "includesEmbedded", "precedenceEstablished")
     ):
         raise GT0Error("explicit coverage booleans required; never assume completeness")
-    if not isinstance(scene.get("colliders"), list):
-        raise GT0Error("colliders must be an array")
+    if not isinstance(scene.get("colliders"), list) or len(scene["colliders"]) > 10000:
+        raise GT0Error("colliders must be a bounded array (max 10000)")
     seen = set()
     for item in scene["colliders"]:
         if not isinstance(item, dict):
@@ -283,8 +285,15 @@ def validate_scene(scene):
 def scene_trace(scene, rays):
     """Report ALL plausible hits; never output a confirmed runtime identity."""
     validate_scene(scene)
-    if not isinstance(rays, list) or len(rays) > 1000:
+    if not isinstance(rays, list) or not 1 <= len(rays) <= 1000:
         raise GT0Error("bounded nonempty rays array required")
+    ray_ids = set()
+    for ray in rays:
+        if not isinstance(ray, dict) or not isinstance(ray.get("rayId"), str) or not ray["rayId"]:
+            raise GT0Error("ray missing identifier")
+        if ray["rayId"] in ray_ids:
+            raise GT0Error("duplicate private ray ID")
+        ray_ids.add(ray["rayId"])
     coverage = scene["coverage"]
     complete = all(coverage[k] for k in
                    ("sourceSetComplete", "includesPlaced", "includesEmbedded", "precedenceEstablished"))
@@ -427,12 +436,20 @@ def validate_catalog(catalog, schema):
                 errors.append(f"{prefix} {reason}")
         v, ev, identity, source = (r["verification"], r["evidence"],
                                   r["identity"], r["source"])
+        primary_ids = {ray["rayId"] for ray in r["rays"] if ray["purpose"] == "PRIMARY"}
         success = [o for o in r["observations"] if
+                   o["rayId"] in primary_ids and
                    o["result"] == "MATCH" and o["hit"] and
-                   o["shapeTestState"] == 2 and o["destinationCollisionReady"]]
+                   o["shapeTestState"] == 2 and o["destinationCollisionReady"] and
+                   any(o["traceFlags"] == ray["traceFlags"] and
+                       o["optionFlags"] == ray["optionFlags"]
+                       for ray in r["rays"] if ray["rayId"] == o["rayId"])]
         need(len(success) >= 3, "requires 3 completed matching live observations")
         need(len({o["sessionId"] for o in success}) >= 2, "requires two independent sessions")
-        need(len(ev["negativeControlObservationIds"]) > 0, "negative control is missing")
+        observed_ids = {o["observationId"] for o in r["observations"]}
+        need(len(ev["negativeControlObservationIds"]) > 0 and
+             set(ev["negativeControlObservationIds"]) <= observed_ids,
+             "negative control observations missing or unreferenced")
         need(identity["uniqueOfflineHitCandidate"] is True and
              identity["activeSourceIndependentlyVerified"] is True and
              source["liveWinnerStatus"] == "INDEPENDENTLY_ESTABLISHED",
@@ -442,6 +459,9 @@ def validate_catalog(catalog, schema):
         need(bool(r["environment"]["modFingerprintId"]), "mod fingerprint absent")
         views = {x["view"] for x in ev["screenshots"] if x["overlayReadable"]}
         need({"CONTEXT", "CLOSE_UP"} <= views, "requires readable context and close-up screenshots")
+        need(all(x["sampleId"] == key and x["runId"] in
+                 {o["runId"] for o in success} for x in ev["screenshots"]),
+             "screenshots must reference qualifying live runs and sample")
         need(all(o["hitPositionErrorM"] is not None and
                  o["hitPositionErrorM"] <= .02 and
                  (o["normalErrorDeg"] is None or o["normalErrorDeg"] <= 10)
