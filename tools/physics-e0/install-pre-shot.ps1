@@ -93,18 +93,3 @@ Write-Output "Samples: $dstSamples"
 Write-Output "Backups stored outside Plugins: $backupDir"
 Write-Output "DLL SHA256: $actual"
 Write-Output 'Afterward, use pack-pre-shot.ps1 from this artifact directory to package ONLY the result logs.'
- } |
-    ForEach-Object { Move-Item -LiteralPath $_.FullName -Destination (Join-Path $backupDir $_.Name) -ErrorAction Stop }
-Copy-Item -LiteralPath $dll -Destination $dstDll -Force
-Copy-Item -LiteralPath $PrivateSamples -Destination $dstSamples -Force
-$cfg | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $dstConfig -Encoding UTF8
-$actual = (Get-FileHash -LiteralPath $dstDll -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($actual -ne $dllSha) { throw 'DLL post-install hash check failed.' }
-Write-Output 'E0 private pre-shot lab installed and verified.'
-Write-Output 'Automatic safe E0.0-E0.3 and automatic location positioning enabled.'
-Write-Output 'All destructive experiment permits are disabled.'
-Write-Output 'Start GTA with your NORMAL working RPH launch method; the existing ReloadAllPlugins command should load this DLL.'
-Write-Output "Config: $dstConfig"
-Write-Output "Samples: $dstSamples"
-Write-Output "DLL SHA256: $actual"
-Write-Output 'Afterward, use pack-pre-shot.ps1 from this artifact directory to package ONLY the result logs.'
