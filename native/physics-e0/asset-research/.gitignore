@@ -1,0 +1,8 @@
+# Allow only reviewed source/documentation here. Private payloads stay outside Git.
+*
+!.gitignore
+!README.md
+!Extract-E0Assets.ps1
+!Verify-E0Geometry.ps1
+!analyze_e0_assets.py
+!package_e0_assets.py
