@@ -436,6 +436,13 @@ class Program
 
     static void Main(string[] args)
     {
+        if(args.Length==1 && args[0]=="--c01-only") {
+            try {
+                C01SpeechPolicyCoverage();
+                Console.WriteLine("PASS C01 native policy assertions="+assertions);
+            } catch(Exception e) {Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}
+            return;
+        }
         try{C01SpeechPolicyCoverage();SocialScenesCoverage();Run();RadioCoverage();Ps6NativeSourceCoverage();SourceOnlyTests.Run();
             if(args.Length==1&&args[0]=="--d2-source-only-wire")
                 foreach(var frame in SourceOnlyTests.WireFrames)Console.WriteLine("D2_WIRE "+new JavaScriptSerializer().Serialize(frame));
