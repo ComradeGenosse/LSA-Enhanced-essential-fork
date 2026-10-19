@@ -39,7 +39,14 @@ class Tests
         Check(book.Forget(10)&&!book.Owns(10)&&book.Count==1,"delete_cannot_retarget_foreign_handle");
         Check(book.Drain().Length==1&&book.Count==0,"cleanup_idempotent");
         var defaults=Settings.Defaults();
-        Check(!defaults.enabled && !defaults.autoRunPreShot,"never_autostart");
+        Check(!defaults.enabled && !defaults.autoRunPreShot && !defaults.autoTeleportForSamples,"never_autostart_or_teleport");
+        var example=new Sample{label="site",ax=430,ay=-980,az=30,bx=431,by=-981,bz=31,expectedThicknessM=.2};
+        var site=AutoSampleSite.Build(Enumerable.Repeat(example,30),new[]{example});
+        Check(site.IsNearby(440,-990)&&site.AcceptSafeCoord(440,-990,31),"nearby_safe_navmesh");
+        Check(!site.AcceptSafeCoord(750,-980,30)&&!site.AcceptSafeCoord(440,-990,200),"reject_far_or_vertical_safe_navmesh");
+        var distant=new Sample{label="distant",ax=5000,ay=-980,az=30,bx=5000,by=-981,bz=30,expectedThicknessM=.2};
+        Throws(()=>AutoSampleSite.Build(Enumerable.Repeat(example,30),new[]{distant}),"reject_scattered_samples");
+        Throws(()=>AutoSampleSite.Build(Enumerable.Repeat(example,29),Array.Empty<Sample>()),"reject_short_site_set");
         Check(PreShotPlan.Ids.SequenceEqual(new[]{"E0.0","E0.1","E0.2","E0.3"}),"safe_pre_shot_sequence");
         Check(PreShotPlan.Ids.All(PreShotPlan.Allows) && !PreShotPlan.Allows("E0.4") && !PreShotPlan.Allows("E0.9"),"no_fire_or_world_mutation_auto");
         Check(PreShotPlan.MissingGroundTruth("E0.2",29)!=null && PreShotPlan.MissingGroundTruth("E0.2",30)==null,"30_material_references_required");
