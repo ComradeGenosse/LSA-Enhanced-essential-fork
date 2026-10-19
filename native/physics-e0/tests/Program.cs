@@ -47,6 +47,13 @@ class Tests
         var distant=new Sample{label="distant",ax=5000,ay=-980,az=30,bx=5000,by=-981,bz=30,expectedThicknessM=.2};
         Throws(()=>AutoSampleSite.Build(Enumerable.Repeat(example,30),new[]{distant}),"reject_scattered_samples");
         Throws(()=>AutoSampleSite.Build(Enumerable.Repeat(example,29),Array.Empty<Sample>()),"reject_short_site_set");
+        Check(!DestinationGate.Accept(true,false,10000,10),"nearby_player_requires_collision");
+        Check(!DestinationGate.Accept(true,true,200,10),"teleported_player_requires_settling");
+        Check(!DestinationGate.Accept(true,true,1000,2),"requires_consecutive_loaded_frames");
+        Check(!DestinationGate.Accept(false,true,1000,10),"loaded_collision_outside_site_not_accepted");
+        Check(DestinationGate.Accept(true,true,800,3),"settled_collision_accepts");
+        Check(DestinationGate.HeadingError(359.0,1.0)==2.0,"heading_wraparound");
+        Check(DestinationGate.HeadingError(90.0,110.0)==20.0,"heading_delta");
         Check(PreShotPlan.Ids.SequenceEqual(new[]{"E0.0","E0.1","E0.2","E0.3"}),"safe_pre_shot_sequence");
         Check(PreShotPlan.Ids.All(PreShotPlan.Allows) && !PreShotPlan.Allows("E0.4") && !PreShotPlan.Allows("E0.9"),"no_fire_or_world_mutation_auto");
         Check(PreShotPlan.MissingGroundTruth("E0.2",29)!=null && PreShotPlan.MissingGroundTruth("E0.2",30)==null,"30_material_references_required");
