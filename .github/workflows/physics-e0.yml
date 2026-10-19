@@ -1,0 +1,49 @@
+name: Physics E0 Native Capability Census
+on:
+  pull_request:
+    branches:
+      - research/next-gen-gameplay-experiences-20261018
+    paths:
+      - 'native/physics-e0/**'
+      - 'tools/physics-e0/**'
+      - 'tools/native-sdk/compilePhysicsLab.mjs'
+      - '.github/workflows/physics-e0.yml'
+  push:
+    branches:
+      - experiment/physics-e0-native-capability-census
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Pure probe safety, metrics and cleanup tests
+        run: dotnet run --project native/physics-e0/tests/CoreTests.csproj -c Release
+  genuine-sdk:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile real production RPH plugin against SHA-256 pinned genuine SDK
+        run: node tools/native-sdk/compilePhysicsLab.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: E0-Research-Lab-UNVERIFIED-IN-GTA
+          path: dist/physics-e0/
+          if-no-files-found: error
+  jsonl-analyzer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate log parser and verdict requirements
+        run: python3 tools/physics-e0/analyze.py --self-test
