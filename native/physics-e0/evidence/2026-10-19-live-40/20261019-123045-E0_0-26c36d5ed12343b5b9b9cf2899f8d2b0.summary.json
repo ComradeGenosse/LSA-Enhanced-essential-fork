@@ -1,0 +1,109 @@
+{
+  "exp": "E0.0",
+  "run": "26c36d5ed12343b5b9b9cf2899f8d2b0",
+  "status": "GTA_VERIFIED",
+  "reason": "observations_captured_review_hypothesis",
+  "mode": "single",
+  "environment": {
+    "gameVersion": "1.0.1158.16",
+    "gameExe": "GTA5_Enhanced.exe",
+    "rphVersion": "1.132.1428.17748",
+    "sdkVersion": "0.0.0.0",
+    "pluginVersion": "0.1.0-e0",
+    "pluginSha256": "4fe24f25173397dfde0ec17b591b88a0d5f13b8e6f5bb5cd35fdc40fc24a5618",
+    "scriptHookV": "3889.0.1158.13",
+    "scriptHookVDotNet": "3.9.0.6",
+    "openRpf": "not_installed",
+    "codeWalker": "not_detected_external"
+  },
+  "frameTimeMs": {
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+  },
+  "samples": 0,
+  "events": [
+    {
+      "kind": "start",
+      "data": {
+        "probe": "E0.0",
+        "mode": "single",
+        "environment": {
+          "gameVersion": "1.0.1158.16",
+          "gameExe": "GTA5_Enhanced.exe",
+          "rphVersion": "1.132.1428.17748",
+          "sdkVersion": "0.0.0.0",
+          "pluginVersion": "0.1.0-e0",
+          "pluginSha256": "4fe24f25173397dfde0ec17b591b88a0d5f13b8e6f5bb5cd35fdc40fc24a5618",
+          "scriptHookV": "3889.0.1158.13",
+          "scriptHookVDotNet": "3.9.0.6",
+          "openRpf": "not_installed",
+          "codeWalker": "not_detected_external"
+        },
+        "sampleCount": 40,
+        "inputEvidence": "user_configured",
+        "surfaceSampleCount": 30,
+        "wallSampleCount": 10,
+        "allowNoop": false
+      }
+    },
+    {
+      "kind": "toolchain",
+      "data": {
+        "gameVersion": "1.0.1158.16",
+        "gameExe": "GTA5_Enhanced.exe",
+        "rphVersion": "1.132.1428.17748",
+        "sdkVersion": "0.0.0.0",
+        "pluginVersion": "0.1.0-e0",
+        "pluginSha256": "4fe24f25173397dfde0ec17b591b88a0d5f13b8e6f5bb5cd35fdc40fc24a5618",
+        "scriptHookV": "3889.0.1158.13",
+        "scriptHookVDotNet": "3.9.0.6",
+        "openRpf": "not_installed",
+        "codeWalker": "not_detected_external"
+      }
+    },
+    {
+      "kind": "no_op_native",
+      "data": {
+        "name": "DOES_ENTITY_EXIST",
+        "result": true
+      }
+    },
+    {
+      "kind": "cleanup",
+      "data": {
+        "success": true,
+        "ownedRemaining": 0,
+        "iplRestored": true,
+        "timeRestored": true,
+        "hideRestored": true
+      }
+    },
+    {
+      "kind": "verdict",
+      "data": {
+        "status": "GTA_VERIFIED",
+        "reason": "observations_captured_review_hypothesis",
+        "frame": 1,
+        "probe": "E0.0"
+      }
+    }
+  ],
+  "statuses": {
+    "E0.0": "GTA_VERIFIED",
+    "E0.1": "NOT_TESTED",
+    "E0.2": "NOT_TESTED",
+    "E0.3": "NOT_TESTED",
+    "E0.4": "NOT_TESTED",
+    "E0.5": "NOT_TESTED",
+    "E0.6": "NOT_TESTED",
+    "E0.7": "NOT_TESTED",
+    "E0.8": "NOT_TESTED",
+    "E0.9": "NOT_TESTED",
+    "E0.10": "NOT_TESTED",
+    "E0.11": "NOT_TESTED",
+    "E0.12": "NOT_TESTED"
+  },
+  "caveat": "Native observations are GTA-only; an offline compiler cannot verify gameplay behavior."
+}

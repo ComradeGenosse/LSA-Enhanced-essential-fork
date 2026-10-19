@@ -1,0 +1,32 @@
+Game: Grand Theft Auto V
+Game build: 1158
+Branch: Steam
+
+Plugins loaded at the time of the crash:
+
+No plugin was ticking at the time of this crash.
+Base address: 00007ff713ec0000
+Exception address: 00007ffb14e793d2
+Exception offset: 400fb93d2
+Exception code: 0xc0000005 (EXCEPTION_ACCESS_VIOLATION)
+
+Stack trace (unmanaged):
+	0x00007ffbc3d1f4e3 - UnhandledExceptionFilter - in Unknown:0 (C:\Windows\System32\KERNELBASE.dll)
+	0x00007ffbc688a030 - strncpy - in Unknown:0 (C:\Windows\SYSTEM32\ntdll.dll)
+	0x00007ffbc6844b93 - _C_specific_handler - in Unknown:0 (C:\Windows\SYSTEM32\ntdll.dll)
+	0x00007ffbc68864af - _chkstk - in Unknown:0 (C:\Windows\SYSTEM32\ntdll.dll)
+	0x00007ffbc67e4065 - RtlWow64GetCurrentMachine - in Unknown:0 (C:\Windows\SYSTEM32\ntdll.dll)
+	0x00007ffbc6885dee - KiUserExceptionDispatcher - in Unknown:0 (C:\Windows\SYSTEM32\ntdll.dll)
+	0x00007ffb14e793d2 - KiUserExceptionDispatcher - in Unknown:0 (C:\Program Files\Rockstar Games\Social Club\socialclub.dll)
+	0x00007ffb14edb747 - KiUserExceptionDispatcher - in Unknown:0 (C:\Program Files\Rockstar Games\Social Club\socialclub.dll)
+	0x00007ffb1f5028ea - KiUserExceptionDispatcher - in Unknown:0 (C:\Program Files\Rockstar Games\Social Club\SocialClubD3D12Renderer.dll)
+	0x00007ff715d3b330 - Ordinal0 - in Unknown:0 (<GTA_ROOT>\GTA5_Enhanced.exe)
+	0x00007ff713ff871e - Ordinal0 - in Unknown:0 (<GTA_ROOT>\GTA5_Enhanced.exe)
+	0x00007ffbc5a5dda7 - BaseThreadInitThunk - in Unknown:0 (C:\Windows\System32\KERNEL32.DLL)
+	0x00007ffbc679ee4c - RtlUserThreadStart - in Unknown:0 (C:\Windows\SYSTEM32\ntdll.dll)
+
+Stack trace (managed):
+	  Hook:OnGameCrashManaged(_EXCEPTION_POINTERS* exceptionInfo, Void** stackFrames, Int32 framesCaptured, SByte* exceptionName, Plugin plugin, String pluginStackTrace)
+	  Hook:OnGameCrashManaged(_EXCEPTION_POINTERS* exceptionInfo, Void** stackFrames, Int32 framesCaptured, SByte* exceptionName)
+
+

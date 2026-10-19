@@ -1,0 +1,10 @@
+{
+  "productionArtifact": "LSA.WPS.Lab.dll",
+  "target": "net481",
+  "realSdk": "RagePluginHook 1.124.0",
+  "sdkSha256": "5d439745604a5fedbf8fa401520d4f296c1b6800d77e2923ba3bf9772182c7e0",
+  "pluginSha256": "4fe24f25173397dfde0ec17b591b88a0d5f13b8e6f5bb5cd35fdc40fc24a5618",
+  "runtime": "RPH 1.132 on GTA Enhanced 1158.16 requires in-game verification",
+  "deploymentPerformed": false,
+  "gtaTested": false
+}

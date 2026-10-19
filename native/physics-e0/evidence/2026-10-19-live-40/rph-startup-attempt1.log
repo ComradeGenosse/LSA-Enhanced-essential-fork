@@ -1,0 +1,48 @@
+[10/19/2026 8:27:40 AM.013] Started new log on 10/19/2026 8:27:40 AM.013
+[10/19/2026 8:27:40 AM.014] ====================================================================================================
+[10/19/2026 8:27:40 AM.007] Log path: <GTA_ROOT>\RagePluginHook.log
+[10/19/2026 8:27:40 AM.014] Log verbosity: Trivial
+[10/19/2026 8:27:40 AM.018] Initializing input system
+[10/19/2026 8:27:40 AM.018] AppDomainPool::InitializeAppDomain: Creating new app domain "PreInitializedDomain_0".
+[10/19/2026 8:27:40 AM.019] Initializing game console
+[10/19/2026 8:27:40 AM.019] AppDomainPool::InitializeAppDomain: Creating new app domain "PreInitializedDomain_1".
+[10/19/2026 8:27:40 AM.019] AppDomainPool::InitializeAppDomain: Creating new app domain "PreInitializedDomain_2".
+[10/19/2026 8:27:40 AM.021] AppDomainPool::InitializeAppDomain: Creating new app domain "PreInitializedDomain_3".
+[10/19/2026 8:27:40 AM.022] Console key has been set to F4 (key code: 115)
+[10/19/2026 8:27:40 AM.060] Initializing console variable "ConsoleScrollAmount".
+[10/19/2026 8:27:40 AM.060] Type: System.Int32, Reading section: "Miscellaneous", key: ConsoleScrollAmount
+[10/19/2026 8:27:40 AM.061] Read value: <null>
+[10/19/2026 8:27:40 AM.061] Initializing console variable "ConsoleKey".
+[10/19/2026 8:27:40 AM.061] Type: System.Windows.Forms.Keys, Reading section: "Miscellaneous", key: ConsoleKey
+[10/19/2026 8:27:40 AM.062] Read value: <null>
+[10/19/2026 8:27:40 AM.062] Initializing console variable "PluginTimeoutThreshold".
+[10/19/2026 8:27:40 AM.062] Type: System.Int32, Reading section: "Miscellaneous", key: PluginTimeoutThreshold
+[10/19/2026 8:27:40 AM.063] Read value: 10000
+[10/19/2026 8:27:40 AM.063] Setting value of console variable "PluginTimeoutThreshold" to stored value.
+[10/19/2026 8:27:40 AM.063] Initializing console variable "AlwaysShowConsoleOutput".
+[10/19/2026 8:27:40 AM.063] Type: System.Boolean, Reading section: "Miscellaneous", key: AlwaysShowConsoleOutput
+[10/19/2026 8:27:40 AM.064] Read value: <null>
+[10/19/2026 8:27:40 AM.064] Initializing console variable "ShowConsoleCommandInfoOnPluginLoad".
+[10/19/2026 8:27:40 AM.064] Type: System.Boolean, Reading section: "Miscellaneous", key: ShowConsoleCommandInfoOnPluginLoad
+[10/19/2026 8:27:40 AM.064] Read value: <null>
+[10/19/2026 8:27:40 AM.064] Initializing console variable "ShowOnScreenWarnings".
+[10/19/2026 8:27:40 AM.064] Type: System.Boolean, Reading section: "Miscellaneous", key: ShowOnScreenWarnings
+[10/19/2026 8:27:40 AM.064] Read value: <null>
+[10/19/2026 8:27:40 AM.064] Console initialized
+[10/19/2026 8:27:40 AM.064] Initializing forms manager
+[10/19/2026 8:27:40 AM.065] Cleaning temp folder
+[10/19/2026 8:27:40 AM.091] Version: RAGE Plugin Hook v1.132.1428.17748 for Grand Theft Auto V
+[10/19/2026 8:27:40 AM.095] ================ RAGE Plugin Hook ================
+[10/19/2026 8:27:40 AM.110] Waiting for launcher interop
+[10/19/2026 8:27:40 AM.112] Command line option "nobattleye" is specified twice. Please remove one.
+[10/19/2026 8:27:40 AM.138] Enhanced Edition detected; disabling custom loading screen due to alpha issues.
+[10/19/2026 8:27:40 AM.145] Detected Windows 10 Professional (64-bit) (10.0.26100.0)!
+[10/19/2026 8:27:40 AM.145] Checking game support
+[10/19/2026 8:27:40 AM.209] Product name: Grand Theft Auto V
+[10/19/2026 8:27:40 AM.209] Product version: 1.0.1158.16
+[10/19/2026 8:27:40 AM.209] Is steam version: True
+[10/19/2026 8:27:40 AM.209] Is enhanced version: True
+[10/19/2026 8:27:50 AM.210] Initializing DirectX
+[10/19/2026 8:27:50 AM.211] Initializing Direct3D (DX12)
+[10/19/2026 8:27:50 AM.222] D3D12 command queue found at 0x2472451C4C0, type 0
+[10/19/2026 8:27:50 AM.222] Loading D3D12...

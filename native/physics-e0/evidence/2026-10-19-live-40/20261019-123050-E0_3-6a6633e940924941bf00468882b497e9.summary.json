@@ -1,0 +1,347 @@
+{
+  "exp": "E0.3",
+  "run": "6a6633e940924941bf00468882b497e9",
+  "status": "GTA_VERIFIED",
+  "reason": "observations_captured_review_hypothesis",
+  "mode": "single",
+  "environment": {
+    "gameVersion": "1.0.1158.16",
+    "gameExe": "GTA5_Enhanced.exe",
+    "rphVersion": "1.132.1428.17748",
+    "sdkVersion": "0.0.0.0",
+    "pluginVersion": "0.1.0-e0",
+    "pluginSha256": "4fe24f25173397dfde0ec17b591b88a0d5f13b8e6f5bb5cd35fdc40fc24a5618",
+    "scriptHookV": "3889.0.1158.13",
+    "scriptHookVDotNet": "3.9.0.6",
+    "openRpf": "not_installed",
+    "codeWalker": "not_detected_external"
+  },
+  "frameTimeMs": {
+    "p50": 26,
+    "p95": 27,
+    "p99": 27,
+    "max": 27
+  },
+  "samples": 9,
+  "events": [
+    {
+      "kind": "start",
+      "data": {
+        "probe": "E0.3",
+        "mode": "single",
+        "environment": {
+          "gameVersion": "1.0.1158.16",
+          "gameExe": "GTA5_Enhanced.exe",
+          "rphVersion": "1.132.1428.17748",
+          "sdkVersion": "0.0.0.0",
+          "pluginVersion": "0.1.0-e0",
+          "pluginSha256": "4fe24f25173397dfde0ec17b591b88a0d5f13b8e6f5bb5cd35fdc40fc24a5618",
+          "scriptHookV": "3889.0.1158.13",
+          "scriptHookVDotNet": "3.9.0.6",
+          "openRpf": "not_installed",
+          "codeWalker": "not_detected_external"
+        },
+        "sampleCount": 40,
+        "inputEvidence": "user_configured",
+        "surfaceSampleCount": 30,
+        "wallSampleCount": 10,
+        "allowNoop": false
+      }
+    },
+    {
+      "kind": "exit_faces",
+      "data": {
+        "expectedThicknessM": 0.61987305,
+        "measuredM": 0.619873046875,
+        "errorM": -3.1250000365190544e-09,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 3929491133,
+          "entity": 232450
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 3929491133,
+          "entity": 232450
+        },
+        "inside": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        }
+      }
+    },
+    {
+      "kind": "exit_faces",
+      "data": {
+        "expectedThicknessM": 0.72848266,
+        "measuredM": 0.7284958353499562,
+        "errorM": 1.3175349956262572e-05,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1849540536,
+          "entity": 232450
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1849540536,
+          "entity": 232450
+        },
+        "inside": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        }
+      }
+    },
+    {
+      "kind": "exit_faces",
+      "data": {
+        "expectedThicknessM": 0.50262451,
+        "measuredM": 0.59771728515625,
+        "errorM": 0.09509277515625003,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1639053622,
+          "entity": 242434
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 3108646581,
+          "entity": 258818
+        },
+        "inside": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        }
+      }
+    },
+    {
+      "kind": "exit_faces",
+      "data": {
+        "expectedThicknessM": 0.50387573,
+        "measuredM": 0.75860595703125,
+        "errorM": 0.25473022703125003,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 258818
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "inside": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        }
+      }
+    },
+    {
+      "kind": "exit_faces",
+      "data": {
+        "expectedThicknessM": 0.50387573,
+        "measuredM": 0.50390625,
+        "errorM": 3.052000000003385e-05,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "inside": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        }
+      }
+    },
+    {
+      "kind": "exit_faces",
+      "data": {
+        "expectedThicknessM": 0.35870361,
+        "measuredM": 0.35870361328125,
+        "errorM": 3.281249993936086e-09,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "inside": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        }
+      }
+    },
+    {
+      "kind": "exit_faces",
+      "data": {
+        "expectedThicknessM": 0.39819336,
+        "measuredM": 0.398193359375,
+        "errorM": -6.249999962015806e-10,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "inside": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        }
+      }
+    },
+    {
+      "kind": "exit_faces",
+      "data": {
+        "expectedThicknessM": 0.73986906,
+        "measuredM": 0.7398686574995004,
+        "errorM": -4.0250049959666967e-07,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "inside": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        }
+      }
+    },
+    {
+      "kind": "exit_faces",
+      "data": {
+        "expectedThicknessM": 0.05496216,
+        "measuredM": 0.05499267578125,
+        "errorM": 3.0515781249997043e-05,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "inside": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        }
+      }
+    },
+    {
+      "kind": "exit_faces",
+      "data": {
+        "expectedThicknessM": 0.11083984,
+        "measuredM": 0.11083984375,
+        "errorM": 3.7500000049650595e-09,
+        "forward": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "reverse": {
+          "state": 2,
+          "hit": true,
+          "materialHash": 1187676648,
+          "entity": 232450
+        },
+        "inside": {
+          "state": 2,
+          "hit": false,
+          "materialHash": 0,
+          "entity": 0
+        }
+      }
+    },
+    {
+      "kind": "cleanup",
+      "data": {
+        "success": true,
+        "ownedRemaining": 0,
+        "iplRestored": true,
+        "timeRestored": true,
+        "hideRestored": true
+      }
+    },
+    {
+      "kind": "verdict",
+      "data": {
+        "status": "GTA_VERIFIED",
+        "reason": "observations_captured_review_hypothesis",
+        "frame": 10,
+        "probe": "E0.3"
+      }
+    }
+  ],
+  "statuses": {
+    "E0.0": "GTA_VERIFIED",
+    "E0.1": "GTA_VERIFIED",
+    "E0.2": "GTA_VERIFIED",
+    "E0.3": "GTA_VERIFIED",
+    "E0.4": "NOT_TESTED",
+    "E0.5": "NOT_TESTED",
+    "E0.6": "NOT_TESTED",
+    "E0.7": "NOT_TESTED",
+    "E0.8": "NOT_TESTED",
+    "E0.9": "NOT_TESTED",
+    "E0.10": "NOT_TESTED",
+    "E0.11": "NOT_TESTED",
+    "E0.12": "NOT_TESTED"
+  },
+  "caveat": "Native observations are GTA-only; an offline compiler cannot verify gameplay behavior."
+}

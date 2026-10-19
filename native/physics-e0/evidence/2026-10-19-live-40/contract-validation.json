@@ -1,0 +1,26 @@
+[
+  {
+    "file": "20261019-123045-E0_0-26c36d5ed12343b5b9b9cf2899f8d2b0.jsonl",
+    "exitCode": 0,
+    "stdout": "{\n  \"file\": \"outputs\\\\e0-evidence\\\\20261019-123045-E0_0-26c36d5ed12343b5b9b9cf2899f8d2b0.jsonl\",\n  \"valid\": true,\n  \"issues\": [],\n  \"runs\": {\n    \"26c36d5ed12343b5b9b9cf2899f8d2b0\": {\n      \"exp\": \"E0.0\",\n      \"events\": 5,\n      \"verdict\": \"GTA_VERIFIED\",\n      \"start\": true,\n      \"cleanup\": true\n    }\n  },\n  \"offlineReadyDoesNotProveGta\": true\n}\n",
+    "stderr": ""
+  },
+  {
+    "file": "20261019-123047-E0_1-ed90c900d7794cfba554a3a1fd96a751.jsonl",
+    "exitCode": 0,
+    "stdout": "{\n  \"file\": \"outputs\\\\e0-evidence\\\\20261019-123047-E0_1-ed90c900d7794cfba554a3a1fd96a751.jsonl\",\n  \"valid\": true,\n  \"issues\": [],\n  \"runs\": {\n    \"ed90c900d7794cfba554a3a1fd96a751\": {\n      \"exp\": \"E0.1\",\n      \"events\": 6,\n      \"verdict\": \"GTA_VERIFIED\",\n      \"start\": true,\n      \"cleanup\": true\n    }\n  },\n  \"offlineReadyDoesNotProveGta\": true\n}\n",
+    "stderr": ""
+  },
+  {
+    "file": "20261019-123049-E0_2-40b9f542f2dc486baae866839d1fb94d.jsonl",
+    "exitCode": 0,
+    "stdout": "{\n  \"file\": \"outputs\\\\e0-evidence\\\\20261019-123049-E0_2-40b9f542f2dc486baae866839d1fb94d.jsonl\",\n  \"valid\": true,\n  \"issues\": [],\n  \"runs\": {\n    \"40b9f542f2dc486baae866839d1fb94d\": {\n      \"exp\": \"E0.2\",\n      \"events\": 33,\n      \"verdict\": \"GTA_VERIFIED\",\n      \"start\": true,\n      \"cleanup\": true\n    }\n  },\n  \"offlineReadyDoesNotProveGta\": true\n}\n",
+    "stderr": ""
+  },
+  {
+    "file": "20261019-123050-E0_3-6a6633e940924941bf00468882b497e9.jsonl",
+    "exitCode": 0,
+    "stdout": "{\n  \"file\": \"outputs\\\\e0-evidence\\\\20261019-123050-E0_3-6a6633e940924941bf00468882b497e9.jsonl\",\n  \"valid\": true,\n  \"issues\": [],\n  \"runs\": {\n    \"6a6633e940924941bf00468882b497e9\": {\n      \"exp\": \"E0.3\",\n      \"events\": 13,\n      \"verdict\": \"GTA_VERIFIED\",\n      \"start\": true,\n      \"cleanup\": true\n    }\n  },\n  \"offlineReadyDoesNotProveGta\": true\n}\n",
+    "stderr": ""
+  }
+]
