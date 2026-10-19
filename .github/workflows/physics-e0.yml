@@ -24,6 +24,9 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Pure probe safety, metrics and cleanup tests
         run: dotnet run --project native/physics-e0/tests/CoreTests.csproj -c Release
+      - name: Offline pre-shot ZIP evidence scope test
+        shell: powershell
+        run: ./tools/physics-e0/tests/pack-pre-shot.tests.ps1
   genuine-sdk:
     runs-on: windows-latest
     steps:
