@@ -48,6 +48,11 @@ class Tests
         defaults=Settings.Defaults();defaults.entityLimit=2001;Throws(()=>defaults.Validate(),"safety_limit");
         var sample=new Sample{label="codewalker-wall",ax=1,ay=2,az=3,bx=4,by=5,bz=6,expectedThicknessM=.2};
         sample.Validate();sample.expectedThicknessM=-1;Throws(()=>sample.Validate(),"sample_invalid");
+        sample.expectedThicknessM=.2;
+        var groups=new SampleSets{schemaVersion=1,surfaces=new[]{sample},walls=new[]{sample}};
+        groups.Validate();Check(groups.surfaces.Length==1 && groups.walls.Length==1,"distinct_sample_sets");
+        groups.schemaVersion=2;Throws(()=>groups.Validate(),"reject_unknown_sample_schema");
+        groups.schemaVersion=1;groups.walls=null;Throws(()=>groups.Validate(),"require_independent_wall_set");
         Console.WriteLine("PASS: "+passed+" offline checks; runtime physics NOT TESTED");
     }
 }
