@@ -132,8 +132,8 @@ class Tests
         double want40=ObliqueAnalysis.ExpectedPath(.5,40);
         Check(Math.Abs(want40-.5/Math.Cos(40*Math.PI/180))<1e-12&&want40>.65,"oblique_expected_path");
         // Entry/exit pair search (synthetic scans along a 1.5 m segment; slab faces at 0.5 and 1.0 from the ends -> separation 0.5).
-        var fwdSlab=new List<LayerObs>{new LayerObs(0.5,1u,5)};
-        var revSlab=new List<LayerObs>{new LayerObs(0.5,1u,5)};
+        var fwdSlab=new List<LayerObs>{new LayerObs(0.5,1u,5,1,0,0)};
+        var revSlab=new List<LayerObs>{new LayerObs(0.5,1u,5,-1,0,0)};
         var pairs=PairSearch.Candidates(fwdSlab,revSlab,1.5);
         Check(pairs.Count==1&&Math.Abs(pairs[0].SeparationM-.5)<1e-9&&PairSearch.Describe(pairs)=="UNIQUE_PAIR","pair_unique_slab");
         Check(PairSearch.MatchesExpected(pairs[0],.505)&&!PairSearch.MatchesExpected(pairs[0],.6),"pair_expected_tolerance");
@@ -150,12 +150,22 @@ class Tests
         Check(multi.Count==2&&PairSearch.Describe(multi)=="AMBIGUOUS_PAIRS","pair_ambiguous_not_unique");
         // angle consistency
         double s0=.5;
-        var at40=new List<PairCandidate>{new PairCandidate{Forward=0,Reverse=0,SeparationM=want40}};
-        var at40wrong=new List<PairCandidate>{new PairCandidate{Forward=0,Reverse=0,SeparationM=s0}};
+        var at40=new List<PairCandidate>{new PairCandidate{Forward=0,Reverse=0,SeparationM=want40,Entity=5,Material=1u,
+            EntryNormal=new[]{1.0,0,0},ExitNormal=new[]{-1.0,0,0}}};
+        var at40wrong=new List<PairCandidate>{new PairCandidate{Forward=0,Reverse=0,SeparationM=s0,Entity=5,Material=1u,
+            EntryNormal=new[]{1.0,0,0},ExitNormal=new[]{-1.0,0,0}}};
         Check(want40>.65&&Math.Abs(want40-.5/Math.Cos(40*Math.PI/180))<1e-12,"oblique_expected_path");
-        Check(PairSearch.AngleConsistency(at40,s0,40)=="ANGLE_CONSISTENT","angle_consistent_pair");
-        Check(PairSearch.AngleConsistency(at40wrong,s0,40)=="NO_CONSISTENT_PAIR","angle_unrelated_pair_rejected");
-        Check(PairSearch.AngleConsistency(null,s0,40)=="NO_PAIR" && PairSearch.AngleConsistency(new List<PairCandidate>(),s0,40)=="NO_PAIR","angle_no_pair");
+        Check(PairSearch.AngleConsistency(at40,s0,40,pairs[0])=="ANGLE_CONSISTENT","angle_consistent_pair");
+        Check(PairSearch.AngleConsistency(at40wrong,s0,40,pairs[0])=="NO_CONSISTENT_PAIR","angle_unrelated_pair_rejected");
+        Check(PairSearch.AngleConsistency(null,s0,40,pairs[0])=="NO_PAIR" && PairSearch.AngleConsistency(new List<PairCandidate>(),s0,40,pairs[0])=="NO_PAIR","angle_no_pair");
+        var impostor=new PairCandidate{SeparationM=want40,Entity=6,Material=1u,EntryNormal=new[]{1.0,0,0},ExitNormal=new[]{-1.0,0,0}};
+        Check(PairSearch.AngleConsistency(new[]{impostor},s0,40,pairs[0])=="NO_CONSISTENT_PAIR","angle_other_entity_same_thickness_rejected");
+        impostor.Entity=5;impostor.Material=2u;
+        Check(PairSearch.AngleConsistency(new[]{impostor},s0,40,pairs[0])=="NO_CONSISTENT_PAIR","angle_other_material_same_thickness_rejected");
+        impostor.Material=1u;impostor.EntryNormal=new[]{-1.0,0,0};impostor.ExitNormal=new[]{1.0,0,0};
+        Check(PairSearch.AngleConsistency(new[]{impostor},s0,40,pairs[0])=="NO_CONSISTENT_PAIR","angle_wrong_face_orientation_rejected");
+        impostor.EntryNormal=new[]{0.0,0,0};impostor.ExitNormal=new[]{0.0,0,0};
+        Check(PairSearch.AngleConsistency(new[]{impostor},s0,40,pairs[0])=="NO_CONSISTENT_PAIR","angle_missing_normals_not_verified");
         Check(PairSearch.Corroborate("UNIQUE_PAIR",new[]{"ANGLE_CONSISTENT","ANGLE_CONSISTENT"})=="CORROBORATED_THICKNESS","corroborated_requires_unique_and_all_angles");
         Check(PairSearch.Corroborate("UNIQUE_PAIR",new[]{"ANGLE_CONSISTENT","NO_CONSISTENT_PAIR"})=="NO_THICKNESS_CLAIM:ANGLE_INCONSISTENT","one_bad_angle_blocks_claim");
         Check(PairSearch.Corroborate("UNIQUE_PAIR",new string[0])=="NO_THICKNESS_CLAIM:NOT_ANGLE_TESTED","untested_angles_block_claim");
@@ -178,10 +188,13 @@ class Tests
         var latched=new List<double[]>{new[]{1.0,2,3},new[]{1.0,2,3},new[]{1.0,2,3},new[]{4.0,5,6},new[]{4.0,5,6},new[]{1.0,2,3}};
         Check(ShotCorrelation.DistinctImpactRuns(latched)==3&&ShotCorrelation.DistinctImpactRuns(new List<double[]>())==0,"latched_impacts_counted_once_lower_bound");
         // E0.5 phantom policy and budget (no GTA call).
-        Check(PhantomCollision.Classify(40,30)=="CLEAR_WITHIN_THRESHOLD"&&PhantomCollision.Classify(100,30)=="CLEAR_WITHIN_THRESHOLD","phantom_within_threshold");
-        Check(PhantomCollision.Classify(101,30)=="PHANTOM_OVER_THRESHOLD_DELETED_ENTITIES_MAY_BE_UNSOUND","phantom_over_100ms_flagged");
-        Check(PhantomCollision.Classify(-1,30)=="PERSISTENT_PHANTOM_DELETED_ENTITIES_UNSOUND","phantom_never_clears_flagged");
-        Check(PhantomCollision.Classify(10,12)=="INCOMPLETE","phantom_incomplete_never_passes");
+        Check(PhantomCollision.Classify(40,30,false)=="CLEAR_WITHIN_THRESHOLD"&&PhantomCollision.Classify(100,30,false)=="CLEAR_WITHIN_THRESHOLD","phantom_within_threshold");
+        Check(PhantomCollision.Classify(101,30,false)=="PHANTOM_OVER_THRESHOLD_DELETED_ENTITIES_MAY_BE_UNSOUND","phantom_over_100ms_flagged");
+        Check(PhantomCollision.Classify(-1,30,false)=="PERSISTENT_PHANTOM_DELETED_ENTITIES_UNSOUND","phantom_never_clears_flagged");
+        Check(PhantomCollision.Classify(10,12,false)=="INCOMPLETE","phantom_incomplete_never_passes");
+        Check(PhantomCollision.Classify(40,30,true)=="PHANTOM_REAPPEARED_DELETED_ENTITIES_UNSOUND","phantom_reappears_after_first_clear");
+        Check(!PhantomCollision.DeletedEntityVisible(true,99,22)&&!PhantomCollision.DeletedEntityVisible(false,22,22)&&
+            PhantomCollision.DeletedEntityVisible(true,22,22),"unrelated_collision_does_not_mean_phantom");
         Check(PhantomCollision.WithinBudget(3,2,3)&&!PhantomCollision.WithinBudget(4,2,3)&&!PhantomCollision.WithinBudget(3,3,3)&&!PhantomCollision.WithinBudget(0,0,3)&&!PhantomCollision.WithinBudget(3,2,50),"e05_bounded_lab_budget");
         Check(!PreShotPlan.Allows("E0.5"),"e05_never_in_unattended_suite");
         Console.WriteLine("PASS: "+passed+" offline checks; runtime physics NOT TESTED");
