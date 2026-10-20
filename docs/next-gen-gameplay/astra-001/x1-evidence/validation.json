@@ -1,0 +1,34 @@
+[
+  {
+    "run": "20261020-220954-7bf7a1",
+    "rows": 486,
+    "headers": 1,
+    "errors": 0,
+    "done": 1,
+    "sourceSha": "254688025216bf0b9939582130ee3c2183222face10214cc83afd4bcd361fc4a"
+  },
+  {
+    "run": "20261020-222434-1acae8",
+    "rows": 75,
+    "headers": 1,
+    "errors": 0,
+    "done": 1,
+    "sourceSha": "fdc01aad29e2e1a030407af12372bbc4cfc82939445c72c7c47c26cc2f193a6e"
+  },
+  {
+    "run": "20261020-224902-f5d207",
+    "rows": 60,
+    "headers": 1,
+    "errors": 0,
+    "done": 1,
+    "sourceSha": "a134ec6b4ba8b563fa1cc97a0e62c9be8892ba2c729fe1e52e1de71d89c544b8"
+  },
+  {
+    "run": "20261020-225019-8328fd",
+    "rows": 99,
+    "headers": 1,
+    "errors": 0,
+    "done": 1,
+    "sourceSha": "304c4e04913116f5aab7bf5956b13feb305decc84171d9bb37844715750bf81d"
+  }
+]

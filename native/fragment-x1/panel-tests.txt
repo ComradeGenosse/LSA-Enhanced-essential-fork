@@ -1,0 +1,5 @@
+# Copy these lines to <GTA root>/WpsBreachLab/command.txt in offline Story Mode.
+# The script consumes the file once. These tests teleport and restore the player.
+line model=prop_fnccorgm_03a variant=static n=5 explosive=none walk=1 cleardebris=0
+line model=prop_fnccorgm_03a variant=static n=5 explosive=grenade dx=0.4 walk=1 cleardebris=0
+line model=prop_fnccorgm_03a variant=static n=5 explosive=grenade dx=0.4 walk=1 cleardebris=0

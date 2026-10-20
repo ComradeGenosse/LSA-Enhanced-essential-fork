@@ -1,0 +1,2 @@
+{"trial":"line5-prop_fnccorgm_03a-static-none-t2","model":"prop_fnccorgm_03a","variant":"static","explosive":"none","verdict":"CONTROL_STAYED_CLOSED","panels":5,"brokenPanels":0,"intactPanels":5,"openedFractions":"0.00,0.00,0.00,0.00,0.00","walkHole":"skipped","walkControl":"blocked"}
+{"trial":"line5-prop_fnccorgm_03a-static-grenade-t2","model":"prop_fnccorgm_03a","variant":"static","explosive":"grenade","verdict":"GAP_IN_WALL_CONFIRMED","panels":5,"brokenPanels":2,"intactPanels":2,"openedFractions":"0.00,0.48,1.00,1.00,0.00","walkHole":"crossed","walkControl":"blocked"}
