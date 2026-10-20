@@ -1,0 +1,6 @@
+{"t":51892,"frame":4866,"kind":"header","script":"WpsBreachLab.3.cs","version":"X2-0.3","scriptSha256":"86e323a15711bcbeb00b745b3c7e4114636f783eba3a69b4ddb0ab0197059fc1","shvdnApi":"3.9.0.0","gameBuild":"2.0.1158.16","loadedUtc":"2026-10-20T23:36:16.9366827Z","commands":["anchored explosive=grenade variant=static dx=0.4 height=1 hold=0","anchored explosive=rocket variant=frozen dx=0.4 height=1 hold=0"]}
+{"t":53511,"frame":4928,"kind":"x2_start","isFragment":true,"groups":31,"boneCount":0,"variant":"static","explosive":"grenade","assetSha256":"2955fd0d598a8b09d62feef7a7b6d72b7033a554357702b519798a21606202ca"}
+{"t":53511,"frame":4928,"kind":"x2_verdict","verdict":"SKELETON_UNAVAILABLE"}
+{"t":55032,"frame":4990,"kind":"x2_start","isFragment":true,"groups":31,"boneCount":0,"variant":"frozen","explosive":"rocket","assetSha256":"2955fd0d598a8b09d62feef7a7b6d72b7033a554357702b519798a21606202ca"}
+{"t":55032,"frame":4990,"kind":"x2_verdict","verdict":"SKELETON_UNAVAILABLE"}
+{"t":55033,"frame":4990,"kind":"done","runId":"20261020-233708-02cca5"}

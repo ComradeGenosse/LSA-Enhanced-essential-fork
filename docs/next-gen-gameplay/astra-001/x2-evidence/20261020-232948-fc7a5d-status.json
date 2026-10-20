@@ -1,0 +1,13 @@
+{
+  "script": "WpsBreachLab.3.cs",
+  "version": "X2-0.2",
+  "scriptSha256": "bd6f4931da142cdb7bfd250946bed0d5464111a173a646cb2e6e365813403c9a",
+  "shvdnApi": "3.9.0.0",
+  "loadedUtc": "2026-10-20T23:28:22.00728Z",
+  "nowUtc": "2026-10-20T23:30:12.5464451Z",
+  "state": "HOLD",
+  "step": "X2 BASELINE",
+  "cmd": "anchored explosive=grenade dx=0.4 height=1 hold=20",
+  "runId": "20261020-232948-fc7a5d",
+  "frame": 7277
+}

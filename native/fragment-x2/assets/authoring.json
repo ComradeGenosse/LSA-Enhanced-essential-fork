@@ -1,0 +1,12 @@
+{
+  "dimensions": [
+    3,
+    0.2,
+    2.5
+  ],
+  "chunks": 30,
+  "groups": 31,
+  "density": 2400,
+  "anchoring": "root frozen by test; reinforced outer columns; default group force transmission .25",
+  "blender": "5.2.2 LTS"
+}

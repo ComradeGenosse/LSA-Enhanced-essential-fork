@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CDataFileMgr__ContentsOfDataFileXml>
+<disabledFiles/><includedXmlFiles/><includedDataFiles/>
+<dataFiles><Item><filename>dlc_lsa_destruct:/%PLATFORM%/lsa_destruct.rpf</filename><fileType>RPF_FILE</fileType><locked value="true"/><loadCompletely value="true"/><overlay value="false"/><disabled value="true"/><persistent value="true"/><contents>CONTENTS_DLC_MAP_DATA</contents></Item><Item><filename>dlc_lsa_destruct:/%PLATFORM%/lsa_destruct.rpf/lsa_x2.ytyp</filename><fileType>DLC_ITYP_REQUEST</fileType><locked value="true"/><disabled value="true"/><persistent value="true"/></Item></dataFiles>
+<contentChangeSets><Item><changeSetName>LSA_DESTRUCT_STREAMING</changeSetName><filesToEnable><Item>dlc_lsa_destruct:/%PLATFORM%/lsa_destruct.rpf</Item><Item>dlc_lsa_destruct:/%PLATFORM%/lsa_destruct.rpf/lsa_x2.ytyp</Item></filesToEnable><executionConditions><activeChangesetConditions/><genericConditions>$level=MO_JIM_L11</genericConditions></executionConditions></Item></contentChangeSets><patchFiles/>
+</CDataFileMgr__ContentsOfDataFileXml>
+
+
