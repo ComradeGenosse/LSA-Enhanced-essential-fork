@@ -11,7 +11,7 @@ using Rage.Native;
 
 namespace LSA.AGM.E0
 {
-    internal sealed class LabRuntime : IDisposable
+    internal sealed partial class LabRuntime : IDisposable
     {
         private static readonly JavaScriptSerializer Serializer = new JavaScriptSerializer {MaxJsonLength=512*1024};
         private const string PedName="a_m_m_business_01", VehicleName="asea", PropName="prop_cs_cardbox_01";
@@ -81,7 +81,7 @@ namespace LSA.AGM.E0
         public void SetNathan(string x) {if(x=="present"||x=="absent"){nathan=x;Print("nathan="+nathan+" (manual observation)");}else Print("present|absent only");}
         public void Status()
         {
-            Print("active="+(active?.Probe??"none")+" ownerEntities="+(active?.Entities.Count??0)+
+            Print("active="+(active?.Probe??"none")+" e01Mode="+e01Mode+" e01Trials="+spawnRound+"/80 ownerEntities="+(active?.Entities.Count??0)+
                 " writes="+nativeWrites+" samples="+samples+" essential="+essential.Status+
                 " log="+logPath+" journalRisk="+journalRisk+" halted="+halted);
         }
@@ -111,7 +111,7 @@ namespace LSA.AGM.E0
         {
             var model=new Model(Hash(name));
             if(!model.IsValid)throw new InvalidOperationException("invalid_model:"+kind);
-            if(kind=="ped"&&!model.IsPed || kind=="vehicle"&&!model.IsVehicle)
+            if(kind=="ped"&&!model.IsPed || kind=="vehicle"&&!model.IsVehicle || kind=="prop"&&(model.IsPed||model.IsVehicle))
                 throw new InvalidOperationException("wrong_model_class:"+kind);
             return model;
         }
@@ -149,18 +149,18 @@ namespace LSA.AGM.E0
                 throw new InvalidOperationException("scatter_visible");
             return candidate;
         }
-        private Owned MakePed(string role,Vector3? position=null)
+        private Owned MakePed(string role,Vector3? position=null,string modelName=PedName)
         {
             if(!Limits.CanAdd(active,"ped")) throw new InvalidOperationException("ped_budget");
             var p=position??ScatteredPosition();
             Ped ped=null;
             try{
-                ped=new Ped(SafeModel(PedName,"ped"),p,0f);
+                ped=new Ped(SafeModel(modelName,"ped"),p,0f);
                 if(Scripted())throw new InvalidOperationException("world_changed_while_spawning");
                 return Register(ped,"ped",role);
             }catch{try{if(ped!=null&&ped.Exists())ped.Delete();}catch{}throw;}
         }
-        private Owned MakeVehicle(string role,Vector3? position=null)
+        private Owned MakeVehicle(string role,Vector3? position=null,string modelName=VehicleName)
         {
             if(!Limits.CanAdd(active,"vehicle"))throw new InvalidOperationException("vehicle_budget");
             var p=position??ScatteredPosition();
@@ -169,30 +169,30 @@ namespace LSA.AGM.E0
                 throw new InvalidOperationException("vehicle_site_visible");
             Vehicle car=null;
             try {
-                car=new Vehicle(SafeModel(VehicleName,"vehicle"),p,0f);
+                car=new Vehicle(SafeModel(modelName,"vehicle"),p,0f);
                 if(Scripted())throw new InvalidOperationException("world_changed_while_spawning");
                 return Register(car,"vehicle",role);
             }catch{try{if(car!=null&&car.Exists())car.Delete();}catch{}throw;}
         }
-        private Owned MakeProp(string role)
+        private Owned MakeProp(string role,Vector3? position=null,string modelName=PropName)
         {
             if(!Limits.CanAdd(active,"prop"))throw new InvalidOperationException("prop_budget");
             Rage.Object item=null;
             try {
-                item=new Rage.Object(SafeModel(PropName,"prop"),ScatteredPosition());
+                item=new Rage.Object(SafeModel(modelName,"prop"),position??ScatteredPosition());
                 if(Scripted())throw new InvalidOperationException("world_changed_while_spawning");
                 return Register(item,"prop",role);
             }catch{try{if(item!=null&&item.Exists())item.Delete();}catch{}throw;}
         }
-        private Owned MakePickup(string role)
+        private Owned MakePickup(string role,Vector3? position=null,string modelName=PickupName)
         {
             if(!Limits.CanAdd(active,"pickup"))throw new InvalidOperationException("pickup_budget");
-            var p=ScatteredPosition();int handle=0;
+            var p=position??ScatteredPosition();int handle=0;
             try {
-                handle=NativeFunction.CallByName<int>("CREATE_PICKUP",Hash(PickupName),p.X,p.Y,p.Z,0,1,true,Hash(PropName));
+                handle=NativeFunction.CallByName<int>("CREATE_PICKUP",Hash(modelName),p.X,p.Y,p.Z,0,1,true,Hash(PropName));
                 if(handle==0 || !NativeFunction.CallByName<bool>("DOES_PICKUP_EXIST",handle))
                     throw new InvalidOperationException("pickup_readback_failed");
-                var e=new Owned{Handle=handle,Address=0,Model=Hash(PickupName),
+                var e=new Owned{Handle=handle,Address=0,Model=Hash(modelName),
                     CreatedGameMs=unchecked((uint)Game.GameTime),Kind="pickup",Role=role,
                     Token=Guid.NewGuid().ToString("N"),Persistent=true,
                     StartX=p.X,StartY=p.Y,StartZ=p.Z};
@@ -281,7 +281,7 @@ namespace LSA.AGM.E0
             Log("probe_start",new{durationMs=Duration(),siteLabelOnly=true,lighting=day,nathanPresence=nathan,
                 essential=essential.Status,gameVersion=FileVersionInfo.GetVersionInfo(Process.GetCurrentProcess().MainModule.FileName).FileVersion});
             try {
-                if(name=="e0.1") { /* sequential bounded creation/readback in Tick */ }
+                if(name=="e0.1") E01Start();
                 else if(name=="e0.2"||name=="e0.6") SetupTask(false);
                 else if(name=="e0.3") SetupPersistence();
                 else if(name=="e0.4") SetupTask(true);
@@ -292,7 +292,7 @@ namespace LSA.AGM.E0
             }catch(Exception ex){Fail("setup_failed",ex);Stop("setup_failed");}
         }
         private int Duration()=>active?.Probe=="e0.3"?Limits.PersistenceDurationMs:
-            active?.Probe=="e0.1"?50000:Limits.TaskDurationMs;
+            active?.Probe=="e0.1"?240000:Limits.TaskDurationMs;
         private void SetupTask(bool hostile)
         {
             var actor=MakePed("actor");
@@ -335,19 +335,6 @@ namespace LSA.AGM.E0
             // while respecting the lab global cap (12+6).
             for(int i=0;i<Limits.Peds;i++)try{MakePed("load_ped_"+i);}catch(Exception e){Log("spawn_failure",new{kind="ped",i,error=e.Message});}
             for(int i=0;i<Limits.Vehicles;i++)try{MakeVehicle("load_vehicle_"+i);}catch(Exception e){Log("spawn_failure",new{kind="vehicle",i,error=e.Message});}
-        }
-        private void SequentialSpawn()
-        {
-            if(active==null||active.Probe!="e0.1"||spawnRound>=80)return;
-            int kind=spawnRound%4;
-            string k=kind==0?"ped":kind==1?"vehicle":kind==2?"prop":"pickup";
-            spawnRound++;spawnTotal++;
-            try {
-                if(kind==0)MakePed("spawn_readback");if(kind==1)MakeVehicle("spawn_readback");
-                if(kind==2)MakeProp("spawn_readback");if(kind==3)MakePickup("spawn_readback");
-                spawnSuccess++;Log("spawn_trial",new{kind=k,round=spawnRound,result="pass"});
-            }catch(Exception ex){Log("spawn_trial",new{kind=k,round=spawnRound,result="fail",reason=ex.Message});}
-            CleanupOwned("e0.1_iteration");
         }
         private static string TaskNative(string policy)
         {
@@ -426,9 +413,8 @@ namespace LSA.AGM.E0
             lastSample=ms;samples++;
             try {
                 if(active.Probe=="e0.1"){
-                    SequentialSpawn();
-                    if(spawnRound>=80){Log("readback_summary",new{trials=spawnTotal,passed=spawnSuccess});Stop("completed");}
-                    return;
+                    if(unchecked(ms-active.StartedGameMs)>Duration()) {E01Summary();Stop("e01_timeout");return;}
+                    E01Advance(ms);return;
                 }
                 samplePeds=World.GetAllPeds();
                 sampleVehicles=World.GetAllVehicles();
@@ -471,7 +457,7 @@ namespace LSA.AGM.E0
                 }catch(Exception e){Fail("relationship_reset_failed",e);}
             }
             active=null;
-            if(cleanupFailures==0) {try {if(File.Exists(journalPath))File.Delete(journalPath);}catch{}}
+            if(cleanupFailures==0 && !journalRisk) {try {if(File.Exists(journalPath))File.Delete(journalPath);}catch{}}
             else {journalRisk=true;halted=true;}
             Print("Ended "+lease.Probe+" reason="+reason+" cleanupFailures="+cleanupFailures+" (inspect analyzer).");
         }

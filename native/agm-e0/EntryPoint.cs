@@ -65,6 +65,7 @@ namespace LSA.AGM.E0
             Game.Console.Print("AGME0Site terminal|grapeseed|vinewood|delperro (visit site first)");
             Game.Console.Print("AGME0Condition essential_off|yield_off|yield_on");
             Game.Console.Print("AGME0Task walk|drive|flee|guard|chase|follow|combat");
+            Game.Console.Print("AGME01Mode baseline|extended (extended = 80 trials + 16 five-second stability trials)");
             Game.Console.Print("AGME0Run e0.1 ... e0.8 ; AGME0Status ; AGME0Cancel ; AGME0Clean");
             Game.Console.Print("AGME0Day day|night ; AGME0Nathan present|absent ; AGME0Truth pass|fail|unknown");
             Game.Console.Print("No automatic teleports, no model calls, no production hooks.");
@@ -79,6 +80,8 @@ namespace LSA.AGM.E0
         public static void Day(string value) {if(Ready(out var r)) r.SetDay(value);}
         [ConsoleCommand(Name="AGME0Nathan",Description="Record Nathan present or absent; never summon or control him.")]
         public static void Nathan(string value) {if(Ready(out var r)) r.SetNathan(value);}
+        [ConsoleCommand(Name="AGME01Mode",Description="E0.1: baseline or extended sequential spawn census.")]
+        public static void E01Mode(string value) {if(Ready(out var r)) r.SetE01Mode(value);}
         [ConsoleCommand(Name="AGME0Run",Description="Run exactly one bounded E0.1-E0.8 probe.")]
         public static void Run(string name) {if(Ready(out var r)) r.Run(name);}
         [ConsoleCommand(Name="AGME0Status",Description="Inspect current E0 lease and diagnostic location.")]

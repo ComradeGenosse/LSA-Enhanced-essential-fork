@@ -17,6 +17,7 @@ namespace LSA.AGM.E0
         private readonly ConcurrentQueue<Request> queue=new ConcurrentQueue<Request>();
         private readonly ConcurrentDictionary<int,string> snapshots=new ConcurrentDictionary<int,string>();
         private readonly ConcurrentDictionary<int,string> applied=new ConcurrentDictionary<int,string>();
+        private readonly ConcurrentDictionary<int,Request> observed=new ConcurrentDictionary<int,Request>();
         private volatile bool running;
         private sealed class Request
         {
@@ -50,6 +51,14 @@ namespace LSA.AGM.E0
                 while(running){
                     try{
                         for(int i=0;i<8 && queue.TryDequeue(out var req);i++)Apply(req);
+                        foreach(var kv in observed.ToArray()) {
+                            var req=kv.Value;
+                            var ped=Resolve(req.Handle,req.Address,req.Model);
+                            var state=ped==null?null:NpcStateStore.TryGetState(ped);
+                            snapshots[req.Handle]=ped==null?"actor_incarnation_lost":state==null?"npc_state_absent":
+                                "reflex="+state.HasActiveReflex+";directed="+state.InDirectedInteraction+
+                                ";stay="+state.StayUnderLsaControl+";free_drive="+state.DriveToXWhenBothSeated;
+                        }
                         foreach(var kv in applied.ToArray()) {
                             // Observations remain attributed to exact actor handles;
                             // caller separately checks handle+address+model.
@@ -101,8 +110,19 @@ namespace LSA.AGM.E0
             queue.Enqueue(new Request{Handle=handle,Address=address,Model=model,Enable=enable});
             return true;
         }
+        public bool RequestObserve(int handle,long address,uint model)
+        {
+            if(!running||handle<=0||address==0||model==0||observed.Count>=12)return false;
+            observed[handle]=new Request{Handle=handle,Address=address,Model=model};return true;
+        }
+        public void ForgetObserved(int handle,long address,uint model)
+        {
+            if(observed.TryGetValue(handle,out var item) && item.Address==address && item.Model==model){
+                observed.TryRemove(handle,out _);snapshots.TryRemove(handle,out _);
+            }
+        }
         public string Applied(int handle)=>applied.TryGetValue(handle,out var status)?status:"pending";
         public string GetSnapshot(int handle)=>snapshots.TryGetValue(handle,out var status)?status:"not_sampled";
-        public void Stop(){running=false;}
+        public void Stop(){running=false;observed.Clear();snapshots.Clear();}
     }
 }

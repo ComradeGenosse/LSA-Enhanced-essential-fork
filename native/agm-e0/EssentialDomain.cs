@@ -61,6 +61,16 @@ namespace LSA.AGM.E0
                 return false;
             }catch{Status="bridge_disconnected";return false;}
         }
+        public bool Observe(int handle,long address,uint model)
+        {
+            if(!CanYield)return false;
+            try{return probe.RequestObserve(handle,address,model);}catch{return false;}
+        }
+        public void Forget(int handle,long address,uint model)
+        {
+            if(!CanYield)return;
+            try{probe.ForgetObserved(handle,address,model);}catch{}
+        }
         public string Snapshot(int handle)
         {
             if(!CanYield)return Status;

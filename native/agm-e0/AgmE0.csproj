@@ -10,7 +10,7 @@
     <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="EntryPoint.cs;LabPolicy.cs;RuntimeWorld.cs;EssentialDomain.cs" />
+    <Compile Include="EntryPoint.cs;LabPolicy.cs;RuntimeWorld.cs;E01Census.cs;EssentialDomain.cs" />
     <ProjectReference Include="EssentialProbe.csproj"><Private>false</Private></ProjectReference>
     <Reference Include="RagePluginHook"><HintPath>$(RphReferencePath)</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Web.Extensions" />
