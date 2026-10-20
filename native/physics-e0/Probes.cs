@@ -62,6 +62,8 @@ namespace LSA.WPS.Lab
         bool navRegionRequested, navmeshLoaded;
         int navQueries, navMisses, navRejected;
         string lastNavigationStatus="not_started";
+        int phantomEntityHandle;long deletedAtMs,phantomFirstClearMs=-1;
+        bool phantomReappeared;int phantomSeenOpt7Frames,phantomSeenOpt0Frames,phantomClearFrames;
         Sample confirmationSample;
         long confirmationAt;
         int confirmationOrdinal;
@@ -599,10 +601,12 @@ namespace LSA.WPS.Lab
         {
             public int state;public bool hit;public Rage.Vector3 where,normal;public int material,entity;
         }
-        Ray Trace(Rage.Vector3 a,Rage.Vector3 b,int flags=17,int ignore=0)
+        // options: the native's final argument. 7 is the baseline used by every original E0 sample;
+        // GT4 showed bit value 2 hides see-through-class surfaces, so 0 is the side-by-side comparison.
+        Ray Trace(Rage.Vector3 a,Rage.Vector3 b,int flags=17,int ignore=0,int options=7)
         {
             int ticket=N("START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE",
-                a.X,a.Y,a.Z,b.X,b.Y,b.Z,flags,ignore,7);
+                a.X,a.Y,a.Z,b.X,b.Y,b.Z,flags,ignore,options);
             Require(ticket!=0,"shape_test_no_ticket");
             using(var didHit=new NativePointer(8))
             using(var point=new NativePointer(24))
@@ -617,6 +621,82 @@ namespace LSA.WPS.Lab
         }
         object Describe(Ray r)=>new {state=r.state,hit=r.hit,at=Vec(r.where),normal=Vec(r.normal),
             materialHash=unchecked((uint)r.material),entity=r.entity};
+        static RayObs Obs(Ray r)=>new RayObs(r.hit,unchecked((uint)r.material),r.entity,r.where.X,r.where.Y,r.where.Z);
+        object DescribeOpt(Ray r,int options)=>new {options,state=r.state,hit=r.hit,at=Vec(r.where),normal=Vec(r.normal),
+            materialHash=unchecked((uint)r.material),entity=r.entity};
+        // Advance-past-hit scan from a toward b (read-only). Returns every surface found, in order, with its raw ray.
+        // Layer tables are descriptive only and are never reported as wall thickness.
+        List<Ray> ScanRays(Rage.Vector3 a,Rage.Vector3 b,int options,int maxLayers)
+        {
+            var hits=new List<Ray>();
+            double len=Census.Distance(a.X,a.Y,a.Z,b.X,b.Y,b.Z);
+            if(len<=LayerAnalysis.AdvanceM)return hits;
+            float dx=(float)((b.X-a.X)/len),dy=(float)((b.Y-a.Y)/len),dz=(float)((b.Z-a.Z)/len);
+            var from=a;
+            for(int i=0;i<Math.Min(maxLayers,LayerAnalysis.MaxLayers);i++)
+            {
+                Ray r=Trace(from,b,17,0,options);
+                if(!r.hit)break;
+                hits.Add(r);
+                double d=Census.Distance(a.X,a.Y,a.Z,r.where.X,r.where.Y,r.where.Z);
+                if(d>=len-LayerAnalysis.AdvanceM)break;
+                from=V(r.where.X+dx*(float)LayerAnalysis.AdvanceM,r.where.Y+dy*(float)LayerAnalysis.AdvanceM,
+                    r.where.Z+dz*(float)LayerAnalysis.AdvanceM);
+            }
+            return hits;
+        }
+        static List<LayerObs> LayersOf(Rage.Vector3 a,List<Ray> hits)=>hits.Select(r=>new LayerObs(
+            Census.Distance(a.X,a.Y,a.Z,r.where.X,r.where.Y,r.where.Z),unchecked((uint)r.material),r.entity,
+            r.normal.X,r.normal.Y,r.normal.Z)).ToList();
+        object RowsOf(Rage.Vector3 a,List<Ray> hits)=>hits.Select((r,i)=>(object)new {i,
+            distanceM=Census.Distance(a.X,a.Y,a.Z,r.where.X,r.where.Y,r.where.Z),materialHash=unchecked((uint)r.material),
+            entity=r.entity,at=Vec(r.where),normal=Vec(r.normal)}).ToList();
+        object LayerTable(Rage.Vector3 a,List<Ray> hits)
+        {
+            var l=LayersOf(a,hits);
+            return new {summary=LayerAnalysis.Describe(l),entityChanges=LayerAnalysis.EntityChanges(l),
+                materialChanges=LayerAnalysis.MaterialChanges(l),count=l.Count,rows=RowsOf(a,hits)};
+        }
+        object MaterialLayers(Sample item)=>LayerTable(V(item.ax,item.ay,item.az),
+            ScanRays(V(item.ax,item.ay,item.az),V(item.bx,item.by,item.bz),OptionsAnalysis.Alternate,4));
+        // Forward+reverse scans of one segment and the entry/exit candidates they imply (game observations only).
+        sealed class SegmentScan
+        {
+            public List<Ray> fwd,rev;public List<LayerObs> fl,rl;public double len;public List<PairCandidate> pairs;
+        }
+        SegmentScan ScanSegment(Rage.Vector3 a,Rage.Vector3 b,int maxLayers)
+        {
+            var ss=new SegmentScan{len=Census.Distance(a.X,a.Y,a.Z,b.X,b.Y,b.Z)};
+            ss.fwd=ScanRays(a,b,OptionsAnalysis.Alternate,maxLayers);ss.rev=ScanRays(b,a,OptionsAnalysis.Alternate,maxLayers);
+            ss.fl=LayersOf(a,ss.fwd);ss.rl=LayersOf(b,ss.rev);ss.pairs=PairSearch.Candidates(ss.fl,ss.rl,ss.len);
+            return ss;
+        }
+        object PairRows(SegmentScan ss)=>ss.pairs.Select(c=>(object)new {forwardLayer=c.Forward,reverseLayer=c.Reverse,
+            separationM=c.SeparationM,entity=ss.fl[c.Forward].Entity,materialHash=ss.fl[c.Forward].Material}).ToList();
+        // Oblique angle-consistency of a UNIQUE normal-incidence candidate pair s0 (read-only, game observations only):
+        // tilted lines through the candidate's entry point must show a same-entity/same-material pair separated by s0/cos(theta).
+        object Oblique(SegmentScan normal,out string corroboration)
+        {
+            var angles=new List<string>();var rows=new List<object>();
+            if(PairSearch.Describe(normal.pairs)!="UNIQUE_PAIR"){corroboration=PairSearch.Corroborate(PairSearch.Describe(normal.pairs),angles);return rows;}
+            var cand=normal.pairs[0];Ray entry=normal.fwd[cand.Forward];
+            foreach(double angle in new[]{20.0,40.0})
+            {
+                double[] s0,e0;
+                try{ObliqueAnalysis.Build(entry.where.X,entry.where.Y,entry.where.Z,entry.normal.X,entry.normal.Y,entry.normal.Z,
+                    angle,1.0,cand.SeparationM,1.5,out s0,out e0);}
+                catch(ArgumentException){angles.Add("NO_NORMAL");rows.Add(new {angleDeg=angle,result="NO_NORMAL"});continue;}
+                var ss=ScanSegment(V((float)s0[0],(float)s0[1],(float)s0[2]),V((float)e0[0],(float)e0[1],(float)e0[2]),6);
+                string result=PairSearch.AngleConsistency(ss.pairs,cand.SeparationM,angle,cand);angles.Add(result);
+                rows.Add(new {angleDeg=angle,expectedPathM=ObliqueAnalysis.ExpectedPath(cand.SeparationM,angle),result,
+                    pairs=PairRows(ss),forwardLayers=LayerAnalysis.Describe(ss.fl),reverseLayers=LayerAnalysis.Describe(ss.rl)});
+            }
+            corroboration=PairSearch.Corroborate(PairSearch.Describe(normal.pairs),angles);
+            return rows;
+        }
+        // Streamed-collision/settling state at the moment of the observation (unchanged gate, recorded for audit).
+        object GateState()=>new {destinationCollisionVerified,destinationCollisionChecks,destinationLoadedMs,
+            destinationStableFrames,positionStatus};
         bool Natives()
         {
             if(step++>0)return true;
@@ -701,6 +781,16 @@ namespace LSA.WPS.Lab
                 joaatName=unchecked((uint)expectedName),joaatIndexed=unchecked((uint)expectedIndex),
                 shape=Describe(r),nameMatches=r.hit&&expectedName==r.material,indexMatches=matches,
                 diagnostic=(!r.hit?"ray_miss":!matches?"material_mismatch":"match")});
+            // Side-by-side option 0 observation in the same frame, after the unchanged baseline note.
+            Ray alt=Trace(V(item0.ax,item0.ay,item0.az),V(item0.bx,item0.by,item0.bz),17,0,OptionsAnalysis.Alternate);
+            Note("material_options",new {sampleIndex,item0.label,item0.expectedMaterial,
+                joaatIndexed=unchecked((uint)expectedIndex),
+                opt7=DescribeOpt(r,OptionsAnalysis.Baseline),opt0=DescribeOpt(alt,OptionsAnalysis.Alternate),
+                classification=OptionsAnalysis.ClassifyMaterial(Obs(r),Obs(alt),unchecked((uint)expectedIndex)),
+                baselineIndexMatches=matches,gate=GateState(),
+                reverseOpt0=DescribeOpt(Trace(V(item0.bx,item0.by,item0.bz),V(item0.ax,item0.ay,item0.az),17,0,OptionsAnalysis.Alternate),OptionsAnalysis.Alternate),
+                layersOpt0=MaterialLayers(item0),
+                note="Raw side-by-side observation; classification is computed only from these rays and the expected hash."});
             if(!matches)ScheduleConfirmation(item0,sampleIndex);
             return sampleIndex>=30&&confirmationSample==null;
         }
@@ -743,6 +833,30 @@ namespace LSA.WPS.Lab
                 diagnostic=(!sameEntity?"different_entities":!bothExpected?"material_mismatch":
                     !withinOneCentimeter?"thickness_mismatch":"match"),
                 forward=Describe(forward),reverse=Describe(reverse),inside=Describe(inside)});
+            // Side-by-side option 0 pair plus bounded advance-past-hit layer scans (read-only).
+            Ray forward0=Trace(a,b,17,0,OptionsAnalysis.Alternate),reverse0=Trace(b,a,17,0,OptionsAnalysis.Alternate);
+            uint expectedU=unchecked((uint)expected);
+            string pair7=OptionsAnalysis.PairOutcome(Obs(forward),Obs(reverse),expectedU,w0.expectedThicknessM);
+            string pair0=OptionsAnalysis.PairOutcome(Obs(forward0),Obs(reverse0),expectedU,w0.expectedThicknessM);
+            bool unchanged=OptionsAnalysis.SameObservation(Obs(forward),Obs(forward0))&&
+                OptionsAnalysis.SameObservation(Obs(reverse),Obs(reverse0))&&forward.entity==forward0.entity&&reverse.entity==reverse0.entity;
+            var seg=ScanSegment(a,b,LayerAnalysis.MaxLayers);
+            string corroboration;var oblique=Oblique(seg,out corroboration);
+            var pairDesc=PairSearch.Describe(seg.pairs);
+            var chosen=seg.pairs.Count==1?seg.pairs[0]:null;
+            double measured0=forward0.hit&&reverse0.hit?Census.Distance(forward0.where.X,forward0.where.Y,forward0.where.Z,
+                reverse0.where.X,reverse0.where.Y,reverse0.where.Z):-1;
+            Note("wall_options",new {sampleIndex,w0.label,w0.expectedThicknessM,expectedMaterial=w0.expectedMaterial,
+                opt7=new {pair=pair7,measuredM=measured,forward=DescribeOpt(forward,OptionsAnalysis.Baseline),reverse=DescribeOpt(reverse,OptionsAnalysis.Baseline)},
+                opt0=new {pair=pair0,measuredM=measured0,forward=DescribeOpt(forward0,OptionsAnalysis.Alternate),reverse=DescribeOpt(reverse0,OptionsAnalysis.Alternate)},
+                classification=OptionsAnalysis.ClassifyWall(pair7,pair0,unchanged),
+                layersForward=LayerTable(a,seg.fwd),layersReverse=LayerTable(b,seg.rev),
+                pairSearch=new {summary=pairDesc,candidates=PairRows(seg),
+                    uniqueMatchesGroundTruth=chosen!=null&&PairSearch.MatchesExpected(chosen,w0.expectedThicknessM),
+                    corroboration,oblique},
+                baselineDiagnostic=(!sameEntity?"different_entities":!bothExpected?"material_mismatch":!withinOneCentimeter?"thickness_mismatch":"match"),
+                gate=GateState(),
+                note="Layer tables are descriptive; a thickness is claimed only for CORROBORATED_THICKNESS (unique same-entity/same-material pair that is angle-consistent). Ground truth is compared afterwards and never used to find the pair."});
             if(!sameEntity||!bothExpected||!withinOneCentimeter)
                 ScheduleConfirmation(w0,sampleIndex);
             return sampleIndex>=10&&confirmationSample==null;
@@ -780,12 +894,26 @@ namespace LSA.WPS.Lab
             if(impact.valid)impacts++;
             if(fire || impact.valid || frame%60==0)
                 Note("shot_sample",new {mode,shooter=ped,fire,ammo,ammoSpent,impactValid=impact.valid,
-                    impact=impact.valid?Vec(impact.point):null,area,frame});
+                    impact=impact.valid?Vec(impact.point):null,area,frame,
+                    weaponHash=weapon,selectedWeaponHash=unchecked((uint)current),gameTimerMs=N("GET_GAME_TIMER"),
+                    cam=(fire||impact.valid)?CameraPose():null,
+                    note="Passive observation only. Camera pose, weapon and clocks are for offline correlation; an impact coordinate is not a trajectory."});
             if(RealMs()-began<(mode=="npc"?11000:15000))return false;
             Note("shot_coverage",new {mode,ammoSpent,impactFrameSamples=impacts,
                 ratioUpperBound=Census.Coverage(ammoSpent,impacts),
                 caveat="Impact coordinate may remain stale. Frame samples are not unique rounds; independent proof is required for individual bullets and pellets."});
             return true;
+        }
+        // Read-only gameplay camera pose (position + rotation order 2: x=pitch, z=heading). Never fails the probe.
+        object CameraPose()
+        {
+            try
+            {
+                var c=NativeFunction.CallByName<Rage.Vector3>("GET_GAMEPLAY_CAM_COORD");
+                var r=NativeFunction.CallByName<Rage.Vector3>("GET_GAMEPLAY_CAM_ROT",2);
+                return new {ok=true,pos=Vec(c),rot=Vec(r)};
+            }
+            catch(Exception e){return new {ok=false,error=e.GetType().Name};}
         }
         bool ModelReady(string name)
         {
@@ -810,6 +938,7 @@ namespace LSA.WPS.Lab
                 Note("before_prop",Describe(before));step++;return false;
             }
             if(step==1) {
+                Require(PhantomCollision.WithinBudget(PhantomCollision.LabProps,PhantomCollision.LabPeds,cfg.radius),"e05_budget_exceeded");
                 if(!ModelReady(cfg.propModel)||!ModelReady(cfg.pedModel))return false;
                 collisionObject=Spawn(cfg.propModel,Pos);
                 int left=Spawn(cfg.propModel,V(cfg.x,cfg.y+1.5f,cfg.z));
@@ -832,20 +961,47 @@ namespace LSA.WPS.Lab
             }
             if(step==2) {
                 Ray after=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z));
+                Ray after0=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z),17,0,OptionsAnalysis.Alternate);
+                Require(PhantomCollision.DeletedEntityVisible(after.hit,after.entity,collisionObject)&&
+                    PhantomCollision.DeletedEntityVisible(after0.hit,after0.entity,collisionObject),
+                    "e05_center_prop_not_visible_to_both_options");
                 bool actorLos=B("HAS_ENTITY_CLEAR_LOS_TO_ENTITY",losPedA,losPedB,17);
-                Note("prop_collision",new {ray=Describe(after),actorLos});
-                DeleteOwned(collisionObject);
+                Note("prop_collision",new {ray=Describe(after),rayOpt0=Describe(after0),actorLos});
+                phantomEntityHandle=collisionObject;phantomFirstClearMs=-1;phantomReappeared=false;
+                phantomSeenOpt7Frames=phantomSeenOpt0Frames=phantomClearFrames=0;
+                DeleteOwned(collisionObject);deletedAtMs=RealMs();
                 Note("deleted",new {frame,center=collisionObject});
                 step=3;objectIndex=frame;return false;
             }
             int elapsed=frame-objectIndex;
-            if(elapsed==1||elapsed==5||elapsed==30) {
+            if(elapsed>=1&&elapsed<=PhantomCollision.MaxFrames) {
+                // Every frame after deletion (not only +1/+5/+30) so the first clear frame and its milliseconds are measured.
                 Ray r=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z));
+                Ray r0=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z),17,0,OptionsAnalysis.Alternate);
                 bool actorLos=B("HAS_ENTITY_CLEAR_LOS_TO_ENTITY",losPedA,losPedB,17);
-                Note("collision_after_delete",new {frames=elapsed,ms=RealMs()-began,
-                    ray=Describe(r),actorLos});
+                long sinceDeleteMs=RealMs()-deletedAtMs;
+                bool seen7=PhantomCollision.DeletedEntityVisible(r.hit,r.entity,phantomEntityHandle);
+                bool seen0=PhantomCollision.DeletedEntityVisible(r0.hit,r0.entity,phantomEntityHandle);
+                if(seen7)phantomSeenOpt7Frames++;
+                if(seen0)phantomSeenOpt0Frames++;
+                bool phantom=seen7||seen0;
+                if(phantom&&phantomFirstClearMs>=0)phantomReappeared=true;
+                if(!phantom)
+                {
+                    phantomClearFrames++;
+                    if(phantomFirstClearMs<0)phantomFirstClearMs=sinceDeleteMs;
+                }
+                Note("collision_after_delete",new {frames=elapsed,ms=RealMs()-began,sinceDeleteMs,
+                    ray=Describe(r),rayOpt0=Describe(r0),actorLos,deletedEntitySeen=phantom,
+                    deletedEntitySeenOpt7=seen7,deletedEntitySeenOpt0=seen0,
+                    anyOtherHit=(r.hit&&!seen7)||(r0.hit&&!seen0)});
             }
-            return elapsed>=30;
+            if(elapsed>=PhantomCollision.MaxFrames)
+                Note("phantom_collision_summary",new {firstClearMs=phantomFirstClearMs,framesObserved=Math.Min(elapsed,PhantomCollision.MaxFrames),
+                    thresholdMs=PhantomCollision.ThresholdMs,phantomReappeared,phantomSeenOpt7Frames,phantomSeenOpt0Frames,phantomClearFrames,
+                    classification=PhantomCollision.Classify(phantomFirstClearMs,Math.Min(elapsed,PhantomCollision.MaxFrames),phantomReappeared),
+                    note="Only the deleted entity's visibility is measured; other hits and actor LOS are separately recorded."});
+            return elapsed>=PhantomCollision.MaxFrames;
         }
         void DeleteOwned(int handle)
         {

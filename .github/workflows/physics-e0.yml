@@ -3,6 +3,7 @@ on:
   pull_request:
     branches:
       - research/next-gen-gameplay-experiences-20261018
+      - experiment/physics-e0-native-capability-census
     paths:
       - 'native/physics-e0/**'
       - 'tools/physics-e0/**'
@@ -57,3 +58,7 @@ jobs:
         run: python3 -m py_compile native/physics-e0/asset-research/convert_codewalker_candidates.py
       - name: Remote navigation streaming regression
         run: python3 tools/physics-e0/tests/navigation-source.tests.py
+      - name: Shape-test options report self-test
+        run: python3 tools/physics-e0/options_report.py --self-test
+      - name: E0.4 passive correlation self-test
+        run: python3 tools/physics-e0/e04_correlate.py --self-test
