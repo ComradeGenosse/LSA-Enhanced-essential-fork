@@ -3,6 +3,7 @@ on:
   pull_request:
     branches:
       - research/next-gen-gameplay-experiences-20261018
+      - experiment/physics-e0-native-capability-census
     paths:
       - 'native/physics-e0/**'
       - 'tools/physics-e0/**'
