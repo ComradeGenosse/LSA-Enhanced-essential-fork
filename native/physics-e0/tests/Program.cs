@@ -161,6 +161,29 @@ class Tests
         Check(PairSearch.Corroborate("UNIQUE_PAIR",new string[0])=="NO_THICKNESS_CLAIM:NOT_ANGLE_TESTED","untested_angles_block_claim");
         Check(PairSearch.Corroborate("AMBIGUOUS_PAIRS",new[]{"ANGLE_CONSISTENT"})=="NO_THICKNESS_CLAIM:AMBIGUOUS_NORMAL_PAIR","ambiguous_normal_pair_blocks_claim");
         Check(PairSearch.Corroborate("NO_PAIR",null)=="NO_THICKNESS_CLAIM:NO_PAIR","no_pair_no_claim");
+        // E0.4 passive correlation (synthetic): camera at origin looking +Y (heading 0), level.
+        var dirN=ShotCorrelation.Direction(0,0);
+        Check(Math.Abs(dirN[0])<1e-9&&Math.Abs(dirN[1]-1)<1e-9&&Math.Abs(dirN[2])<1e-9,"heading_zero_looks_north");
+        var dirW=ShotCorrelation.Direction(0,90);
+        Check(Math.Abs(dirW[0]+1)<1e-9&&Math.Abs(dirW[1])<1e-9,"heading_90_looks_west");
+        var dirUp=ShotCorrelation.Direction(30,0);
+        Check(Math.Abs(dirUp[2]-.5)<1e-9&&Math.Abs(dirUp[1]-Math.Cos(30*Math.PI/180))<1e-9,"pitch_raises_aim");
+        var camPos=new[]{0.0,0,0};
+        Check(ShotCorrelation.OffAxisDeg(camPos,dirN,new[]{0.0,20,0})<1e-6&&ShotCorrelation.Classify(ShotCorrelation.OffAxisDeg(camPos,dirN,new[]{0.0,20,0}))=="ON_CAMERA_RAY","impact_on_ray");
+        Check(ShotCorrelation.Classify(ShotCorrelation.OffAxisDeg(camPos,dirN,new[]{1.0,20,0}))=="ON_CAMERA_RAY","small_spread_on_ray");
+        Check(ShotCorrelation.Classify(ShotCorrelation.OffAxisDeg(camPos,dirN,new[]{2.5,20,0}))=="NEAR_CAMERA_RAY","spread_near_ray");
+        Check(ShotCorrelation.Classify(ShotCorrelation.OffAxisDeg(camPos,dirN,new[]{20.0,20,0}))=="OFF_CAMERA_RAY","impact_far_from_ray");
+        Check(ShotCorrelation.Classify(ShotCorrelation.OffAxisDeg(camPos,dirN,new[]{0.0,0,0}))=="UNDEFINED","impact_at_camera_undefined");
+        Check(ShotCorrelation.Classify(ShotCorrelation.OffAxisDeg(camPos,dirN,new[]{0.0,-10,0}))=="OFF_CAMERA_RAY","impact_behind_camera_off_ray");
+        var latched=new List<double[]>{new[]{1.0,2,3},new[]{1.0,2,3},new[]{1.0,2,3},new[]{4.0,5,6},new[]{4.0,5,6},new[]{1.0,2,3}};
+        Check(ShotCorrelation.DistinctImpactRuns(latched)==3&&ShotCorrelation.DistinctImpactRuns(new List<double[]>())==0,"latched_impacts_counted_once_lower_bound");
+        // E0.5 phantom policy and budget (no GTA call).
+        Check(PhantomCollision.Classify(40,30)=="CLEAR_WITHIN_THRESHOLD"&&PhantomCollision.Classify(100,30)=="CLEAR_WITHIN_THRESHOLD","phantom_within_threshold");
+        Check(PhantomCollision.Classify(101,30)=="PHANTOM_OVER_THRESHOLD_DELETED_ENTITIES_MAY_BE_UNSOUND","phantom_over_100ms_flagged");
+        Check(PhantomCollision.Classify(-1,30)=="PERSISTENT_PHANTOM_DELETED_ENTITIES_UNSOUND","phantom_never_clears_flagged");
+        Check(PhantomCollision.Classify(10,12)=="INCOMPLETE","phantom_incomplete_never_passes");
+        Check(PhantomCollision.WithinBudget(3,2,3)&&!PhantomCollision.WithinBudget(4,2,3)&&!PhantomCollision.WithinBudget(3,3,3)&&!PhantomCollision.WithinBudget(0,0,3)&&!PhantomCollision.WithinBudget(3,2,50),"e05_bounded_lab_budget");
+        Check(!PreShotPlan.Allows("E0.5"),"e05_never_in_unattended_suite");
         Console.WriteLine("PASS: "+passed+" offline checks; runtime physics NOT TESTED");
     }
 }

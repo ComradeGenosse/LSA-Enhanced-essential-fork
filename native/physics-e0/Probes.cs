@@ -62,6 +62,7 @@ namespace LSA.WPS.Lab
         bool navRegionRequested, navmeshLoaded;
         int navQueries, navMisses, navRejected;
         string lastNavigationStatus="not_started";
+        int phantomEntityHandle;long deletedAtMs,phantomFirstClearMs=-1;
         Sample confirmationSample;
         long confirmationAt;
         int confirmationOrdinal;
@@ -891,12 +892,26 @@ namespace LSA.WPS.Lab
             if(impact.valid)impacts++;
             if(fire || impact.valid || frame%60==0)
                 Note("shot_sample",new {mode,shooter=ped,fire,ammo,ammoSpent,impactValid=impact.valid,
-                    impact=impact.valid?Vec(impact.point):null,area,frame});
+                    impact=impact.valid?Vec(impact.point):null,area,frame,
+                    weaponHash=weapon,selectedWeaponHash=unchecked((uint)current),gameTimerMs=N("GET_GAME_TIMER"),
+                    cam=(fire||impact.valid)?CameraPose():null,
+                    note="Passive observation only. Camera pose, weapon and clocks are for offline correlation; an impact coordinate is not a trajectory."});
             if(RealMs()-began<(mode=="npc"?11000:15000))return false;
             Note("shot_coverage",new {mode,ammoSpent,impactFrameSamples=impacts,
                 ratioUpperBound=Census.Coverage(ammoSpent,impacts),
                 caveat="Impact coordinate may remain stale. Frame samples are not unique rounds; independent proof is required for individual bullets and pellets."});
             return true;
+        }
+        // Read-only gameplay camera pose (position + rotation order 2: x=pitch, z=heading). Never fails the probe.
+        object CameraPose()
+        {
+            try
+            {
+                var c=NativeFunction.CallByName<Rage.Vector3>("GET_GAMEPLAY_CAM_COORD");
+                var r=NativeFunction.CallByName<Rage.Vector3>("GET_GAMEPLAY_CAM_ROT",2);
+                return new {ok=true,pos=Vec(c),rot=Vec(r)};
+            }
+            catch(Exception e){return new {ok=false,error=e.GetType().Name};}
         }
         bool ModelReady(string name)
         {
@@ -921,6 +936,7 @@ namespace LSA.WPS.Lab
                 Note("before_prop",Describe(before));step++;return false;
             }
             if(step==1) {
+                Require(PhantomCollision.WithinBudget(PhantomCollision.LabProps,PhantomCollision.LabPeds,cfg.radius),"e05_budget_exceeded");
                 if(!ModelReady(cfg.propModel)||!ModelReady(cfg.pedModel))return false;
                 collisionObject=Spawn(cfg.propModel,Pos);
                 int left=Spawn(cfg.propModel,V(cfg.x,cfg.y+1.5f,cfg.z));
@@ -945,18 +961,29 @@ namespace LSA.WPS.Lab
                 Ray after=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z));
                 bool actorLos=B("HAS_ENTITY_CLEAR_LOS_TO_ENTITY",losPedA,losPedB,17);
                 Note("prop_collision",new {ray=Describe(after),actorLos});
-                DeleteOwned(collisionObject);
+                phantomEntityHandle=collisionObject;phantomFirstClearMs=-1;
+                DeleteOwned(collisionObject);deletedAtMs=RealMs();
                 Note("deleted",new {frame,center=collisionObject});
                 step=3;objectIndex=frame;return false;
             }
             int elapsed=frame-objectIndex;
-            if(elapsed==1||elapsed==5||elapsed==30) {
+            if(elapsed>=1&&elapsed<=PhantomCollision.MaxFrames) {
+                // Every frame after deletion (not only +1/+5/+30) so the first clear frame and its milliseconds are measured.
                 Ray r=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z));
+                Ray r0=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z),17,0,OptionsAnalysis.Alternate);
                 bool actorLos=B("HAS_ENTITY_CLEAR_LOS_TO_ENTITY",losPedA,losPedB,17);
-                Note("collision_after_delete",new {frames=elapsed,ms=RealMs()-began,
-                    ray=Describe(r),actorLos});
+                long sinceDeleteMs=RealMs()-deletedAtMs;
+                bool phantom=r.hit&&r.entity==phantomEntityHandle;
+                if(phantomFirstClearMs<0&&!r.hit&&!r0.hit)phantomFirstClearMs=sinceDeleteMs;
+                Note("collision_after_delete",new {frames=elapsed,ms=RealMs()-began,sinceDeleteMs,
+                    ray=Describe(r),rayOpt0=Describe(r0),actorLos,deletedEntitySeen=phantom});
             }
-            return elapsed>=30;
+            if(elapsed>=PhantomCollision.MaxFrames)
+                Note("phantom_collision_summary",new {firstClearMs=phantomFirstClearMs,framesObserved=Math.Min(elapsed,PhantomCollision.MaxFrames),
+                    thresholdMs=PhantomCollision.ThresholdMs,
+                    classification=PhantomCollision.Classify(phantomFirstClearMs,Math.Min(elapsed,PhantomCollision.MaxFrames)),
+                    note="Shape-test visibility only; says nothing about bullets or actor movement."});
+            return elapsed>=PhantomCollision.MaxFrames;
         }
         void DeleteOwned(int handle)
         {

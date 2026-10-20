@@ -327,6 +327,54 @@ namespace LSA.WPS.Lab
             return "CORROBORATED_THICKNESS";
         }
     }
+    // E0.4 passive correlation of a reported impact coordinate with the gameplay camera ray. A single impact point plus the camera
+    // ray shows only that the impact is near the aim line at that instant; it is NOT an authoritative complete bullet trajectory
+    // (spread, recoil, ricochet, penetration and pellets are invisible to it).
+    public static class ShotCorrelation
+    {
+        public const double OnRayDeg=3.0, NearRayDeg=10.0, EqualEps=.001;
+        // GTA convention: rotation x = pitch, z = heading; forward = (-sin(z)cos(x), cos(z)cos(x), sin(x)).
+        public static double[] Direction(double pitchDeg,double headingDeg)
+        {
+            double p=pitchDeg*Math.PI/180.0,h=headingDeg*Math.PI/180.0;
+            return new[]{-Math.Sin(h)*Math.Cos(p),Math.Cos(h)*Math.Cos(p),Math.Sin(p)};
+        }
+        public static double OffAxisDeg(double[] cam,double[] dir,double[] impact)
+        {
+            double vx=impact[0]-cam[0],vy=impact[1]-cam[1],vz=impact[2]-cam[2];
+            double vl=Math.Sqrt(vx*vx+vy*vy+vz*vz),dl=Math.Sqrt(dir[0]*dir[0]+dir[1]*dir[1]+dir[2]*dir[2]);
+            if(vl<1e-9||dl<1e-9)return double.NaN;
+            double c=(vx*dir[0]+vy*dir[1]+vz*dir[2])/(vl*dl);
+            return Math.Acos(Math.Max(-1.0,Math.Min(1.0,c)))*180.0/Math.PI;
+        }
+        public static string Classify(double offAxisDeg)=>double.IsNaN(offAxisDeg)?"UNDEFINED":
+            offAxisDeg<=OnRayDeg?"ON_CAMERA_RAY":offAxisDeg<=NearRayDeg?"NEAR_CAMERA_RAY":"OFF_CAMERA_RAY";
+        // Consecutive identical coordinates are one latched report; this is a LOWER bound on distinct impacts, never a round count.
+        public static int DistinctImpactRuns(IList<double[]> impacts)
+        {
+            int n=0;double[] last=null;
+            foreach(var p in impacts)
+            {
+                if(last==null||Math.Abs(p[0]-last[0])>EqualEps||Math.Abs(p[1]-last[1])>EqualEps||Math.Abs(p[2]-last[2])>EqualEps)n++;
+                last=p;
+            }
+            return n;
+        }
+    }
+    // E0.5 phantom-collision policy: the shape test must stop seeing a deleted lab prop within 100 ms (doc 04 routing decision).
+    public static class PhantomCollision
+    {
+        public const long ThresholdMs=100;
+        public const int MaxFrames=30, LabProps=3, LabPeds=2;
+        public static string Classify(long firstClearMs,int framesObserved)
+        {
+            if(framesObserved<MaxFrames)return "INCOMPLETE";
+            if(firstClearMs<0)return "PERSISTENT_PHANTOM_DELETED_ENTITIES_UNSOUND";
+            return firstClearMs<=ThresholdMs?"CLEAR_WITHIN_THRESHOLD":"PHANTOM_OVER_THRESHOLD_DELETED_ENTITIES_MAY_BE_UNSOUND";
+        }
+        // Bounded lab: the experiment may only create these counts, within the configured small radius of the site.
+        public static bool WithinBudget(int props,int peds,float radius)=>props>=1&&props<=LabProps&&peds>=0&&peds<=LabPeds&&radius>=0&&radius<=10;
+    }
     public sealed class Ledger
     {
         readonly Dictionary<string,string> states=Census.Ids.ToDictionary(id=>id,id=>"NOT_TESTED");
