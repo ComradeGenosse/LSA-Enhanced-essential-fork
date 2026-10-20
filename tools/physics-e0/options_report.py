@@ -46,6 +46,7 @@ def summarize(paths):
         'classification': dict(cls), 'baselineMismatches': len(base_bad), 'recoveredByOption0': len(resolved),
         'unresolved': sorted(set(base_bad) - set(resolved)),
         'delayedConfirmationsAgree': all(not mat_conf[i].get('indexedHashMatches') for i in mat_conf)}
+    material_baseline_bad = set(base_bad)
     # Walls -------------------------------------------------------------------------------
     n = len(walls); base_ok = sum(1 for v in walls.values() if v.get('base', {}).get('diagnostic') == 'match')
     cls = collections.Counter(v['opt']['classification'] for v in walls.values() if 'opt' in v)
@@ -75,9 +76,11 @@ def summarize(paths):
     mlay = collections.Counter((v.get('opt', {}).get('layersOpt0') or {}).get('summary') for v in mats.values() if 'opt' in v)
     out['materials']['layerSummaryOpt0'] = dict(mlay)
     out['verdict'] = {
-        'materialDiscrepancyResolvedByOptions': bool(mats) and out['materials']['optionsRowsPresent'] > 0 and not out['materials']['unresolved'],
-        'wallDiscrepancyResolvedByOptions': bool(walls) and out['walls']['optionsRowsPresent'] > 0 and not out['walls']['unresolved'],
-        'wallDiscrepancyResolvedByCorroboratedLayerPairs': bool(walls) and out['walls']['optionsRowsPresent'] > 0 and not out['walls']['baselineMismatchesNotRecovered'],
+        'materialHasBaselineDiscrepancy': bool(material_baseline_bad),
+        'wallHasBaselineDiscrepancy': bool(base_bad_set),
+        'materialDiscrepancyResolvedByOptions': bool(material_baseline_bad) and not out['materials']['unresolved'],
+        'wallDiscrepancyResolvedByOptions': bool(base_bad_set) and not out['walls']['unresolved'],
+        'wallDiscrepancyResolvedByCorroboratedLayerPairs': bool(base_bad_set) and not out['walls']['baselineMismatchesNotRecovered'],
         'note': 'Resolved means every baseline mismatch was independently recovered by option 0; '
                 'it is a shape-test statement, not a projectile-penetration claim.'}
     if True:
@@ -127,6 +130,18 @@ def self_test():
     # a run without options rows can never be reported as resolved
     o2 = summarize([])
     assert o2['verdict']['materialDiscrepancyResolvedByOptions'] is False
+    with tempfile.NamedTemporaryFile('w', suffix='.jsonl', delete=False, encoding='utf-8') as f:
+        for r in [mat(1, True), mato(1, 'MATCH_BOTH'), wall(1, 'match'),
+                  wallobl(1, 'MATCH_BOTH', 'CORROBORATED_THICKNESS')]:
+            f.write(json.dumps(r) + '\n')
+        clean_path = f.name
+    try: clean = summarize([clean_path])
+    finally: os.unlink(clean_path)
+    assert clean['verdict']['materialHasBaselineDiscrepancy'] is False
+    assert clean['verdict']['wallHasBaselineDiscrepancy'] is False
+    assert clean['verdict']['materialDiscrepancyResolvedByOptions'] is False
+    assert clean['verdict']['wallDiscrepancyResolvedByOptions'] is False
+    assert clean['verdict']['wallDiscrepancyResolvedByCorroboratedLayerPairs'] is False
     print('options_report self-test PASS')
 
 def main():
