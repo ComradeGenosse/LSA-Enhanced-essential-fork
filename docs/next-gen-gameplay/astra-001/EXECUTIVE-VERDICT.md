@@ -1,5 +1,7 @@
 # ASTRA-001 — Executive verdict
 
+> **2026-10-20 update:** sequencing is superseded by [06 — Explosion & Destruction Master Plan](06-MASTER-PLAN-explosion-destruction-20261020.md). It corrects several assumptions below (Script Hook V/SHVDN are running on the owner's install; the asset loader is Onigiri, not OpenRPF; installed packs already override vanilla `.ybn` collision) and makes native fragment destruction the first milestone. The evidence in this verdict and docs 01–05 stands.
+
 **Persistent ballistic & structural destruction for GTA V Enhanced** · investigated 2026-10-18 against `main` @ `c390840` and branch `research/next-gen-gameplay-experiences-20261018` @ `3eeb780`.
 
 > **What was actually done:** a read-only audit of the repository (all 322 branches scanned for native code; PR #35 and the RPH 1.132 investigation read at exact SHAs), external research into GTA V Enhanced formats, natives, tools and policy, comparable games and libraries, and seven offline computational probes (five families, X-1…X-5) in a sandbox (scripts and outputs in [`offline-probes/`](offline-probes/)). **No GTA process was launched and no in-game test was run.** Every GTA-runtime claim below that is not marked *verified* is unproven.
@@ -106,3 +108,4 @@ The dream is not blocked by physics or compute; it is blocked by **one architect
 4. [04 — Falsifiable experiment ladder](04-falsifiable-experiment-ladder.md) — E0–E7 with hypotheses, falsifiers, thresholds, controls.
 5. [05 — Breakthrough questions and roadmap](05-breakthrough-questions-and-roadmap.md) — ten moonshots, dependency graph, infeasibility thresholds, phased roadmap.
 6. [`offline-probes/`](offline-probes/) — the seven executed sandbox computations (scripts and raw outputs; see its README).
+7. [06 — Explosion & Destruction Master Plan (2026-10-20)](06-MASTER-PLAN-explosion-destruction-20261020.md) — reuse audit, corrected assumptions, ranked blockers, architecture, roadmap and first three tasks; supersedes the order in 04 and the roadmap in 05 §4.
