@@ -236,9 +236,9 @@ namespace LSA.AGM.E0
                 trial.PostLast=true;E01AfterDelete(trial,"750ms");
             }
             if(trial.PostFirst && trial.PostLast && age>=750){
-                bool unsafe=!trial.Absent;
+                bool unsafeCleanup=!trial.Absent;
                 E01Finish(trial);
-                if(unsafe)Stop("e01_post_delete_failure");
+                if(unsafeCleanup)Stop("e01_post_delete_failure");
             }
         }
     }
