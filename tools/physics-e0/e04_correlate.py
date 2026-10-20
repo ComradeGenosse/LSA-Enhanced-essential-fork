@@ -32,33 +32,49 @@ def classify(a):
     return 'UNDEFINED' if a != a else 'ON_CAMERA_RAY' if a <= 3 else 'NEAR_CAMERA_RAY' if a <= 10 else 'OFF_CAMERA_RAY'
 
 def summarize(paths):
-    samples = []
+    # Group by file and recorded run identifier so latches, firing transitions and
+    # cumulative ammo counters never leak across independent capture sessions.
+    grouped = collections.OrderedDict()
     for p in paths:
         for r in rows(p):
-            if r['kind'] == 'shot_sample': samples.append((r.get('t_real_ms'), r['details']))
-    fires = sum(1 for _, d in samples if d.get('fire'))
-    imp = [d for _, d in samples if d.get('impactValid') and d.get('impact')]
-    runs = 0; last = None; cls = collections.Counter(); weapons = collections.Counter(); cam_ok = 0; uncorrelated = 0
-    for d in imp:
-        pt = (d['impact']['x'], d['impact']['y'], d['impact']['z'])
-        new = last is None or any(abs(pt[i] - last[i]) > 1e-3 for i in range(3))
-        if new: runs += 1
-        last = pt
-        weapons[str(d.get('weaponHash'))] += 1
-        cam = d.get('cam') or {}
-        if cam.get('ok'):
-            cam_ok += 1
-            if new:
-                a = off_axis((cam['pos']['x'], cam['pos']['y'], cam['pos']['z']), direction(cam['rot']['x'], cam['rot']['z']), pt)
+            if r['kind'] != 'shot_sample': continue
+            grouped.setdefault((p, str(r.get('run', '__unknown__'))), []).append(r['details'])
+    sample_count = fire_frames = fire_rises = impact_frames = distinct = ammo = cam_ok = uncorrelated = 0
+    cls = collections.Counter(); weapons = collections.Counter()
+    for samples in grouped.values():
+        prev_fire = False; last = None; run_ammo = 0
+        for d in samples:
+            sample_count += 1
+            active = bool(d.get('fire'))
+            if active:
+                fire_frames += 1
+                if not prev_fire: fire_rises += 1
+            prev_fire = active
+            run_ammo = max(run_ammo, d.get('ammoSpent') or 0)
+            if not (d.get('impactValid') and d.get('impact')): continue
+            impact_frames += 1
+            pt = (d['impact']['x'], d['impact']['y'], d['impact']['z'])
+            new = last is None or any(abs(pt[i] - last[i]) > 1e-3 for i in range(3))
+            last = pt
+            if not new: continue
+            distinct += 1
+            weapons[str(d.get('weaponHash'))] += 1
+            cam = d.get('cam') or {}
+            if cam.get('ok'):
+                cam_ok += 1
+                a = off_axis((cam['pos']['x'], cam['pos']['y'], cam['pos']['z']),
+                             direction(cam['rot']['x'], cam['rot']['z']), pt)
                 cls[classify(a)] += 1
-        elif new:
-            uncorrelated += 1
-    ammo = max([d.get('ammoSpent', 0) for _, d in samples] or [0])
-    return {'shotSamples': len(samples), 'fireEdgeSamples': fires, 'impactReportFrames': len(imp),
-        'distinctImpactRunsLowerBound': runs, 'ammoSpentReported': ammo, 'camerasOk': cam_ok,
+            else:
+                uncorrelated += 1
+        ammo += run_ammo
+    return {'runs': len(grouped), 'shotSamples': sample_count,
+        'fireActiveFrames': fire_frames, 'fireEdgeSamples': fire_rises,
+        'impactReportFrames': impact_frames, 'distinctImpactRunsLowerBound': distinct,
+        'ammoSpentReported': ammo, 'camerasOk': cam_ok,
         'distinctImpactsWithoutCamera': uncorrelated, 'cameraRayClassOfDistinctImpacts': dict(cls),
         'weaponHashesAtImpact': dict(weapons),
-        'caveat': 'Distinct impact runs are a lower bound on rounds; latched coordinates, pellets, spread and penetration are invisible. Not a trajectory.'}
+        'caveat': 'Fire edges are observed rising transitions, not round counts; sampled frames can omit edges. Distinct impacts are a lower bound; latches, pellets, spread and penetration are invisible. Not a trajectory.'}
 
 def self_test():
     import os, tempfile
@@ -68,14 +84,18 @@ def self_test():
         return {'kind': 'shot_sample', 't_real_ms': i, 'details': d}
     data = [s(1, True, {'x': 0, 'y': 20, 'z': 0}), s(2, False, {'x': 0, 'y': 20, 'z': 0}), s(3, True, {'x': 0, 'y': 20, 'z': 0}),
             s(4, True, {'x': 20, 'y': 20, 'z': 0}, ammo=4), s(5, False, None), s(6, True, {'x': 5, 'y': 5, 'z': 5}, cam=False, ammo=6)]
+    second = s(7, True, {'x': 0, 'y': 20, 'z': 0}, ammo=2)
+    second['run'] = 'independent-capture'
+    data.append(second)
     with tempfile.NamedTemporaryFile('w', suffix='.jsonl', delete=False, encoding='utf-8-sig') as f:
         for r in data: f.write('[WPS-LAB] ' + json.dumps(r) + '\n')
         f.write('noise\n'); path = f.name
     try: o = summarize([path])
     finally: os.unlink(path)
-    assert o['shotSamples'] == 6 and o['fireEdgeSamples'] == 4 and o['impactReportFrames'] == 5
-    assert o['distinctImpactRunsLowerBound'] == 3 and o['ammoSpentReported'] == 6
-    assert o['cameraRayClassOfDistinctImpacts'] == {'ON_CAMERA_RAY': 1, 'OFF_CAMERA_RAY': 1}
+    assert o['runs'] == 2 and o['shotSamples'] == 7 and o['fireActiveFrames'] == 5
+    assert o['fireEdgeSamples'] == 4 and o['impactReportFrames'] == 6
+    assert o['distinctImpactRunsLowerBound'] == 4 and o['ammoSpentReported'] == 8
+    assert o['cameraRayClassOfDistinctImpacts'] == {'ON_CAMERA_RAY': 2, 'OFF_CAMERA_RAY': 1}
     assert o['distinctImpactsWithoutCamera'] == 1
     assert off_axis((0, 0, 0), direction(0, 90), (-10, 0, 0)) < 1e-6
     assert summarize([])['distinctImpactRunsLowerBound'] == 0
