@@ -34,6 +34,7 @@ The last command restores the official RagePluginHook 1.124.0 SDK, verifies its 
 | AGME0Condition essential_off / yield_off / yield_on | Negative control; essential_off requires Essential not loaded, yield tests need the pinned bridge |
 | AGME0Task walk / drive / flee / guard / chase / follow / combat | Task family used in E0.2/E0.6 |
 | AGME0Run e0.1 through e0.8 | Launch one bounded probe |
+| AGME01Mode baseline / extended | E0.1 control vs extended 80-trial census; extended is the default |
 | AGME0Status | Lease, log, bridge status |
 | AGME0Truth pass / fail / unknown | Manually attach E0.5 comparison against retained and timecoded video |
 | AGME0Cancel | Emergency cancellation and cleanup |
@@ -43,7 +44,7 @@ The last command restores the official RagePluginHook 1.124.0 SDK, verifies its 
 
 | Probe | Implemented activity | Required GTA acceptance |
 | --- | --- | --- |
-| E0.1 | 20 sequential creation/readback trials each for ped, vehicle, prop and pickup; class validation and immediate cleanup | 95%+ readback per kind |
+| E0.1 | 80 sequential trials (20 each kind), 4 allowlisted models for ped/vehicle/prop; baseline immediate cleanup, or extended 16 delayed stability trials at 1s and 5s; double post-delete checks at 250/750ms; passive Essential state, ground/visibility/collision metadata, native pool/count snapshots, spawn/delete timing and refusal controls | ≥95% immediate success per kind; independent 1s/5s/cleanup/video confirmation |
 | E0.2 | 60-second walk, drive, flee, guard, chase (also follow/combat) against Essential-off, yield-off and yield-on baselines; 4 Hz sampling | N=10 per task per condition; ≥90% task retention with yield |
 | E0.3 | Persistent peds at 100, 250, 400, 800 metres; five-minute samples | Streaming, save/reload must preserve desired entities |
 | E0.4 | Hostile owned-ped pair, weapons and task control; no Nathan-labelled-present trial allowed | Verify hostility, relationship groups, police, collateral on ambient NPCs and Nathan |
@@ -75,3 +76,23 @@ Any mission/cutscene/online state cancels the trial. No mission flag, player tel
 To rollback, use AGME0Cancel and AGME0Clean, exit without saving, remove the two DLLs, Plugins/LSA.AGM.E0.lab.json and its folder, restart RPH and restore the original save. Nothing in main or production gameplay is modified.
 
 **Status boundary:** Source checks and Windows compilation are offline only. Exact GTA V Enhanced/RPH/Essential versions, video, and paired owner runs are required before any E0 capability is called accepted. E1 and AI-generated missions are expressly out of scope.
+
+
+## E0.1 extended census — recommended first lab run
+
+The default \`AGME01Mode extended\` retains **80 total sequential spawn attempts** (20 per kind). The four classes run in rotation. Four trials per class (16 total) receive 1,000 ms and 5,000 ms stability checkpoints; the others form immediate-readback controls. All spawned entities are deleted one at a time, followed by independent 250 ms and 750 ms post-delete checks. The operator should remain within 10 m of the initial spot. E0.1 does not task any actor, does not add NPC state or start E0.2, and avoids concurrent active probes.
+
+In the RPH F4 console, with Essential running and the pinned Essential helper installed:
+
+~~~text
+AGME0Status
+AGME0Condition yield_off
+AGME01Mode extended
+AGME0Run e0.1
+~~~
+
+The **baseline** alternative is \`AGME01Mode baseline\` followed by \`AGME0Run e0.1\`; it runs the same 80 trials and model rotation without the 5-second holds. The extended test can take several minutes. Use \`AGME0Cancel\` whenever needed. E0.1 samples Essential state **read-only** only for its newly spawned scene peds; Nathan, ACT, Director and ambient peds are never modified. Compare the JSONL timestamps to separately captured OBS2 and voice/Nathan footage to evaluate collateral behavior; the plugin cannot establish dialogue correctness by itself.
+
+The offline \`analyze.mjs\` report now includes \`e01\` with per-kind denominators, diversity, readback fractions, delayed trial counts, missing/duplicate checkpoints, cleanup and post-delete failures, task-write contamination, negative controls, and spawn/delete p50/p95 timings. It fails closed on incomplete traces. Pickup checks are explicitly **weak numeric-handle evidence**, never a proven object incarnation. Counts versus GTA pool capacities are informational, **not a certified free-slot count**. Native timing includes model loading and may yield across frames; it is **not total-frame time**. Off-screen, ground-Z and collision samples can be unavailable and should be corroborated with video. Unrecognized allowlisted models are recorded as genuine failures rather than silently substituted.
+
+Results remain **research evidence**, not validated gameplay. In particular, E0.1 does not prove that Essential will preserve tasked NPCs; E0.2/E0.6 remains the decisive follow-on experiment.

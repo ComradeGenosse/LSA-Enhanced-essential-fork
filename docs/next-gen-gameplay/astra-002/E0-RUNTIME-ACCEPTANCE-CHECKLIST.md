@@ -14,6 +14,10 @@ All boxes are unchecked until backed-up laboratory GTA evidence exists. The Wind
 ## Gates
 
 - [ ] E0.1: 20 each ped / vehicle / prop / pickup; readback ≥95% each
+- [ ] E0.1 extended: 16 sequential five-second holds (4 per kind), 1s/5s readback, all 80 checked 250/750 ms post-cleanup
+- [ ] E0.1 model variation: compare four allowlisted ped/vehicle/prop variants, annotate invalid-class refusals and weak pickup identity
+- [ ] E0.1 passive side effects: Essential NpcState samples, Nathan/Director/ACT + OBS2/video comparison, no E0.1 task writes
+- [ ] E0.1 per-spawn and delete latency and enumerated population vs pool capacities; no claim of actual frame-time or free-slot headroom
 - [ ] E0.2: 10 independent 60 s trials for walk/drive/flee/guard/chase per condition; yield-on retention ≥90%
 - [ ] E0.2 controls: Essential off; Essential on with yielding off; Essential on with yielding on
 - [ ] E0.3: 100 / 250 / 400 / 800 m over 5 min + streaming and save reload

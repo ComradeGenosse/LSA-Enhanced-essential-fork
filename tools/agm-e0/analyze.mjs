@@ -3,6 +3,7 @@
 import {readFileSync,writeFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
+import {e01Evidence} from './e01Evidence.mjs';
 
 const critical=new Set(['probe_start','probe_stop','create','task_issued','sample','sensor','cleanup']);
 export function analyze(lines){
@@ -77,14 +78,17 @@ export function analyze(lines){
       performanceAvgMs:x.stops?x.sumSampleMs/x.stops:null,
       phase:'GTA_logs_not_automatically_validated',runtimeRequired:true};
   });
+  const containsE01=reports.some(r=>r.id==='e0.1');
+  const e01=containsE01?e01Evidence(events):null;
+  if(e01 && e01.integrity!=='internally_consistent')errors.push(...e01.faults.map(x=>'e01:'+x));
   const complete=errors.length===0&&reports.length>0&&reports.every(r=>r.starts===r.stops&&r.orphans===0);
   const tasks=reports.filter(x=>x.id==='e0.2'||x.id==='e0.6');
   const yieldComparisons=tasks.flatMap(x=>x.conditions);
   return {
     schema:'agm-e0-report-v1',observations:events.length,hostRunId:host,worldEpoch:epoch,
-    integrity:complete?'parsed_clean':'incomplete_or_error',errors,reports,
+    integrity:complete?'parsed_clean':'incomplete_or_error',errors,reports,e01,
     acceptance:{
-      creationReadback:'requires actual GTA plus sample counts per capability',
+      creationReadback:'requires actual GTA plus sample counts per capability; see E0.1 per-kind native readback evidence',
       taskRetention:'requires >=10 timed trials per task with Essential yield on/off, and human/video correlation',
       essentialCoexistence:yieldComparisons.includes('yield_on')&&yieldComparisons.includes('yield_off')
         ?'requires joined OBS2/Essential/Nathan logs and video':'not_compared',
