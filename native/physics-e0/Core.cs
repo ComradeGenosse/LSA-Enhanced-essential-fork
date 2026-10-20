@@ -183,6 +183,150 @@ namespace LSA.WPS.Lab
             return DestinationGate.Accept(nearby,loaded,LoadedMs,Checks);
         }
     }
+    // One raw shape-test observation. No game-derived data is embedded in source.
+    public struct RayObs
+    {
+        public bool Hit; public uint Material; public int Entity; public double X,Y,Z;
+        public RayObs(bool hit,uint material,int entity,double x,double y,double z)
+        {Hit=hit;Material=material;Entity=entity;X=x;Y=y;Z=z;}
+        public double DistanceTo(RayObs o)=>Census.Distance(X,Y,Z,o.X,o.Y,o.Z);
+    }
+    // Independent classification of shape-test option variants (baseline 7 vs 0).
+    // It reads only raw observations and expected values; it never reuses the
+    // baseline verdict, so a baseline mismatch can be re-classified without trust.
+    public static class OptionsAnalysis
+    {
+        public const int Baseline=7, Alternate=0;
+        public const double PointToleranceM=.01, ThicknessToleranceM=.01;
+        public static string MaterialOutcome(RayObs r,uint expectedIndexed)=>
+            !r.Hit?"miss":r.Material==expectedIndexed?"match":"other_material";
+        public static string ClassifyMaterial(RayObs o7,RayObs o0,uint expectedIndexed)
+        {
+            string a=MaterialOutcome(o7,expectedIndexed),b=MaterialOutcome(o0,expectedIndexed);
+            if(a=="match"&&b=="match")return "MATCH_BOTH";
+            if(a=="match")return "OPT7_ONLY_OPT0_SEES_"+(b=="miss"?"NOTHING":"OTHER_FIRST");
+            if(b=="match")return a=="miss"?"RECOVERED_BY_OPT0_SEE_THROUGH_CLASS":"RECOVERED_BY_OPT0_OPT7_HIT_OTHER";
+            if(a=="miss"&&b=="miss")return "MISS_BOTH";
+            if(a=="miss")return "OPT0_HITS_OTHER_MATERIAL";
+            if(b=="miss")return "OPT7_HITS_OTHER_OPT0_MISSES";
+            return "OTHER_MATERIAL_BOTH";
+        }
+        // Outcome of one forward/reverse pair under a single option value.
+        public static string PairOutcome(RayObs fwd,RayObs rev,uint expectedIndexed,double expectedThicknessM)
+        {
+            if(!fwd.Hit||!rev.Hit)return "MISS";
+            if(fwd.Entity!=rev.Entity)return "ENTITY_SPLIT";
+            if(fwd.Material!=expectedIndexed||rev.Material!=expectedIndexed)return "MATERIAL_MISMATCH";
+            double t=fwd.DistanceTo(rev);
+            return Math.Abs(t-expectedThicknessM)<=ThicknessToleranceM?"CONFIRMED_PAIR":"THICKNESS_MISMATCH";
+        }
+        public static bool SameObservation(RayObs a,RayObs b)=>
+            a.Hit==b.Hit&&(!a.Hit||(a.Material==b.Material&&a.DistanceTo(b)<=PointToleranceM));
+        public static string ClassifyWall(string p7,string p0,bool unchangedObservations)
+        {
+            if(p7=="CONFIRMED_PAIR"&&p0=="CONFIRMED_PAIR")return "MATCH_BOTH";
+            if(p7=="CONFIRMED_PAIR")return "OPT0_DISTURBS_CONFIRMED_PAIR:"+p0;
+            if(p0=="CONFIRMED_PAIR")return "RECOVERED_BY_OPT0";
+            if(unchangedObservations)return "UNCHANGED_BY_OPTIONS:"+p7;
+            return "CHANGED_BUT_UNRESOLVED:"+p7+"/"+p0;
+        }
+    }
+    // One layer found by advance-past-hit scanning along a segment (distance from the segment start).
+    public struct LayerObs
+    {
+        public double DistanceM; public uint Material; public int Entity;
+        public LayerObs(double d,uint m,int e){DistanceM=d;Material=m;Entity=e;}
+    }
+    public static class LayerAnalysis
+    {
+        public const double AdvanceM=.02;
+        public const int MaxLayers=8;
+        public static int EntityChanges(IList<LayerObs> l)
+        {int n=0;for(int i=1;i<l.Count;i++)if(l[i].Entity!=l[i-1].Entity)n++;return n;}
+        public static int MaterialChanges(IList<LayerObs> l)
+        {int n=0;for(int i=1;i<l.Count;i++)if(l[i].Material!=l[i-1].Material)n++;return n;}
+        // Descriptive only: a layer table is never reported as wall thickness.
+        public static string Describe(IList<LayerObs> l)
+        {
+            if(l==null||l.Count==0)return "NO_LAYERS";
+            if(l.Count==1)return "SINGLE_SURFACE";
+            int e=EntityChanges(l),m=MaterialChanges(l);
+            if(e>0)return "MULTIPLE_ENTITIES";
+            if(m>0)return "SAME_ENTITY_MULTI_MATERIAL";
+            return "SAME_ENTITY_SAME_MATERIAL_LAYERS";
+        }
+    }
+    // Oblique-incidence corroboration for a candidate entry/exit pair on a flat slab:
+    // along a ray tilted by theta from the face normal, the path through a slab of thickness t is t/cos(theta).
+    // A genuine opposite face is therefore angle-consistent; an unrelated nearby object is not.
+    public static class ObliqueAnalysis
+    {
+        public const double ToleranceM=.02, MaxAngleDeg=60;
+        public static double ExpectedPath(double thicknessM,double angleDeg)=>thicknessM/Math.Cos(angleDeg*Math.PI/180.0);
+        // hit: entry point on the face; n: face normal (toward the ray origin). Returns start (outside) and end (past the expected exit).
+        public static void Build(double hx,double hy,double hz,double nx,double ny,double nz,double angleDeg,
+            double leadM,double expectedThicknessM,double overshootM,out double[] start,out double[] end)
+        {
+            if(angleDeg<0||angleDeg>MaxAngleDeg||leadM<=0||overshootM<=0)throw new ArgumentException("invalid_oblique_request");
+            double nl=Math.Sqrt(nx*nx+ny*ny+nz*nz);
+            if(nl<1e-6)throw new ArgumentException("degenerate_normal");
+            nx/=nl;ny/=nl;nz/=nl;
+            // horizontal tangent = up x n; fall back to X axis for near-vertical normals
+            double tx=-ny,ty=nx,tz=0,tl=Math.Sqrt(tx*tx+ty*ty);
+            if(tl<.2){tx=1;ty=0;tz=0;double dot=tx*nx+ty*ny+tz*nz;tx-=dot*nx;ty-=dot*ny;tz-=dot*nz;tl=Math.Sqrt(tx*tx+ty*ty+tz*tz);}
+            tx/=tl;ty/=tl;tz/=tl;
+            double c=Math.Cos(angleDeg*Math.PI/180.0),sn=Math.Sin(angleDeg*Math.PI/180.0);
+            double dx=-(c*nx+sn*tx),dy=-(c*ny+sn*ty),dz=-(c*nz+sn*tz);
+            double total=leadM+ExpectedPath(expectedThicknessM,angleDeg)+overshootM;
+            start=new[]{hx-dx*leadM,hy-dy*leadM,hz-dz*leadM};
+            end=new[]{start[0]+dx*total,start[1]+dy*total,start[2]+dz*total};
+        }
+    }
+    // Entry/exit pair search from forward and reverse advance-past-hit scans along one segment of length segLen.
+    // A candidate pair is a forward hit and a reverse hit on the SAME entity with the SAME material whose faces are
+    // separated along the segment. Uses only game observations: no CodeWalker value is needed to find or corroborate a pair.
+    public sealed class PairCandidate
+    {
+        public int Forward {get;set;} public int Reverse {get;set;} public double SeparationM {get;set;}
+    }
+    public static class PairSearch
+    {
+        public const double MinSeparationM=.005, MaxSeparationM=5.0;
+        public static List<PairCandidate> Candidates(IList<LayerObs> fwd,IList<LayerObs> rev,double segLen)
+        {
+            var list=new List<PairCandidate>();
+            if(fwd==null||rev==null)return list;
+            for(int i=0;i<fwd.Count;i++)for(int j=0;j<rev.Count;j++)
+            {
+                if(fwd[i].Entity!=rev[j].Entity||fwd[i].Material!=rev[j].Material)continue;
+                double sep=segLen-fwd[i].DistanceM-rev[j].DistanceM;
+                if(sep<MinSeparationM||sep>MaxSeparationM)continue;
+                list.Add(new PairCandidate{Forward=i,Reverse=j,SeparationM=sep});
+            }
+            return list;
+        }
+        public static string Describe(IList<PairCandidate> c)=>c==null||c.Count==0?"NO_PAIR":c.Count==1?"UNIQUE_PAIR":"AMBIGUOUS_PAIRS";
+        public static bool MatchesExpected(PairCandidate c,double expectedM)=>
+            c!=null&&Math.Abs(c.SeparationM-expectedM)<=OptionsAnalysis.ThicknessToleranceM;
+        // Angle consistency of a normal-incidence candidate separation s0 at tilt angleDeg: some same-entity/same-material pair
+        // must be separated by s0/cos(angle). Nearby unrelated objects do not satisfy this at every angle.
+        public static string AngleConsistency(IList<PairCandidate> atAngle,double s0,double angleDeg)
+        {
+            if(atAngle==null||atAngle.Count==0)return "NO_PAIR";
+            double want=ObliqueAnalysis.ExpectedPath(s0,angleDeg);
+            foreach(var c in atAngle)if(Math.Abs(c.SeparationM-want)<=ObliqueAnalysis.ToleranceM)return "ANGLE_CONSISTENT";
+            return "NO_CONSISTENT_PAIR";
+        }
+        // CORROBORATED only when the normal-incidence pair is unique and every tested angle is consistent.
+        public static string Corroborate(string normalDescription,IList<string> angleResults)
+        {
+            if(normalDescription=="NO_PAIR")return "NO_THICKNESS_CLAIM:NO_PAIR";
+            if(normalDescription!="UNIQUE_PAIR")return "NO_THICKNESS_CLAIM:AMBIGUOUS_NORMAL_PAIR";
+            if(angleResults==null||angleResults.Count==0)return "NO_THICKNESS_CLAIM:NOT_ANGLE_TESTED";
+            foreach(var r in angleResults)if(r!="ANGLE_CONSISTENT")return "NO_THICKNESS_CLAIM:ANGLE_INCONSISTENT";
+            return "CORROBORATED_THICKNESS";
+        }
+    }
     public sealed class Ledger
     {
         readonly Dictionary<string,string> states=Census.Ids.ToDictionary(id=>id,id=>"NOT_TESTED");

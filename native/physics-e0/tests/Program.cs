@@ -76,6 +76,91 @@ class Tests
         groups.Validate();Check(groups.surfaces.Length==1 && groups.walls.Length==1,"distinct_sample_sets");
         groups.schemaVersion=2;Throws(()=>groups.Validate(),"reject_unknown_sample_schema");
         groups.schemaVersion=1;groups.walls=null;Throws(()=>groups.Validate(),"require_independent_wall_set");
+        // Shape-test option comparison (synthetic observations only; no game data).
+        var miss=new RayObs(false,0,0,0,0,0);
+        var matchObs=new RayObs(true,111u,7,10,0,0);
+        var otherObs=new RayObs(true,222u,7,10,0,0);
+        Check(OptionsAnalysis.Baseline==7 && OptionsAnalysis.Alternate==0,"options_under_test");
+        Check(OptionsAnalysis.ClassifyMaterial(matchObs,matchObs,111u)=="MATCH_BOTH","opt_both_match");
+        Check(OptionsAnalysis.ClassifyMaterial(miss,matchObs,111u)=="RECOVERED_BY_OPT0_SEE_THROUGH_CLASS","opt0_recovers_miss");
+        Check(OptionsAnalysis.ClassifyMaterial(otherObs,matchObs,111u)=="RECOVERED_BY_OPT0_OPT7_HIT_OTHER","opt0_recovers_other_hit");
+        Check(OptionsAnalysis.ClassifyMaterial(miss,miss,111u)=="MISS_BOTH","miss_both");
+        Check(OptionsAnalysis.ClassifyMaterial(miss,otherObs,111u)=="OPT0_HITS_OTHER_MATERIAL","opt0_other_material");
+        Check(OptionsAnalysis.ClassifyMaterial(matchObs,miss,111u)=="OPT7_ONLY_OPT0_SEES_NOTHING","opt7_only");
+        Check(OptionsAnalysis.ClassifyMaterial(otherObs,otherObs,111u)=="OTHER_MATERIAL_BOTH","other_both");
+        Check(OptionsAnalysis.MaterialOutcome(matchObs,112u)=="other_material","material_outcome_is_independent_of_baseline");
+        var front=new RayObs(true,111u,7,0,0,0);
+        var back=new RayObs(true,111u,7,0,0.5,0);
+        var farBack=new RayObs(true,111u,7,0,0.75,0);
+        var otherEntityBack=new RayObs(true,111u,9,0,0.5,0);
+        var otherMaterialBack=new RayObs(true,333u,7,0,0.5,0);
+        Check(OptionsAnalysis.PairOutcome(front,back,111u,.5)=="CONFIRMED_PAIR","pair_confirmed");
+        Check(OptionsAnalysis.PairOutcome(front,farBack,111u,.5)=="THICKNESS_MISMATCH","pair_thickness_mismatch");
+        Check(OptionsAnalysis.PairOutcome(front,otherEntityBack,111u,.5)=="ENTITY_SPLIT","pair_entity_split_never_a_thickness");
+        Check(OptionsAnalysis.PairOutcome(front,otherMaterialBack,111u,.5)=="MATERIAL_MISMATCH","pair_material_mismatch");
+        Check(OptionsAnalysis.PairOutcome(front,miss,111u,.5)=="MISS","pair_miss");
+        Check(OptionsAnalysis.SameObservation(front,new RayObs(true,111u,7,0,0.005,0)) && !OptionsAnalysis.SameObservation(front,back),"same_observation_tolerance");
+        Check(OptionsAnalysis.SameObservation(miss,miss) && !OptionsAnalysis.SameObservation(miss,front),"same_observation_miss");
+        Check(OptionsAnalysis.ClassifyWall("CONFIRMED_PAIR","CONFIRMED_PAIR",true)=="MATCH_BOTH","wall_match_both");
+        Check(OptionsAnalysis.ClassifyWall("THICKNESS_MISMATCH","CONFIRMED_PAIR",false)=="RECOVERED_BY_OPT0","wall_recovered");
+        Check(OptionsAnalysis.ClassifyWall("ENTITY_SPLIT","ENTITY_SPLIT",true)=="UNCHANGED_BY_OPTIONS:ENTITY_SPLIT","wall_unchanged_by_options");
+        Check(OptionsAnalysis.ClassifyWall("CONFIRMED_PAIR","ENTITY_SPLIT",false).StartsWith("OPT0_DISTURBS_CONFIRMED_PAIR"),"wall_opt0_disturbs");
+        Check(OptionsAnalysis.ClassifyWall("MISS","THICKNESS_MISMATCH",false)=="CHANGED_BUT_UNRESOLVED:MISS/THICKNESS_MISMATCH","wall_changed_unresolved");
+        var layerSame=new List<LayerObs>{new LayerObs(1,1u,5),new LayerObs(1.5,1u,5)};
+        var layerMat=new List<LayerObs>{new LayerObs(1,1u,5),new LayerObs(1.5,2u,5)};
+        var layerEnt=new List<LayerObs>{new LayerObs(1,1u,5),new LayerObs(1.5,1u,6),new LayerObs(2,1u,5)};
+        Check(LayerAnalysis.Describe(null)=="NO_LAYERS" && LayerAnalysis.Describe(new List<LayerObs>{new LayerObs(1,1u,5)})=="SINGLE_SURFACE","layer_empty_single");
+        Check(LayerAnalysis.Describe(layerSame)=="SAME_ENTITY_SAME_MATERIAL_LAYERS","layer_same_entity_same_material");
+        Check(LayerAnalysis.Describe(layerMat)=="SAME_ENTITY_MULTI_MATERIAL" && LayerAnalysis.MaterialChanges(layerMat)==1,"layer_same_entity_multi_material");
+        Check(LayerAnalysis.Describe(layerEnt)=="MULTIPLE_ENTITIES" && LayerAnalysis.EntityChanges(layerEnt)==2,"layer_multiple_entities");
+        Check(LayerAnalysis.MaxLayers==8 && LayerAnalysis.AdvanceM>0 && LayerAnalysis.AdvanceM<=.05,"advance_scan_bounded");
+        // Oblique geometry (synthetic flat slab along +X, thickness .5, normal toward the ray origin = +X).
+        double[] os0,oe0;
+        ObliqueAnalysis.Build(0,0,0,1,0,0,0,1.0,.5,1.5,out os0,out oe0);
+        Check(Math.Abs(os0[0]-1.0)<1e-9&&Math.Abs(oe0[0]-(-2.0))<1e-9&&Math.Abs(os0[1])<1e-9,"oblique_zero_is_normal_incidence");
+        ObliqueAnalysis.Build(0,0,0,1,0,0,40,1.0,.5,1.5,out os0,out oe0);
+        double olen=Census.Distance(os0[0],os0[1],os0[2],oe0[0],oe0[1],oe0[2]);
+        Check(Math.Abs(olen-(1.0+ObliqueAnalysis.ExpectedPath(.5,40)+1.5))<1e-9,"oblique_length_bounded");
+        Check(Math.Abs(os0[0]-Math.Cos(40*Math.PI/180))<1e-9&&Math.Abs(Math.Abs(os0[1])-Math.Sin(40*Math.PI/180))<1e-9&&Math.Abs(os0[2])<1e-9,"oblique_tilts_in_horizontal_plane");
+        // the oblique ray must pass through the entry point
+        double fx=os0[0]+(oe0[0]-os0[0])/olen*1.0,fy=os0[1]+(oe0[1]-os0[1])/olen*1.0;
+        Check(Math.Abs(fx)<1e-9&&Math.Abs(fy)<1e-9,"oblique_ray_passes_through_entry_point");
+        ObliqueAnalysis.Build(0,0,0,0,0,1,20,1.0,.5,1.5,out os0,out oe0);
+        Check(os0[2]>.9&&!double.IsNaN(os0[0]),"oblique_vertical_normal_fallback");
+        Throws(()=>{double[] a,b;ObliqueAnalysis.Build(0,0,0,0,0,0,20,1,.5,1.5,out a,out b);},"oblique_rejects_zero_normal");
+        Throws(()=>{double[] a,b;ObliqueAnalysis.Build(0,0,0,1,0,0,80,1,.5,1.5,out a,out b);},"oblique_rejects_grazing_angle");
+        double want40=ObliqueAnalysis.ExpectedPath(.5,40);
+        Check(Math.Abs(want40-.5/Math.Cos(40*Math.PI/180))<1e-12&&want40>.65,"oblique_expected_path");
+        // Entry/exit pair search (synthetic scans along a 1.5 m segment; slab faces at 0.5 and 1.0 from the ends -> separation 0.5).
+        var fwdSlab=new List<LayerObs>{new LayerObs(0.5,1u,5)};
+        var revSlab=new List<LayerObs>{new LayerObs(0.5,1u,5)};
+        var pairs=PairSearch.Candidates(fwdSlab,revSlab,1.5);
+        Check(pairs.Count==1&&Math.Abs(pairs[0].SeparationM-.5)<1e-9&&PairSearch.Describe(pairs)=="UNIQUE_PAIR","pair_unique_slab");
+        Check(PairSearch.MatchesExpected(pairs[0],.505)&&!PairSearch.MatchesExpected(pairs[0],.6),"pair_expected_tolerance");
+        // unrelated nearby object: reverse scan sees another entity first, then the genuine back face as a later layer
+        var revOccluded=new List<LayerObs>{new LayerObs(.405,9u,6),new LayerObs(.5,1u,5)};
+        var occ=PairSearch.Candidates(fwdSlab,revOccluded,1.5);
+        Check(occ.Count==1&&occ[0].Reverse==1&&Math.Abs(occ[0].SeparationM-.5)<1e-9,"pair_skips_unrelated_entity_layer");
+        // different entity or material is never paired
+        Check(PairSearch.Candidates(fwdSlab,new List<LayerObs>{new LayerObs(.5,1u,6)},1.5).Count==0,"pair_requires_same_entity");
+        Check(PairSearch.Candidates(fwdSlab,new List<LayerObs>{new LayerObs(.5,2u,5)},1.5).Count==0,"pair_requires_same_material");
+        Check(PairSearch.Describe(PairSearch.Candidates(fwdSlab,new List<LayerObs>{new LayerObs(1.1,1u,5)},1.5))=="NO_PAIR","pair_overlap_rejected");
+        Check(PairSearch.Describe(PairSearch.Candidates(null,revSlab,1.5))=="NO_PAIR","pair_null_safe");
+        var multi=PairSearch.Candidates(new List<LayerObs>{new LayerObs(.5,1u,5),new LayerObs(.52,1u,5)},revSlab,1.5);
+        Check(multi.Count==2&&PairSearch.Describe(multi)=="AMBIGUOUS_PAIRS","pair_ambiguous_not_unique");
+        // angle consistency
+        double s0=.5;
+        var at40=new List<PairCandidate>{new PairCandidate{Forward=0,Reverse=0,SeparationM=want40}};
+        var at40wrong=new List<PairCandidate>{new PairCandidate{Forward=0,Reverse=0,SeparationM=s0}};
+        Check(want40>.65&&Math.Abs(want40-.5/Math.Cos(40*Math.PI/180))<1e-12,"oblique_expected_path");
+        Check(PairSearch.AngleConsistency(at40,s0,40)=="ANGLE_CONSISTENT","angle_consistent_pair");
+        Check(PairSearch.AngleConsistency(at40wrong,s0,40)=="NO_CONSISTENT_PAIR","angle_unrelated_pair_rejected");
+        Check(PairSearch.AngleConsistency(null,s0,40)=="NO_PAIR" && PairSearch.AngleConsistency(new List<PairCandidate>(),s0,40)=="NO_PAIR","angle_no_pair");
+        Check(PairSearch.Corroborate("UNIQUE_PAIR",new[]{"ANGLE_CONSISTENT","ANGLE_CONSISTENT"})=="CORROBORATED_THICKNESS","corroborated_requires_unique_and_all_angles");
+        Check(PairSearch.Corroborate("UNIQUE_PAIR",new[]{"ANGLE_CONSISTENT","NO_CONSISTENT_PAIR"})=="NO_THICKNESS_CLAIM:ANGLE_INCONSISTENT","one_bad_angle_blocks_claim");
+        Check(PairSearch.Corroborate("UNIQUE_PAIR",new string[0])=="NO_THICKNESS_CLAIM:NOT_ANGLE_TESTED","untested_angles_block_claim");
+        Check(PairSearch.Corroborate("AMBIGUOUS_PAIRS",new[]{"ANGLE_CONSISTENT"})=="NO_THICKNESS_CLAIM:AMBIGUOUS_NORMAL_PAIR","ambiguous_normal_pair_blocks_claim");
+        Check(PairSearch.Corroborate("NO_PAIR",null)=="NO_THICKNESS_CLAIM:NO_PAIR","no_pair_no_claim");
         Console.WriteLine("PASS: "+passed+" offline checks; runtime physics NOT TESTED");
     }
 }

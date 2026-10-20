@@ -100,3 +100,20 @@ E0.4 records firing edges, ammo deltas, last-impact coordinate snapshots and bul
 No E1/E2 is included. See E0-ACCEPTANCE.md and ASTRA-001 doc 04 for the exact experiment acceptance gates.
 
 For E0.9, use WPSE0Mode props or WPSE0Mode fragments, set an actual verified fragModel for the latter, then arm and start each run independently. For E0.10, config explosionType may be 0–14; repeat separate opt-in runs for each type and preserve all logs. Both variants remain disabled until explicitly started.
+
+## E0.2/E0.3 shape-test options comparison (experimental)
+
+The original E0.2/E0.3 samples trace with the native's final argument fixed at `7`. GT4 research found that bit value `2` of that argument hides
+see-through-class surfaces (glass/chain-link style collision), so E0.2/E0.3 now also trace every sample with option `0` in the same frame, immediately
+after the unchanged baseline ray. Nothing about the baseline `material` / `exit_faces` rows, the delayed confirmations, or the streamed-collision and
+settling gates changed.
+
+New rows (raw observations plus an independent classification computed only from those rays and the expected hash/thickness):
+
+* `material_options`: `opt7` and `opt0` raw rays, `classification` (`MATCH_BOTH`, `RECOVERED_BY_OPT0_SEE_THROUGH_CLASS`, `MISS_BOTH`, ...).
+* `wall_options`: forward/reverse pairs for both options, per-option pair outcome (`CONFIRMED_PAIR`, `ENTITY_SPLIT`, `MATERIAL_MISMATCH`,
+  `THICKNESS_MISMATCH`, `MISS`), `classification`, and bounded (8 hits) advance-past-hit layer tables in both directions. Layer tables are descriptive:
+  a thickness is claimed only for a `CONFIRMED_PAIR`.
+
+`python3 tools/physics-e0/options_report.py <runs.jsonl>` summarizes a run (counts and labels only; `--private` adds per-probe labels). It never reports the
+discrepancy as resolved unless every baseline mismatch was independently recovered by option `0`. This is a shape-test statement, not projectile penetration.

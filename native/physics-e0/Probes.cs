@@ -599,10 +599,12 @@ namespace LSA.WPS.Lab
         {
             public int state;public bool hit;public Rage.Vector3 where,normal;public int material,entity;
         }
-        Ray Trace(Rage.Vector3 a,Rage.Vector3 b,int flags=17,int ignore=0)
+        // options: the native's final argument. 7 is the baseline used by every original E0 sample;
+        // GT4 showed bit value 2 hides see-through-class surfaces, so 0 is the side-by-side comparison.
+        Ray Trace(Rage.Vector3 a,Rage.Vector3 b,int flags=17,int ignore=0,int options=7)
         {
             int ticket=N("START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE",
-                a.X,a.Y,a.Z,b.X,b.Y,b.Z,flags,ignore,7);
+                a.X,a.Y,a.Z,b.X,b.Y,b.Z,flags,ignore,options);
             Require(ticket!=0,"shape_test_no_ticket");
             using(var didHit=new NativePointer(8))
             using(var point=new NativePointer(24))
@@ -617,6 +619,81 @@ namespace LSA.WPS.Lab
         }
         object Describe(Ray r)=>new {state=r.state,hit=r.hit,at=Vec(r.where),normal=Vec(r.normal),
             materialHash=unchecked((uint)r.material),entity=r.entity};
+        static RayObs Obs(Ray r)=>new RayObs(r.hit,unchecked((uint)r.material),r.entity,r.where.X,r.where.Y,r.where.Z);
+        object DescribeOpt(Ray r,int options)=>new {options,state=r.state,hit=r.hit,at=Vec(r.where),normal=Vec(r.normal),
+            materialHash=unchecked((uint)r.material),entity=r.entity};
+        // Advance-past-hit scan from a toward b (read-only). Returns every surface found, in order, with its raw ray.
+        // Layer tables are descriptive only and are never reported as wall thickness.
+        List<Ray> ScanRays(Rage.Vector3 a,Rage.Vector3 b,int options,int maxLayers)
+        {
+            var hits=new List<Ray>();
+            double len=Census.Distance(a.X,a.Y,a.Z,b.X,b.Y,b.Z);
+            if(len<=LayerAnalysis.AdvanceM)return hits;
+            float dx=(float)((b.X-a.X)/len),dy=(float)((b.Y-a.Y)/len),dz=(float)((b.Z-a.Z)/len);
+            var from=a;
+            for(int i=0;i<Math.Min(maxLayers,LayerAnalysis.MaxLayers);i++)
+            {
+                Ray r=Trace(from,b,17,0,options);
+                if(!r.hit)break;
+                hits.Add(r);
+                double d=Census.Distance(a.X,a.Y,a.Z,r.where.X,r.where.Y,r.where.Z);
+                if(d>=len-LayerAnalysis.AdvanceM)break;
+                from=V(r.where.X+dx*(float)LayerAnalysis.AdvanceM,r.where.Y+dy*(float)LayerAnalysis.AdvanceM,
+                    r.where.Z+dz*(float)LayerAnalysis.AdvanceM);
+            }
+            return hits;
+        }
+        static List<LayerObs> LayersOf(Rage.Vector3 a,List<Ray> hits)=>hits.Select(r=>new LayerObs(
+            Census.Distance(a.X,a.Y,a.Z,r.where.X,r.where.Y,r.where.Z),unchecked((uint)r.material),r.entity)).ToList();
+        object RowsOf(Rage.Vector3 a,List<Ray> hits)=>hits.Select((r,i)=>(object)new {i,
+            distanceM=Census.Distance(a.X,a.Y,a.Z,r.where.X,r.where.Y,r.where.Z),materialHash=unchecked((uint)r.material),
+            entity=r.entity,at=Vec(r.where),normal=Vec(r.normal)}).ToList();
+        object LayerTable(Rage.Vector3 a,List<Ray> hits)
+        {
+            var l=LayersOf(a,hits);
+            return new {summary=LayerAnalysis.Describe(l),entityChanges=LayerAnalysis.EntityChanges(l),
+                materialChanges=LayerAnalysis.MaterialChanges(l),count=l.Count,rows=RowsOf(a,hits)};
+        }
+        object MaterialLayers(Sample item)=>LayerTable(V(item.ax,item.ay,item.az),
+            ScanRays(V(item.ax,item.ay,item.az),V(item.bx,item.by,item.bz),OptionsAnalysis.Alternate,4));
+        // Forward+reverse scans of one segment and the entry/exit candidates they imply (game observations only).
+        sealed class SegmentScan
+        {
+            public List<Ray> fwd,rev;public List<LayerObs> fl,rl;public double len;public List<PairCandidate> pairs;
+        }
+        SegmentScan ScanSegment(Rage.Vector3 a,Rage.Vector3 b,int maxLayers)
+        {
+            var ss=new SegmentScan{len=Census.Distance(a.X,a.Y,a.Z,b.X,b.Y,b.Z)};
+            ss.fwd=ScanRays(a,b,OptionsAnalysis.Alternate,maxLayers);ss.rev=ScanRays(b,a,OptionsAnalysis.Alternate,maxLayers);
+            ss.fl=LayersOf(a,ss.fwd);ss.rl=LayersOf(b,ss.rev);ss.pairs=PairSearch.Candidates(ss.fl,ss.rl,ss.len);
+            return ss;
+        }
+        object PairRows(SegmentScan ss)=>ss.pairs.Select(c=>(object)new {forwardLayer=c.Forward,reverseLayer=c.Reverse,
+            separationM=c.SeparationM,entity=ss.fl[c.Forward].Entity,materialHash=ss.fl[c.Forward].Material}).ToList();
+        // Oblique angle-consistency of a UNIQUE normal-incidence candidate pair s0 (read-only, game observations only):
+        // tilted lines through the candidate's entry point must show a same-entity/same-material pair separated by s0/cos(theta).
+        object Oblique(SegmentScan normal,out string corroboration)
+        {
+            var angles=new List<string>();var rows=new List<object>();
+            if(PairSearch.Describe(normal.pairs)!="UNIQUE_PAIR"){corroboration=PairSearch.Corroborate(PairSearch.Describe(normal.pairs),angles);return rows;}
+            var cand=normal.pairs[0];Ray entry=normal.fwd[cand.Forward];
+            foreach(double angle in new[]{20.0,40.0})
+            {
+                double[] s0,e0;
+                try{ObliqueAnalysis.Build(entry.where.X,entry.where.Y,entry.where.Z,entry.normal.X,entry.normal.Y,entry.normal.Z,
+                    angle,1.0,cand.SeparationM,1.5,out s0,out e0);}
+                catch(ArgumentException){angles.Add("NO_NORMAL");rows.Add(new {angleDeg=angle,result="NO_NORMAL"});continue;}
+                var ss=ScanSegment(V((float)s0[0],(float)s0[1],(float)s0[2]),V((float)e0[0],(float)e0[1],(float)e0[2]),6);
+                string result=PairSearch.AngleConsistency(ss.pairs,cand.SeparationM,angle);angles.Add(result);
+                rows.Add(new {angleDeg=angle,expectedPathM=ObliqueAnalysis.ExpectedPath(cand.SeparationM,angle),result,
+                    pairs=PairRows(ss),forwardLayers=LayerAnalysis.Describe(ss.fl),reverseLayers=LayerAnalysis.Describe(ss.rl)});
+            }
+            corroboration=PairSearch.Corroborate(PairSearch.Describe(normal.pairs),angles);
+            return rows;
+        }
+        // Streamed-collision/settling state at the moment of the observation (unchanged gate, recorded for audit).
+        object GateState()=>new {destinationCollisionVerified,destinationCollisionChecks,destinationLoadedMs,
+            destinationStableFrames,positionStatus};
         bool Natives()
         {
             if(step++>0)return true;
@@ -701,6 +778,16 @@ namespace LSA.WPS.Lab
                 joaatName=unchecked((uint)expectedName),joaatIndexed=unchecked((uint)expectedIndex),
                 shape=Describe(r),nameMatches=r.hit&&expectedName==r.material,indexMatches=matches,
                 diagnostic=(!r.hit?"ray_miss":!matches?"material_mismatch":"match")});
+            // Side-by-side option 0 observation in the same frame, after the unchanged baseline note.
+            Ray alt=Trace(V(item0.ax,item0.ay,item0.az),V(item0.bx,item0.by,item0.bz),17,0,OptionsAnalysis.Alternate);
+            Note("material_options",new {sampleIndex,item0.label,item0.expectedMaterial,
+                joaatIndexed=unchecked((uint)expectedIndex),
+                opt7=DescribeOpt(r,OptionsAnalysis.Baseline),opt0=DescribeOpt(alt,OptionsAnalysis.Alternate),
+                classification=OptionsAnalysis.ClassifyMaterial(Obs(r),Obs(alt),unchecked((uint)expectedIndex)),
+                baselineIndexMatches=matches,gate=GateState(),
+                reverseOpt0=DescribeOpt(Trace(V(item0.bx,item0.by,item0.bz),V(item0.ax,item0.ay,item0.az),17,0,OptionsAnalysis.Alternate),OptionsAnalysis.Alternate),
+                layersOpt0=MaterialLayers(item0),
+                note="Raw side-by-side observation; classification is computed only from these rays and the expected hash."});
             if(!matches)ScheduleConfirmation(item0,sampleIndex);
             return sampleIndex>=30&&confirmationSample==null;
         }
@@ -743,6 +830,30 @@ namespace LSA.WPS.Lab
                 diagnostic=(!sameEntity?"different_entities":!bothExpected?"material_mismatch":
                     !withinOneCentimeter?"thickness_mismatch":"match"),
                 forward=Describe(forward),reverse=Describe(reverse),inside=Describe(inside)});
+            // Side-by-side option 0 pair plus bounded advance-past-hit layer scans (read-only).
+            Ray forward0=Trace(a,b,17,0,OptionsAnalysis.Alternate),reverse0=Trace(b,a,17,0,OptionsAnalysis.Alternate);
+            uint expectedU=unchecked((uint)expected);
+            string pair7=OptionsAnalysis.PairOutcome(Obs(forward),Obs(reverse),expectedU,w0.expectedThicknessM);
+            string pair0=OptionsAnalysis.PairOutcome(Obs(forward0),Obs(reverse0),expectedU,w0.expectedThicknessM);
+            bool unchanged=OptionsAnalysis.SameObservation(Obs(forward),Obs(forward0))&&
+                OptionsAnalysis.SameObservation(Obs(reverse),Obs(reverse0))&&forward.entity==forward0.entity&&reverse.entity==reverse0.entity;
+            var seg=ScanSegment(a,b,LayerAnalysis.MaxLayers);
+            string corroboration;var oblique=Oblique(seg,out corroboration);
+            var pairDesc=PairSearch.Describe(seg.pairs);
+            var chosen=seg.pairs.Count==1?seg.pairs[0]:null;
+            double measured0=forward0.hit&&reverse0.hit?Census.Distance(forward0.where.X,forward0.where.Y,forward0.where.Z,
+                reverse0.where.X,reverse0.where.Y,reverse0.where.Z):-1;
+            Note("wall_options",new {sampleIndex,w0.label,w0.expectedThicknessM,expectedMaterial=w0.expectedMaterial,
+                opt7=new {pair=pair7,measuredM=measured,forward=DescribeOpt(forward,OptionsAnalysis.Baseline),reverse=DescribeOpt(reverse,OptionsAnalysis.Baseline)},
+                opt0=new {pair=pair0,measuredM=measured0,forward=DescribeOpt(forward0,OptionsAnalysis.Alternate),reverse=DescribeOpt(reverse0,OptionsAnalysis.Alternate)},
+                classification=OptionsAnalysis.ClassifyWall(pair7,pair0,unchanged),
+                layersForward=LayerTable(a,seg.fwd),layersReverse=LayerTable(b,seg.rev),
+                pairSearch=new {summary=pairDesc,candidates=PairRows(seg),
+                    uniqueMatchesGroundTruth=chosen!=null&&PairSearch.MatchesExpected(chosen,w0.expectedThicknessM),
+                    corroboration,oblique},
+                baselineDiagnostic=(!sameEntity?"different_entities":!bothExpected?"material_mismatch":!withinOneCentimeter?"thickness_mismatch":"match"),
+                gate=GateState(),
+                note="Layer tables are descriptive; a thickness is claimed only for CORROBORATED_THICKNESS (unique same-entity/same-material pair that is angle-consistent). Ground truth is compared afterwards and never used to find the pair."});
             if(!sameEntity||!bothExpected||!withinOneCentimeter)
                 ScheduleConfirmation(w0,sampleIndex);
             return sampleIndex>=10&&confirmationSample==null;

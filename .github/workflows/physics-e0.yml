@@ -57,3 +57,5 @@ jobs:
         run: python3 -m py_compile native/physics-e0/asset-research/convert_codewalker_candidates.py
       - name: Remote navigation streaming regression
         run: python3 tools/physics-e0/tests/navigation-source.tests.py
+      - name: Shape-test options report self-test
+        run: python3 tools/physics-e0/options_report.py --self-test
