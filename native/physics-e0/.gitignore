@@ -1,0 +1,19 @@
+# Never commit Rockstar assets or private CodeWalker extracts to the public repository.
+LSA.WPS.Lab.samples.json
+*.provenance.json
+asset-research/private/
+asset-research/staging/
+asset-research/assets/
+asset-research/xml/
+asset-research/manifest.json
+asset-research/candidates.json
+asset-research/offline-ray-verification.json
+asset-research/package-inventory.json
+*.ybn
+*.ymap
+*.ytyp
+*.ymf
+*.rpf
+*.zip
+*.jsonl
+*.suite.json
