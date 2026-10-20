@@ -1,0 +1,58 @@
+name: AGM E0 isolated native census
+on:
+  push:
+    branches:
+      - experiment/agm-e0-native-capability-census
+    paths:
+      - 'native/agm-e0/**'
+      - 'tools/agm-e0/**'
+      - 'tools/native-sdk/compileAgmE0.mjs'
+      - '.github/workflows/agm-e0-native-census.yml'
+  pull_request:
+    branches:
+      - research/astra-002-ai-game-master-20261019
+    paths:
+      - 'native/agm-e0/**'
+      - 'tools/agm-e0/**'
+      - 'tools/native-sdk/compileAgmE0.mjs'
+      - '.github/workflows/agm-e0-native-census.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  analyzer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Offline diagnostic analyzer regression
+        run: node --test tools/agm-e0/tests/*.test.mjs
+  native-policy:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Pure lease and exclusion policy tests without fake SDK
+        run: dotnet run --project native/agm-e0/policy-tests/PolicyTests.csproj -c Release
+  genuine-native-sdk:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile real plugin and Essential bridge with pinned genuine SDK
+        run: node tools/native-sdk/compileAgmE0.mjs
+      - name: Upload lab-only DLLs and build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: AGM-E0-lab-genuine-RPH
+          path: native/agm-e0/artifacts/*
+          retention-days: 7
