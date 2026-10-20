@@ -63,6 +63,7 @@ namespace LSA.WPS.Lab
         int navQueries, navMisses, navRejected;
         string lastNavigationStatus="not_started";
         int phantomEntityHandle;long deletedAtMs,phantomFirstClearMs=-1;
+        bool phantomReappeared;int phantomSeenOpt7Frames,phantomSeenOpt0Frames,phantomClearFrames;
         Sample confirmationSample;
         long confirmationAt;
         int confirmationOrdinal;
@@ -645,7 +646,8 @@ namespace LSA.WPS.Lab
             return hits;
         }
         static List<LayerObs> LayersOf(Rage.Vector3 a,List<Ray> hits)=>hits.Select(r=>new LayerObs(
-            Census.Distance(a.X,a.Y,a.Z,r.where.X,r.where.Y,r.where.Z),unchecked((uint)r.material),r.entity)).ToList();
+            Census.Distance(a.X,a.Y,a.Z,r.where.X,r.where.Y,r.where.Z),unchecked((uint)r.material),r.entity,
+            r.normal.X,r.normal.Y,r.normal.Z)).ToList();
         object RowsOf(Rage.Vector3 a,List<Ray> hits)=>hits.Select((r,i)=>(object)new {i,
             distanceM=Census.Distance(a.X,a.Y,a.Z,r.where.X,r.where.Y,r.where.Z),materialHash=unchecked((uint)r.material),
             entity=r.entity,at=Vec(r.where),normal=Vec(r.normal)}).ToList();
@@ -685,7 +687,7 @@ namespace LSA.WPS.Lab
                     angle,1.0,cand.SeparationM,1.5,out s0,out e0);}
                 catch(ArgumentException){angles.Add("NO_NORMAL");rows.Add(new {angleDeg=angle,result="NO_NORMAL"});continue;}
                 var ss=ScanSegment(V((float)s0[0],(float)s0[1],(float)s0[2]),V((float)e0[0],(float)e0[1],(float)e0[2]),6);
-                string result=PairSearch.AngleConsistency(ss.pairs,cand.SeparationM,angle);angles.Add(result);
+                string result=PairSearch.AngleConsistency(ss.pairs,cand.SeparationM,angle,cand);angles.Add(result);
                 rows.Add(new {angleDeg=angle,expectedPathM=ObliqueAnalysis.ExpectedPath(cand.SeparationM,angle),result,
                     pairs=PairRows(ss),forwardLayers=LayerAnalysis.Describe(ss.fl),reverseLayers=LayerAnalysis.Describe(ss.rl)});
             }
@@ -959,9 +961,14 @@ namespace LSA.WPS.Lab
             }
             if(step==2) {
                 Ray after=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z));
+                Ray after0=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z),17,0,OptionsAnalysis.Alternate);
+                Require(PhantomCollision.DeletedEntityVisible(after.hit,after.entity,collisionObject)&&
+                    PhantomCollision.DeletedEntityVisible(after0.hit,after0.entity,collisionObject),
+                    "e05_center_prop_not_visible_to_both_options");
                 bool actorLos=B("HAS_ENTITY_CLEAR_LOS_TO_ENTITY",losPedA,losPedB,17);
-                Note("prop_collision",new {ray=Describe(after),actorLos});
-                phantomEntityHandle=collisionObject;phantomFirstClearMs=-1;
+                Note("prop_collision",new {ray=Describe(after),rayOpt0=Describe(after0),actorLos});
+                phantomEntityHandle=collisionObject;phantomFirstClearMs=-1;phantomReappeared=false;
+                phantomSeenOpt7Frames=phantomSeenOpt0Frames=phantomClearFrames=0;
                 DeleteOwned(collisionObject);deletedAtMs=RealMs();
                 Note("deleted",new {frame,center=collisionObject});
                 step=3;objectIndex=frame;return false;
@@ -973,16 +980,27 @@ namespace LSA.WPS.Lab
                 Ray r0=Trace(V(cfg.x-4,cfg.y,cfg.z),V(cfg.x+4,cfg.y,cfg.z),17,0,OptionsAnalysis.Alternate);
                 bool actorLos=B("HAS_ENTITY_CLEAR_LOS_TO_ENTITY",losPedA,losPedB,17);
                 long sinceDeleteMs=RealMs()-deletedAtMs;
-                bool phantom=r.hit&&r.entity==phantomEntityHandle;
-                if(phantomFirstClearMs<0&&!r.hit&&!r0.hit)phantomFirstClearMs=sinceDeleteMs;
+                bool seen7=PhantomCollision.DeletedEntityVisible(r.hit,r.entity,phantomEntityHandle);
+                bool seen0=PhantomCollision.DeletedEntityVisible(r0.hit,r0.entity,phantomEntityHandle);
+                if(seen7)phantomSeenOpt7Frames++;
+                if(seen0)phantomSeenOpt0Frames++;
+                bool phantom=seen7||seen0;
+                if(phantom&&phantomFirstClearMs>=0)phantomReappeared=true;
+                if(!phantom)
+                {
+                    phantomClearFrames++;
+                    if(phantomFirstClearMs<0)phantomFirstClearMs=sinceDeleteMs;
+                }
                 Note("collision_after_delete",new {frames=elapsed,ms=RealMs()-began,sinceDeleteMs,
-                    ray=Describe(r),rayOpt0=Describe(r0),actorLos,deletedEntitySeen=phantom});
+                    ray=Describe(r),rayOpt0=Describe(r0),actorLos,deletedEntitySeen=phantom,
+                    deletedEntitySeenOpt7=seen7,deletedEntitySeenOpt0=seen0,
+                    anyOtherHit=(r.hit&&!seen7)||(r0.hit&&!seen0)});
             }
             if(elapsed>=PhantomCollision.MaxFrames)
                 Note("phantom_collision_summary",new {firstClearMs=phantomFirstClearMs,framesObserved=Math.Min(elapsed,PhantomCollision.MaxFrames),
-                    thresholdMs=PhantomCollision.ThresholdMs,
-                    classification=PhantomCollision.Classify(phantomFirstClearMs,Math.Min(elapsed,PhantomCollision.MaxFrames)),
-                    note="Shape-test visibility only; says nothing about bullets or actor movement."});
+                    thresholdMs=PhantomCollision.ThresholdMs,phantomReappeared,phantomSeenOpt7Frames,phantomSeenOpt0Frames,phantomClearFrames,
+                    classification=PhantomCollision.Classify(phantomFirstClearMs,Math.Min(elapsed,PhantomCollision.MaxFrames),phantomReappeared),
+                    note="Only the deleted entity's visibility is measured; other hits and actor LOS are separately recorded."});
             return elapsed>=PhantomCollision.MaxFrames;
         }
         void DeleteOwned(int handle)
