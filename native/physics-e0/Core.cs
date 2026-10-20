@@ -235,7 +235,9 @@ namespace LSA.WPS.Lab
     public struct LayerObs
     {
         public double DistanceM; public uint Material; public int Entity;
-        public LayerObs(double d,uint m,int e){DistanceM=d;Material=m;Entity=e;}
+        public double NX,NY,NZ;
+        public LayerObs(double d,uint m,int e,double nx=0,double ny=0,double nz=0)
+        {DistanceM=d;Material=m;Entity=e;NX=nx;NY=ny;NZ=nz;}
     }
     public static class LayerAnalysis
     {
@@ -288,6 +290,8 @@ namespace LSA.WPS.Lab
     public sealed class PairCandidate
     {
         public int Forward {get;set;} public int Reverse {get;set;} public double SeparationM {get;set;}
+        public int Entity {get;set;} public uint Material {get;set;}
+        public double[] EntryNormal {get;set;} public double[] ExitNormal {get;set;}
     }
     public static class PairSearch
     {
@@ -301,20 +305,43 @@ namespace LSA.WPS.Lab
                 if(fwd[i].Entity!=rev[j].Entity||fwd[i].Material!=rev[j].Material)continue;
                 double sep=segLen-fwd[i].DistanceM-rev[j].DistanceM;
                 if(sep<MinSeparationM||sep>MaxSeparationM)continue;
-                list.Add(new PairCandidate{Forward=i,Reverse=j,SeparationM=sep});
+                list.Add(new PairCandidate{Forward=i,Reverse=j,SeparationM=sep,
+                    Entity=fwd[i].Entity,Material=fwd[i].Material,
+                    EntryNormal=new[]{fwd[i].NX,fwd[i].NY,fwd[i].NZ},
+                    ExitNormal=new[]{rev[j].NX,rev[j].NY,rev[j].NZ}});
             }
             return list;
         }
         public static string Describe(IList<PairCandidate> c)=>c==null||c.Count==0?"NO_PAIR":c.Count==1?"UNIQUE_PAIR":"AMBIGUOUS_PAIRS";
         public static bool MatchesExpected(PairCandidate c,double expectedM)=>
             c!=null&&Math.Abs(c.SeparationM-expectedM)<=OptionsAnalysis.ThicknessToleranceM;
-        // Angle consistency of a normal-incidence candidate separation s0 at tilt angleDeg: some same-entity/same-material pair
-        // must be separated by s0/cos(angle). Nearby unrelated objects do not satisfy this at every angle.
-        public static string AngleConsistency(IList<PairCandidate> atAngle,double s0,double angleDeg)
+        // Require the very same wall identity and matching opposed face normals at every angle;
+        // a coincidentally equal-length pair from another surface is not corroboration.
+        static double UnitDot(double[] a,double[] b)
+        {
+            if(a==null||b==null||a.Length!=3||b.Length!=3)return double.NaN;
+            double al=Math.Sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]);
+            double bl=Math.Sqrt(b[0]*b[0]+b[1]*b[1]+b[2]*b[2]);
+            if(al<1e-6||bl<1e-6)return double.NaN;
+            return (a[0]*b[0]+a[1]*b[1]+a[2]*b[2])/(al*bl);
+        }
+        public static bool FacesConsistent(PairCandidate candidate,PairCandidate normal)
+        {
+            return candidate!=null&&normal!=null&&
+                UnitDot(normal.EntryNormal,normal.ExitNormal)<-0.7&&
+                UnitDot(candidate.EntryNormal,candidate.ExitNormal)<-0.7&&
+                UnitDot(normal.EntryNormal,candidate.EntryNormal)>0.7&&
+                UnitDot(normal.ExitNormal,candidate.ExitNormal)>0.7;
+        }
+        public static string AngleConsistency(IList<PairCandidate> atAngle,double s0,double angleDeg,PairCandidate normal)
         {
             if(atAngle==null||atAngle.Count==0)return "NO_PAIR";
+            if(normal==null)return "NO_CONSISTENT_PAIR";
             double want=ObliqueAnalysis.ExpectedPath(s0,angleDeg);
-            foreach(var c in atAngle)if(Math.Abs(c.SeparationM-want)<=ObliqueAnalysis.ToleranceM)return "ANGLE_CONSISTENT";
+            foreach(var c in atAngle)
+                if(c.Entity==normal.Entity&&c.Material==normal.Material&&
+                    FacesConsistent(c,normal)&&Math.Abs(c.SeparationM-want)<=ObliqueAnalysis.ToleranceM)
+                    return "ANGLE_CONSISTENT";
             return "NO_CONSISTENT_PAIR";
         }
         // CORROBORATED only when the normal-incidence pair is unique and every tested angle is consistent.
@@ -366,10 +393,13 @@ namespace LSA.WPS.Lab
     {
         public const long ThresholdMs=100;
         public const int MaxFrames=30, LabProps=3, LabPeds=2;
-        public static string Classify(long firstClearMs,int framesObserved)
+        public static bool DeletedEntityVisible(bool hit,int entity,int deletedEntity)=>
+            deletedEntity>0&&hit&&entity==deletedEntity;
+        public static string Classify(long firstClearMs,int framesObserved,bool reappeared)
         {
             if(framesObserved<MaxFrames)return "INCOMPLETE";
             if(firstClearMs<0)return "PERSISTENT_PHANTOM_DELETED_ENTITIES_UNSOUND";
+            if(reappeared)return "PHANTOM_REAPPEARED_DELETED_ENTITIES_UNSOUND";
             return firstClearMs<=ThresholdMs?"CLEAR_WITHIN_THRESHOLD":"PHANTOM_OVER_THRESHOLD_DELETED_ENTITIES_MAY_BE_UNSOUND";
         }
         // Bounded lab: the experiment may only create these counts, within the configured small radius of the site.
