@@ -6,6 +6,8 @@ No placeholder binaries; conversion and gameplay proof are separate hard gates.
 from __future__ import annotations
 import argparse, json, shutil, sys, xml.etree.ElementTree as ET
 from pathlib import Path
+# Blender's --python does not add the script directory to sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from spec import a_variants, b_variants, manifest, seam_z, W, H, SHEET_H
 
 HERE=Path(__file__).resolve().parent

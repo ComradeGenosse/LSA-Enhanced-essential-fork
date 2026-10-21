@@ -1,0 +1,81 @@
+{
+    "models":  [
+                   {
+                       "bones":  31,
+                       "sha256":  "CD412F20D25213903BABF3DACD1A19AB8A4A490D08F27BB0359F06798E32E3FC",
+                       "name":  "lsa_x7a_ctl",
+                       "version":  171
+                   },
+                   {
+                       "bones":  31,
+                       "sha256":  "0D8A3364E229DE281D9549A0C45CCA03ECB9C5C0B67C704F2E26AEC8B9BD291B",
+                       "name":  "lsa_x7a_sx",
+                       "version":  171
+                   },
+                   {
+                       "bones":  31,
+                       "sha256":  "DD0EF02EC37104BA4546EF1F7C6E0094F044203233B7908452B36C285BE6D122",
+                       "name":  "lsa_x7a_hx",
+                       "version":  171
+                   },
+                   {
+                       "bones":  31,
+                       "sha256":  "0E6AF58101C41F3AD22657AF4FB3BAF7CAEA9FD5DCAA9322EF9E374EE478A01F",
+                       "name":  "lsa_x7a_j300",
+                       "version":  171
+                   },
+                   {
+                       "bones":  31,
+                       "sha256":  "51DB6F1F39B6ECAA977299D3074816129E18D27360B401090BB40D1CDB1023E4",
+                       "name":  "lsa_x7a_j550",
+                       "version":  171
+                   },
+                   {
+                       "bones":  31,
+                       "sha256":  "0DE2C90AE8271484C9C273DDD81E7B37460BE98DD5A0E69D8A94F297D69E46B4",
+                       "name":  "lsa_x7a_j1000",
+                       "version":  171
+                   },
+                   {
+                       "bones":  31,
+                       "sha256":  "E93FD508E2EF29774B61880D31FA0AEBA145DBBCDD5D08A3C535F9DE35DEB07C",
+                       "name":  "lsa_x7a_j1800",
+                       "version":  171
+                   },
+                   {
+                       "bones":  31,
+                       "sha256":  "C0FCD183C419876BDF143DEAD443259024252F1E69A341FDE1ACEF88516BD4F2",
+                       "name":  "lsa_x7a_j3200",
+                       "version":  171
+                   },
+                   {
+                       "bones":  31,
+                       "sha256":  "2F7508D2FF83B0D0047797AD1064A626756A40286B3EEFDD6493F899909C43DE",
+                       "name":  "lsa_x7a_j5600",
+                       "version":  171
+                   },
+                   {
+                       "bones":  31,
+                       "sha256":  "5A2F3849345FEFAD257CF856C5D4FC4CFFCD858E3A0326D0F408BA8A024CCA64",
+                       "name":  "lsa_x7a_j10000",
+                       "version":  171
+                   },
+                   {
+                       "bones":  31,
+                       "sha256":  "EFF2D6FE04396095D19346FEC5A524A5CD41F9EDD92E03DB70A714672B0BA235",
+                       "name":  "lsa_x7a_j1000f",
+                       "version":  171
+                   },
+                   {
+                       "bones":  31,
+                       "sha256":  "F037C1DD3B051DE22658C7F37B417F0D95051C68CB3B4D209A65055151AC993E",
+                       "name":  "lsa_x7a_j3200f",
+                       "version":  171
+                   }
+               ],
+    "ytypSha256":  "E5F6A3145AF0A2EC4EC9FA1DFF244CDB7BAFEC49FD98636ADCD18CAD59442C9D",
+    "source":  "actual Windows conversion; GTA runtime acceptance still pending",
+    "archetypes":  12,
+    "writer":  "CodeWalker dev48: XmlYft EnsureGen9 and XmlMeta.GetRSCData",
+    "ytyp":  "lsa_x7a"
+}

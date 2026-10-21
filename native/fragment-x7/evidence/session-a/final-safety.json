@@ -1,0 +1,39 @@
+{
+  "gpuCap": "NVIDIA GeForce RTX 5090, 460.00 W",
+  "allPreinstallStatesMatch": true,
+  "paths": [
+    {
+      "after": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+      "relative": "ScriptHookVDotNet.ini",
+      "before": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+      "match": true
+    },
+    {
+      "after": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234",
+      "relative": "onigiri/common/data/dlclist.xml",
+      "before": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234",
+      "match": true
+    },
+    {
+      "after": null,
+      "relative": "onigiri/dlcpacks/lsa_fence_x7a/dlc.rpf",
+      "before": null,
+      "match": true
+    },
+    {
+      "after": null,
+      "relative": "scripts-x7/WpsBreachLabX7.3.cs",
+      "before": null,
+      "match": true
+    },
+    {
+      "after": null,
+      "relative": "scripts-x7/x7-models.txt",
+      "before": null,
+      "match": true
+    }
+  ],
+  "verifiedUtc": "2026-10-21T23:57:57.1640716Z",
+  "gtaAndRphStopped": true,
+  "host": "COMRADE"
+}

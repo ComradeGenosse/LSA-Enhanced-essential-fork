@@ -1,0 +1,10 @@
+{
+  "scope": "cloud source-only unless real exports present",
+  "models": 12,
+  "driver_sha256": "1d5b7f5954de252c809fad927dbe9ef41dbf0f8eeda5b87e4216a51f39ad209c",
+  "native_commit_asserted": true,
+  "no_scripted_shot_detach_or_blast": true,
+  "x2_to_x6_modified_by_x7": false,
+  "real_exports_validated": true,
+  "geometry_fingerprint": "a2c787ed4b61cdf1df732b866bc3b51b8ebcb918a843b69297a117e458c111a1"
+}

@@ -1,8 +1,20 @@
 # ASTRA-001 X7 — localized native fence fracture
 
-**Experimental cloud-coded X7. Not GTA-verified. Draft PR #296; base X6 `b647b29`.**
+**Experimental X7: Windows build verified; Session A stopped on invalid restoration. Draft PR #296; base X6 `b647b29`. Milestone NOT accepted.**
 Research authority: [doc 16, §§6–8 and 12](../../docs/next-gen-gameplay/astra-001/16-X7-LOCALIZED-FRACTURE-RESEARCH-20261021.md).
 Offline Story Mode ONLY. Do not merge into the production mod based on cloud checks.
+
+## Windows result — October 21, 2026
+
+All 12 predefined X7a variants were exported with Blender 5.2.2/Sollumz, converted and reloaded with CodeWalker dev48 as GEN9 v171 / 31 bones, packaged, strict-validated, and tested on desktop **COMRADE / RTX 5090**. Geometry/collision buffer fingerprints match frozen X6. The driver compiled against installed SHVDN Enhanced 3.9 and loaded with SHA256 `1d5b7f5954de252c809fad927dbe9ef41dbf0f8eeda5b87e4216a51f39ad209c`. No runtime driver or X2–X6 source changes were made.
+
+**Session A: FAIL / stopped after six shots**, 19:49–19:53 America/New_York. `ctl` detached 30/30 (WHOLE); `sx` 0; `hx`, `j1000`, and `j1000f` each detached 5/30. `j1000@P0` measured 1.17 m² removed, 77.71% blocking, centroid error 0.2134 m: **T*=1000 is a P0 candidate only**. At P2 the projectile exploded while still 5.749 m short of the target plane; no commit or twin mask occurred. The original then restored only **6/9**, triggering the required invalid-control stop. Obstruction identity is unproven. P3/P1/traversal/position IoU were not tested; no extra shots or threshold tuning followed. **Session B: NOT RUN**, because A did not pass.
+
+All five committed swaps preceded impact by 3 frames, commit calls were 0.062–0.086 ms, and reported near-event frame maxima were 10.347–11.357 ms. Zero fallback blasts; no scripted fracture/deletion to open a hole; no crash observed. The lower mask row was already clear in `sx` despite zero detached pieces (0.25 m²), so absolute removed area has an unresolved baseline/sampling bias. No correction was silently applied. Fire obscures parts of the screenshots. These limits prohibit a milestone claim.
+
+GTA was stopped with X6's inherited shutdown tool. **All five install paths hash/existence-verified restored** (INI, dlclist, DLC, driver, allowlist). This successful filesystem rollback is separate from P2's failed in-world collision restoration. Afterburner preset 1 was applied before Blender/GTA (460 W = 80% of 575 W); the single post-load F6 press was confirmed OFF in RenoDX at 19:49:07.544.
+
+See [full result and blockers](evidence/session-a/RESULTS.md), [measurements/masks](evidence/session-a-analysis/summary.md), [actual collected logs](evidence/session-a/logs/), [screenshots](evidence/session-a/screenshots/), [restoration receipt](evidence/session-a/install-restored.json), and [recovered candidate1/installed explosion numbers](evidence/x7-0-forensics.json). Tooling fixes cover Blender's script import path, actual Sollumz buffer tags, conversion/pack receipt hashes, and analysis of timing/restoration across command files. The frozen driver and physics matrix remain unchanged.
 
 ## Current state and non-claims
 
@@ -11,12 +23,12 @@ Offline Story Mode ONLY. Do not merge into the production mod based on cloud che
 | X6 predictor, dormant twin, one-tick commit, physical anchor, reacquisition, owned cleanup, restore | X6 proven; X7 preserved by asserted transformation | `build_x7.py`, `validate_x7.py`, prior X6 acceptance |
 | X7a frozen 12-model physics matrix and source geometry | Implemented; CI/source checks | `spec.py`, `test_spec.py`, `build_fence_x7.py` |
 | X7b torn36 layout, shared serrated seams, physical box collision | Implemented authoring source; not exported or shown in GTA | `spec.py`, `build_fence_x7.py`, `validate_x7b.py` |
-| X7 driver: select from installed pack, position-controlled RPG and dense collision/periphery masks | Built deterministically, source checked; NOT compiled or GTA-run in cloud | `WpsBreachLabX7.3.cs`, `build_x7.py` |
+| X7 driver: select from installed pack, position-controlled RPG and dense collision/periphery masks | Compiled and GTA-run on Windows; P2 early impact failed predictive/restore control | `evidence/session-a/` |
 | X7 analyzer, classifications, threshold and fallback decisions, A/B gates | Implemented, synthetic *unit tests only* | `analyze_x7.py`, `test_analysis.py` |
-| Blender/Sollumz exports, CodeWalker GEN9 YFT/YTYP conversion, DLC installation | Scripts written, **execution pending Windows agent** | `convert_xml_x7.ps1`, `build_pack_x7.ps1`, `test-install-x7.ps1` |
-| Native LOCAL hole / X7a gate / visual X7b acceptance | **UNTESTED** | Real Session A/B JSONL, screenshots and restore receipts REQUIRED |
+| Blender/Sollumz exports, CodeWalker GEN9 YFT/YTYP conversion, DLC installation | All 12 X7a variants built/strict-validated/deployed/restored | `evidence/session-a/conversion-receipt.json`, `pack-receipt.json`, `install-restored.json` |
+| Native LOCAL hole / X7a gate / visual X7b acceptance | P0 LOCAL candidate observed; **A failed; B not run; milestone not accepted** | `evidence/session-a-analysis/summary.json` |
 
-Neither physics threshold T* nor acceptance was guessed. No committed fake YFT binaries, DLCs, generated gameplay logs, or stock/vanilla Rockstar assets.
+Neither physics threshold T* nor acceptance was guessed. Only actual collected gameplay logs are committed as evidence; no fabricated binary or runtime evidence, or stock/vanilla Rockstar assets.
 
 ## Frozen X7a model list
 
@@ -60,7 +72,7 @@ From repository root, with PowerShell:
 
 ```powershell
 python native/fragment-x7/build_x7.py
-blender.exe -b --python native/fragment-x7/build_fence_x7.py -- --layout grid6x5
+blender.exe -b --python-exit-code 1 --python native/fragment-x7/build_fence_x7.py -- --layout grid6x5
 powershell -NoProfile -File native/fragment-x7/convert_xml_x7.ps1 -CodeWalker "C:\Path\To\CodeWalker30_dev48"
 powershell -NoProfile -File native/fragment-x7/build_pack_x7.ps1 -CodeWalker "C:\Path\To\CodeWalker30_dev48"
 python native/fragment-x7/validate_x7.py --require-exports

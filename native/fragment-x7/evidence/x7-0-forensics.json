@@ -1,14 +1,114 @@
 {
+  "groups": 31,
+  "sheet": {
+    "minDamage": "100",
+    "down": "0.25",
+    "strength": "500",
+    "up": "0.25",
+    "health": "100"
+  },
+  "root": {
+    "minDamage": "10000000",
+    "strength": "10000000",
+    "health": "10000000"
+  },
+  "source": "X6 previous DLC preserved locally",
+  "packSha256": "F7AAF091D367D915EF6657950EB784821AB714DF6D4994153E32163BDCCC7E02",
   "phase": "X7-0",
-  "status": "pending_local_windows_forensics",
-  "source": "ASTRA doc 16 section 7",
-  "cloud_scope": "Remote committed repository only. No installed game data, ignored backup DLC or Blender .blend1 available.",
-  "candidate1_recovered": false,
-  "candidate1_strength": null,
-  "candidate1_min_damage_force": null,
-  "candidate1_damage_health": null,
-  "candidate1_force_transmission": null,
-  "installed_explosion_meta_recovered": false,
-  "explosion_entries": null,
-  "note": "Do not replace null values with public explosion.meta guesses. Windows agent to populate observed values read-only; do not commit proprietary game data."
+  "status": "actual_windows_forensics",
+  "candidate1_recovered": true,
+  "installed_explosion_meta_recovered": true,
+  "explosion_entries": [
+    {
+      "source": "x64a.rpf\\data\\metadata\\explosion.ymt",
+      "name": "EXP_TAG_GRENADE",
+      "forceFactor": "60",
+      "fragDamage": "1500",
+      "initSpeed": "25",
+      "endRadius": "5",
+      "decayFactor": "-1"
+    },
+    {
+      "source": "x64a.rpf\\data\\metadata\\explosion.ymt",
+      "name": "EXP_TAG_GRENADELAUNCHER",
+      "forceFactor": "60",
+      "fragDamage": "1500",
+      "initSpeed": "25",
+      "endRadius": "5",
+      "decayFactor": "-1"
+    },
+    {
+      "source": "x64a.rpf\\data\\metadata\\explosion.ymt",
+      "name": "EXP_TAG_STICKYBOMB",
+      "forceFactor": "80",
+      "fragDamage": "1500",
+      "initSpeed": "25",
+      "endRadius": "5",
+      "decayFactor": "-1"
+    },
+    {
+      "source": "x64a.rpf\\data\\metadata\\explosion.ymt",
+      "name": "EXP_TAG_ROCKET",
+      "forceFactor": "80",
+      "fragDamage": "1500",
+      "initSpeed": "25",
+      "endRadius": "5",
+      "decayFactor": "-1"
+    },
+    {
+      "source": "x64a.rpf\\data\\metadata\\explosion.ymt",
+      "name": "EXP_TAG_TANKSHELL",
+      "forceFactor": "100",
+      "fragDamage": "1500",
+      "initSpeed": "50",
+      "endRadius": "5",
+      "decayFactor": "-1"
+    },
+    {
+      "source": "update\\update.rpf\\x64\\data\\metadata\\explosion.ymt",
+      "name": "EXP_TAG_GRENADE",
+      "forceFactor": "60",
+      "fragDamage": "1500",
+      "initSpeed": "25",
+      "endRadius": "5",
+      "decayFactor": "-1"
+    },
+    {
+      "source": "update\\update.rpf\\x64\\data\\metadata\\explosion.ymt",
+      "name": "EXP_TAG_GRENADELAUNCHER",
+      "forceFactor": "60",
+      "fragDamage": "1500",
+      "initSpeed": "25",
+      "endRadius": "5",
+      "decayFactor": "-1"
+    },
+    {
+      "source": "update\\update.rpf\\x64\\data\\metadata\\explosion.ymt",
+      "name": "EXP_TAG_STICKYBOMB",
+      "forceFactor": "80",
+      "fragDamage": "1500",
+      "initSpeed": "25",
+      "endRadius": "5",
+      "decayFactor": "-1"
+    },
+    {
+      "source": "update\\update.rpf\\x64\\data\\metadata\\explosion.ymt",
+      "name": "EXP_TAG_ROCKET",
+      "forceFactor": "80",
+      "fragDamage": "1500",
+      "initSpeed": "25",
+      "endRadius": "5",
+      "decayFactor": "-1"
+    },
+    {
+      "source": "update\\update.rpf\\x64\\data\\metadata\\explosion.ymt",
+      "name": "EXP_TAG_TANKSHELL",
+      "forceFactor": "100",
+      "fragDamage": "1500",
+      "initSpeed": "50",
+      "endRadius": "5",
+      "decayFactor": "-1"
+    }
+  ],
+  "note": "Previous preserved X6 candidate pack read only. Base and update explosion.ymt values agree; no proprietary XML/assets published. Onigiri metadata overrides were not independently resolved."
 }

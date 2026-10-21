@@ -71,35 +71,44 @@ def decode(result,row):
             "late":result.get("late",False),"committed":result.get("committed",False)}
 
 def iou(a,b):
+    if not a.get("mask") or not b.get("mask"): return None
     if (a["nu"],a["nv"],a["pitch"],a["u0"],a["v0"])!=(b["nu"],b["nv"],b["pitch"],b["u0"],b["v0"]): return None
     sa={i for i,c in enumerate(a["mask"]) if c!="1"}
     sb={i for i,c in enumerate(b["mask"]) if c!="1"}
     return round(len(sa&sb)/len(sa|sb),4) if sa|sb else 1.0
 
 def load(paths):
-    shots=[]
-    for path in paths:
-        rows=[json.loads(line) for line in Path(path).read_text(encoding="utf-8-sig").splitlines() if line.strip()]
-        results=[(i,row) for i,row in enumerate(rows) if row.get("kind")=="x7_result"]
-        for k,(i,rr) in enumerate(results):
-            tail=results[k+1][0] if k+1<len(results) else len(rows)
-            subset=rows[i:tail]
-            masks=[row for row in subset if row.get("kind")=="x7_mask" and row.get("label")==rr.get("label")]
-            if not masks:
-                shots.append({"label":rr.get("label"),"model":rr.get("model"),"error":"missing_x7_mask","source":str(path)})
-                continue
-            value=decode(rr,masks[-1]);value["source"]=str(path)
-            frame=next((v for v in subset if v.get("kind")=="x7_frames"),{})
-            value["windowMaxMs"]=frame.get("windowMaxMs")
-            walk=next((v for v in subset if v.get("kind")=="x7_player_result"),{})
-            value["walk"]={"crossed":walk.get("crossed"),"outsideFootprint":walk.get("outsideFootprint"),
-                           "maxRise":walk.get("maxRise")} if walk else None
-            restored=next((v for v in subset if v.get("kind")=="x7_restored"),{})
-            value["restore"]={"originalBlocked":restored.get("originalBlocked"),
-                              "restoredToOriginal":restored.get("restoredToOriginal")} if restored else None
-            band=next((v for v in subset if v.get("kind")=="x7_frame_bands"),{})
-            value["frameBands"]={k:band.get(k) for k in ("postBlocked","postTotal","topBlocked","bottomBlocked","bandTotal")} if band else None
-            shots.append(value)
+    shots=[]; rows=[]; sources=[]
+    # Commands have separate run IDs/files. Preserve chronological command order
+    # so each shot can consume its following walk/restore receipts.
+    for path in sorted(paths, key=lambda value: Path(value).name):
+        batch=[json.loads(line) for line in Path(path).read_text(encoding="utf-8-sig").splitlines() if line.strip()]
+        rows.extend(batch); sources.extend([Path(path).name]*len(batch))
+    results=[(i,row) for i,row in enumerate(rows) if row.get("kind")=="x7_result"]
+    for k,(i,rr) in enumerate(results):
+        tail=results[k+1][0] if k+1<len(results) else len(rows)
+        begin=max((n for n in range(i) if rows[n].get("kind")=="x7_shot_begin"),default=i)
+        subset=rows[begin:tail]
+        masks=[row for row in subset if row.get("kind")=="x7_mask" and row.get("label")==rr.get("label")]
+        if not masks:
+            # A missed swap has no mask; preserve its failed control and timing
+            # rather than dropping the very evidence that explains the failure.
+            value={key:rr.get(key) for key in ("label","model","aimU","aimV","nativeParts","committed","late","fallbackUsed")}
+            value.update(error="missing_x7_mask",commitEarlyFrames=rr.get("framesCommitToExplosion"),commitMs=rr.get("commitCallMs"))
+        else:
+            value=decode(rr,masks[-1])
+        value["source"]=sources[i]
+        frame=next((v for v in subset if v.get("kind")=="x7_frames"),{})
+        value["windowMaxMs"]=frame.get("windowMaxMs")
+        walk=next((v for v in subset if v.get("kind")=="x7_player_result"),{})
+        value["walk"]={"crossed":walk.get("crossed"),"outsideFootprint":walk.get("outsideFootprint"),
+                       "maxRise":walk.get("maxRise")} if walk else None
+        restored=next((v for v in subset if v.get("kind")=="x7_restored"),{})
+        value["restore"]={"originalBlocked":restored.get("originalBlocked"),
+                          "restoredToOriginal":restored.get("restoredToOriginal")} if restored else None
+        band=next((v for v in subset if v.get("kind")=="x7_frame_bands"),{})
+        value["frameBands"]={k:band.get(k) for k in ("postBlocked","postTotal","topBlocked","bottomBlocked","bandTotal")} if band else None
+        shots.append(value)
     return shots
 
 def choose(shots):
@@ -220,7 +229,7 @@ def main():
         ap.error("Session A evidence is not accepted")
     data=report(load(ns.jsonl),previous)
     (output/"summary.json").write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8")
-    lines=["# X7 evidence (unmodified gameplay logs)", "", "Decision: "+data["decision"]["state"],
+    lines=["# X7 evidence (sanitized actual gameplay logs)", "", "Decision: "+data["decision"]["state"],
            "T*: "+str(data["decision"]["selected_tstar"]),
            "Session A gate: "+str(data["session_a_gate"]["pass"]),"",
            "| Shot | Variant | detached | area m² | blocked | centroid error | class |",

@@ -75,18 +75,35 @@ if (assets/"models.json").exists():
             assert abs(float(hi.get('z'))-float(lo.get('z'))-H)<.001
             # Hash actual vertex/index arrays, not merely a blueprint signature.
             arrays=[ET.tostring(n,encoding='utf-8') for n in root.iter()
-                    if n.tag.lower() in ('vertices','indices','vertexdata','indexdata')]
+                    if n.tag in ('VertexBuffer','IndexBuffer','Bounds')]
             assert arrays,("No vertex/index arrays available in export",v.name)
+            assert len(root.findall('.//DrawableModelsHigh/Item/Geometries/Item'))<=128
             fingerprints.append(hashlib.sha256(b''.join(arrays)).hexdigest())
             if args.require_exports:
                 yft=assets/(v.name+".yft")
                 assert yft.exists() and struct.unpack_from('<I',yft.read_bytes(),4)[0]==171
         if len(fingerprints)==12:
             assert len(set(fingerprints))==1,"X7a geometry or bound arrays changed by model"
+            frozen=ET.parse(p.parent/"fragment-x6"/"assets"/"lsa_x6_corrugated.yft.xml").getroot()
+            frozen_arrays=[ET.tostring(n,encoding='utf-8') for n in frozen.iter()
+                           if n.tag in ('VertexBuffer','IndexBuffer','Bounds')]
+            assert fingerprints[0]==hashlib.sha256(b''.join(frozen_arrays)).hexdigest(),"X7a drift from frozen X6 geometry/collision"
             result["real_exports_validated"]=True
             result["geometry_fingerprint"]=fingerprints[0]
 if args.require_exports:
     assert result["real_exports_validated"]
-    assert (assets/"conversion-receipt.json").exists()
-    assert (p/"pack"/"pack-receipt.json").exists()
+    converted=json.loads((assets/"conversion-receipt.json").read_text(encoding="utf-8-sig"))
+    packed=json.loads((p/"pack"/"pack-receipt.json").read_text(encoding="utf-8-sig"))
+    expected=manifest()["allowlist"]
+    assert packed["models"]==expected and packed["pack"]=="lsa_fence_x7a"
+    assert [v["name"] for v in converted["models"]]==expected
+    assert converted["archetypes"]==12
+    def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest().upper()
+    for v in converted["models"]:
+        assert v["bones"]==31 and v["version"]==171
+        assert digest(assets/(v["name"]+".yft"))==v["sha256"].upper()
+    assert digest(assets/"lsa_x7a.ytyp")==converted["ytypSha256"].upper()
+    assert digest(p/"pack"/"dlc.rpf")==packed["sha256"].upper()
+    archetypes=ET.parse(assets/"lsa_x7a.ytyp.xml").findall('./archetypes/Item')
+    assert [v.findtext('name') for v in archetypes]==expected
 print(json.dumps(result,indent=2))
