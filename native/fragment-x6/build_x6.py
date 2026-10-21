@@ -8,6 +8,7 @@ def replace(a,b):
  assert s.count(a)==1,(a,s.count(a))
  s=s.replace(a,b)
 replace('Math.Abs(width - 3f) > .8f || Math.Abs(height - 2.5f) > .45f) throw new Exception("target_size_requires_asset_adaptation");\n        if (Vector3.Dot(target.UpVector', 'Math.Abs(width - 2.536f) > .08f || Math.Abs(height - 2.351f) > .08f) throw new Exception("target_size_requires_asset_adaptation");\n        if (Vector3.Dot(target.UpVector')
+replace('                seen = true;\n                trace.Add(new X6Frame', '                gone = false; goneFrame = -1; // Reacquisition cancels a transient tracking gap.\n                seen = true;\n                trace.Add(new X6Frame')
 replace('case "x6cam": X6Cam(a); break;','case "x6cam": X6Cam(a); break;\n            case "x6preview": if (x6State != "Armed") throw new Exception("x6prepare_required"); X6Commit(); x6State = "Active"; Row("x6_preview", "diagnosticOnly", true); break;')
 replace('        if (x6Orig != null)\n        {\n            int w = X6Witness', '''        // Model hide invalidates the original handle. Reacquire before restore witness (X5 limitation).
         Prop restored = null; float nearest = 1.5f;

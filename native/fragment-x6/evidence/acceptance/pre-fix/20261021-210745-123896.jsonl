@@ -1,0 +1,24 @@
+{"t":432051,"frame":7975,"kind":"header","script":"WpsBreachLabX6.3.cs","version":"X6-0.1","scriptSha256":"89bfb2707a10cf1aa548bc92a77149b05fa03967a940fa1cdac613d9885515c7","shvdnApi":"3.9.0.0","gameBuild":"2.0.1158.16","loadedUtc":"2026-10-21T21:00:33.3873051Z","autoLoadScripts":"AutoLoadScripts=true","pools":{"props":272,"propCap":2300,"colliders":1,"colliderCap":228,"peds":10,"pedCap":256,"vehicles":33,"vehicleCap":300,"projectiles":0,"pickups":1},"commands":["x6prepare verified=1 hash=1185366416 tx=1065.758 ty=-1773.716 tz=34.851 px=1072 py=-1772.5 pz=36.5 pu=1.5 back=9","x6cam t=-5.5 u=1.5 z=1.5 lu=0 lz=1.1"]}
+{"t":432088,"frame":7975,"kind":"x6_time","savedH":0,"savedM":20,"savedS":43}
+{"t":433565,"frame":8145,"kind":"x6_target","hash":1185366416,"x":1065.758,"y":-1773.716,"z":34.851,"heading":110.189,"width":2.536,"height":2.351,"matchDistance":0}
+{"t":433569,"frame":8145,"kind":"x6_witness","label":"original_before","blocked":9,"total":9,"otherHits":0}
+{"t":433569,"frame":8145,"kind":"x6_stage","at":"twin_spawn_start"}
+{"t":433696,"frame":8162,"kind":"native_anchor","model":"prop_barier_conc_01a","attached":true,"collisionEnabled":false,"frozen":true,"breakForce":1000000000000}
+{"t":434351,"frame":8252,"kind":"x6_stage","at":"twin_dormant","visible":false,"frag":true,"wallX":1065.383,"wallY":-1772.575,"wallZ":34.827,"heading":110.189,"attached":true}
+{"t":434352,"frame":8252,"trial":"","entity":29186,"kind":"t3:m1185366416"}
+{"t":434352,"frame":8252,"trial":"","entity":0,"kind":"map_or_zero"}
+{"t":434352,"frame":8252,"trial":"","entity":29186,"kind":"t3:m1185366416"}
+{"t":434352,"frame":8252,"trial":"","entity":0,"kind":"map_or_zero"}
+{"t":434352,"frame":8252,"trial":"","entity":29186,"kind":"t3:m1185366416"}
+{"t":434352,"frame":8252,"trial":"","entity":0,"kind":"map_or_zero"}
+{"t":434352,"frame":8252,"trial":"","entity":29186,"kind":"t3:m1185366416"}
+{"t":434352,"frame":8252,"trial":"","entity":29186,"kind":"t3:m1185366416"}
+{"t":434352,"frame":8252,"trial":"","entity":29186,"kind":"t3:m1185366416"}
+{"t":434352,"frame":8252,"trial":"","entity":29186,"kind":"t3:m1185366416"}
+{"t":434352,"frame":8252,"trial":"","entity":29186,"kind":"t3:m1185366416"}
+{"t":434352,"frame":8252,"trial":"","entity":29186,"kind":"t3:m1185366416"}
+{"t":434352,"frame":8252,"kind":"x6_witness","label":"twin_dormant","blocked":0,"total":9,"otherHits":9}
+{"t":434353,"frame":8252,"kind":"x6_witness","label":"original_armed","blocked":9,"total":9,"otherHits":0}
+{"t":434357,"frame":8252,"kind":"x6_armed","originalBlocked":9,"twinBlocked":0,"assetWidth":2.536,"assetHeight":2.351,"playerX":1073.312,"playerY":-1768.061,"playerZ":35.721,"pools":{"props":344,"propCap":2300,"colliders":1,"colliderCap":228,"peds":43,"pedCap":256,"vehicles":54,"vehicleCap":300,"projectiles":0,"pickups":0}}
+{"frame":8252,"kind":"x6_cam","t":-5.5,"u":1.5,"z":1.5}
+{"t":434361,"frame":8252,"kind":"done","runId":"20261021-210745-123896"}

@@ -10,7 +10,7 @@ Authoring: `assets/lsa_x6_corrugated.blend`, `build_fence.py`, `assets/lsa_x6_ga
 
 ## Integration
 
-`build_x6.py` reproducibly transforms the frozen X5 driver into `WpsBreachLabX6.3.cs`. Commands use `x6` in place of `x5`; model is `lsa_x6_corrugated`. Preparation guards the measured target size. Dormant staging, projectile TTC prediction, no-yield/no-log one-tick commit, real RPG collision/explosion, native fixed anchor, ownership-qualified debris cleanup and player traversal are retained. Restore re-finds the original by model/position before witnessing it, fixing X5's stale-handle measurement. Existing inherited diagnostic verbs are not newly qualified for the fence.
+`build_x6.py` reproducibly transforms the frozen X5 driver into `WpsBreachLabX6.3.cs`. Commands use `x6` in place of `x5`; model is `lsa_x6_corrugated`. Preparation guards the measured target size. Dormant staging, projectile TTC prediction, no-yield/no-log one-tick commit, real RPG collision/explosion, native fixed anchor, ownership-qualified debris cleanup and player traversal are retained. Restore re-finds the original by model/position before witnessing it, fixing X5's stale-handle measurement. Projectile reacquisition also clears the inherited `gone` flag, preventing a transient low-speed tracking gap from ending observation 90 frames later. Existing inherited diagnostic verbs are not newly qualified for the fence.
 
 `x6preview` is an explicitly labelled **art diagnostic**: it commits without firing, only from Armed. It is for same-camera intact comparison, not an impact-timing pass. Restore and prepare again before a real shot. No artificial blast fallback is used in the acceptance runs. No part is script-detached or deleted to produce a breach.
 
@@ -25,20 +25,37 @@ Authoring: `assets/lsa_x6_corrugated.blend`, `build_fence.py`, `assets/lsa_x6_ga
 7. Submit `smoke-tests.txt` through `WpsBreachLab/command.txt`, or submit each stage separately for screenshots. Keep GTA focused; an overlay can pause it. `collect-evidence.ps1` adapts X2's sanitised collector for X6.
 8. Run `x6restore`, stop GTA with X2's `tools/gt4_stop.ps1`, then `test-install.ps1 ... -Mode Restore`. Restore refuses unexpected intervening file changes and verifies all pre-test hashes. Newly added X6 pack/script files are removed.
 
-## Validation
+## Validation — revised asset accepted for this MVP
 
-Acceptance is **incomplete**. The revised final asset has not been live-qualified. The first candidate failed traversal; do not treat the draft as a successful X6 MVP yet. `evidence/candidate1/` preserves the first tuning attempt: successful 3-frame / 28 ms predictive swap, five detached native parts, no 0.9 m lane, no traversal. Its overly tall sheet, large rust blobs and insufficient breach motivated the final asset tuning; this is not counted as acceptance. Initial same-camera screenshots are retained as candidate evidence.
+One clean corrected-driver cycle in offline Story Mode on October 21, 2026 (GTA Enhanced 2.0.1158.16, SHVDN 3.9). This is a personal-mod MVP result, not production rollout qualification. The unchanged revised pack SHA256 is `76c9fb43729504b79b82687440c6071aa73e9027b5dd312df0e69f1ab99dcce6`; YFT `8ab26769bc59e2f121a276e2aa4f00806adc8dcdc98b4c6ae202228d33320920`; measured driver `f598eff04535fed4c0420533a5f928f9a44fccb1e288b9a534b985ef703e98e3`.
 
-## Limits / next step
+| Check | Observed result |
+| --- | --- |
+| Before impact | Original visible and blocking 9/9 witness rays; invisible dormant twin 0/9. |
+| Art match | Same-camera original/twin screenshots show matching footprint/heading and similar sheet/post silhouette, vertical corrugations and grey rusty metal. Materially closer to the original than the X5 concrete slab; exact shader/weathering match is not claimed. The labelled preview was restored and preparation repeated before firing. |
+| Just-in-time impact | `qualified-s1`: commit frame 15473, real explosion 15476: **3 frames / 28 ms before explosion**, TTC 50.7 ms, distance 0.605 m; projectile speed 12.069 m/s. No late swap or fallback blast. |
+| Native fracture | 30 detached native pieces observed at frame 15479; original/twin witness rays 0/9 afterward. No scripted detachment or deletion to create the opening. |
+| Performance | Commit call 0.067 ms; baseline median 9.2 ms; worst near-swap frame 12.897 ms; zero measured frames >50 ms. |
+| Player traversal | Automatic lane finder: **1.6 m clear lane**. Actual player crossed at u=0.334 m inside the footprint in 1.821 s, outsideFootprint=false, maxRise=0, passed=true. No forced lane override. |
+| Cleanup / restore | Original re-found, visible, exists, and blocks **9/9** rays, restoredToOriginal=true. Cleanup conservatively skipped four objects not proven to be lab debris, their ownership was not asserted. |
+| Machine rollback | GTA stopped. All six pre-test hashes/existence states match: INI, DLC list, original X2 script/pack, absent X6 script/pack. Afterburner remains running. |
 
-The art is a gameplay approximation: original procedural rust, simplified frame, regular rectangular fracture tiles and box collision. No bent or torn sheet deformation, matching normal/specular shader, exact rusty texture reproduction, structural collapse, persistence, broad prop registry or rollout. Native breakup must be tested in GTA, not inferred from export success. The existing real script-fired RPG path is the acceptance scope; real launcher/high-speed/manual shots and off-centre/material tuning remain separate. Blast can damage vanilla neighbours outside lab ownership; cleanup deliberately does not delete unproven debris. Recommend a close-range art pass and a real-launcher timing trial before any registry expansion.
+Primary evidence: `evidence/acceptance/20261021-212748-37d95b.jsonl` (prepare/shot), `20261021-212815-cbe52d.jsonl` (walk), `20261021-212959-84413d.jsonl` (restore), plus `summary.json`, `key-rows.jsonl` and screenshots. `session.json` binds asset/pack/driver hashes. `install-restoration.json` verifies rollback.
 
-### Final session blocker and machine state
+Afterburner was running before all tests; 460 W against 575 W default verifies preset 1's 80% cap. Claude supplied foreground/held-key assistance. The final launch's RenoDX log explicitly confirms `F6: DLSS Neural Rendering OFF` at 17:26:12 local; see `dlss-off.log`. Existing ASI mods remained loaded; this is not an unmodded-stack claim. SHVDN compiled the measured source successfully; focused local export/source checks also pass.
 
-The revised pack was installed and loaded with a fresh X6 driver status at 20:32:25 UTC on October 21. A desktop overlay took focus and GTA remained on the pause/map screen; repeated desktop-tool Escape inputs did not resume simulation (heartbeat remained at frame 3284 / 20:32:38 UTC). Manual resume and one F6 press were requested, but no user confirmation arrived before shutdown. No final-asset impact or traversal run is claimed. The first launch received one tool F6 press in visible gameplay; its DLSS toggle state was not independently verified. The final launch did not receive a confirmed F6 press.
+### Preserved failures and the small X6 driver fix
 
-GTA was stopped with the existing X2 helper. Both temporary installations were restored; INI and DLC-list hashes match the pre-test bytes, X6's new pack/script files were removed, and the original X2 script/pack hashes are unchanged. See `evidence/install-restoration.json`. Afterburner stayed running; `nvidia-smi` reported 460 W against 575 W default, matching preset 1's 80% power cap. No production LSA files changed.
+`evidence/candidate1/` is untouched: the first art/strength candidate swapped 3 frames / 28 ms before impact, detached five pieces and restored the fence, but failed traversal. Its taller sheet, large rust blobs and insufficient breach motivated the current revised asset.
 
-Smallest next step: relaunch the already-built revised pack with `test-install.ps1`, have a working foreground keyboard resume GTA and press F6 once, then run `smoke-tests.txt` once or twice. Capture final intact/original, diagnostic twin, native breakup, traversal and restore evidence. If the lower break threshold still leaves too little clearance, tune native group strength/mass and repeat; do not delete pieces to manufacture a pass.
+`evidence/acceptance/pre-fix/` preserves two revised-pack attempts with the old driver: committed=false, no recorded explosion event or qualified fracture. Claude reported detonations about 2 m short of the fence. Independently, both traces prove the observation loop ended exactly 90 frames after the first transient missing sample even though the projectile was tracked again afterward (`diagnosis.json`). The inherited `gone` flag was never cleared on reacquisition. X6 now clears that flag and timestamp when a projectile is reacquired; X5 remains unchanged. The final corrected run used the same revised asset, position, firing path and default prediction threshold and completed the full impact/walk/restore cycle. The early attempts are not counted as acceptance, and the precise interception/detonation cause in those unobserved intervals is not asserted.
 
-Focused GitHub CI (`ASTRA X6 fence export`) validates the committed GEN9 XML/binary header, dimensions, groups/masses, one-tick source contract, restore reacquisition, and deterministic driver regeneration. It does not run Blender, compile SHVDN or certify live GTA physics.
+An earlier revised-asset launch was blocked by focus/keyboard input, and a later redundant game process showed ERR_NO_LAUNCHER. Both are historical setup issues, superseded by the clean Steam/PlayGTAV launch and log-confirmed F6 above. No raw game-executable launch is part of the documented workflow.
+
+## Limits / recommended next step
+
+The art is a gameplay approximation: original procedural rust, simplified frame, regular rectangular fracture tiles and box collision. The blast released all 30 sheet pieces in the successful run, so this is a convincing open breach, not tuned localized tearing. No bent sheet deformation, matching normal/specular shader, structural collapse, persistence, broad prop registry or rollout. Vanilla neighbours can take blast damage outside lab ownership; cleanup deliberately does not delete unproven debris. Only the real script-fired RPG at roughly 12 m/s is live-qualified; a real launcher/manual/high-speed shot is not.
+
+Recommend a close-range metal shader/fracture-shape pass and one real-launcher timing trial before expanding to a prop registry. One clean corrected cycle meets this phase's requested focused acceptance scope; repeatability beyond that is not claimed.
+
+Focused GitHub CI (`ASTRA X6 fence export`) validates GEN9 binary/XML header, dimensions, groups/masses, one-tick source contract, restore reacquisition and deterministic driver regeneration. It does not run Blender, compile SHVDN or certify live GTA physics.

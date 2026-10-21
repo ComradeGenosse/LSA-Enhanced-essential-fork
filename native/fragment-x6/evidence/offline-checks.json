@@ -8,6 +8,6 @@
   ],
   "one_tick_commit": true,
   "restore_reacquires_original": true,
-  "driver_sha256": "89bfb2707a10cf1aa548bc92a77149b05fa03967a940fa1cdac613d9885515c7",
+  "driver_sha256": "f598eff04535fed4c0420533a5f928f9a44fccb1e288b9a534b985ef703e98e3",
   "scope": "offline export/source checks; live fracture and visual match require GTA evidence"
 }

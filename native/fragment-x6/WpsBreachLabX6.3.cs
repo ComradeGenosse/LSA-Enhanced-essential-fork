@@ -763,6 +763,7 @@ public class WpsBreachLab : Script
             }
             if (best != null)
             {
+                gone = false; goneFrame = -1; // Reacquisition cancels a transient tracking gap.
                 seen = true;
                 trace.Add(new X6Frame { Frame = gf, Ms = nowMs, FrameMs = fms, T = bt, U = bu, V = bv, Vt = bestVt, Ttc = bttc * 1000f, Speed = bspeed, On = bon, Proj = best.Handle });
                 float horizon = baseH + (float)fms * frameK;
