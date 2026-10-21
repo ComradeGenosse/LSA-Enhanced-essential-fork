@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <Fragment>
   <Name>pack:/lsa_x2_concrete</Name>
-  <BoundingSphereCenter x="0.0" y="0.0" z="0.0" />
-  <BoundingSphereRadius value="0.36742344" />
+  <BoundingSphereCenter x="0.0" y="0.0" z="1.25" />
+  <BoundingSphereRadius value="1.9551214796017151" />
   <UnknownB0 value="0" />
   <UnknownB8 value="0" />
   <UnknownBC value="0" />
@@ -19,10 +19,10 @@
       0.0 0.0 0.0
     </Matrix>
     <Name>skel</Name>
-    <BoundingSphereCenter x="0.0" y="0.0" z="0.0" />
-    <BoundingSphereRadius value="0.36742344" />
-    <BoundingBoxMin x="-0.25" y="-0.1" z="-0.25" />
-    <BoundingBoxMax x="0.25" y="0.1" z="0.25" />
+    <BoundingSphereCenter x="0.0" y="0.0" z="1.25" />
+    <BoundingSphereRadius value="1.9551214796017151" />
+    <BoundingBoxMin x="-1.5" y="-0.1" z="0.0" />
+    <BoundingBoxMax x="1.5" y="0.1" z="2.5" />
     <LodDistHigh value="9998" />
     <LodDistMed value="9998" />
     <LodDistLow value="9998" />
@@ -3359,7 +3359,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3390,7 +3390,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3421,7 +3421,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3452,7 +3452,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3545,7 +3545,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3576,7 +3576,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3607,7 +3607,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3638,7 +3638,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3731,7 +3731,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3762,7 +3762,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3793,7 +3793,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3824,7 +3824,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3917,7 +3917,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3948,7 +3948,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3979,7 +3979,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -4010,7 +4010,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -4103,7 +4103,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -4134,7 +4134,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -4165,7 +4165,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -4196,7 +4196,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="500" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />

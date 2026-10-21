@@ -9,7 +9,7 @@
   "density": 2400,
   "anchoring": "root attached by native fixed joint in physical test; reinforced outer columns; default group force transmission .25",
   "normal_physics": {
-    "strength": 100.0,
+    "strength": 500.0,
     "min_damage_force": 100.0,
     "damage_health": 100.0,
     "force_transmission_scale_up": 0.25,

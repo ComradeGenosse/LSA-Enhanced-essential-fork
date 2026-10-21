@@ -33,4 +33,4 @@ To roll back, stop GTA and restore the backed-up script and DLC list, and leave 
 
 ## Current result
 
-NOT ACCEPTED. The physical joint preserved surrounding collision faces, but tested grenade and rocket explosions produced no verified opening or explicit wall-fragment detachment. Static tests moved the whole wall and were rejected. See `docs/next-gen-gameplay/astra-001/08-X2-STATUS-20261021.md` and the adjacent evidence directory. No fundamental engine limitation has been established.
+QUALIFICATION IN PROGRESS. X2-0.10 produced a measured native rocket breach with anchored outer columns, native wall debris, a 1.5 m swept opening and direct ped crossing. Full repeatability/locality gates remain open. Earlier static tests moved the whole wall and were rejected. See `docs/next-gen-gameplay/astra-001/09-X2-CONTINUATION-20261021.md` (and the historical 08 checkpoint) and the adjacent evidence directory. No fundamental engine limitation has been established.

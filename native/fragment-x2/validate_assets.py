@@ -6,6 +6,11 @@ f=E.parse(p/'lsa_x2_concrete.yft.xml').getroot();y=E.parse(p/'lsa_x2.ytyp.xml').
 assert int(f.find('UnknownC4').get('value')) & 64 == 0, 'Prop must not use vehicle physics-child drawables'
 groups=f.findall('./Physics/LOD1/Groups/Item');children=f.findall('./Physics/LOD1/Children/Item');bounds=f.findall('./Physics/LOD1/Archetype/Bounds/Children/Item')
 assert len(groups)==len(children)==len(bounds)==31,(len(groups),len(children),len(bounds))
+# Aggregate render/fragment bounds must enclose the full authored wall, not one bone-local chunk.
+for node in (f,f.find('Drawable')):
+ assert float(node.find('BoundingSphereRadius').get('value'))>=1.95,'Aggregate sphere omits chunks'
+lo=f.find('./Drawable/BoundingBoxMin');hi=f.find('./Drawable/BoundingBoxMax')
+assert float(lo.get('x'))<=-1.5 and float(hi.get('x'))>=1.5 and float(lo.get('z'))<=0 and float(hi.get('z'))>=2.5
 positions=[]
 for b in bounds[1:]:
  lo=[float(b.find('BoxMin').get(a)) for a in 'xyz'];hi=[float(b.find('BoxMax').get(a)) for a in 'xyz']

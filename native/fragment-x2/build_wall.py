@@ -22,7 +22,7 @@ for j in range(5):
 bpy.ops.object.mode_set(mode='OBJECT')
 for b in arm.bones:
  b.sollumz_use_physics=True;b.bone_properties.use_manual_tag=False;b.bone_properties.flags_enum={'RotX','RotY','RotZ','TransX','TransY','TransZ'}
- g=b.group_properties;g.strength=10000000 if b.name=='root' else 100
+ g=b.group_properties;g.strength=10000000 if b.name=='root' else 500
  g.min_damage_force=100;g.damage_health=100
  g.force_transmission_scale_up=.25;g.force_transmission_scale_down=.25
 arm.bones['root'].group_properties.min_damage_force=10000000
