@@ -30,7 +30,7 @@ using GTA.Native;
 
 public class WpsBreachLab : Script
 {
-    const string Ver = "X3-0.1";
+    const string Ver = "X3-0.2";
     const string PedModelName = "a_m_y_beach_01";
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -444,7 +444,7 @@ public class WpsBreachLab : Script
             int h=Function.Call<int>(Hash.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE,a.X,a.Y,a.Z,b.X,b.Y,b.Z,17,0,0);
             using(OutputArgument hit=new OutputArgument())using(OutputArgument pos=new OutputArgument())using(OutputArgument normal=new OutputArgument())using(OutputArgument entity=new OutputArgument()){
                 int status=Function.Call<int>(Hash.GET_SHAPE_TEST_RESULT,h,hit,pos,normal,entity);
-                if(status==2&&hit.GetResult<int>()!=0&&entity.GetResult<int>()==L.Wall.Handle){points[k]=pos.GetResult<Vector3>();valid++;}
+                if(status==2&&hit.GetResult<int>()!=0&&entity.GetResult<int>()==L.Wall.Handle){points[k]=pos.GetResult<Vector3>();valid++;}else FaceMiss(L,status,hit.GetResult<int>(),entity.GetResult<int>());
             }
             k++;Yield();
         }
@@ -1383,13 +1383,13 @@ public class WpsBreachLab : Script
         }
         Sample("late", lateFrames, null);
         ScanDebris(labs, centre, scanR); DebrisSnapshot("after_late", labs, n == 1); PoolRow("after_late");
-        int faceBad = 0; float maxFace = 0f, maxRoot = 0f;
+        int faceBad = 0; float maxFace = 0f, maxRoot = 0f; faceMissNoHit = faceMissOwnDebris = faceMissForeignDebris = faceMissOther = 0; List<int> badWalls = new List<int>(), badHits = new List<int>();
         for (int i = 0; i < n; i++)
         {
-            int v; Vector3[] f1 = AnchorFaces(labs[i], out v); if (v != 20) faceBad++; else for (int k = 0; k < 20; k++) maxFace = Math.Max(maxFace, f1[k].DistanceTo(face0[i][k]));
+            int v; Vector3[] f1 = AnchorFaces(labs[i], out v); if (v != 20) { faceBad++; badWalls.Add(i); badHits.Add(v); } else for (int k = 0; k < 20; k++) maxFace = Math.Max(maxFace, f1[k].DistanceTo(face0[i][k]));
             if (labs[i].Wall.Exists()) maxRoot = Math.Max(maxRoot, labs[i].Wall.Position.DistanceTo(labs[i].Start));
         }
-        Row("x3_perf_anchor", "trial", trialLabel, "wallsWithMissingFaceHits", faceBad, "maxFaceMoveM", maxFace, "maxRootMoveM", maxRoot);
+        Row("x3_perf_anchor", "trial", trialLabel, "wallsWithMissingFaceHits", faceBad, "maxFaceMoveM", maxFace, "maxRootMoveM", maxRoot, "badWalls", Arr(badWalls), "badWallHits", Arr(badHits), "missNoHit", faceMissNoHit, "missOwnDebris", faceMissOwnDebris, "missForeignDebris", faceMissForeignDebris, "missOther", faceMissOther);
         if (manage != "none" && !abortRequested)
         {
             Region[] regs = new Region[n];
@@ -1566,6 +1566,15 @@ public class WpsBreachLab : Script
         state = "RUNNING"; step = "";
         for (int f = 0; f < 120; f++) Yield();
         LeakCheck("after_cleanup", props0, coll0, peds0);
+    }
+
+    // X3-0.2 diagnostic only: classifies why an anchor-face ray did not return the wall (no measurement semantics changed).
+    int faceMissNoHit, faceMissOwnDebris, faceMissForeignDebris, faceMissOther;
+    void FaceMiss(Lab L, int status, int hit, int e)
+    {
+        if (status != 2 || hit == 0) { faceMissNoHit++; return; }
+        int o; if (flaggedSet.Contains(e) && debrisOwner.TryGetValue(e, out o)) { if (o == L.Index) faceMissOwnDebris++; else faceMissForeignDebris++; return; }
+        faceMissOther++;
     }
 
     string AutoLoadSetting()

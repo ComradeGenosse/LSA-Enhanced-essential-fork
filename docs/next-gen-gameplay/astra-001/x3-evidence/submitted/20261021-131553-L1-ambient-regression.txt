@@ -1,0 +1,3 @@
+x3idle seconds=60 label=L1-ambient
+x3breach explosive=none manage=none label=L1-R0-control
+x3breach explosive=rocket scale=10 dx=0.4 du=0 height=1 manage=none until=30 label=L1-R0-regression-centre-rocket hold=12

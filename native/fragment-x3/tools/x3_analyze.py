@@ -430,6 +430,8 @@ def analyze_perf(run, t, protocol):
     rec['wallsWithMissingFaceHits'] = anch.get('wallsWithMissingFaceHits')
     rec['maxFaceMoveM'] = anch.get('maxFaceMoveM')
     rec['maxRootMoveM'] = anch.get('maxRootMoveM')
+    # X3-0.2 diagnostic fields (display only; no gate uses them)
+    rec['faceMissDiag'] = {k: anch.get(k) for k in ('badWalls', 'badWallHits', 'missNoHit', 'missOwnDebris', 'missForeignDebris', 'missOther') if k in anch}
     rec['stallSeen'] = end.get('stallSeen')
     rec['aborted'] = end.get('aborted')
     rec['leakOk'], rec['leak'] = leak_ok(run, t, protocol)
@@ -484,7 +486,7 @@ def analyze_perf(run, t, protocol):
     if rec['perWallLiveDebrisMax'] > a['perChunkCumulativeDetachedMax']:
         perf_fail.append('detached per wall %s > %s' % (rec['perWallLiveDebrisMax'], a['perChunkCumulativeDetachedMax']))
     if rec['wallsWithMissingFaceHits']:
-        unsafe.append('%s walls lost anchor-face hits after blast' % rec['wallsWithMissingFaceHits'])
+        unsafe.append('%s walls lost anchor-face hits after blast %s' % (rec['wallsWithMissingFaceHits'], json.dumps(rec.get('faceMissDiag') or {})))
     if rec['leakOk'] is False:
         perf_fail.append('leak %s' % json.dumps(rec['leak']))
     if inv:
