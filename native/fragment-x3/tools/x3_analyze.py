@@ -358,9 +358,13 @@ def analyze_breach(run, t, protocol):
 
 
 # ----------------------------------------------------------------------------------------------------------------------
+ALL_RUNS = []
+
+
 def ambient_range(run):
+    """Ambient pool range measured by x3idle anywhere in the same launch (all run files with the same loadedUtc)."""
     props, colls = [], []
-    for name, t in run['trials'].items():
+    for name, t in [(n, t) for r in (ALL_RUNS or [run]) if r['launch'] == run['launch'] for n, t in r['trials'].items()]:
         if trial_kind(t) != 'idle':
             continue
         for r in t.rows:
@@ -485,19 +489,26 @@ def analyze_perf(run, t, protocol):
         inv.append('no idle window')
     if rec['perWallLiveDebrisMax'] > a['perChunkCumulativeDetachedMax']:
         perf_fail.append('detached per wall %s > %s' % (rec['perWallLiveDebrisMax'], a['perChunkCumulativeDetachedMax']))
+    face_item = None
     if rec['wallsWithMissingFaceHits']:
-        unsafe.append('%s walls lost anchor-face hits after blast %s' % (rec['wallsWithMissingFaceHits'], json.dumps(rec.get('faceMissDiag') or {})))
+        face_item = ('%s walls lost anchor-face hits after blast %s' % (rec['wallsWithMissingFaceHits'], json.dumps(rec.get('faceMissDiag') or {})))
     if rec['leakOk'] is False:
         perf_fail.append('leak %s' % json.dumps(rec['leak']))
-    if inv:
-        rec['outcome'] = 'INVALID'
-    elif unsafe:
-        rec['outcome'] = 'UNSAFE'
-    elif perf_fail:
-        rec['outcome'] = 'PERF_REGRESSION'
-    else:
-        rec['outcome'] = 'PASS'
-    rec['reasons'] = inv + unsafe + perf_fail
+    def verdict(unsafe_list):
+        if inv:
+            return 'INVALID'
+        if unsafe_list:
+            return 'UNSAFE'
+        if perf_fail:
+            return 'PERF_REGRESSION'
+        return 'PASS'
+    # 'outcome' = rule exactly as committed (post-blast anchor-face hit loss counts as UNSAFE).
+    # 'outcomeLiteral' = the SAFE list as written in the preregistration (baseline face hits only; post-blast loss is
+    # reported with its diagnostic but is not a listed SAFE criterion). Both are reported; neither replaces the other.
+    rec['outcome'] = verdict(unsafe + ([face_item] if face_item else []))
+    rec['outcomeLiteral'] = verdict(unsafe)
+    rec['faceItem'] = face_item
+    rec['reasons'] = inv + unsafe + ([face_item] if face_item else []) + perf_fail
     # headline ratios
     if idle and rec['active'].get(1):
         rec['activeMeanRatio'] = max(x['mean'] for x in rec['active'].values() if x) / idle['mean']
@@ -650,6 +661,7 @@ def main():
     out = a.out or os.path.join(a.evidence, 'analysis')
     os.makedirs(out, exist_ok=True)
     runs = load_all(a.evidence)
+    ALL_RUNS[:] = runs
     if not runs:
         print('no runs found under', a.evidence)
         return 1
@@ -700,10 +712,10 @@ def main():
                      max([x['max'] for x in act]) if act else None,
                      (r['late'] or {}).get('mean'), (r['late'] or {}).get('max'),
                      max([x['max'] for x in r['burst'].values() if x] or [0]), r.get('activeMeanRatio'), r.get('activeP99Ratio'),
-                     r.get('lateMeanRatio'), r['poolFracMax'], r['perWallLiveDebrisMax'], r['outcome'], '; '.join(r['reasons'])))
+                     r.get('lateMeanRatio'), r['poolFracMax'], r['perWallLiveDebrisMax'], r['outcome'], r['outcomeLiteral'], '; '.join(r['reasons'])))
     md.append(md_table(['trial', 'tag', 'cond', 'n', 'rounds', 'manage', 'idle mean', 'idle P99', 'active mean', 'active P99',
                         'active max', 'late mean', 'late max', 'burst max', 'mean ratio', 'P99 ratio', 'late ratio', 'pool frac',
-                        'live/wall', 'outcome', 'reasons'], rows))
+                        'live/wall', 'outcome (committed)', 'outcome (prereg-literal)', 'reasons'], rows))
     ladder = defaultdict(list)
     for r in perf:
         if r['trial'].find('ladder-n') >= 0:
@@ -714,11 +726,19 @@ def main():
         for r in ladder[n]:
             launches.setdefault(r['launch'], []).append(r['outcome'])
         passes = sum(1 for v in launches.values() if 'PASS' in v)
+        lit = defaultdict(list)
+        for r in ladder[n]:
+            lit[r['launch']].append(r['outcomeLiteral'])
+        passes_lit = sum(1 for v in lit.values() if 'PASS' in v)
         lad[n] = {'outcomesByLaunch': launches, 'passingLaunches': passes,
-                  'status': 'PROVEN' if passes >= 2 else ('PARTIAL' if passes == 1 else 'NOT_PASSING')}
+                  'status': 'PROVEN' if passes >= 2 else ('PARTIAL' if passes == 1 else 'NOT_PASSING'),
+                  'outcomesByLaunchLiteral': lit, 'passingLaunchesLiteral': passes_lit,
+                  'statusLiteral': 'PROVEN' if passes_lit >= 2 else ('PARTIAL' if passes_lit == 1 else 'NOT_PASSING')}
     md.append('\n### Ladder replication\n')
-    md.append(md_table(['n', 'passing launches', 'status', 'outcomes by launch'],
-                       [(n, v['passingLaunches'], v['status'], json.dumps(v['outcomesByLaunch'])) for n, v in lad.items()]))
+    md.append(md_table(['n', 'passing launches (as committed)', 'status (as committed)', 'outcomes by launch (as committed)',
+                        'passing launches (prereg-literal SAFE list)', 'status (prereg-literal)', 'outcomes by launch (prereg-literal)'],
+                       [(n, v['passingLaunches'], v['status'], json.dumps(v['outcomesByLaunch']), v['passingLaunchesLiteral'],
+                         v['statusLiteral'], json.dumps(v['outcomesByLaunchLiteral'])) for n, v in lad.items()]))
 
     # ---- B
     bres, bpick = b_decision(breach, protocol)

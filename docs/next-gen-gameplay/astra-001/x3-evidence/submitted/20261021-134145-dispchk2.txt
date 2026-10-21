@@ -1,0 +1,1 @@
+x3idle seconds=10 label=L1b-display-check-after-F6-3

@@ -1,0 +1,1 @@
+x3breach explosive=rocket scale=10 dx=0.4 du=0 height=1 manage=none label=L1b-RSET-centre-rocket-rerun1 hold=12
