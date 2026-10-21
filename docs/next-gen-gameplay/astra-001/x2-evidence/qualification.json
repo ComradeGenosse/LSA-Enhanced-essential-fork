@@ -7,26 +7,27 @@
     "twentyCompletedBlastTrials": true,
     "centroidWithinHalfMetreAtLeast80Percent": false,
     "calibratedCentreChargeAreaIncreases": true,
-    "nativeWallDebrisWithinChunkCount": true,
+    "nativeWallDebrisWithinChunkCount": false,
     "singleMeasuredScriptRevision": true,
     "expectedNativeFragmentGroups": true,
     "confirmedBaselinesSolid": true,
     "freshIntactControls": true
   },
-  "blasts": 32,
-  "confirmedTraversals": 8,
+  "blasts": 47,
+  "confirmedTraversals": 10,
   "confirmedLaunches": [
     "2026-10-21T11:22:41.4393928Z",
     "2026-10-21T11:33:07.5507356Z",
     "2026-10-21T11:40:16.4465966Z",
-    "2026-10-21T12:03:05.8996121Z"
+    "2026-10-21T12:03:05.8996121Z",
+    "2026-10-21T12:16:19.967887Z"
   ],
-  "centroidPasses": 22,
-  "centroidTrials": 32,
+  "centroidPasses": 31,
+  "centroidTrials": 47,
   "meanCalibratedCentreClearAreaM2": {
     "rocket": 4.0,
     "grenade": 0.0,
-    "sticky": 2.8958333333333335
+    "sticky": 2.875
   },
   "allBlastAnchoringVerified": false,
   "note": "No-opening trials fail centroid gate. Charge comparison uses explicit native scales .25/3/10, not vanilla weapon balance. Non-traversable and anchor-unverified blast trials remain in the dataset."

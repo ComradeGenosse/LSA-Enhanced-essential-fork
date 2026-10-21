@@ -7,5 +7,11 @@
   "strength500-after-batch.png": "After the batch and lab cleanup; ground view, not damage evidence.",
   "native-joint-between-trials.png": "Transition between early native-joint trials; not damage evidence.",
   "native-joint-rocket-observation.png": "Early X2-0.7 intact wall during rocket observation; failed breach, NOT_CONFIRMED.",
-  "launch2-upper-sticky-localized-observation.png": "Fresh launch2, upper-third sticky trial, during control walk after damage. Upper opening and surviving lower material visible; NOT_CONFIRMED because sweep obstructed and one outer face query occluded. This is locality observation, not a traversal pass."
+  "launch2-upper-sticky-localized-observation.png": "Fresh launch2, upper-third sticky trial, during control walk after damage. Upper opening and surviving lower material visible; NOT_CONFIRMED because sweep obstructed and one outer face query occluded. This is locality observation, not a traversal pass.",
+  "final-centre-rocket10-native-explosion.png": "Final run 20261021-121637-e54c46, centre rocket scale10, actual native explosion with chunks in flight. Subsequent telemetry confirms anchored 4 m\u00b2/1.5 m swept opening and NPC traversal. Not an intact baseline.",
+  "final-centre-post-cleanup-observation.png": "Final run, immediately after centre rocket verdict/cleanup; ground view, not damage or NPC visual evidence.",
+  "final-intact-control-baseline.png": "Final run, last no-blast control intact baseline. This is control evidence, not a destroyed-wall view.",
+  "launch3-centre-native-explosion.png": "Run 20261021-114027-98d666, native centre rocket explosion and airborne wall chunks; later confirmed traversal.",
+  "launch3-after-batch.png": "After batch cleanup; ground view, not damage evidence.",
+  "isolated-centre-rocket20-observation.png": "Isolated pilot run 20261021-120606-a634ed, centre rocket scale20 height1.25 after-blast observation. Exploratory pilot, not the frozen final charge configuration."
 }

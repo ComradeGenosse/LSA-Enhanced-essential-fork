@@ -1,0 +1,38 @@
+{
+  "id": "X2-final-20261021",
+  "frozenUtc": "2026-10-21T12:14:06.003387+00:00",
+  "scriptVersion": "X2-0.10",
+  "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+  "packSha256": "180618adbe9e56bdaa9a6220e82a87effc6d624ea2b78926cc348263e60af347",
+  "variant": "physical",
+  "charges": {
+    "grenade": {
+      "scale": 0.25,
+      "dx": 0.4
+    },
+    "sticky": {
+      "scale": 3,
+      "dx": 0.1
+    },
+    "rocket": {
+      "scale": 10,
+      "dx": 0.4
+    }
+  },
+  "positions": {
+    "centre": {
+      "du": 0,
+      "height": 1
+    },
+    "left": {
+      "du": -0.75,
+      "height": 1
+    },
+    "upper": {
+      "du": 0,
+      "height": 1.75
+    }
+  },
+  "environment": "SHVDN autoload disabled; only WpsBreachLab started; existing ASI mods remain",
+  "policy": "One final representative pass. Preserve strict verdicts; interpret weak-concrete non-breaches separately. No tuning after pass unless a critical regression invalidates core proof."
+}

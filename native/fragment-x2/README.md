@@ -33,7 +33,7 @@ To roll back, stop GTA and restore the backed-up script and DLC list, and leave 
 
 ## Current result
 
-QUALIFICATION IN PROGRESS. X2-0.10 produced a measured native rocket breach with anchored outer columns, native wall debris, a 1.5 m swept opening and direct ped crossing. Full repeatability/locality gates remain open. Earlier static tests moved the whole wall and were rejected. See `docs/next-gen-gameplay/astra-001/09-X2-CONTINUATION-20261021.md` (and the historical 08 checkpoint) and the adjacent evidence directory. No fundamental engine limitation has been established.
+RESEARCH CLOSED. Core technical feasibility PROVEN; formal X2 acceptance PARTIALLY PASSED. The frozen native wall repeats anchored collision clearance and NPC traversal, including the final nine-impact matrix. Strict locality and non-traversable/debris-obstructed cases remain incomplete. See `docs/next-gen-gameplay/astra-001/10-X2-FINAL-VALIDATION-20261021.md` for the final verdict, restored loader verification and recommendation to proceed to X3 with documented limitations. No X3 implementation or merge. Earlier checkpoints and failures remain in evidence.
 
 ## Isolated SHVDN test session
 

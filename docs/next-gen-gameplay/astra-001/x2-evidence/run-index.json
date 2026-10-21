@@ -959,5 +959,161 @@
         "debrisRetained": true
       }
     ]
+  },
+  {
+    "file": "20261021-120837-0c095d.jsonl",
+    "rows": 77,
+    "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+    "loadedUtc": "2026-10-21T12:03:05.8996121Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 364133,
+        "frame": 18565,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "blocked",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 390391,
+        "frame": 19561,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": false,
+        "debrisRetained": true
+      },
+      {
+        "t": 405615,
+        "frame": 20141,
+        "kind": "x2_verdict",
+        "verdict": "BASELINE_INVALID"
+      }
+    ]
+  },
+  {
+    "file": "20261021-121637-e54c46.jsonl",
+    "rows": 235,
+    "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+    "loadedUtc": "2026-10-21T12:16:19.967887Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 53005,
+        "frame": 7746,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_CLOSED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 99835,
+        "frame": 9524,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 125994,
+        "frame": 10519,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": false,
+        "debrisRetained": true
+      },
+      {
+        "t": 152171,
+        "frame": 11514,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 178385,
+        "frame": 12509,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 204555,
+        "frame": 13504,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 230681,
+        "frame": 14499,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 256915,
+        "frame": 15493,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 283191,
+        "frame": 16491,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 309385,
+        "frame": 17487,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 335510,
+        "frame": 18482,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_CLOSED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
   }
 ]

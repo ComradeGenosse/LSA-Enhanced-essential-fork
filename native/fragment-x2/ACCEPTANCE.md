@@ -28,7 +28,7 @@ Walking now records the ped's interpolated crossing of the wall plane. A crossin
 
 Static anchoring failed: the whole wall moved. The physical variant attaches the dynamic wall through a native fixed joint to a collision-disabled frozen stock anchor. No custom physics solver is used. The final no-blast, grenade and rocket run retained the measured outer collision faces within .02 m, but neither blast opened a hole. Acceptance remains NOT CONFIRMED; three-launch and 20-blast GO criteria have not been met.
 
-### X2-0.8 / X2-0.9 diagnostic continuation — 2026-10-21
+### X2-0.8 / X2-0.9 diagnostic continuation â€” 2026-10-21
 
 X2-0.8 adds an explicit releasegroup diagnostic, always ineligible for explosive acceptance. Group 15 was released through DetachFragmentPart under the physical joint. A visible single-chunk gap appeared while outer collision faces remained anchored, but no detached-parent prop was enumerated and no passable swept window formed. This proves only a scripted native group release, not an explosive breach.
 
@@ -40,4 +40,8 @@ Pack 180618adbe9e56bdaa9a6220e82a87effc6d624ea2b78926cc348263e60af347: strength 
 
 ### Target-boundary investigation (before confirmation matrix)
 
-The original left-third projection du=-1 lies exactly on the reinforced outer-column boundary. A third-launch repeat released only one part and made no clear opening; retain it as a failure. Confirmation targets the centre of the adjacent breakable chunk at du=-.75, still within the left third, and upper-third height1.75. Use a balanced 3-position × 3-charge matrix with native scales grenade .5, sticky3, rocket10, keeping the asset and script unchanged. Run the whole matrix, preserve every outcome, and report original boundary/low-charge failures alongside it. No earlier result or threshold is reclassified.
+The original left-third projection du=-1 lies exactly on the reinforced outer-column boundary. A third-launch repeat released only one part and made no clear opening; retain it as a failure. Confirmation targets the centre of the adjacent breakable chunk at du=-.75, still within the left third, and upper-third height1.75. Use a balanced 3-position Ã— 3-charge matrix with native scales grenade .5, sticky3, rocket10, keeping the asset and script unchanged. Run the whole matrix, preserve every outcome, and report original boundary/low-charge failures alongside it. No earlier result or threshold is reclassified.
+
+### Final controlled pass and closure â€” 2026-10-21
+
+At the user's explicit closure instruction, freeze pack 180618ad and source 5be72312 (X2-0.10). Retain the existing calibrated .25/3/10 charges; centre (0,1), left (-.75,1), upper (0,1.75). Run final-validation.txt once with two intact bookends, then stop. Do not alter any prior threshold or verdict. The final run repeated the core anchored traversable native breach, while the original 14/20 centroid score remains below 80%; formal acceptance is PARTIALLY PASSED. Recommend X3 with documented debris, locality and measurement limitations. See the final 10 report and final-validation.json. The original loader was restored and hash-verified after DONE. No X3 work or PR merge.

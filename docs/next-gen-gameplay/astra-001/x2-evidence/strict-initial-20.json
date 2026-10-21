@@ -1,0 +1,16 @@
+{
+  "runs": [
+    "20261021-112312-5588e1",
+    "20261021-112658-91c08f",
+    "20261021-113317-10c8bb",
+    "20261021-114027-98d666"
+  ],
+  "blasts": 20,
+  "confirmedTraversals": 6,
+  "freshConfirmedLaunches": 3,
+  "centroidPasses": 14,
+  "centroidTrials": 20,
+  "centroidGatePassed": false,
+  "originalStrictStatus": "INCOMPLETE",
+  "note": "Original threshold preserved: no-opening trials fail the centroid gate; legitimate weak-charge interpretation does not remove them."
+}
