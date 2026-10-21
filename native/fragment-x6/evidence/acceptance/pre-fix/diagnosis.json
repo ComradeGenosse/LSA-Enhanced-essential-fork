@@ -1,0 +1,20 @@
+[
+  {
+    "lastTrackedFrame": 10571,
+    "run": "20261021-210806-b41d91",
+    "firstTrackedFrame": 10480,
+    "committed": false,
+    "prematureCutoffMatchesMissingPlus90": true,
+    "lastDistanceBeforeFaceM": 2.117,
+    "firstMissingFrame": 10481
+  },
+  {
+    "lastTrackedFrame": 18456,
+    "run": "20261021-210911-3e7fed",
+    "firstTrackedFrame": 18365,
+    "committed": false,
+    "prematureCutoffMatchesMissingPlus90": true,
+    "lastDistanceBeforeFaceM": 2.227,
+    "firstMissingFrame": 18366
+  }
+]

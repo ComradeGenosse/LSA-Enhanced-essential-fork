@@ -1,0 +1,13 @@
+{
+  "gen9_version": 171,
+  "bones": 31,
+  "dimensions": [
+    2.536,
+    0.0975,
+    2.351
+  ],
+  "one_tick_commit": true,
+  "restore_reacquires_original": true,
+  "driver_sha256": "f598eff04535fed4c0420533a5f928f9a44fccb1e288b9a534b985ef703e98e3",
+  "scope": "offline export/source checks; live fracture and visual match require GTA evidence"
+}

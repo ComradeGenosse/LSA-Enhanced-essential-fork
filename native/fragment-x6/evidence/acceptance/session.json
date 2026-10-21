@@ -1,0 +1,14 @@
+{
+  "status": "PASS: qualified-s1 impact, native fracture, player traversal, original restore and install rollback",
+  "installedDriverSha256": "F598EFF04535FED4C0420533A5F928F9A44FCCB1E288B9A534B985EF703E98E3",
+  "packSha256": "76C9FB43729504B79B82687440C6071AA73E9027B5DD312DF0E69F1AB99DCCE6",
+  "assetSha256": "8AB26769BC59E2F121A276E2AA4F00806ADC8DCDC98B4C6AE202228D33320920",
+  "afterburner": {
+    "preset": 1,
+    "powerLimitWatts": 460,
+    "defaultLimitWatts": 575,
+    "running": true
+  },
+  "loadedUtc": "2026-10-21T21:25:42.9410310Z",
+  "dlssOffLog": "17:26:12:304 F6: DLSS Neural Rendering OFF."
+}

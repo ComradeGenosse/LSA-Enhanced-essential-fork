@@ -1,0 +1,42 @@
+{
+  "files": [
+    {
+      "before": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+      "after": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+      "matches": true,
+      "relative": "ScriptHookVDotNet.ini"
+    },
+    {
+      "before": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234",
+      "after": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234",
+      "matches": true,
+      "relative": "onigiri/common/data/dlclist.xml"
+    },
+    {
+      "before": "5BE72312804D55E7C0EA9B68C2182FBAD7FDF4AEAD86852623BD1C4FFB78ADAE",
+      "after": "5BE72312804D55E7C0EA9B68C2182FBAD7FDF4AEAD86852623BD1C4FFB78ADAE",
+      "matches": true,
+      "relative": "scripts/WpsBreachLab.3.cs"
+    },
+    {
+      "before": "180618ADBE9E56BDAA9A6220E82A87EFFC6D624EA2B78926CC348263E60AF347",
+      "after": "180618ADBE9E56BDAA9A6220E82A87EFFC6D624EA2B78926CC348263E60AF347",
+      "matches": true,
+      "relative": "onigiri/dlcpacks/lsa_destruct/dlc.rpf"
+    },
+    {
+      "before": null,
+      "after": null,
+      "matches": true,
+      "relative": "scripts-x6/WpsBreachLabX6.3.cs"
+    },
+    {
+      "before": null,
+      "after": null,
+      "matches": true,
+      "relative": "onigiri/dlcpacks/lsa_fence_x6/dlc.rpf"
+    }
+  ],
+  "gtaStopped": true,
+  "afterburnerRunning": true
+}

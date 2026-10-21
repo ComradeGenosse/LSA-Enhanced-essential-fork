@@ -1,0 +1,36 @@
+{
+  "untouchedX2": {
+    "script": "5BE72312804D55E7C0EA9B68C2182FBAD7FDF4AEAD86852623BD1C4FFB78ADAE",
+    "pack": "180618ADBE9E56BDAA9A6220E82A87EFFC6D624EA2B78926CC348263E60AF347"
+  },
+  "gtaStopped": true,
+  "finalAssetLiveAcceptance": "NOT RUN: final launch remained paused, desktop Escape inputs not effective, F6 confirmation unavailable",
+  "presetVerification": "460 W / 575 W default = 80%, matches existing profile 1",
+  "restored": [
+    {
+      "before": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+      "restored": true,
+      "relative": "ScriptHookVDotNet.ini",
+      "after": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72"
+    },
+    {
+      "before": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234",
+      "restored": true,
+      "relative": "onigiri/common/data/dlclist.xml",
+      "after": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234"
+    },
+    {
+      "before": null,
+      "restored": true,
+      "relative": "onigiri/dlcpacks/lsa_fence_x6/dlc.rpf",
+      "after": null
+    },
+    {
+      "before": null,
+      "restored": true,
+      "relative": "scripts-x6/WpsBreachLabX6.3.cs",
+      "after": null
+    }
+  ],
+  "afterburnerRunning": true
+}

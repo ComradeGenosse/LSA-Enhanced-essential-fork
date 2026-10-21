@@ -1,0 +1,19 @@
+{
+  "dimensions": [
+    2.536,
+    0.14,
+    2.351
+  ],
+  "sheet_chunks": 30,
+  "groups": 31,
+  "sheet_chunk_mass_kg": 4.5,
+  "sheet_height": 2.131,
+  "native_strength": 35,
+  "min_damage_force": 5,
+  "damage_health": 25,
+  "root": "narrow end post, native fixed joint",
+  "material": "METAL_CORRUGATED_IRON",
+  "corrugations": 20,
+  "texture": "original procedural galvanized grey with rust",
+  "blender": "5.2.2 LTS"
+}

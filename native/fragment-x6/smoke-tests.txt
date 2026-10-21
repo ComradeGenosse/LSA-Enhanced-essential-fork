@@ -1,0 +1,5 @@
+x6prepare verified=1 hash=1185366416 tx=1065.758 ty=-1773.716 tz=34.851 px=1072 py=-1772.5 pz=36.5 pu=1.5 back=9
+x6cam t=-5.5 u=1.5 z=1.5 lu=0 lz=1.1
+x6shot label=s1
+x6walk
+x6restore
