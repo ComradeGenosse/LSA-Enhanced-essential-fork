@@ -1,0 +1,2 @@
+# A repeated explosions: n=4, 3 rounds, 15 s apart
+x3perf n=4 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=3 roundgap=15 latesec=30 manage=none label=L1-rounds-n4

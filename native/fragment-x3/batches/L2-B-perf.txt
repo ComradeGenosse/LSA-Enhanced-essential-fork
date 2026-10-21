@@ -1,0 +1,6 @@
+# B frame-time/pool effect of each mode at n=4
+x3perf n=4 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=30 manage=none label=L2-Bperf-n4-none
+x3perf n=4 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=30 manage=freeze label=L2-Bperf-n4-freeze
+x3perf n=4 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=30 manage=cull_corridor label=L2-Bperf-n4-cull_corridor
+x3perf n=4 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=30 manage=cull_all label=L2-Bperf-n4-cull_all
+x3perf n=4 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=30 manage=cull_budget label=L2-Bperf-n4-cull_budget

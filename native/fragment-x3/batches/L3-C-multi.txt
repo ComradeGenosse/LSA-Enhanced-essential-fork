@@ -1,0 +1,8 @@
+# C: independent anchored panels, isolation and interference
+x3multi n=3 gap=3 targets=1 explosive=rocket scale=10 dx=0.4 du=0 height=1 simul=1 label=L3-C1-gap3-mid
+x3multi n=3 gap=3 targets=0;2 explosive=rocket scale=10 dx=0.4 du=0 height=1 simul=1 label=L3-C2-gap3-outer-pair
+x3multi n=3 gap=1.5 targets=1 explosive=rocket scale=10 dx=0.4 du=0 height=1 simul=1 label=L3-C3-gap1.5-mid
+x3multi n=3 gap=0.05 targets=1 explosive=rocket scale=10 dx=0.4 du=0 height=1 simul=1 label=L3-C4-flush-mid
+x3multi n=4 gap=3 targets=0;1;2;3 explosive=rocket scale=10 dx=0.4 du=0 height=1 simul=1 label=L3-C5-n4-all
+x3multi n=3 gap=3 targets=0;1;2 explosive=rocket scale=10 dx=0.4 du=0 height=1 simul=0 seqgap=6 label=L3-C6-sequential
+x3multi n=3 gap=3 targets=none label=L3-C7-intact-control

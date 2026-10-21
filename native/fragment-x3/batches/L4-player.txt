@@ -1,0 +1,3 @@
+# E: player-controlled traversal demonstration (computer key hold)
+x3player explosive=none timeout=30 label=L4-player-control
+x3player explosive=rocket scale=10 dx=0.4 du=0 height=1 timeout=45 label=L4-player-breach

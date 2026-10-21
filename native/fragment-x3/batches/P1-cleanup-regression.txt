@@ -1,0 +1,3 @@
+# Phase 1 (X3 closeout) targeted regression for the PR #290 P0 cleanup fix. One wall, one grenade, two unrelated sentinel props.
+# NOT part of the X3 test matrix; adds no X3 gate evidence.
+x3cleanuptest label=P1-cleanup-regression

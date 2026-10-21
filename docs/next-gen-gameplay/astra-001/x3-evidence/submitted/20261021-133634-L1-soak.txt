@@ -1,0 +1,4 @@
+x3perf n=4 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=5 manage=none label=L1-soak-cycle1
+x3perf n=4 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=5 manage=none label=L1-soak-cycle2
+x3perf n=4 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=5 manage=none label=L1-soak-cycle3
+x3perf n=4 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=5 manage=none label=L1-soak-cycle4
