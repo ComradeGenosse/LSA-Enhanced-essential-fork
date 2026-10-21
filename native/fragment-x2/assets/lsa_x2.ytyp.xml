@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<CMapTypes>
+  <archetypes>
+    <Item type="CBaseArchetypeDef">
+      <lodDist value="200" />
+      <flags value="131072" />
+      <specialAttribute value="0" />
+      <bbMin x="-1.5" y="-0.1" z="0.0" />
+      <bbMax x="1.5" y="0.1" z="2.5" />
+      <bsCentre x="0.0" y="0.0" z="1.25" />
+      <bsRadius value="1.9551215" />
+      <hdTextureDist value="100" />
+      <name>lsa_x2_concrete</name>
+      <textureDictionary>lsa_x2_concrete</textureDictionary>
+      <assetType>ASSET_TYPE_FRAGMENT</assetType>
+      <assetName>lsa_x2_concrete</assetName>
+    </Item>
+  </archetypes>
+  <name>lsa_x2</name>
+</CMapTypes>

@@ -1,0 +1,6 @@
+{
+ "session":"20261020-232123-19621b",
+ "observed":"GTA process exited during the first grenade trial after an invalid baseline; no final verdict or done row",
+ "windowsEvent1000":{"localTime":"2026-10-20 19:22:25","application":"GTA5_Enhanced.exe","version":"1.0.1158.16","faultingModule":"clr.dll","moduleVersion":"4.8.9363.0","exceptionCode":"0xc0000409","faultOffset":"0x19233d"},
+ "interpretation":"Crash correlation only; precise cause unestablished. Asset lacked Dynamic flag. Subsequent build fixes flag and refuses any blast after invalid baseline."
+}

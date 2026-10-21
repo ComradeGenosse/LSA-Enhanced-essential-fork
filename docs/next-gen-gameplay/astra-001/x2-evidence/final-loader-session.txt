@@ -1,0 +1,6 @@
+[08:15:11] [DEBUG] NativeMemory took 5351 milliseconds
+[08:15:11] [DEBUG] AutoLoadScripts is set to false, skipping auto loading scripts. You can start scripts with specific console commands such as `StartAllScripts()`.
+[08:16:19] [DEBUG] Successfully compiled WpsBreachLab.3.cs.
+[08:16:19] [INFO] Found 1 script(s) in WpsBreachLab.3.cs resolved to API version 3.9.0 (target API version: 3.9.0).
+[08:16:19] [DEBUG] Instantiating script WpsBreachLab ...
+[08:16:19] [INFO] Started script WpsBreachLab.

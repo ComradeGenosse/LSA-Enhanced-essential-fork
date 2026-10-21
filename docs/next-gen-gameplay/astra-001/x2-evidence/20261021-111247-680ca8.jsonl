@@ -1,0 +1,18 @@
+{"t":8999,"frame":3081,"kind":"header","script":"WpsBreachLab.3.cs","version":"X2-0.8","scriptSha256":"92b4fb9a23dbde6b4b48f05fbcba823114f9bc3bc30867df60afee5ce00116e2","shvdnApi":"3.9.0.0","gameBuild":"2.0.1158.16","loadedUtc":"2026-10-21T11:12:38.4728043Z","commands":["anchored explosive=none variant=physical releasegroup=15 hold=10"]}
+{"t":20002,"frame":3434,"kind":"native_anchor","model":"prop_barier_conc_01a","attached":true,"collisionEnabled":false,"frozen":true,"breakForce":1000000000000}
+{"t":21555,"frame":3494,"kind":"x2_start","isFragment":true,"groups":31,"boneCount":31,"variant":"physical","explosive":"none","scale":1,"propCount":217,"colliders":0,"assetSha256":"3a5363c7a4cf6d9a26fdd2d78deef6a3ca91b6c1d50e934f54d80b5ce7994511"}
+{"t":24851,"frame":3622,"kind":"capsule_sweep","label":"baseline","radius":0.3,"lateralSamples":12,"sweeps":48,"unresolved":0,"clearU":0,"windowM":0}
+{"t":25375,"frame":3642,"kind":"x2_baseline","blocked":120,"cells":120,"sweepClearColumns":0,"sweepColumns":12,"anchorFaceHits":20,"failedRayRequests":0,"mask":["1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1"]}
+{"t":35580,"frame":4037,"kind":"x2_pre_detonation","explosive":"none","variant":"physical","diagnosticReleaseGroup":15}
+{"t":35580,"frame":4037,"kind":"x2_native_detach_diagnostic","group":15,"acceptanceEligible":false}
+{"t":35581,"frame":4037,"kind":"x2_post_detonation","wallExists":true}
+{"t":41615,"frame":4270,"kind":"ray_other","status":2,"entity":0}
+{"t":41615,"frame":4270,"kind":"ray_other","status":2,"entity":0}
+{"t":41641,"frame":4271,"kind":"ray_other","status":2,"entity":0}
+{"t":41944,"frame":4283,"kind":"ray_other","status":2,"entity":1}
+{"t":43558,"frame":4345,"kind":"capsule_sweep","label":"debris_present","radius":0.3,"lateralSamples":12,"sweeps":48,"unresolved":0,"clearU":0,"windowM":0}
+{"t":44078,"frame":4365,"kind":"x2_geometry","openedClear":0,"residual":2,"outerBlocked":40,"outerBaseline":40,"anchorFaceHits":20,"maxAnchorFaceMoveM":0,"maxRootMoveM":0,"minUpDot":1,"minRightDot":1,"anchored":true,"flaggedDetached":0,"debrisCount":0,"sweepWindowM":0,"sweepClearColumns":0,"sweepColumns":12,"explosionDetected":false,"mask":["1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","3","1","1","1","1","1","1","1","1","1","1","1","1","3","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1","1"]}
+{"t":58065,"frame":4902,"kind":"walk","label":"x2_intact","u":1.25,"crossed":true,"climbedOver":false,"crossingU":1.803,"outsideWallFootprint":true,"maxLateralM":0.736,"zGainM":0,"progressFromFrontM":0.814,"wallThicknessM":0.2,"wallHeightM":2.5,"ms":3351}
+{"t":58580,"frame":4922,"kind":"x2_final_anchor","anchorFaceHits":20,"maxAnchorFaceMoveM":0.004,"rootMoveM":0,"anchored":true}
+{"t":58580,"frame":4922,"kind":"x2_verdict","verdict":"NATIVE_DETACH_DIAGNOSTIC_ONLY","walkHole":"skipped","walkControl":"bypassed_edge","anchored":true,"debrisRetained":true}
+{"t":58581,"frame":4922,"kind":"done","runId":"20261021-111247-680ca8"}

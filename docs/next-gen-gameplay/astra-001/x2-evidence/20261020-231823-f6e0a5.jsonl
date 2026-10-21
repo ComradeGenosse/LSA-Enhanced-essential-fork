@@ -1,0 +1,5 @@
+{"t":1024,"frame":2969,"kind":"header","script":"WpsBreachLab.3.cs","version":"X2-0.1","scriptSha256":"4b3bba2b484537444f1fe1ec3b57c57d26ab6ac19cf1fc23a483d63098ba687c","shvdnApi":"3.9.0.0","gameBuild":"2.0.1158.16","loadedUtc":"2026-10-20T23:18:22.8211776Z","commands":["anchored explosive=none hold=12","anchored explosive=grenade dx=0.4 height=1 hold=15","anchored explosive=grenade dx=0.4 height=1 hold=15"]}
+{"t":11395,"frame":3317,"kind":"error","cmd":"anchored explosive=none hold=12","message":"Exception: model_invalid:lsa_x2_concrete"}
+{"t":12553,"frame":3367,"kind":"error","cmd":"anchored explosive=grenade dx=0.4 height=1 hold=15","message":"Exception: model_invalid:lsa_x2_concrete"}
+{"t":13729,"frame":3417,"kind":"error","cmd":"anchored explosive=grenade dx=0.4 height=1 hold=15","message":"Exception: model_invalid:lsa_x2_concrete"}
+{"t":13729,"frame":3417,"kind":"done","runId":"20261020-231823-f6e0a5"}

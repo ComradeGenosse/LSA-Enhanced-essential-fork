@@ -1,0 +1,13 @@
+{
+  "script": "WpsBreachLab.3.cs",
+  "version": "X2-0.5",
+  "scriptSha256": "b4f71e8c697846aadf63e09c2b6e4d1b5405b1d46f8767041789c8d6b9229cfb",
+  "shvdnApi": "3.9.0.0",
+  "loadedUtc": "2026-10-20T23:48:30.3142258Z",
+  "nowUtc": "2026-10-20T23:51:30.3354181Z",
+  "state": "DONE",
+  "step": "20261020-234918-601af0",
+  "cmd": "blast model=prop_fnccorgm_03a variant=static explosive=grenade dx=0.4 walk=0 hold=0",
+  "runId": "20261020-234918-601af0",
+  "frame": 9988
+}

@@ -1,0 +1,13 @@
+{
+  "script": "WpsBreachLab.3.cs",
+  "version": "X2-0.8",
+  "scriptSha256": "92b4fb9a23dbde6b4b48f05fbcba823114f9bc3bc30867df60afee5ce00116e2",
+  "shvdnApi": "3.9.0.0",
+  "loadedUtc": "2026-10-21T11:12:38.4728043Z",
+  "nowUtc": "2026-10-21T11:14:26.7762772Z",
+  "state": "DONE",
+  "step": "20261021-111247-680ca8",
+  "cmd": "anchored explosive=none variant=physical releasegroup=15 hold=10",
+  "runId": "20261021-111247-680ca8",
+  "frame": 6635
+}

@@ -1,0 +1,5 @@
+[08:02:07] [DEBUG] AutoLoadScripts is set to false, skipping auto loading scripts. You can start scripts with specific console commands such as `StartAllScripts()`.
+[08:03:05] [DEBUG] Successfully compiled WpsBreachLab.3.cs.
+[08:03:05] [INFO] Found 1 script(s) in WpsBreachLab.3.cs resolved to API version 3.9.0 (target API version: 3.9.0).
+[08:03:05] [DEBUG] Instantiating script WpsBreachLab ...
+[08:03:05] [INFO] Started script WpsBreachLab.

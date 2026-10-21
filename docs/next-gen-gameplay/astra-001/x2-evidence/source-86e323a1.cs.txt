@@ -1,0 +1,982 @@
+// WpsBreachLab.3.cs - ASTRA-001 X1 "Native fragment breach" lab. ISOLATED EXPERIMENT SCRIPT.
+// GTA V Enhanced + ScriptHookVDotNet Enhanced 3.9 (API 3.9.0). Offline Story Mode only.
+//
+// * Idle until a command file appears: <GTA root>\WpsBreachLab\command.txt (one command per line).
+// * Spawns only disposable lab-owned props/peds and deletes them afterwards (also on abort).
+// * Touches no LSA / Essential / production state, writes no game assets. Only side effects while a command
+//   runs: player teleport to the test site + back, player invincible, wanted level suppressed -> all restored.
+// * Evidence: <GTA root>\WpsBreachLab\<runId>\trials.jsonl (+ *.summary.json); heartbeat: WpsBreachLab\status.json.
+//
+// Commands (key=value, one per line):
+//   census                                     spawn each candidate model once, record fragment facts
+//   worldcensus radius=250                     list fragment props currently streamed around the player
+//   probe    model=NAME variant=frozen         spawn, bone/group map + baseline grid, NO blast (control)
+//   detach   model=NAME variant=frozen mode=each|cluster [r=1.3] [max=24]   scripted DetachFragmentPart control
+//   blast    model=NAME variant=default|frozen|static explosive=grenade|sticky|rocket|tank|none
+//            [dx=0.75] [du=0] [dv=0.45] [hold=0] [walk=1]   explosion trial (T1/T2/T3 measurements)
+//   cleanup | abort
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+using GTA;
+using GTA.Math;
+using GTA.Native;
+
+public class WpsBreachLab : Script
+{
+    const string Ver = "X2-0.3";
+    const string PedModelName = "a_m_y_beach_01";
+    static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+
+    // ---- candidate vanilla models (names gathered from memory of the base game; invalid names are skipped) ----
+    static readonly string[] Candidates = new string[] {
+        "prop_ld_fragwall_01a","prop_ld_fragwall_01b",
+        "prop_fnclink_01a","prop_fnclink_01b","prop_fnclink_02a","prop_fnclink_02b","prop_fnclink_02c","prop_fnclink_02d","prop_fnclink_02e","prop_fnclink_02gate1","prop_fnclink_02gate2","prop_fnclink_02gate5","prop_fnclink_02gate6","prop_fnclink_02gate7",
+        "prop_fnclink_03a","prop_fnclink_03b","prop_fnclink_03c","prop_fnclink_03d","prop_fnclink_03e","prop_fnclink_03f","prop_fnclink_03g","prop_fnclink_03gate1","prop_fnclink_04a","prop_fnclink_04b","prop_fnclink_04c","prop_fnclink_04d","prop_fnclink_04e","prop_fnclink_04f","prop_fnclink_04g","prop_fnclink_04h","prop_fnclink_05a","prop_fnclink_05b","prop_fnclink_05c","prop_fnclink_06a","prop_fnclink_06b","prop_fnclink_07a","prop_fnclink_07b","prop_fnclink_08a","prop_fnclink_09a","prop_fnclink_09b","prop_fnclink_10a","prop_fnclink_10b","prop_fnclink_10c","prop_fnclink_10d","prop_fnclink_10e",
+        "prop_fncwood_01a","prop_fncwood_01b","prop_fncwood_01c","prop_fncwood_02a","prop_fncwood_02b","prop_fncwood_03a","prop_fncwood_03b","prop_fncwood_04a","prop_fncwood_05c","prop_fncwood_06a","prop_fncwood_07a","prop_fncwood_07b","prop_fncwood_08a","prop_fncwood_09a","prop_fncwood_10a","prop_fncwood_11a","prop_fncwood_12a","prop_fncwood_13a","prop_fncwood_14a","prop_fncwood_15a","prop_fncwood_16a","prop_fncwood_16b","prop_fncwood_16c","prop_fncwood_16d","prop_fncwood_16e","prop_fncwood_16f","prop_fncwood_16g","prop_fncwood_17a","prop_fncwood_18a","prop_fncwood_19a",
+        "prop_fncres_01a","prop_fncres_01b","prop_fncres_01c","prop_fncres_02a","prop_fncres_02b","prop_fncres_02c","prop_fncres_02d","prop_fncres_03a","prop_fncres_03b","prop_fncres_03c","prop_fncres_04a","prop_fncres_05a","prop_fncres_05b","prop_fncres_05c","prop_fncres_06a","prop_fncres_06b","prop_fncres_06c",
+        "prop_fncsec_01a","prop_fncsec_01b","prop_fncsec_01crnr","prop_fncsec_01gate","prop_fncsec_02a","prop_fncsec_02pole","prop_fncsec_03a","prop_fncsec_03b","prop_fncsec_04a",
+        "prop_fnccorgm_01a","prop_fnccorgm_01b","prop_fnccorgm_01c","prop_fnccorgm_02a","prop_fnccorgm_02b","prop_fnccorgm_02c","prop_fnccorgm_03a","prop_fnccorgm_04a","prop_fnccorgm_05a","prop_fnccorgm_05b","prop_fnccorgm_06a","prop_fnccorgm_06b",
+        "prop_fncpeir_03a","prop_fnclog_01a","prop_fncwood_pole",
+        "prop_barrier_work01a","prop_barrier_work01b","prop_barrier_work01c","prop_barrier_work02a","prop_barrier_work03a","prop_barrier_work04a","prop_barrier_work04b","prop_barrier_work05","prop_barrier_work06a","prop_barrier_work06b",
+        "prop_barrier_wat_01a","prop_barrier_wat_02a","prop_barrier_wat_03a","prop_barrier_wat_03b","prop_barrier_wat_04a","prop_barrier_wat_04b","prop_barier_conc_01a","prop_barier_conc_01b","prop_barier_conc_01c","prop_barier_conc_02a","prop_barier_conc_02b","prop_barier_conc_02c","prop_barier_conc_03a","prop_barier_conc_04a","prop_barier_conc_04b","prop_barier_conc_04c","prop_barier_conc_05a","prop_barier_conc_05b","prop_barier_conc_05c",
+        "prop_mp_barrier_01","prop_mp_barrier_01b","prop_mp_barrier_02","prop_mp_barrier_02b","prop_plas_barier_01a","prop_barrier_wat_05a","prop_cons_plank","prop_conc_sacks_02a","prop_cons_crate","prop_cons_cements01","prop_cons_ply01","prop_cons_ply02","prop_conslift_base","prop_cementbags01",
+        "prop_wallbrick_01","prop_wallbrick_02","prop_wallbrick_03","prop_wall_light_08a","prop_ld_container","prop_container_01a","prop_container_ld","prop_container_03a",
+        "prop_phonebox_01a","prop_phonebox_01b","prop_phonebox_01c","prop_phonebox_02","prop_phonebox_03","prop_phonebox_04","prop_gazebo_01","prop_gazebo_02","prop_gazebo_03","prop_busstop_01","prop_busstop_02","prop_busstop_04","prop_busstop_05",
+        "prop_pallet_01a","prop_pallet_02a","prop_boxpile_01a","prop_boxpile_02b","prop_boxpile_03a","prop_boxpile_04a","prop_boxpile_05a","prop_boxpile_06a","prop_boxpile_06b","prop_boxpile_07a","prop_boxpile_07d","prop_woodpile_01a","prop_woodpile_01b","prop_woodpile_01c","prop_woodpile_02a","prop_woodpile_03a","prop_woodpile_04a",
+        "prop_skip_01a","prop_skip_02a","prop_skip_03","prop_skip_04","prop_skip_05a","prop_skip_06a","prop_skip_08a","prop_dumpster_01a","prop_dumpster_02a","prop_dumpster_02b","prop_dumpster_3a","prop_dumpster_4a","prop_dumpster_4b",
+        "prop_sign_road_01a","prop_sign_road_03a","prop_streetlight_01","prop_streetlight_01b","prop_streetlight_03","prop_billboard_01","prop_billboard_02","prop_billboard_03","prop_billboard_04","prop_billboard_05",
+        "prop_windmill_01","prop_beach_fire","prop_tree_cedar_01","prop_tree_birch_01","prop_palm_huge_01a","prop_palm_med_01a","prop_gate_airport_01","prop_gate_prison_01","prop_facgate_01","prop_facgate_02pole","prop_facgate_03post","prop_facgate_07","prop_facgate_08","prop_gate_tep_01_l","prop_sec_gate_01d",
+        "prop_const_fence01a","prop_const_fence01b","prop_const_fence02a","prop_const_fence02b","prop_const_fence03a","prop_const_fence03b","prop_fence_log_01","prop_fence_log_02",
+        "prop_bush_lrg_01","prop_bin_01a","prop_bin_02a","prop_bin_03a","prop_bin_04a","prop_bin_05a","prop_bin_07a","prop_bin_08a",
+        "prop_rub_buswreck_01","prop_rub_cardpile_01","prop_rub_carwreck_2","prop_ind_barge_01","prop_cs_dumpster_01a","prop_ld_barrier_01","prop_ld_hdd_01","prop_elecbox_10","prop_elecbox_12","prop_elecbox_17",
+        "prop_ind_oldcrate","prop_cratepile_01a","prop_cratepile_02a","prop_cratepile_03a","prop_cratepile_05a","prop_cratepile_07a","prop_crate_01a","prop_crate_02a","prop_crate_03a","prop_crate_04a","prop_crate_09a","prop_crate_10a","prop_crate_11a",
+        "prop_windowbox_a","prop_windowbox_b","prop_ind_conveyor_01","prop_fnc_hose","prop_cs_sc1_11_gate","prop_sc1_21_g_door_01","prop_sc1_12_door","prop_mp_cant_place_lrg","prop_roofvent_011a"
+    };
+
+    readonly string root, lab, scriptSha, shvdnVer;
+    readonly DateTime loadedUtc = DateTime.UtcNow;
+    readonly Stopwatch clock = Stopwatch.StartNew();
+    Camera x2Camera; int failedRays, unknownRayHits;
+    readonly List<Entity> owned = new List<Entity>();
+    readonly HashSet<int> debris = new HashSet<int>();
+    readonly HashSet<int> preProps = new HashSet<int>();
+    string runDir, runId, state = "IDLE", step = "", curCmd = "";
+    StreamWriter rows;
+    long nextBeat; int nextPoll;
+    bool busy, abortRequested;
+    int savedMaxWanted = -1; bool savedInvincible; Vector3 originPos; float originHeading; bool teleported;
+
+    // ===================================================================== lifecycle
+    public WpsBreachLab()
+    {
+        Interval = 200;
+        string bd = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
+        string scriptsDir = File.Exists(Path.Combine(bd, "WpsBreachLab.3.cs")) ? bd : Path.Combine(bd, "scripts");
+        root = Path.GetDirectoryName(scriptsDir);
+        lab = Path.Combine(root, "WpsBreachLab");
+        Directory.CreateDirectory(lab);
+        scriptSha = ShaOf(Path.Combine(scriptsDir, "WpsBreachLab.3.cs"));
+        shvdnVer = typeof(Script).Assembly.GetName().Version.ToString();
+        Tick += delegate(object sender, EventArgs e) { OnTick(); };
+        Aborted += delegate(object sender, EventArgs e) { OnAborted(); };
+        Beat();
+    }
+
+    void OnAborted() { try { CleanupAll(); RestorePlayer(); } catch { } }
+
+    void OnTick()
+    {
+        Beat();
+        if (busy) return;
+        string cf = Path.Combine(lab, "command.txt");
+        if (!File.Exists(cf)) return;
+        string[] lines;
+        try { lines = File.ReadAllLines(cf); File.Move(cf, Path.Combine(lab, "command.consumed-" + DateTime.UtcNow.Ticks + ".txt")); }
+        catch { return; }
+        busy = true; abortRequested = false;
+        try
+        {
+            runId = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", Inv) + "-" + Guid.NewGuid().ToString("N").Substring(0, 6);
+            runDir = Path.Combine(lab, runId); Directory.CreateDirectory(runDir);
+            rows = new StreamWriter(new FileStream(Path.Combine(runDir, "trials.jsonl"), FileMode.Create, FileAccess.Write, FileShare.ReadWrite));
+            rows.AutoFlush = true;
+            Row("header", "script", "WpsBreachLab.3.cs", "version", Ver, "scriptSha256", scriptSha, "shvdnApi", shvdnVer,
+                "gameBuild", SafeGameVersion(), "loadedUtc", loadedUtc.ToString("o"), "pid", Process.GetCurrentProcess().Id, "commands", Arr(lines));
+            foreach (string raw in lines)
+            {
+                string line = raw.Trim();
+                if (line.Length == 0 || line.StartsWith("#")) continue;
+                if (abortRequested) break;
+                curCmd = line; state = "RUNNING"; step = "start";
+                Beat(true);
+                try { RunCommand(line); }
+                catch (Exception ex) { Row("error", "cmd", line, "message", ex.GetType().Name + ": " + ex.Message, "stack", Trim(ex.StackTrace, 600)); }
+                finally { CleanupAll(); }
+            }
+        }
+        catch (Exception ex2) { try { Row("error", "message", ex2.ToString()); } catch { } }
+        finally
+        {
+            try { RestorePlayer(); } catch { }
+            try { if (rows != null) { Row("done", "runId", runId); rows.Dispose(); rows = null; } } catch { }
+            state = "DONE"; step = runId; busy = false; Beat(true);
+        }
+    }
+
+    // ===================================================================== command dispatch
+    void RunCommand(string line)
+    {
+        string[] parts = line.Split(new char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+        string verb = parts[0].ToLowerInvariant();
+        Dictionary<string, string> a = new Dictionary<string, string>();
+        for (int i = 1; i < parts.Length; i++) { int e = parts[i].IndexOf('='); if (e > 0) a[parts[i].Substring(0, e).ToLowerInvariant()] = parts[i].Substring(e + 1); }
+        if (!SafetyOk()) { Row("refused", "reason", "not_story_mode_or_player_unavailable"); return; }
+        switch (verb)
+        {
+            case "anchored": Anchored(a); break;
+            case "census": Census(); break;
+            case "worldcensus": WorldCensus(F(a, "radius", 250f)); break;
+            case "probe": Trial(S(a, "model", ""), S(a, "variant", "frozen"), "none", a, "probe"); break;
+            case "blast": Trial(S(a, "model", ""), S(a, "variant", "frozen"), S(a, "explosive", "grenade"), a, "blast"); break;
+            case "line": Line(S(a, "model", ""), S(a, "variant", "static"), (int)F(a, "n", 3f), S(a, "explosive", "grenade"), a); break;
+            case "detach": Detach(S(a, "model", ""), S(a, "variant", "frozen"), S(a, "mode", "each"), a); break;
+            case "cleanup": break;
+            case "abort": abortRequested = true; break;
+            default: Row("unknown_command", "verb", verb); break;
+        }
+    }
+
+    bool SafetyOk()
+    {
+        try
+        {
+            if (Function.Call<bool>(Hash.NETWORK_IS_SESSION_STARTED)) return false;
+            return Game.Player != null && Game.Player.Character != null && Game.Player.Character.Exists() && !Game.IsLoading;
+        }
+        catch { return false; }
+    }
+
+    // ===================================================================== census
+    void Census()
+    {
+        PrepareSite();
+        Vector3 spot = SiteSpot();
+        int n = 0;
+        foreach (string name in Candidates)
+        {
+            if (abortRequested) break;
+            n++; step = "census " + n + "/" + Candidates.Length + " " + name; Beat();
+            Model m = new Model(name);
+            bool valid = m.IsValid, inCd = valid && m.IsInCdImage;
+            if (!inCd) { Row("census", "model", name, "hash", (uint)Game.GenerateHash(name), "valid", valid, "inCdImage", inCd); continue; }
+            bool isFragModel = false; try { isFragModel = m.IsFragment; } catch { }
+            Vector3 mn = Vector3.Zero, mx = Vector3.Zero; bool loaded = m.Request(4000);
+            if (loaded) { try { m.GetDimensions(out mn, out mx); } catch { } }
+            Prop p = null; bool isFragObj = false; int groups = -1; int bones = -1; bool nativeFrag = false; string err = null;
+            if (loaded)
+            {
+                try
+                {
+                    p = World.CreateProp(m, spot, Vector3.Zero, false, false);
+                    if (p != null && p.Exists())
+                    {
+                        owned.Add(p); p.IsPositionFrozen = true; Yield();
+                        isFragObj = p.IsFragmentObject; groups = p.FragmentGroupCount;
+                        nativeFrag = Function.Call<bool>(Hash.GET_IS_ENTITY_A_FRAG, p.Handle);
+                        try { bones = p.Bones.Count; } catch { }
+                    }
+                    else err = "create_failed";
+                }
+                catch (Exception ex) { err = ex.Message; }
+            }
+            else err = "model_load_timeout";
+            Row("census", "model", name, "hash", (uint)Game.GenerateHash(name), "valid", valid, "inCdImage", inCd, "loaded", loaded,
+                "modelIsFragment", isFragModel, "isFragmentObject", isFragObj, "nativeIsEntityAFrag", nativeFrag, "fragGroups", groups, "bones", bones,
+                "dimX", mx.X - mn.X, "dimY", mx.Y - mn.Y, "dimZ", mx.Z - mn.Z, "err", err);
+            if (p != null && p.Exists()) { try { p.Delete(); } catch { } owned.Remove(p); }
+            m.MarkAsNoLongerNeeded();
+            Yield();
+        }
+    }
+
+    void WorldCensus(float radius)
+    {
+        Prop[] props = World.GetNearbyProps(Game.Player.Character.Position, radius);
+        Dictionary<int, string> names = new Dictionary<int, string>();
+        foreach (string c in Candidates) names[Game.GenerateHash(c)] = c;
+        int shown = 0;
+        foreach (Prop p in props)
+        {
+            if (p == null || !p.Exists()) continue;
+            bool fo = false; int g = -1; try { fo = p.IsFragmentObject; g = p.FragmentGroupCount; } catch { }
+            if (!fo) continue;
+            string label; names.TryGetValue(p.Model.Hash, out label);
+            Row("worldfrag", "hash", (uint)p.Model.Hash, "label", label, "fragGroups", g, "dist", p.Position.DistanceTo(Game.Player.Character.Position));
+            if (++shown >= 200) break;
+        }
+        Row("worldcensus_done", "propsScanned", props.Length, "fragProps", shown);
+    }
+
+    // ===================================================================== lab geometry
+    sealed class Lab
+    {
+        public Prop Wall; public string Name; public int Thin; public Vector3 Min, Max; public float P = 0.25f;
+        public float U0, U1, V0, V1, T0, T1; public int Nu, Nv; public float BaseZ;
+        public Vector3 L(float t, float u, float v) { return Thin == 0 ? new Vector3(t, u, v) : new Vector3(u, t, v); }
+        public Vector3 P0, Rt, Fw, Up;
+        public Vector3 W(Vector3 l) { return P0 + Rt * l.X + Fw * l.Y + Up * l.Z; }
+        public Vector3 Inv(Vector3 w) { Vector3 d = w - P0; return new Vector3(Vector3.Dot(d, Rt), Vector3.Dot(d, Fw), Vector3.Dot(d, Up)); }
+    }
+    sealed class Grid { public int Nu, Nv; public byte[] C; public int Wall, Debris, Other, Clear; public byte At(int i, int j) { return C[j * Nu + i]; } }
+    sealed class Cmp
+    {
+        public int Closed, OpenedWall, OpenedClear, Residual, FarOpened, BigSize, BigCols, BigRows;
+        public float BigU, BigV, BigW, BigH; public List<int> Cells = new List<int>();
+    }
+
+    Lab Spawn(string name, string variant, Vector3 spot, float pitch)
+    {
+        Model m = new Model(name);
+        if (!m.IsValid || !m.IsInCdImage) throw new Exception("model_invalid:" + name);
+        if (!m.Request(6000)) throw new Exception("model_load_timeout:" + name);
+        Lab L = new Lab(); L.Name = name;
+        Vector3 mn, mx; m.GetDimensions(out mn, out mx); L.Min = mn; L.Max = mx;
+        float dx = mx.X - mn.X, dy = mx.Y - mn.Y;
+        L.Thin = dx <= dy ? 0 : 1;
+        Vector3 pos = new Vector3(spot.X, spot.Y, spot.Z - mn.Z + 0.02f);
+        bool dyn = variant != "static";
+        Prop p = World.CreateProp(m, pos, Vector3.Zero, dyn, false);
+        if (p == null || !p.Exists()) throw new Exception("create_failed:" + name);
+        owned.Add(p); L.Wall = p;
+        if (variant == "frozen") p.IsPositionFrozen = true;
+        if (variant == "static") Function.Call(Hash.SET_ENTITY_DYNAMIC, p.Handle, false);
+        for (int i = 0; i < 12; i++) Yield();
+        L.BaseZ = mn.Z; L.P0 = p.Position; L.Rt = p.RightVector; L.Fw = p.ForwardVector; L.Up = p.UpVector;
+        preProps.Clear(); try { foreach (Prop q in World.GetNearbyProps(p.Position, 16f)) if (q != null && q.Exists() && q.Handle != p.Handle) preProps.Add(q.Handle); } catch { }
+        float tMin = L.Thin == 0 ? mn.X : mn.Y, tMax = L.Thin == 0 ? mx.X : mx.Y;
+        float uMin = L.Thin == 0 ? mn.Y : mn.X, uMax = L.Thin == 0 ? mx.Y : mx.X;
+        L.T0 = tMin - 1.5f; L.T1 = tMax + 1.5f;
+        float w = uMax - uMin, h = mx.Z - mn.Z;
+        float pitchUse = pitch; while ((w / pitchUse) * (h / pitchUse) > 1400f) pitchUse += 0.05f;
+        L.P = pitchUse; L.U0 = uMin; L.U1 = uMax; L.V0 = mn.Z; L.V1 = mx.Z;
+        L.Nu = Math.Max(1, (int)Math.Floor(w / L.P)); L.Nv = Math.Max(1, (int)Math.Floor(h / L.P));
+        return L;
+    }
+
+    Grid Probe(Lab L)
+    {
+        Grid g = new Grid(); g.Nu = L.Nu; g.Nv = L.Nv; g.C = new byte[L.Nu * L.Nv];
+        for (int j = 0; j < L.Nv; j++)
+        {
+            for (int i = 0; i < L.Nu; i++)
+            {
+                float u = L.U0 + (i + 0.5f) * L.P, v = L.V0 + (j + 0.5f) * L.P;
+                byte c = Classify(L, u, v);
+                g.C[j * L.Nu + i] = c; Yield();
+                if (c == 0) g.Clear++; else if (c == 1) g.Wall++; else if (c == 2) g.Debris++; else g.Other++;
+            }
+            if ((j & 3) == 3) Yield();
+        }
+        return g;
+    }
+
+    byte Classify(Lab L, float u, float v)
+    {
+        Vector3 a = L.W(L.L(L.T0, u, v)), b = L.W(L.L(L.T1, u, v));
+        byte c1 = NativeRay(L,a,b), c2 = NativeRay(L,b,a);
+        if(c1==1||c2==1)return 1;
+        if(c1==2||c2==2)return 2;
+        if(c1==3||c2==3)return 3;
+        return 0;
+    }
+    byte NativeRay(Lab L,Vector3 a,Vector3 b)
+    {
+        int h=Function.Call<int>(Hash.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE,a.X,a.Y,a.Z,b.X,b.Y,b.Z,17,0,0);
+        using(OutputArgument hit=new OutputArgument())using(OutputArgument pos=new OutputArgument())using(OutputArgument normal=new OutputArgument())using(OutputArgument entity=new OutputArgument()){
+            int status=Function.Call<int>(Hash.GET_SHAPE_TEST_RESULT,h,hit,pos,normal,entity);
+            if(status!=2){failedRays++;return 3;}
+            if(!hit.GetResult<bool>())return 0;
+            int e=entity.GetResult<int>();if(e==L.Wall.Handle)return 1;if(debris.Contains(e))return 2;if(unknownRayHits++<5)Row("ray_other","status",status,"entity",e,"pos",pos.GetResult<Vector3>());return 3;
+        }
+    }
+    byte Cls(Lab L, RaycastResult r)
+    {
+        if (!r.DidHit) return 0;
+        Entity e = r.HitEntity; int h = e == null ? 0 : e.Handle;
+        if (h != 0 && L.Wall != null && h == L.Wall.Handle) return 1;
+        if (h != 0 && debris.Contains(h)) return 2;
+        return 3;
+    }
+
+    Cmp Compare(Lab L, Grid b, Grid n, float blastU, float blastV, float nearR)
+    {
+        Cmp c = new Cmp(); int nu = b.Nu, nv = b.Nv;
+        bool[] open = new bool[nu * nv];
+        for (int j = 0; j < nv; j++) for (int i = 0; i < nu; i++)
+        {
+            byte bb = b.C[j * nu + i], nn = n.C[j * nu + i];
+            if (bb != 1) continue; c.Closed++;
+            if (nn != 1) c.OpenedWall++;
+            if (nn == 0) { c.OpenedClear++; open[j * nu + i] = true; }
+            if (nn == 2 || nn == 3) c.Residual++;
+            if (nn != 1)
+            {
+                float u = L.U0 + (i + 0.5f) * L.P, v = L.V0 + (j + 0.5f) * L.P;
+                float d = (float)Math.Sqrt((u - blastU) * (u - blastU) + (v - blastV) * (v - blastV));
+                if (d > nearR) c.FarOpened++;
+            }
+        }
+        bool[] seen = new bool[nu * nv]; List<int> best = new List<int>();
+        for (int s = 0; s < open.Length; s++)
+        {
+            if (!open[s] || seen[s]) continue;
+            List<int> comp = new List<int>(); Stack<int> st = new Stack<int>(); st.Push(s); seen[s] = true;
+            while (st.Count > 0)
+            {
+                int k = st.Pop(); comp.Add(k); int ki = k % nu, kj = k / nu;
+                int[] nb = new int[] { ki > 0 ? k - 1 : -1, ki < nu - 1 ? k + 1 : -1, kj > 0 ? k - nu : -1, kj < nv - 1 ? k + nu : -1 };
+                foreach (int q in nb) if (q >= 0 && open[q] && !seen[q]) { seen[q] = true; st.Push(q); }
+            }
+            if (comp.Count > best.Count) best = comp;
+        }
+        c.BigSize = best.Count; c.Cells = best;
+        if (best.Count > 0)
+        {
+            int i0 = int.MaxValue, i1 = -1, j0 = int.MaxValue, j1 = -1; double su = 0, sv = 0;
+            foreach (int k in best) { int ki = k % nu, kj = k / nu; i0 = Math.Min(i0, ki); i1 = Math.Max(i1, ki); j0 = Math.Min(j0, kj); j1 = Math.Max(j1, kj); su += L.U0 + (ki + 0.5f) * L.P; sv += L.V0 + (kj + 0.5f) * L.P; }
+            c.BigCols = i1 - i0 + 1; c.BigRows = j1 - j0 + 1; c.BigW = c.BigCols * L.P; c.BigH = c.BigRows * L.P; c.BigU = (float)(su / best.Count); c.BigV = (float)(sv / best.Count);
+        }
+        return c;
+    }
+
+    // asynchronous swept-sphere batch (ShapeTest, 8 in flight, failed requests retried). hit[i]=true means blocked; unresolved counts as blocked.
+    bool[] Sweeps(List<Vector3> a, List<Vector3> b, float radius, out int unresolved)
+    {
+        int n = a.Count; bool[] hit = new bool[n]; int[] tries = new int[n]; unresolved = 0;
+        List<int> pending = new List<int>(); for (int i = 0; i < n; i++) pending.Add(i);
+        int guard = 0;
+        while (pending.Count > 0 && guard++ < 2000)
+        {
+            int take = Math.Min(8, pending.Count); List<int> cur = pending.GetRange(0, take); pending.RemoveRange(0, take);
+            List<ShapeTestHandle> hs = new List<ShapeTestHandle>(); List<int> retry = new List<int>(); bool[] done = new bool[take];
+            for (int k = 0; k < take; k++) hs.Add(ShapeTest.StartTestSweptSphere(a[cur[k]], b[cur[k]], radius, (IntersectFlags)17, null, (ShapeTestOptions)0));
+            for (int f = 0; f < 30; f++)
+            {
+                Yield(); bool all = true;
+                for (int k = 0; k < take; k++)
+                {
+                    if (done[k]) continue;
+                    if (hs[k].IsRequestFailed) { done[k] = true; retry.Add(cur[k]); continue; }
+                    ShapeTestResult r; ShapeTestStatus st = hs[k].GetResult(out r);
+                    if (st == ShapeTestStatus.Ready) { done[k] = true; hit[cur[k]] = r.DidHit; }
+                    else if (st == ShapeTestStatus.NonExistent) { done[k] = true; retry.Add(cur[k]); }
+                    else all = false;
+                }
+                if (all) break;
+            }
+            for (int k = 0; k < take; k++) if (!done[k]) retry.Add(cur[k]);
+            foreach (int i in retry) { tries[i]++; if (tries[i] < 4) pending.Add(i); else { hit[i] = true; unresolved++; } }
+        }
+        return hit;
+    }
+
+    // horizontal sphere sweeps (r=0.30) at 4 heights; passable lateral window = all heights clear
+    void Passable(Lab L, string label, out int clearU, out int totalU, out float longestWindow, out float windowU)
+    {
+        clearU = 0; totalU = 0; longestWindow = 0f; windowU = float.NaN;
+        float[] hs = new float[] { 0.5f, 0.9f, 1.3f, 1.7f };
+        int n = Math.Max(1, (int)Math.Floor((L.U1 - L.U0) / 0.25f));
+        List<Vector3> A = new List<Vector3>(), B = new List<Vector3>(); List<int> owner = new List<int>();
+        for (int i = 0; i < n; i++)
+        {
+            float u = L.U0 + (i + 0.5f) * 0.25f;
+            foreach (float h in hs)
+            {
+                float v = L.BaseZ + h; if (v > L.V1 + 0.3f) continue;
+                A.Add(L.W(L.L(L.T0, u, v))); B.Add(L.W(L.L(L.T1, u, v))); owner.Add(i);
+            }
+        }
+        int unres; bool[] hit = Sweeps(A, B, 0.30f, out unres);
+        bool[] ok = new bool[n]; for (int i = 0; i < n; i++) ok[i] = true;
+        for (int k = 0; k < hit.Length; k++) if (hit[k]) ok[owner[k]] = false;
+        int run = 0, bestRun = 0, bestEnd = -1;
+        for (int i = 0; i < n; i++) { totalU++; if (ok[i]) { clearU++; run++; if (run > bestRun) { bestRun = run; bestEnd = i; } } else run = 0; }
+        longestWindow = bestRun * 0.25f;
+        if (bestRun > 0) windowU = L.U0 + (bestEnd - (bestRun - 1) / 2f + 0.5f) * 0.25f;
+        Row("capsule_sweep", "label", label, "radius", 0.30f, "lateralSamples", n, "sweeps", hit.Length, "unresolved", unres, "clearU", clearU, "windowM", longestWindow);
+    }
+
+    // ===================================================================== trial (probe / blast)
+    // X2 uses X1 probes, debris discovery, transport, and walk lane checks.
+    void Anchored(Dictionary<string,string> a)
+    {
+        PrepareSite(); debris.Clear();failedRays=0;unknownRayHits=0;
+        string explosive=S(a,"explosive","grenade"); string variant=S(a,"variant","frozen");
+        Lab L=Spawn("lsa_x2_concrete",variant,SiteSpot(),0.25f); Prop wall=L.Wall;
+        Vector3 start=wall.Position; Vector3 up=wall.UpVector; Vector3 right=wall.RightVector;
+        int groups=wall.FragmentGroupCount;
+        Vector3[] bones=new Vector3[wall.Bones.Count];
+        for(int i=0;i<bones.Length;i++) bones[i]=wall.Bones[i].Position;
+        Row("x2_start","isFragment",wall.IsFragmentObject,"groups",groups,"boneCount",bones.Length,"variant",variant,"explosive",explosive,"assetSha256",ShaOf(Path.Combine(root,"onigiri/dlcpacks/lsa_destruct/dlc.rpf")));
+        if(bones.Length!=31){Row("x2_verdict","verdict","SKELETON_UNAVAILABLE");return;}
+        PlacePlayerFacing(L,-7f,0f);
+        x2Camera=World.CreateCamera(L.W(L.L(-6f,0f,2f)),Vector3.Zero,50f);
+        x2Camera.PointAt(L.W(L.L(0,0,1.25f)));World.RenderingCamera=x2Camera;
+        Grid before=Probe(L); int c0,t0;float w0,u0;Passable(L,"baseline",out c0,out t0,out w0,out u0);
+        Row("x2_baseline","failedRayRequests",failedRays,"unknownRayHits",unknownRayHits,"blocked",before.Wall,"cells",before.C.Length,"sweepClearColumns",c0,"sweepColumns",t0,"mask",Arr(Array.ConvertAll(before.C,x=>x.ToString())));
+        Hold("X2 BASELINE",(int)F(a,"hold",0));
+        if(before.Wall!=before.C.Length||c0!=0){Row("x2_verdict","verdict","BASELINE_INVALID");return;}
+        float blastU=F(a,"du",0f),blastV=F(a,"height",1f);
+        Vector3 blast=L.W(L.L(-.1f-F(a,"dx",.4f),blastU,blastV));
+        Row("x2_pre_detonation","explosive",explosive,"boneCount",wall.Bones.Count,"variant",variant);
+        if(explosive!="none")World.AddExplosion(blast,explosive=="sticky"?ExplosionType.StickyBomb:explosive=="rocket"?ExplosionType.Rocket:ExplosionType.Grenade,F(a,"scale",1),0,Game.Player.Character,true,false);
+        Row("x2_post_detonation","wallExists",wall.Exists());
+        float maxRoot=0,maxAnchorBone=0,minUp=1,minRight=1;int flagged=0;
+        for(int f=0;f<180;f++){
+            Yield(); if(!wall.Exists())break;
+            maxRoot=Math.Max(maxRoot,wall.Position.DistanceTo(start));minUp=Math.Min(minUp,Vector3.Dot(up,wall.UpVector));minRight=Math.Min(minRight,Vector3.Dot(right,wall.RightVector));
+            if(f%15==0){RefreshDebris(wall,blast);flagged=Math.Max(flagged,lastFlagged);}
+            foreach(string n in new string[]{"chunk_0_0","chunk_0_4","chunk_5_0","chunk_5_4"}){
+                int i=Function.Call<int>(Hash.GET_ENTITY_BONE_INDEX_BY_NAME,wall.Handle,n);if(i>=0&&i<bones.Length)maxAnchorBone=Math.Max(maxAnchorBone,wall.Bones[i].Position.DistanceTo(bones[i]));
+            }
+        }
+        Grid after=Probe(L);Cmp cmp=Compare(L,before,after,blastU,blastV,1.25f);
+        int c,t;float w,u;Passable(L,"debris_present",out c,out t,out w,out u);
+        int outerBlocked=0,outerBaseline=0;
+        for(int j=0;j<before.Nv;j++)for(int i=0;i<before.Nu;i++){
+            float x=L.U0+(i+.5f)*L.P;
+            if(Math.Abs(x)>1.05f && before.C[j*before.Nu+i]==1){outerBaseline++;if(after.C[j*before.Nu+i]==1)outerBlocked++;}
+        }
+        int foundAnchors=0;
+        foreach(string n in new string[]{"chunk_0_0","chunk_0_4","chunk_5_0","chunk_5_4"})if(Function.Call<int>(Hash.GET_ENTITY_BONE_INDEX_BY_NAME,wall.Handle,n)>=0)foundAnchors++;
+        bool anchored=foundAnchors==4&&wall.Exists()&&maxRoot<=.02f&&maxAnchorBone<=.02f&&minUp>=.999f&&minRight>=.999f&&outerBaseline>0&&outerBlocked==outerBaseline;
+        Row("x2_geometry","openedClear",cmp.OpenedClear,"residual",cmp.Residual,"outerBlocked",outerBlocked,"outerBaseline",outerBaseline,"maxRootMoveM",maxRoot,"maxAnchorBoneMoveM",maxAnchorBone,"minUpDot",minUp,"minRightDot",minRight,"anchorBonesFound",foundAnchors,"anchored",anchored,"flaggedDetached",flagged,"debrisCount",debris.Count,"sweepWindowM",w,"sweepClearColumns",c,"sweepColumns",t,"mask",Arr(Array.ConvertAll(after.C,x=>x.ToString())));
+        Hold("X2 AFTER BLAST DEBRIS PRESENT",(int)F(a,"hold",0));
+        float progress;string walk="skipped";if(explosive!="none"&&!float.IsNaN(u)&&w>=.5f)walk=Walk(L,u,"x2_hole",out progress);
+        string control=Walk(L,1.25f,"x2_intact",out progress);
+        bool pass=wall.IsFragmentObject&&groups==31&&before.Wall==before.C.Length&&c0==0&&anchored&&cmp.OpenedClear>=4&&w>=.6f&&walk=="crossed"&&control=="blocked"&&flagged>0;
+        string verdict=explosive=="none"?(anchored&&cmp.OpenedClear==0&&control=="blocked"?"CONTROL_CLOSED":"CONTROL_FAILED"):(pass?"LOCAL_ANCHORED_BREACH_CONFIRMED":"NOT_CONFIRMED");
+        Row("x2_verdict","verdict",verdict,"walkHole",walk,"walkControl",control,"anchored",anchored,"debrisRetained",true);
+    }
+
+    void Trial(string name, string variant, string explosive, Dictionary<string, string> a, string mode)
+    {
+        if (name.Length == 0) throw new Exception("model= required");
+        float dx = F(a, "dx", 0.75f), du = F(a, "du", 0f), dv = F(a, "dv", 0.45f), pitch = F(a, "pitch", 0.25f); int hold = (int)F(a, "hold", 0f); bool walk = F(a, "walk", 1f) > 0.5f;
+        string trialId = mode + "-" + name + "-" + variant + "-" + explosive + "-dx" + dx.ToString("0.##", Inv) + "-du" + du.ToString("0.##", Inv);
+        PrepareSite(); Vector3 spot = SiteSpot(); debris.Clear();
+        step = trialId + " spawn"; Beat();
+        Lab L = Spawn(name, variant, spot, pitch);
+        Prop wall = L.Wall;
+        List<string> boneRows = BoneMap(wall, 64);
+        int groups0 = wall.FragmentGroupCount; bool frag0 = wall.IsFragmentObject; int props0 = World.PropCount, col0 = World.EntityColliderCount;
+        Row("trial_start", "trial", trialId, "model", name, "variant", variant, "explosive", explosive, "isFragmentObject", frag0, "fragGroups", groups0,
+            "thinAxis", L.Thin == 0 ? "x" : "y", "dimU", L.U1 - L.U0, "dimZ", L.V1 - L.V0, "dimT", (L.Thin == 0 ? L.Max.X - L.Min.X : L.Max.Y - L.Min.Y),
+            "pitch", L.P, "cells", L.Nu * L.Nv, "propCount", props0, "colliders", col0, "bones", Arr(boneRows));
+        float uC = (L.U0 + L.U1) * 0.5f, hgt = L.V1 - L.V0;
+        float tFront = (L.Thin == 0 ? L.Min.X : L.Min.Y);
+        PlacePlayerFacing(L, tFront - 7f, uC);
+        for (int i = 0; i < 20; i++) Yield();
+        step = trialId + " baseline"; Beat();
+        Grid g0 = Probe(L); int pc0, pt0; float pw0, pu0; Passable(L, "baseline", out pc0, out pt0, out pw0, out pu0);
+        float los0 = TriState(LosBetween(L, uC, false));
+        Row("measure", "trial", trialId, "label", "baseline", "wall", g0.Wall, "debris", g0.Debris, "other", g0.Other, "clear", g0.Clear, "cells", g0.C.Length,
+            "capsuleClearU", pc0, "capsuleTotalU", pt0, "capsuleWindowM", pw0, "losClear", los0, "fragGroups", wall.FragmentGroupCount, "frameMs", Game.LastFrameTime * 1000f);
+        if (hold > 0) Hold("BASELINE " + trialId, hold);
+
+        // --- detonate
+        float blastU = uC + du, blastV = L.V0 + dv * hgt;
+        Vector3 bp = L.W(L.L(tFront - dx, blastU, blastV));
+        if (F(a, "enablefrag", 0f) > 0.5f) { try { Function.Call(Hash.SET_DISABLE_FRAG_DAMAGE, wall.Handle, false); } catch (Exception ex) { Row("alt_error", "native", "SET_DISABLE_FRAG_DAMAGE", "message", ex.Message); } }
+        try { Row("frag_health", "when", "before", "damageHealth", Function.Call<float>(Hash.GET_OBJECT_FRAGMENT_DAMAGE_HEALTH, wall.Handle, false), "entityHealth", wall.Health); } catch (Exception ex) { Row("alt_error", "native", "GET_OBJECT_FRAGMENT_DAMAGE_HEALTH", "message", ex.Message); }
+        bool detected = false; int detectFrame = -1, frame0 = Game.FrameCount; string ownerOk = "n/a";
+        if (explosive != "none")
+        {
+            step = trialId + " detonate"; Beat();
+            ExplosionType et = explosive == "sticky" ? ExplosionType.StickyBomb : explosive == "rocket" ? ExplosionType.Rocket : explosive == "tank" ? ExplosionType.TankShell : ExplosionType.Grenade;
+            World.AddExplosion(bp, et, F(a, "scale", 1.0f), 0f, Game.Player.Character, true, false);
+            for (int f = 0; f < 12; f++)
+            {
+                Yield();
+                if (!detected && Function.Call<bool>(Hash.IS_EXPLOSION_IN_SPHERE, -1, bp.X, bp.Y, bp.Z, 5.0f)) { detected = true; detectFrame = Game.FrameCount - frame0; }
+            }
+            ownerOk = detected ? "detected" : "not_detected";
+        }
+        else for (int f = 0; f < 12; f++) Yield();
+        Row("detonation", "trial", trialId, "explosive", explosive, "detected", detected, "detectFrames", detectFrame, "dx", dx, "du", du, "dv", dv);
+
+        // --- re-measure at +1, +5, +30, +120 frames (cumulative from detonation)
+        int[] marks = new int[] { 1, 5, 30, 120 }; int done = 12; Grid last = g0; Cmp lastCmp = null;
+        foreach (int mark in marks)
+        {
+            while (done < mark + 12) { Yield(); done++; }
+            int dc = RefreshDebris(wall, bp);
+            Grid gi = Probe(L); last = gi;
+            Cmp ci = Compare(L, g0, gi, blastU, blastV, 3.0f); lastCmp = ci;
+            bool brk = SafeBroken(wall);
+            Row("measure", "trial", trialId, "label", "+" + mark, "wall", gi.Wall, "debris", gi.Debris, "other", gi.Other, "clear", gi.Clear,
+                "openedWall", ci.OpenedWall, "openedClear", ci.OpenedClear, "residual", ci.Residual, "farOpened", ci.FarOpened, "bigCells", ci.BigSize, "bigW", ci.BigW, "bigH", ci.BigH,
+                "wallExists", wall.Exists(), "rootMoveM", wall.Exists() ? wall.Position.DistanceTo(L.P0) : -1f, "rootUpDot", wall.Exists() ? Vector3.Dot(wall.UpVector, L.Up) : 0f, "fragGroups", wall.Exists() ? wall.FragmentGroupCount : -1, "hasBeenBroken", brk, "detachedProps", dc, "propCount", World.PropCount, "colliders", World.EntityColliderCount, "frameMs", Game.LastFrameTime * 1000f);
+        }
+        int detachedFinal = RefreshDebris(wall, bp);
+        bool brokenFinal = SafeBroken(wall);
+        int groupsFinal = wall.Exists() ? wall.FragmentGroupCount : -1;
+        if (hold > 0) Hold("SETTLED " + trialId, hold);
+
+        // --- clear debris, then final geometry
+        step = trialId + " debris-clear"; Beat();
+        int removed = 0;
+        foreach (int h in new List<int>(debris)) { try { Entity d = Entity.FromHandle(h); if (d != null && d.Exists()) { d.MarkAsMissionEntity(); d.Delete(); removed++; } } catch { } }
+        for (int i = 0; i < 20; i++) Yield();
+        Grid gf = Probe(L); Cmp cf = Compare(L, g0, gf, blastU, blastV, 3.0f);
+        int pc, pt; float pw, pu; Passable(L, "final", out pc, out pt, out pw, out pu);
+        int smallClear = 0, smallTotal = 0;
+        {
+            List<Vector3> sa = new List<Vector3>(), sb2 = new List<Vector3>();
+            foreach (int k in cf.Cells) { int ki = k % gf.Nu, kj = k / gf.Nu; float uu = L.U0 + (ki + 0.5f) * L.P, vv = L.V0 + (kj + 0.5f) * L.P;
+                sa.Add(L.W(L.L(L.T0, uu, vv))); sb2.Add(L.W(L.L(L.T1, uu, vv))); if (sa.Count >= 160) break; }
+            int un2; bool[] sh = Sweeps(sa, sb2, 0.08f, out un2); smallTotal = sh.Length; foreach (bool x in sh) if (!x) smallClear++;
+        }
+        float losAfter = TriState(LosBetween(L, !float.IsNaN(pu) ? pu : (cf.BigSize > 0 ? cf.BigU : uC), true));
+        Row("measure", "trial", trialId, "label", "final_debris_cleared", "wall", gf.Wall, "debris", gf.Debris, "other", gf.Other, "clear", gf.Clear,
+            "openedWall", cf.OpenedWall, "openedClear", cf.OpenedClear, "residual", cf.Residual, "farOpened", cf.FarOpened, "bigCells", cf.BigSize, "bigW", cf.BigW, "bigH", cf.BigH,
+            "smallCapsuleClear", smallClear, "smallCapsuleTotal", smallTotal, "capsuleClearU", pc, "capsuleTotalU", pt, "capsuleWindowM", pw, "losClear", losAfter, "debrisRemoved", removed);
+
+        // --- physical movement: ped through the opening, and a control ped at an intact column
+        string walkHole = "skipped", walkCtl = "skipped"; float progHole = float.NaN, progCtl = float.NaN;
+        bool holeCandidate = (!float.IsNaN(pu) && pw >= 0.5f) || (cf.BigSize >= 4);
+        if (walk && explosive != "none" || (walk && mode == "probe"))
+        {
+            float uHole = !float.IsNaN(pu) ? pu : cf.BigSize > 0 ? cf.BigU : uC;
+            if (holeCandidate) walkHole = Walk(L, uHole, "hole", out progHole);
+            float uCtl = ControlColumn(L, uHole, pt, g0);
+            walkCtl = Walk(L, uCtl, "control", out progCtl);
+        }
+
+        // --- verdict
+        bool broke = detachedFinal > 0 || brokenFinal || (groupsFinal >= 0 && groupsFinal < groups0) || !wall.Exists();
+        bool rayRemoved = cf.OpenedWall >= 2;
+        bool passable = pw >= 0.6f;
+        bool crossed = walkHole == "crossed", ctlBlocked = walkCtl != "crossed" && walkCtl != "crossed_climbed";
+        string verdict;
+        if (mode == "probe") verdict = "CONTROL_NO_BLAST";
+        else if (explosive == "none") verdict = (cf.OpenedWall == 0 && !broke) ? "CONTROL_STAYED_CLOSED" : "CONTROL_CHANGED";
+        else if (!broke && cf.OpenedWall == 0) verdict = "NO_BREAK";
+        else if ((rayRemoved && passable && !crossed && walkHole != "skipped") || (crossed && !passable && cf.OpenedWall > 0)) verdict = "PHANTOM";
+        else if (rayRemoved && passable && crossed && ctlBlocked && cf.FarOpened == 0 && cf.BigSize >= 4 && cf.OpenedWall < cf.Closed * 0.9f) verdict = "HOLE_CONFIRMED";
+        else if (rayRemoved && cf.Closed > 0 && cf.OpenedWall >= cf.Closed * 0.9f && passable) verdict = "PANEL_REMOVED_ENTIRE";
+        else if (broke || cf.OpenedWall > 0) verdict = "BROKEN_NO_OPENING";
+        else verdict = "UNKNOWN";
+        Row("verdict", "trial", trialId, "verdict", verdict, "T1_broke", broke, "T2_rayCollisionRemoved", rayRemoved, "T2_smallCapsuleClear", smallClear + "/" + smallTotal,
+            "T3_passableWindowM", pw, "T3_walkHole", walkHole, "T3_walkControl", walkCtl, "progressHole", progHole, "progressControl", progCtl,
+            "detachedProps", detachedFinal, "groupsBefore", groups0, "groupsAfter", groupsFinal, "wallExistsAfter", wall.Exists(), "explosionDetected", detected, "ownerCheck", ownerOk);
+        File.AppendAllText(Path.Combine(runDir, "summary.jsonl"), Obj("trial", trialId, "model", name, "variant", variant, "explosive", explosive, "dx", dx, "du", du, "dv", dv, "verdict", verdict, "groups", groups0, "detached", detachedFinal, "openedWall", cf.OpenedWall, "bigW", cf.BigW, "bigH", cf.BigH, "passableWindowM", pw, "walkHole", walkHole, "walkControl", walkCtl, "farOpened", cf.FarOpened, "baselineBlockedCells", g0.Wall + "/" + g0.C.Length) + "\n");
+    }
+
+    string Walk(Lab L, float u, string label, out float progress)
+    {
+        float tFront = (L.Thin == 0 ? L.Min.X : L.Min.Y), tBack = (L.Thin == 0 ? L.Max.X : L.Max.Y);
+        Vector3 start = L.W(L.L(tFront - 2.2f, u, L.BaseZ + 0.05f));
+        Vector3 goal = L.W(L.L(tBack + 2.2f, u, L.BaseZ + 0.05f));
+        progress = float.NaN;
+        Model m = new Model(PedModelName); if (!m.Request(5000)) return "ped_model_failed";
+        Ped ped = World.CreatePed(m, start, 0f); if (ped == null || !ped.Exists()) return "ped_create_failed";
+        owned.Add(ped); ped.IsInvincible = true; ped.BlockPermanentEvents = true;
+        Function.Call(Hash.SET_PED_STEERS_AROUND_OBJECTS,ped.Handle,false);Function.Call(Hash.SET_PED_STEERS_AROUND_PEDS,ped.Handle,false);Function.Call(Hash.SET_PED_STEERS_AROUND_VEHICLES,ped.Handle,false);
+        Vector3 dir = (goal - start); dir.Z = 0f; dir.Normalize(); ped.Heading = (float)(Math.Atan2(-dir.X, dir.Y) * 180.0 / Math.PI);
+        for (int i = 0; i < 10; i++) Yield();
+        Function.Call(Hash.TASK_GO_STRAIGHT_TO_COORD, ped.Handle, goal.X, goal.Y, goal.Z, 1.0f, 9000, ped.Heading, 0.5f);
+        long t0 = clock.ElapsedMilliseconds; bool crossed = false; float maxT = -99f; float zStart = ped.Position.Z, zMax = zStart; float maxLateral = 0f;
+        while (clock.ElapsedMilliseconds - t0 < 9500)
+        {
+            Yield(); Beat();
+            Vector3 lp = L.Inv(ped.Position); float t = L.Thin == 0 ? lp.X : lp.Y; maxT = Math.Max(maxT, t); zMax = Math.Max(zMax, ped.Position.Z);
+            float lateral = Math.Abs((L.Thin == 0 ? lp.Y : lp.X) - u); maxLateral = Math.Max(maxLateral, lateral);
+            if (t > tBack + 0.6f) { crossed = true; break; }
+        }
+        progress = maxT - tFront;
+        float zGain = zMax - zStart; bool climbed = crossed && zGain > 0.35f;
+        Row("walk", "label", label, "u", u, "crossed", crossed, "climbedOver", climbed, "maxLateralM", maxLateral, "zGainM", zGain, "progressFromFrontM", progress, "wallThicknessM", tBack - tFront, "wallHeightM", L.V1 - L.V0, "ms", clock.ElapsedMilliseconds - t0);
+        try { ped.Delete(); } catch { } owned.Remove(ped);
+        return crossed ? (maxLateral > 0.6f ? "crossed_off_lane" : climbed ? "crossed_climbed" : "crossed") : "blocked";
+    }
+
+    float ControlColumn(Lab L, float uHole, int totalU, Grid g0)
+    {
+        // an intact column of the same wall >= 1.5 m from the hole centre, chosen from baseline-solid columns
+        float best = L.U0 + 0.3f; float bestD = -1f;
+        for (int i = 0; i < g0.Nu; i++)
+        {
+            float u = L.U0 + (i + 0.5f) * L.P; int solid = 0; for (int j = 0; j < g0.Nv; j++) if (g0.At(i, j) == 1) solid++;
+            if (solid < g0.Nv * 0.8f) continue; float d = Math.Abs(u - uHole);
+            if (d >= 1.5f && (bestD < 0 || d < bestD)) { bestD = d; best = u; }
+        }
+        return best;
+    }
+
+    // lab peds on both sides, LOS test (flags 17). peds are deleted straight after.
+    bool? LosBetween(Lab L, float u, bool afterBlast)
+    {
+        try
+        {
+            float tFront = (L.Thin == 0 ? L.Min.X : L.Min.Y), tBack = (L.Thin == 0 ? L.Max.X : L.Max.Y);
+            Model m = new Model(PedModelName); if (!m.Request(4000)) return null;
+            Vector3 a = L.W(L.L(tFront - 3f, u, L.BaseZ + 0.05f)), b = L.W(L.L(tBack + 3f, u, L.BaseZ + 0.05f));
+            Ped pa = World.CreatePed(m, a, 0f), pb = World.CreatePed(m, b, 0f); if (pa == null || pb == null) return null;
+            owned.Add(pa); owned.Add(pb);
+            foreach (Ped p in new Ped[] { pa, pb }) { p.IsInvincible = true; p.BlockPermanentEvents = true; p.IsPositionFrozen = true; }
+            for (int i = 0; i < 6; i++) Yield();
+            bool los = pa.HasClearLineOfSightTo(pb, (IntersectFlags)17);
+            try { pa.Delete(); pb.Delete(); } catch { } owned.Remove(pa); owned.Remove(pb);
+            return los;
+        }
+        catch { return null; }
+    }
+
+    // ===================================================================== line of N panels: does the blast open a gap while neighbours stay intact?
+    void Line(string name, string variant, int n, string explosive, Dictionary<string, string> a)
+    {
+        if (name.Length == 0) throw new Exception("model= required");
+        float dx = F(a, "dx", 0.4f), dv = F(a, "dv", 0.45f), gap = F(a, "gap", 0.05f), pitch = F(a, "pitch", 0.25f); int hold = (int)F(a, "hold", 0f); bool walk = F(a, "walk", 1f) > 0.5f;
+        int target = (int)F(a, "target", (n - 1) / 2f); float scale = F(a, "scale", 1f);
+        string trialId = "line" + n + "-" + name + "-" + variant + "-" + explosive + "-t" + target;
+        PrepareSite(); Vector3 spot = SiteSpot(); debris.Clear();
+        Lab probeLab = Spawn(name, variant, spot, pitch); float width = probeLab.U1 - probeLab.U0; int thin = probeLab.Thin;
+        try { probeLab.Wall.Delete(); } catch { } owned.Remove(probeLab.Wall); for (int i = 0; i < 6; i++) Yield();
+        Vector3 uDir = thin == 0 ? new Vector3(0f, 1f, 0f) : new Vector3(1f, 0f, 0f);
+        List<Lab> labs = new List<Lab>(); List<Grid> g0 = new List<Grid>();
+        for (int i = 0; i < n; i++)
+        {
+            Vector3 sp = spot + uDir * ((i - (n - 1) / 2f) * (width + gap));
+            Lab Li = Spawn(name, variant, GroundAt(sp), pitch); labs.Add(Li);
+        }
+        preProps.Clear(); try { foreach (Prop q in World.GetNearbyProps(spot, 30f)) if (q != null && q.Exists()) preProps.Add(q.Handle); } catch { }
+        Row("line_start", "trial", trialId, "model", name, "variant", variant, "panels", n, "panelWidthM", width, "targetPanel", target, "explosive", explosive, "fragGroupsEach", labs[0].Wall.FragmentGroupCount);
+        Lab mid = labs[Math.Max(0, Math.Min(n - 1, target))]; float tFront = thin == 0 ? mid.Min.X : mid.Min.Y; float uC = (mid.U0 + mid.U1) * 0.5f;
+        PlacePlayerFacing(labs[(n - 1) / 2], tFront - 9f, (labs[(n - 1) / 2].U0 + labs[(n - 1) / 2].U1) * 0.5f);
+        for (int i = 0; i < 25; i++) Yield();
+        for (int i = 0; i < n; i++) { g0.Add(Probe(labs[i])); Row("line_baseline", "panel", i, "blockedCells", g0[i].Wall, "cells", g0[i].C.Length); }
+        if (hold > 0) Hold("LINE-BASELINE", hold);
+        if (explosive != "none")
+        {
+            Vector3 bp = mid.W(mid.L(tFront - dx, uC, mid.V0 + dv * (mid.V1 - mid.V0)));
+            ExplosionType et = explosive == "sticky" ? ExplosionType.StickyBomb : explosive == "rocket" ? ExplosionType.Rocket : explosive == "tank" ? ExplosionType.TankShell : ExplosionType.Grenade;
+            World.AddExplosion(bp, et, scale, 0f, Game.Player.Character, true, false);
+            bool det = false; for (int f = 0; f < 150; f++) { Yield(); if (!det && Function.Call<bool>(Hash.IS_EXPLOSION_IN_SPHERE, -1, bp.X, bp.Y, bp.Z, 6.0f)) { det = true; Row("detonation", "trial", trialId, "detected", true, "detectFrames", f + 1); } }
+        }
+        else for (int f = 0; f < 150; f++) Yield();
+        RefreshDebris(labs[0].Wall, spot);
+        if (hold > 0) Hold("LINE-AFTER-DEBRIS-PRESENT", hold);
+        bool clearDebris = F(a, "cleardebris", 0f) > 0.5f;
+        Row("line_debris_policy", "clearedBeforeMeasurements", clearDebris, "detectedDebris", debris.Count);
+        if (clearDebris) foreach (int h in new List<int>(debris)) { try { Entity d = Entity.FromHandle(h); if (d != null && d.Exists()) { d.MarkAsMissionEntity(); d.Delete(); } } catch { } }
+        for (int i = 0; i < 20; i++) Yield();
+        List<float> frac = new List<float>(); List<float> win = new List<float>(); List<float> winU = new List<float>();
+        for (int i = 0; i < n; i++)
+        {
+            Grid gi = Probe(labs[i]); Cmp ci = Compare(labs[i], g0[i], gi, 0f, 0f, 9999f);
+            int pc, pt; float pw, pu; Passable(labs[i], "line-panel" + i, out pc, out pt, out pw, out pu);
+            float fr = ci.Closed > 0 ? (float)ci.OpenedClear / ci.Closed : 0f; frac.Add(fr); win.Add(pw); winU.Add(pu);
+            Row("line_panel", "trial", trialId, "panel", i, "openedFraction", fr, "openedCells", ci.OpenedClear, "rootCollisionRemovedCells", ci.OpenedWall, "residualCells", ci.Residual, "closedBaseline", ci.Closed, "bigW", ci.BigW, "bigH", ci.BigH, "capsuleWindowM", pw, "wallCellsNow", gi.Wall, "rootExists", labs[i].Wall.Exists(), "rootMoveM", labs[i].Wall.Exists() ? labs[i].Wall.Position.DistanceTo(labs[i].P0) : -1f);
+        }
+        if (hold > 0) Hold("LINE-AFTER-CLEARED", hold);
+        string walkHole = "skipped", walkCtl = "skipped"; float ph = float.NaN, pc2 = float.NaN; int holeIdx = -1, ctlIdx = -1;
+        for (int i = 0; i < n; i++) { if (holeIdx < 0 && frac[i] >= 0.9f && win[i] >= 0.6f) holeIdx = i; if (ctlIdx < 0 && frac[i] <= 0.1f) ctlIdx = i; }
+        if (walk && holeIdx >= 0) walkHole = Walk(labs[holeIdx], !float.IsNaN(winU[holeIdx]) ? winU[holeIdx] : (labs[holeIdx].U0 + labs[holeIdx].U1) * 0.5f, "hole-panel" + holeIdx, out ph);
+        if (walk && ctlIdx >= 0) walkCtl = Walk(labs[ctlIdx], (labs[ctlIdx].U0 + labs[ctlIdx].U1) * 0.5f, "control-panel" + ctlIdx, out pc2);
+        int brokenPanels = 0, intactPanels = 0; for (int i = 0; i < n; i++) { if (frac[i] >= 0.9f) brokenPanels++; else if (frac[i] <= 0.1f) intactPanels++; }
+        bool gapOk = brokenPanels >= 1 && intactPanels >= 1 && walkHole == "crossed" && walkCtl == "blocked";
+        string verdict = explosive == "none" ? (brokenPanels == 0 ? "CONTROL_STAYED_CLOSED" : "CONTROL_CHANGED") : gapOk ? "GAP_IN_WALL_CONFIRMED" : (brokenPanels >= 1 && intactPanels == 0) ? "ALL_PANELS_REMOVED" : (brokenPanels >= 1) ? "GAP_PARTIAL_UNVERIFIED_WALK" : "NO_BREAK";
+        Row("verdict", "trial", trialId, "verdict", verdict, "brokenPanels", brokenPanels, "intactPanels", intactPanels, "walkHole", walkHole, "walkControl", walkCtl, "holePanel", holeIdx, "controlPanel", ctlIdx, "progressHole", ph, "progressControl", pc2);
+        List<string> fr2 = new List<string>(); for (int i = 0; i < n; i++) fr2.Add(frac[i].ToString("0.00", Inv));
+        File.AppendAllText(Path.Combine(runDir, "summary.jsonl"), Obj("trial", trialId, "model", name, "variant", variant, "explosive", explosive, "verdict", verdict, "panels", n, "brokenPanels", brokenPanels, "intactPanels", intactPanels, "openedFractions", string.Join(",", fr2.ToArray()), "walkHole", walkHole, "walkControl", walkCtl) + "\n");
+    }
+
+    // ===================================================================== scripted detach control
+    void Detach(string name, string variant, string mode, Dictionary<string, string> a)
+    {
+        if (name.Length == 0) throw new Exception("model= required");
+        float pitch = F(a, "pitch", 0.5f); int max = (int)F(a, "max", 24f); float r = F(a, "r", 1.3f);
+        PrepareSite(); Vector3 spot = SiteSpot(); debris.Clear();
+        Lab L = Spawn(name, variant, spot, pitch); Prop wall = L.Wall;
+        int groups0 = wall.FragmentGroupCount; List<string> bm = BoneMap(wall, 128);
+        Row("detach_start", "model", name, "variant", variant, "mode", mode, "isFragmentObject", wall.IsFragmentObject, "fragGroups", groups0, "bones", Arr(bm));
+        PlacePlayerFacing(L, (L.Thin == 0 ? L.Min.X : L.Min.Y) - 7f, (L.U0 + L.U1) * 0.5f);
+        Grid g0 = Probe(L);
+        Row("measure", "label", "baseline", "wall", g0.Wall, "clear", g0.Clear, "cells", g0.C.Length, "fragGroups", groups0);
+        if (mode == "each")
+        {
+            int stride = Math.Max(1, groups0 / Math.Max(1, max));
+            for (int g = 0; g < groups0 && !abortRequested; g += stride)
+            {
+                step = "detach group " + g + "/" + groups0; Beat();
+                if (g > 0) { CleanupAll(); debris.Clear(); L = Spawn(name, variant, spot, pitch); wall = L.Wall; for (int i = 0; i < 20; i++) Yield(); }
+                int gBefore = wall.FragmentGroupCount; bool threw = false;
+                try { wall.DetachFragmentPart(g); } catch (Exception ex) { threw = true; Row("detach_error", "group", g, "message", ex.Message); }
+                for (int i = 0; i < 40; i++) Yield();
+                if (RefreshDebris(wall, wall.Position) == 0 && F(a, "alt", 0f) > 0.5f)
+                {
+                    try { Function.Call(Hash.BREAK_OBJECT_FRAGMENT_CHILD, wall.Handle, g, false); } catch (Exception ex) { Row("alt_error", "native", "BREAK_OBJECT_FRAGMENT_CHILD", "message", ex.Message); }
+                    for (int i = 0; i < 20; i++) Yield();
+                    if (RefreshDebris(wall, wall.Position) == 0) { try { Function.Call(Hash.DAMAGE_OBJECT_FRAGMENT_CHILD, wall.Handle, g, 100000f); } catch (Exception ex) { Row("alt_error", "native", "DAMAGE_OBJECT_FRAGMENT_CHILD", "message", ex.Message); } for (int i = 0; i < 20; i++) Yield(); }
+                }
+                int dc = RefreshDebris(wall, wall.Position); Grid gi = Probe(L); Cmp ci = Compare(L, g0, gi, 0f, 0f, 9999f);
+                Row("detach_group", "group", g, "threw", threw, "groupsBefore", gBefore, "groupsAfter", wall.Exists() ? wall.FragmentGroupCount : -1, "detachedProps", dc, "wallExists", wall.Exists(),
+                    "openedWall", ci.OpenedWall, "openedClear", ci.OpenedClear, "residual", ci.Residual, "bigCells", ci.BigSize, "bigW", ci.BigW, "bigH", ci.BigH, "wallCells", gi.Wall, "baselineWallCells", g0.Wall);
+            }
+        }
+        else // cluster: detach every group whose bone lies within r metres of a point at wall centre / 0.45 height
+        {
+            float uC = (L.U0 + L.U1) * 0.5f, vC = L.V0 + 0.45f * (L.V1 - L.V0);
+            float tc = ((L.Thin == 0 ? L.Min.X : L.Min.Y) + (L.Thin == 0 ? L.Max.X : L.Max.Y)) * 0.5f;
+            Vector3 centre = L.W(L.L(tc, uC, vC));
+            List<int> picks = GroupsNear(wall, centre, r);
+            Row("detach_cluster_plan", "centre", "wall-centre", "radius", r, "groups", Arr(picks));
+            if (F(a, "hold", 0f) > 0f) Hold("CLUSTER-BEFORE", (int)F(a, "hold", 0f));
+            foreach (int g in picks) { try { wall.DetachFragmentPart(g); } catch (Exception ex) { Row("detach_error", "group", g, "message", ex.Message); } if (F(a, "alt", 0f) > 0.5f) { try { Function.Call(Hash.BREAK_OBJECT_FRAGMENT_CHILD, wall.Handle, g, false); } catch { } } }
+            for (int i = 0; i < 90; i++) Yield();
+            int dc = RefreshDebris(wall, centre);
+            Row("cluster_after_detach", "newProps", lastNewProps, "flaggedDetached", lastFlagged);
+            if (F(a, "hold", 0f) > 0f) Hold("CLUSTER-AFTER", (int)F(a, "hold", 0f));
+            foreach (int h in new List<int>(debris)) { try { Entity d = Entity.FromHandle(h); if (d != null && d.Exists()) { d.MarkAsMissionEntity(); d.Delete(); } } catch { } }
+            for (int i = 0; i < 20; i++) Yield();
+            Grid gi = Probe(L); Cmp ci = Compare(L, g0, gi, uC, vC, 9999f);
+            int pc, pt; float pw, pu; Passable(L, "cluster", out pc, out pt, out pw, out pu);
+            float uh = !float.IsNaN(pu) ? pu : (ci.BigSize > 0 ? ci.BigU : uC); float prog; string wk = ci.BigSize >= 4 ? Walk(L, uh, "cluster-hole", out prog) : "skipped";
+            Row("detach_cluster", "detachedProps", dc, "groupsAfter", wall.Exists() ? wall.FragmentGroupCount : -1, "openedWall", ci.OpenedWall, "openedClear", ci.OpenedClear, "bigCells", ci.BigSize, "bigW", ci.BigW, "bigH", ci.BigH,
+                "capsuleWindowM", pw, "walk", wk, "baselineWallCells", g0.Wall, "wallCellsAfter", gi.Wall);
+        }
+    }
+
+    List<int> GroupsNear(Prop wall, Vector3 centre, float r)
+    {
+        List<int> res = new List<int>(); HashSet<int> seen = new HashSet<int>();
+        try { for (int i = 0; i < wall.Bones.Count; i++) { EntityBone b = wall.Bones[i]; int g = b.FragmentGroupIndex; if (g < 0 || seen.Contains(g)) continue; if (b.Position.DistanceTo(centre) <= r) { seen.Add(g); res.Add(g); } } } catch { }
+        return res;
+    }
+
+    List<string> BoneMap(Prop wall, int cap)
+    {
+        List<string> o = new List<string>();
+        try
+        {
+            int n = wall.Bones.Count;
+            for (int i = 0; i < n && o.Count < cap; i++)
+            {
+                EntityBone b = wall.Bones[i]; Vector3 lp = wall.GetPositionOffset(b.Position);
+                o.Add(Obj("bone", i, "group", b.FragmentGroupIndex, "lx", lp.X, "ly", lp.Y, "lz", lp.Z));
+            }
+        }
+        catch (Exception ex) { o.Add(Obj("boneMapError", ex.Message)); }
+        return o;
+    }
+
+    // ===================================================================== world / player helpers
+    int lastNewProps, lastFlagged;
+    // debris = props near the wall that either carry SHVDN's "detached from parent == wall" flag or are simply new since spawn
+    int RefreshDebris(Prop wall, Vector3 around)
+    {
+        int n = 0; lastNewProps = 0; lastFlagged = 0;
+        try
+        {
+            foreach (Prop p in World.GetNearbyProps(around, 16f))
+            {
+                if (p == null || !p.Exists() || p.Handle == wall.Handle) continue;
+                bool fromWall = false;
+                try { fromWall = p.HasBeenDetachedFromParentEntity && p.ParentEntityDetachedFrom != null && p.ParentEntityDetachedFrom.Handle == wall.Handle; } catch { }
+                bool isNew = !preProps.Contains(p.Handle);
+                if (fromWall) lastFlagged++;
+                if (isNew) lastNewProps++;
+                if (fromWall || isNew) { if (debris.Add(p.Handle)) { Row("debris_prop", "hash", (uint)p.Model.Hash, "flaggedDetached", fromWall, "isFragmentObject", p.IsFragmentObject, "groups", p.FragmentGroupCount, "dist", p.Position.DistanceTo(wall.Exists() ? wall.Position : around)); } }
+                if (fromWall || isNew) n++;
+            }
+        }
+        catch { }
+        return n;
+    }
+
+    bool SafeBroken(Prop wall) { try { return wall.Exists() && Function.Call<bool>(Hash.HAS_OBJECT_BEEN_BROKEN, wall.Handle, 0); } catch { return false; } }
+
+    void PrepareSite()
+    {
+        Ped pl = Game.Player.Character;
+        if (!teleported) { originPos = pl.Position; originHeading = pl.Heading; teleported = true; savedInvincible = Game.Player.IsInvincible; savedMaxWanted = Function.Call<int>(Hash.GET_MAX_WANTED_LEVEL); }
+        Game.Player.IsInvincible = true;
+        Function.Call(Hash.SET_MAX_WANTED_LEVEL, 0); Game.Player.WantedLevel = 0;
+    }
+
+    static readonly float[][] SiteCandidates = new float[][] {
+        new float[] { 1717f, 3256f, 41.2f }, new float[] { 2130f, 4790f, 41.1f }, new float[] { -1337f, -2278f, 13.9f },
+        new float[] { 1450f, 3150f, 40.5f }, new float[] { 2300f, 3700f, 36f }, new float[] { -1050f, -2950f, 13.95f } };
+    Vector3? cachedSite; string siteNote = "";
+
+    // Test spot: site.txt "x y z" if present; else first flat, roofless, empty candidate patch (teleport + collision gate);
+    // else 22 m in front of the player's own position. Player is returned to the origin at the end of the batch.
+    Vector3 SiteSpot()
+    {
+        Ped pl = Game.Player.Character;
+        if (cachedSite.HasValue) { pl.Position = cachedSite.Value + new Vector3(0f, -12f, 1.5f); WaitCollision(pl); return GroundAt(cachedSite.Value); }
+        string sf = Path.Combine(lab, "site.txt");
+        if (File.Exists(sf))
+        {
+            string[] t = File.ReadAllText(sf).Trim().Split(new char[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+            if (t.Length >= 3) { Vector3 b = new Vector3(float.Parse(t[0], Inv), float.Parse(t[1], Inv), float.Parse(t[2], Inv)); pl.Position = b + new Vector3(0f, -12f, 1.5f); WaitCollision(pl); cachedSite = b; siteNote = "site.txt"; Row("site", "mode", "site.txt"); return GroundAt(b); }
+        }
+        foreach (float[] c in SiteCandidates)
+        {
+            if (abortRequested) break;
+            Vector3 b = new Vector3(c[0], c[1], c[2]); step = "site probe " + c[0] + "," + c[1]; Beat();
+            pl.Position = b + new Vector3(0f, 0f, 1.5f); WaitCollision(pl);
+            Vector3 centre = pl.Position; float zmin = 9999f, zmax = -9999f; int bad = 0, n = 0;
+            for (int ix = -7; ix <= 7; ix++) for (int iy = -7; iy <= 7; iy++)
+            {
+                Vector3 q = centre + new Vector3(ix * 2f, iy * 2f, 2.5f);
+                RaycastResult r = World.Raycast(q, q - new Vector3(0, 0, 8f), (IntersectFlags)1, null); n++;
+                if (!r.DidHit) { bad++; continue; }
+                zmin = Math.Min(zmin, r.HitPosition.Z); zmax = Math.Max(zmax, r.HitPosition.Z);
+                RaycastResult up = World.Raycast(r.HitPosition + new Vector3(0, 0, 0.3f), r.HitPosition + new Vector3(0, 0, 6f), (IntersectFlags)(1 | 16), null);
+                if (up.DidHit) bad++;
+                if ((n & 31) == 0) Yield();
+            }
+            int peds = World.GetNearbyPeds(centre, 30f).Length, vehs = World.GetNearbyVehicles(centre, 40f).Length;
+            Row("site_candidate", "x", c[0], "y", c[1], "samples", n, "bad", bad, "zRange", zmax - zmin, "nearbyPeds", peds, "nearbyVehicles", vehs);
+            if (bad == 0 && zmax - zmin <= 0.3f && peds <= 1 && vehs == 0) { cachedSite = new Vector3(centre.X, centre.Y, (zmin + zmax) * 0.5f); siteNote = "auto"; Row("site", "mode", "auto-flat-patch"); return GroundAt(cachedSite.Value); }
+        }
+        Row("site", "mode", "fallback-in-front-of-player-origin");
+        pl.Position = originPos; WaitCollision(pl);
+        Vector3 spot = originPos + pl.ForwardVector * 22f;
+        return GroundAt(spot);
+    }
+
+    Vector3 GroundAt(Vector3 spot)
+    {
+        RaycastResult r = World.Raycast(spot + new Vector3(0, 0, 3f), spot - new Vector3(0, 0, 8f), (IntersectFlags)1, null);
+        return r.DidHit ? r.HitPosition : spot;
+    }
+
+    void WaitCollision(Ped pl)
+    {
+        pl.IsPositionFrozen = true; int good = 0; long t0 = clock.ElapsedMilliseconds;
+        while (clock.ElapsedMilliseconds - t0 < 20000 && good < 50)
+        {
+            Function.Call(Hash.REQUEST_COLLISION_AT_COORD, pl.Position.X, pl.Position.Y, pl.Position.Z);
+            Yield(); Beat();
+            if (Function.Call<bool>(Hash.HAS_COLLISION_LOADED_AROUND_ENTITY, pl.Handle)) good++; else good = 0;
+        }
+        pl.IsPositionFrozen = false;
+    }
+
+    void PlacePlayerFacing(Lab L, float tFront, float u)
+    {
+        Ped pl = Game.Player.Character;
+        Vector3 p = L.W(L.L(tFront, u, L.BaseZ + 0.05f));
+        RaycastResult r = World.Raycast(p + new Vector3(0, 0, 3f), p - new Vector3(0, 0, 6f), (IntersectFlags)1, null);
+        if (r.DidHit) p = r.HitPosition + new Vector3(0, 0, 0.05f);
+        pl.Position = p;
+        Vector3 d = L.W(L.L((L.Thin == 0 ? L.Min.X : L.Min.Y), u, L.BaseZ)) - p; d.Z = 0f; d.Normalize();
+        pl.Heading = (float)(Math.Atan2(-d.X, d.Y) * 180.0 / Math.PI);
+        try { GameplayCamera.RelativeHeading = 0f; GameplayCamera.RelativePitch = -4f; } catch { }
+    }
+
+    void RestorePlayer()
+    {
+        if (!teleported) return;
+        teleported = false;
+        Ped pl = Game.Player.Character;
+        try { pl.IsPositionFrozen = false; if (pl.Position.DistanceTo(originPos) > 1f) { pl.Position = originPos; pl.Heading = originHeading; } } catch { }
+        try { Game.Player.IsInvincible = savedInvincible; } catch { }
+        try { if (savedMaxWanted >= 0) Function.Call(Hash.SET_MAX_WANTED_LEVEL, savedMaxWanted); } catch { }
+    }
+
+    void CleanupAll()
+    {
+        if(x2Camera!=null){World.RenderingCamera=null;x2Camera.Delete();x2Camera=null;}
+        foreach (int h in new List<int>(debris)) { try { Entity d = Entity.FromHandle(h); if (d != null && d.Exists()) { d.MarkAsMissionEntity(); d.Delete(); } } catch { } }
+        debris.Clear();
+        foreach (Entity e in new List<Entity>(owned)) { try { if (e != null && e.Exists()) e.Delete(); } catch { } }
+        owned.Clear();
+    }
+
+    void Hold(string label, int secs)
+    {
+        state = "HOLD"; step = label; Beat(true);
+        long t0 = clock.ElapsedMilliseconds;
+        while (clock.ElapsedMilliseconds - t0 < secs * 1000L) { Wait(250); Beat(); }
+        state = "RUNNING";
+    }
+
+    // ===================================================================== evidence plumbing
+    void Beat(bool force = false)
+    {
+        long now = clock.ElapsedMilliseconds;
+        if (!force && now < nextBeat) return;
+        nextBeat = now + 800;
+        try
+        {
+            string tmp = Path.Combine(lab, "status.json.tmp"), dst = Path.Combine(lab, "status.json");
+            File.WriteAllText(tmp, Obj("script", "WpsBreachLab.3.cs", "version", Ver, "scriptSha256", scriptSha, "shvdnApi", shvdnVer, "loadedUtc", loadedUtc.ToString("o"),
+                "nowUtc", DateTime.UtcNow.ToString("o"), "pid", Process.GetCurrentProcess().Id, "state", state, "step", step, "cmd", curCmd, "runId", runId, "frame", Game.FrameCount));
+            if (File.Exists(dst)) File.Delete(dst);
+            File.Move(tmp, dst);
+        }
+        catch { }
+    }
+
+    void Row(string kind, params object[] kv)
+    {
+        if (rows == null) return;
+        List<object> all = new List<object>(); all.Add("t"); all.Add(clock.ElapsedMilliseconds); all.Add("frame"); all.Add(Game.FrameCount); all.Add("kind"); all.Add(kind);
+        all.AddRange(kv); rows.WriteLine(Obj(all.ToArray()));
+    }
+
+    sealed class Raw { public string S; public Raw(string s) { S = s; } }
+    static string Q(string s)
+    {
+        if (s == null) return "null"; StringBuilder sb = new StringBuilder("\"");
+        foreach (char c in s) { if (c == '"') sb.Append("\\\""); else if (c == '\\') sb.Append("\\\\"); else if (c == '\n' || c == '\r' || c == '\t') sb.Append(' '); else if (c < 32) sb.Append(' '); else sb.Append(c); }
+        return sb.Append('"').ToString();
+    }
+    static string V(object o)
+    {
+        if (o == null) return "null"; if (o is Raw) return ((Raw)o).S; if (o is string) return Q((string)o); if (o is bool) return (bool)o ? "true" : "false";
+        if (o is float) { float f = (float)o; return (float.IsNaN(f) || float.IsInfinity(f)) ? "null" : f.ToString("0.###", Inv); }
+        if (o is double) { double d = (double)o; return (double.IsNaN(d) || double.IsInfinity(d)) ? "null" : d.ToString("0.###", Inv); }
+        if (o is Vector3) { Vector3 v = (Vector3)o; return "[" + V(v.X) + "," + V(v.Y) + "," + V(v.Z) + "]"; }
+        return Convert.ToString(o, Inv);
+    }
+    static string Obj(params object[] kv)
+    {
+        StringBuilder sb = new StringBuilder("{");
+        for (int i = 0; i + 1 < kv.Length; i += 2) { if (i > 0) sb.Append(','); sb.Append(Q((string)kv[i])).Append(':').Append(V(kv[i + 1])); }
+        return sb.Append('}').ToString();
+    }
+    static Raw Arr(IEnumerable<string> items)
+    {
+        StringBuilder sb = new StringBuilder("["); bool first = true;
+        foreach (string s in items) { if (!first) sb.Append(','); first = false; sb.Append(s != null && s.StartsWith("{") ? s : Q(s)); }
+        return new Raw(sb.Append(']').ToString());
+    }
+    static Raw Arr(List<int> items) { List<string> s = new List<string>(); foreach (int i in items) s.Add(i.ToString(Inv)); return new Raw("[" + string.Join(",", s.ToArray()) + "]"); }
+    static float TriState(bool? b) { return b.HasValue ? (b.Value ? 1f : 0f) : float.NaN; }
+    static string Trim(string s, int n) { return s == null ? null : (s.Length > n ? s.Substring(0, n) : s); }
+    static string S(Dictionary<string, string> a, string k, string d) { string v; return a.TryGetValue(k, out v) ? v : d; }
+    static float F(Dictionary<string, string> a, string k, float d) { string v; float f; return a.TryGetValue(k, out v) && float.TryParse(v, NumberStyles.Float, Inv, out f) ? f : d; }
+    static string SafeGameVersion() { try { return Game.FileVersion.ToString(); } catch { return "unknown"; } }
+    static string ShaOf(string path)
+    {
+        try { using (SHA256 h = SHA256.Create()) using (FileStream fs = File.OpenRead(path)) { byte[] b = h.ComputeHash(fs); StringBuilder sb = new StringBuilder(); foreach (byte x in b) sb.Append(x.ToString("x2")); return sb.ToString(); } }
+        catch { return "unavailable"; }
+    }
+}
+
+
+
+
+
+
+

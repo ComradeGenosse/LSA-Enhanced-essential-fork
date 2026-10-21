@@ -1,0 +1,74 @@
+{
+  "asiAndDllInventoryUnchangedAcrossRestoration": true,
+  "retainedX2ScriptSha256": "5BE72312804D55E7C0EA9B68C2182FBAD7FDF4AEAD86852623BD1C4FFB78ADAE",
+  "retainedX2PackSha256": "180618ADBE9E56BDAA9A6220E82A87EFFC6D624EA2B78926CC348263E60AF347",
+  "mods": [
+    {
+      "name": "AdaptiveHeadlights.asi",
+      "sha256": "AB7B72FEE2535EBB4F16E20C285AED5E78EE2EEB5AF637B0D0D95130310BEC52"
+    },
+    {
+      "name": "DirectStorageFix.asi",
+      "sha256": "7F50B8A9A2E8A376E2ADB7D46BC9483C2754BBBDD964F0918787D4F6F1B76E2C"
+    },
+    {
+      "name": "ImmersiveSantos.asi",
+      "sha256": "472B268EBABFC184D0278602C2C540F672414AF28A95DF70C2CEACDFF325AEF5"
+    },
+    {
+      "name": "onigiri.asi",
+      "sha256": "D97FFCBCEA2499B93D12FC032D8771825F6FD051B491BAB52814418C87FB4B72"
+    },
+    {
+      "name": "Reshade64.asi",
+      "sha256": "0CEE63F9C9F13F3AC909C5B4903F4DBB4B719A7AB3B4F13B0DEAF83C814B94F7"
+    },
+    {
+      "name": "ScriptHookVDotNet.asi",
+      "sha256": "C702E54A7E806ACB8BB21DE807FF3747E6C24269CE71797AA81E21580D14A08E"
+    },
+    {
+      "name": "scripts\\BetterChasesPlus.Enhanced.dll",
+      "sha256": "F2DEE46FC5BD6C61E4978DFAD04E5FEFCA990128B6AD4E3869EF37A6D3B31437"
+    },
+    {
+      "name": "scripts\\CustomWeaponDamage.dll",
+      "sha256": "F8354410EDE5DDEBA6ACD5ABEC3CA24FB77065FE985852351B9D2DC93E15B3D0"
+    },
+    {
+      "name": "scripts\\EnableAllinteriors.dll",
+      "sha256": "8CC3261F4B9E2597DC334F7B43542B2EC722DBE808B8C6749199650F95E634FA"
+    },
+    {
+      "name": "scripts\\Fumes.dll",
+      "sha256": "B9591B6645E2E572FA2E79B36F2199AA8DC5737E1E9494491D56C46AC80C3586"
+    },
+    {
+      "name": "scripts\\iFruitAddon2.dll",
+      "sha256": "52592D2F03B8B19FCAEB47D0442E4A2AE3E70A19E125A211CF76D5F7526AEBE3"
+    },
+    {
+      "name": "scripts\\LemonUI.SHVDN3.dll",
+      "sha256": "B52EF80136152ED7AFDF335BD4FF16183977C8E27223AAF5C94A8C16E62E1AEB"
+    },
+    {
+      "name": "scripts\\LocationalDamage.dll",
+      "sha256": "775BFA1C392A6455C49C3885C96ACE41EB702DC4119B364D17BD780899F1A8CB"
+    },
+    {
+      "name": "scripts\\PoliceRide.dll",
+      "sha256": "D74D9ADF986AC0CC9BC60706657B1433612C4F5913645B62C730DA0581B7BB73"
+    },
+    {
+      "name": "scripts\\VehicleRollover.dll",
+      "sha256": "7C5B680F728C87325338A066358116DD32A65D06521F2D0F01CA8C4AF9136559"
+    }
+  ],
+  "verifiedUtc": "2026-10-21T12:23:12.9842194Z",
+  "autoLoadScripts": "AutoLoadScripts=true",
+  "originalLoaderSha256": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+  "restoredLoaderSha256": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+  "scope": "Only temporary mod-loading change was AutoLoadScripts=false. Original loader bytes restored; X2 deployment intentionally retained. Existing pre-disabled mods were not altered.",
+  "gtaAndRphStopped": true,
+  "pendingCommand": false
+}
