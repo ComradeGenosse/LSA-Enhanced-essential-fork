@@ -19,11 +19,9 @@ $content=@"
 <Item><filename>$prefix/$pack.ytyp</filename><fileType>DLC_ITYP_REQUEST</fileType><locked value="true"/><disabled value="true"/><persistent value="true"/></Item>
 </dataFiles><contentChangeSets><Item><changeSetName>LSA_FENCE_X7_STREAMING</changeSetName><filesToEnable>
 <Item>$prefix</Item><Item>$prefix/$pack.ytyp</Item></filesToEnable>
-<executionConditions><activeChangesetConditions/><genericConditions>$level=MO_JIM_L11</genericConditions></executionConditions>
+<executionConditions><activeChangesetConditions/><genericConditions>`$level=MO_JIM_L11</genericConditions></executionConditions>
 </Item></contentChangeSets><patchFiles/></CDataFileMgr__ContentsOfDataFileXml>
 "@
-# Keep the Rockstar '$level' execution condition literal in the XML here-string.
-$content=$content.Replace('=MO_JIM_L11','=MO_JIM_L11')
 $setup=@"
 <?xml version="1.0" encoding="UTF-8"?>
 <SSetupData><deviceName>dlc_$dlc</deviceName><datFile>content.xml</datFile><nameHash>$dlc</nameHash><contentChangeSetGroups><Item><NameHash>GROUP_STARTUP</NameHash><ContentChangeSets><Item>LSA_FENCE_X7_STREAMING</Item></ContentChangeSets></Item></contentChangeSetGroups><startupScript/><scriptCallstackSize value="0"/><type>EXTRACONTENT_LEVEL_PACK</type><order value="100"/><minorOrder value="0"/><isLevelPack value="false"/><dependencyPackHash/><requiredVersion/><subPackCount value="0"/></SSetupData>
