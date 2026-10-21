@@ -1,0 +1,2 @@
+# A conditional step n=16 (only if n=12 PASS, P99 ratio<=1.25, pool<=10%)
+x3perf n=16 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=30 manage=none cols=4 sx=6.5 sz=6.5 label=L1-ladder-n16

@@ -1,0 +1,19 @@
+# D: 3 positions x 3 charges x 2 repeats on one fresh launch
+x3breach explosive=grenade scale=0.25 dx=0.4 du=0 height=1 manage=none label=L4-D-centre-grenade-r1
+x3breach explosive=sticky scale=3 dx=0.1 du=0 height=1 manage=none label=L4-D-centre-sticky-r1
+x3breach explosive=rocket scale=10 dx=0.4 du=0 height=1 manage=none label=L4-D-centre-rocket-r1
+x3breach explosive=grenade scale=0.25 dx=0.4 du=-0.75 height=1 manage=none label=L4-D-left-grenade-r1
+x3breach explosive=sticky scale=3 dx=0.1 du=-0.75 height=1 manage=none label=L4-D-left-sticky-r1
+x3breach explosive=rocket scale=10 dx=0.4 du=-0.75 height=1 manage=none label=L4-D-left-rocket-r1
+x3breach explosive=grenade scale=0.25 dx=0.4 du=0 height=1.75 manage=none label=L4-D-upper-grenade-r1
+x3breach explosive=sticky scale=3 dx=0.1 du=0 height=1.75 manage=none label=L4-D-upper-sticky-r1
+x3breach explosive=rocket scale=10 dx=0.4 du=0 height=1.75 manage=none label=L4-D-upper-rocket-r1
+x3breach explosive=grenade scale=0.25 dx=0.4 du=0 height=1 manage=none label=L4-D-centre-grenade-r2
+x3breach explosive=sticky scale=3 dx=0.1 du=0 height=1 manage=none label=L4-D-centre-sticky-r2
+x3breach explosive=rocket scale=10 dx=0.4 du=0 height=1 manage=none label=L4-D-centre-rocket-r2
+x3breach explosive=grenade scale=0.25 dx=0.4 du=-0.75 height=1 manage=none label=L4-D-left-grenade-r2
+x3breach explosive=sticky scale=3 dx=0.1 du=-0.75 height=1 manage=none label=L4-D-left-sticky-r2
+x3breach explosive=rocket scale=10 dx=0.4 du=-0.75 height=1 manage=none label=L4-D-left-rocket-r2
+x3breach explosive=grenade scale=0.25 dx=0.4 du=0 height=1.75 manage=none label=L4-D-upper-grenade-r2
+x3breach explosive=sticky scale=3 dx=0.1 du=0 height=1.75 manage=none label=L4-D-upper-sticky-r2
+x3breach explosive=rocket scale=10 dx=0.4 du=0 height=1.75 manage=none label=L4-D-upper-rocket-r2

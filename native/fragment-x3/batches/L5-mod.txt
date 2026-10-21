@@ -1,0 +1,11 @@
+# L5 representative installed mod stack (MOD condition)
+x3breach explosive=none manage=none label=MOD-control-a
+x3breach explosive=rocket scale=10 dx=0.4 du=0 height=1 manage=none label=MOD-centre-rocket
+x3breach explosive=sticky scale=3 dx=0.1 du=0 height=1 manage=none label=MOD-centre-sticky
+x3breach explosive=grenade scale=0.25 dx=0.4 du=0 height=1 manage=none label=MOD-centre-grenade
+x3breach explosive=rocket scale=10 dx=0.4 du=-0.75 height=1 manage=none label=MOD-left-rocket
+x3breach explosive=rocket scale=10 dx=0.4 du=0 height=1.75 manage=none label=MOD-upper-rocket
+x3breach explosive=none manage=none label=MOD-control-b
+x3perf n=1 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=20 manage=none label=MOD-perf-n1
+x3perf n=4 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=20 manage=none label=MOD-perf-n4
+x3player explosive=rocket scale=10 dx=0.4 du=0 height=1 timeout=45 label=MOD-player-breach

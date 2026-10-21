@@ -1,0 +1,2 @@
+# A ladder step n=2; submitted alone; escalate only after PASS
+x3perf n=2 explosive=rocket scale=10 dx=0.4 du=0 height=1 rounds=1 roundgap=15 latesec=30 manage=none label=L1-ladder-n2

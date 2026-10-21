@@ -1,0 +1,128 @@
+{
+  "id": "ASTRA-001-X3-prereg-20261021",
+  "baseline": {
+    "x2Commit": "cdc2768779a473cfa8afcc12af22e2769b49568f",
+    "prNumber": 289,
+    "assetPackSha256": "180618adbe9e56bdaa9a6220e82a87effc6d624ea2b78926cc348263e60af347",
+    "x2ScriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+    "originalLoaderIniSha256": "c9ecd8e277f8c7012793e8a2368700c71be626d3d270f0b68e6dba0aca53bb72",
+    "note": "Asset is frozen. Only the SHVDN driver changes (X3 superset of the X2 driver). No threshold below may change after any X3 result is seen."
+  },
+  "conditions": {
+    "ISO": "SHVDN AutoLoadScripts=false (hash-backed temporary change), only WpsBreachLab started through the SHVDN console; existing ASI mods remain.",
+    "MOD": "Unmodified loader (AutoLoadScripts=true); WpsBreachLab auto-loads beside the installed script mods. Representative-stack condition, reported separately and never pooled with ISO.",
+    "display": "F6 pressed once after every launch (user's standing preference: turns DLSS5 off); recorded in the run log."
+  },
+  "charges": {
+    "grenade": {"scale": 0.25, "dx": 0.4},
+    "sticky": {"scale": 3, "dx": 0.1},
+    "rocket": {"scale": 10, "dx": 0.4}
+  },
+  "positions": {
+    "centre": {"du": 0, "height": 1},
+    "left": {"du": -0.75, "height": 1},
+    "upper": {"du": 0, "height": 1.75}
+  },
+  "frameWindows": {
+    "idleFrames": 600,
+    "burstFrames": 120,
+    "activeFrames": 720,
+    "lateFrames": 1800,
+    "postManageFrames": 600,
+    "definition": "Frame time = wall-clock Stopwatch delta between consecutive script resumptions (one per rendered frame) in windows that contain no shape tests. Game.LastFrameTime is logged alongside."
+  },
+  "A_gates": {
+    "safe": {
+      "wallsSpawnedEqualsN": true,
+      "baselineAnchorFaceHitsPerWall": 20,
+      "maxPoolFraction": 0.5,
+      "maxAnyFrameMs": 1000,
+      "noScriptException": true
+    },
+    "perf": {
+      "activeMeanMaxRatioToIdle": 1.25,
+      "activeP99MaxRatioToIdleP99": 1.5,
+      "activeP99AbsoluteFloorMs": 20.0,
+      "lateMeanMaxRatioToIdle": 1.25,
+      "burstMaxMs": 250,
+      "activeMaxMs": 100,
+      "lateMaxMs": 100
+    },
+    "perChunkCumulativeDetachedMax": 30,
+    "leak": {"propCountDeltaMaxAfterCleanup": 5, "colliderCountDeltaMaxAfterCleanup": 3, "ambientAllowanceFromIdleRange": true},
+    "ladderN": [1, 2, 4, 6, 8, 12],
+    "conditionalN": {"n": 16, "onlyIf": "n=12 PASS with active P99 ratio <= 1.25 and max pool fraction <= 0.10", "layout": "4x4, 6.5 m column and row spacing"},
+    "rounds": {"nWalls": 4, "rounds": [1, 2, 3], "roundGapSeconds": 15},
+    "soakCycles": 4,
+    "replication": "A practical limit is PROVEN only if the same n passes on a second fresh launch; otherwise PARTIAL.",
+    "stopEscalation": "First step that is UNSAFE or PERF_REGRESSION ends escalation; it is recorded as the first observed limit. No intentional crash search."
+  },
+  "B_gates": {
+    "integrity": {
+      "outerBlockedEqualsBaseline": true,
+      "anchorFaceHits": 20,
+      "maxAnchorFaceMoveM": 0.02,
+      "maxRootMoveM": 0.02,
+      "rootCellsNeverDecrease": true,
+      "newDetachedFragmentsVersusMatchedRetainControlMax": 2
+    },
+    "effectiveness": {
+      "culledSetLiveAfterZero": true,
+      "propCountWithinOfPreBlastAfterFullCull": 3
+    },
+    "traversalRecovery": "Applies to initial class DEBRIS_OBSTRUCTED: post-management sweep window >= 0.6 AND NPC crosses inside the wall footprint.",
+    "managementSpikeMaxFrameMs": 100,
+    "freezeSettleSpeedMps": 0.1,
+    "cullBudget": {"propsPerBatch": 2, "framesPerBatch": 6},
+    "corridorPaddingM": 0.25,
+    "corridorHalfDepthM": 1.2,
+    "decisionRule": "Recommended strategy = among strategies passing integrity and effectiveness in every trial, the one with the most debris-obstructed trials recovered; ties broken by smaller management frame spike, then fewer deletions."
+  },
+  "C_gates": {
+    "nonTargetPanel": {"openedWall": 0, "flaggedDetached": 0, "anchored": true, "rootMoveMaxM": 0.02},
+    "foreignDebrisCellsAtGapAtLeastM": {"gapM": 3.0, "max": 0},
+    "foreignDebrisBelowGap": "Observed and reported, not gated.",
+    "perWallLiveDebrisMax": 30,
+    "leakSameAsA": true
+  },
+  "D_definitions": {
+    "baselineValid": "120/120 blocked cells, 0 clear swept columns, 20/20 anchor face hits, 0 failed ray requests",
+    "destructionSuccess": "explosionDetected AND flaggedDetached >= 1 (explicit native detached-parent evidence)",
+    "breachFormed": "openedClear >= 4 in the first (debris-present) measurement",
+    "openingAccuracy": "distance in wall plane between the centroid of the largest 4-connected cleared component and the intended (du,height); accurate if <= 0.5 m. All-cleared-cell centroid distance is reported too.",
+    "strictLocality": "UNCHANGED X2 definition: centroid of ALL clear cells in the first post-blast mask (cell centre u=-1.5+(i%12+.5)*.25, v=(i//12+.5)*.25) within 0.5 m of (du,height); trials without clear cells fail; gate >= 80% (M2).",
+    "traversalSuccess": "sweep window >= 0.6 m (r=0.30 spheres at 0.5/0.9/1.3/1.7 m) AND NPC walk label 'crossed' with crossing inside the wall footprint. NPC walk is attempted when openedClear >= 4.",
+    "openingClassPrecedence": ["INTACT", "TRAVERSABLE", "DEBRIS_OBSTRUCTED", "ELEVATED", "NARROW", "PARTIAL_OTHER"],
+    "openingClassRules": {
+      "INTACT": "no baseline-solid cell lost root collision (rootRemoved == 0)",
+      "TRAVERSABLE": "sweep window >= 0.6 m",
+      "DEBRIS_OBSTRUCTED": "window < 0.6 AND cells blocked by detached debris >= 4 AND (clear + debris-blocked) >= 8",
+      "ELEVATED": "window < 0.6 AND largest clear component >= 4 cells AND its lowest row index >= 2 (bottom edge >= 0.5 m)",
+      "NARROW": "window < 0.6 AND largest clear component >= 4 cells AND lowest row index <= 1",
+      "PARTIAL_OTHER": "rootRemoved > 0 and none of the above"
+    }
+  },
+  "E_gates": {
+    "freshLaunchesIso": 3,
+    "repSetPerLaunch": ["control", "centre-rocket", "centre-sticky", "centre-grenade", "left-rocket", "upper-rocket", "control"],
+    "centreRocketTraversalMinSuccessFractionIso": 0.8,
+    "playerDemonstration": "Attended-style, computer-controlled key hold: one breach crossing and one intact-control block, judged by logged player coordinates.",
+    "modStack": "Representative stack run once as a separate condition; lab results are never generalised to it."
+  },
+  "stopConditions": [
+    "S1 crash/stall: process exit or heartbeat stale > 60 s without DONE -> preserve logs, diagnose, one diagnosed retry; a second crash in the same scenario STOPs that scenario.",
+    "S2 baseline invalid twice in the same condition -> diagnose before continuing.",
+    "S3 pool fraction > 0.5, any frame > 1000 ms, or script exception -> end escalation.",
+    "S4 any sign of a non-Story-Mode / network session -> abort immediately.",
+    "S5 restoration hash mismatch -> stop and report; never leave the install modified.",
+    "S6 more than 8 GTA launches in total -> stop, report PARTIAL."
+  ],
+  "launchPlan": {
+    "L0": "Shakedown (excluded from gates unless valid): compile/load, regression anchor, tool check.",
+    "L1": "ISO: ambient, R0 regression, ladder A, rounds, soak, R-set #1",
+    "L2": "ISO: debris-management matrix B (single-wall geometry + n=4 perf)",
+    "L3": "ISO: multi-structure C, R-set #2",
+    "L4": "ISO: R-set #3, full D matrix (3 positions x 3 charges x 2), player demonstration, ladder replication",
+    "L5": "MOD: representative stack subset"
+  }
+}

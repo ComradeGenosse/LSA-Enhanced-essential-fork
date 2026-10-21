@@ -1,0 +1,8 @@
+# Representative set; used on L1, L3, L4 (ISO) and L5 (MOD). Labels are prefixed per launch by the orchestrator.
+x3breach explosive=none manage=none label=RSET-control-a
+x3breach explosive=rocket scale=10 dx=0.4 du=0 height=1 manage=none label=RSET-centre-rocket
+x3breach explosive=sticky scale=3 dx=0.1 du=0 height=1 manage=none label=RSET-centre-sticky
+x3breach explosive=grenade scale=0.25 dx=0.4 du=0 height=1 manage=none label=RSET-centre-grenade
+x3breach explosive=rocket scale=10 dx=0.4 du=-0.75 height=1 manage=none label=RSET-left-rocket
+x3breach explosive=rocket scale=10 dx=0.4 du=0 height=1.75 manage=none label=RSET-upper-rocket
+x3breach explosive=none manage=none label=RSET-control-b
