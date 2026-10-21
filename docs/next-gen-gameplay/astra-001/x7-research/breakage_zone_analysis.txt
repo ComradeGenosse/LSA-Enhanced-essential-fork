@@ -1,0 +1,137 @@
+## X2 frozen final pass (strength 500 / min damage force 100 / health 100; outer columns reinforced)
+
+ rocket x10    at u=+0.00 h=1.00: detached=16 clear m2=4.0  broken in-plane d max=1.06 survivor d min=1.27
+    ##|########|##
+    ##|########|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+
+ sticky x3     at u=+0.00 h=1.00: detached=16 clear m2=2.8125  broken in-plane d max=1.06 survivor d min=1.27
+    ##|########|##
+    ##|########|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|.dd....d|##
+    ##|dddddddd|##
+    ##|dddddddd|##
+
+grenade x0.25  at u=+0.00 h=1.00: detached=14 clear m2=0.0  broken in-plane d max=1.06 survivor d min=1.06
+    ##|########|##
+    ##|########|##
+    ##|##dddd##|##
+    ##|##dddd##|##
+    ##|dddddddd|##
+    ##|dddddddd|##
+    ##|dddddddd|##
+    ##|dddddddd|##
+    ##|dddddddd|##
+    ##|dddddddd|##
+
+ rocket x10    at u=-0.75 h=1.00: detached=5 clear m2=1.125  broken in-plane d max=0.9 survivor d min=0.56
+    ##|########|##
+    ##|########|##
+    ##|..######|##
+    ##|..######|##
+    ##|..######|##
+    ##|..######|##
+    ##|....####|##
+    ##|....####|##
+    ##|##..####|##
+    ##|##dd####|##
+
+ sticky x3     at u=-0.75 h=1.00: detached=3 clear m2=0.0  broken in-plane d max=0.56 survivor d min=0.56
+    ##|########|##
+    ##|########|##
+    ##|########|##
+    ##|########|##
+    ##|dd######|##
+    ##|dd######|##
+    ##|dddd####|##
+    ##|dddd####|##
+    ##|########|##
+    ##|########|##
+
+grenade x0.25  at u=-0.75 h=1.00: detached=3 clear m2=0.0  broken in-plane d max=0.56 survivor d min=0.56
+    ##|########|##
+    ##|########|##
+    ##|########|##
+    ##|########|##
+    ##|dd######|##
+    ##|dd######|##
+    ##|dddd####|##
+    ##|dddd####|##
+    ##|########|##
+    ##|########|##
+
+ rocket x10    at u=+0.00 h=1.75: detached=16 clear m2=4.0  broken in-plane d max=1.25 survivor d min=1.52
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|########|##
+    ##|########|##
+
+ sticky x3     at u=+0.00 h=1.75: detached=16 clear m2=3.0  broken in-plane d max=1.25 survivor d min=1.52
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|........|##
+    ##|dddddddd|##
+    ##|dddddddd|##
+    ##|########|##
+    ##|########|##
+
+grenade x0.25  at u=+0.00 h=1.75: detached=13 clear m2=0.0  broken in-plane d max=1.03 survivor d min=1.03
+    ##|dddddddd|##
+    ##|dddddddd|##
+    ##|dddddddd|##
+    ##|dddddddd|##
+    ##|dddddddd|##
+    ##|dddddddd|##
+    ##|####dd##|##
+    ##|####dd##|##
+    ##|########|##
+    ##|########|##
+
+## X6 accepted asset physics (from committed YFT XML)
+
+root: {'Strength': '10000000', 'ForceTransmissionScaleUp': '0.25', 'ForceTransmissionScaleDown': '0.25', 'MinDamageForce': '10000000', 'DamageHealth': '10000000', 'Mass': '8'}
+sheet (x30): {'Strength': '35', 'ForceTransmissionScaleUp': '0.25', 'ForceTransmissionScaleDown': '0.25', 'MinDamageForce': '5', 'DamageHealth': '25', 'Mass': '4.5'}
+parents: ['0'] (flat: every sheet is a direct child of the root)
+
+## X6 sheet-piece distances from candidate impact points (in-plane, metres)
+
+centre (X6 aim)  max=1.37  pieces within r: {0.45: 2, 0.6: 6, 0.75: 8, 0.9: 16, 1.06: 20, 1.26: 26, 1.5: 30}
+left             max=2.00  pieces within r: {0.45: 3, 0.6: 7, 0.75: 9, 0.9: 12, 1.06: 18, 1.26: 18, 1.5: 23}
+right-high       max=2.21  pieces within r: {0.45: 3, 0.6: 6, 0.75: 9, 0.9: 9, 1.06: 15, 1.26: 15, 1.5: 22}
+low              max=1.69  pieces within r: {0.45: 4, 0.6: 6, 0.75: 10, 0.9: 12, 1.06: 16, 1.26: 22, 1.5: 28}
+
+## X6 candidate1 (5 native parts): post-blast lane mask (0=clear, 1=twin, 2=debris, 3=other; 0.1 m columns from u0)
+
+    z+0.5 m  11111111111100001111111
+    z+0.9 m  11111110000000001111111
+    z+1.3 m  11111110000000001111111
+    z+1.7 m  11111111111111111111111
+
+## X6 accepted asset (30 native parts): post-blast lane mask (0=clear, 1=twin, 2=debris, 3=other; 0.1 m columns from u0)
+
+    z+0.5 m  00000330000000000000000
+    z+0.9 m  00000330000000000000000
+    z+1.3 m  00000330000000000000000
+    z+1.7 m  00000330000000000000000
+
