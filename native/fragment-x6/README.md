@@ -27,8 +27,18 @@ Authoring: `assets/lsa_x6_corrugated.blend`, `build_fence.py`, `assets/lsa_x6_ga
 
 ## Validation
 
-Results are recorded below after live tests. `evidence/candidate1/` preserves the first tuning attempt: successful 3-frame / 28 ms predictive swap, five detached native parts, no 0.9 m lane, no traversal. Its overly tall sheet, large rust blobs and insufficient breach motivated the final asset tuning; this is not counted as acceptance. Initial same-camera screenshots are retained as candidate evidence.
+Acceptance is **incomplete**. The revised final asset has not been live-qualified. The first candidate failed traversal; do not treat the draft as a successful X6 MVP yet. `evidence/candidate1/` preserves the first tuning attempt: successful 3-frame / 28 ms predictive swap, five detached native parts, no 0.9 m lane, no traversal. Its overly tall sheet, large rust blobs and insufficient breach motivated the final asset tuning; this is not counted as acceptance. Initial same-camera screenshots are retained as candidate evidence.
 
 ## Limits / next step
 
 The art is a gameplay approximation: original procedural rust, simplified frame, regular rectangular fracture tiles and box collision. No bent or torn sheet deformation, matching normal/specular shader, exact rusty texture reproduction, structural collapse, persistence, broad prop registry or rollout. Native breakup must be tested in GTA, not inferred from export success. The existing real script-fired RPG path is the acceptance scope; real launcher/high-speed/manual shots and off-centre/material tuning remain separate. Blast can damage vanilla neighbours outside lab ownership; cleanup deliberately does not delete unproven debris. Recommend a close-range art pass and a real-launcher timing trial before any registry expansion.
+
+### Final session blocker and machine state
+
+The revised pack was installed and loaded with a fresh X6 driver status at 20:32:25 UTC on October 21. A desktop overlay took focus and GTA remained on the pause/map screen; repeated desktop-tool Escape inputs did not resume simulation (heartbeat remained at frame 3284 / 20:32:38 UTC). Manual resume and one F6 press were requested, but no user confirmation arrived before shutdown. No final-asset impact or traversal run is claimed. The first launch received one tool F6 press in visible gameplay; its DLSS toggle state was not independently verified. The final launch did not receive a confirmed F6 press.
+
+GTA was stopped with the existing X2 helper. Both temporary installations were restored; INI and DLC-list hashes match the pre-test bytes, X6's new pack/script files were removed, and the original X2 script/pack hashes are unchanged. See `evidence/install-restoration.json`. Afterburner stayed running; `nvidia-smi` reported 460 W against 575 W default, matching preset 1's 80% power cap. No production LSA files changed.
+
+Smallest next step: relaunch the already-built revised pack with `test-install.ps1`, have a working foreground keyboard resume GTA and press F6 once, then run `smoke-tests.txt` once or twice. Capture final intact/original, diagnostic twin, native breakup, traversal and restore evidence. If the lower break threshold still leaves too little clearance, tune native group strength/mass and repeat; do not delete pieces to manufacture a pass.
+
+Focused GitHub CI (`ASTRA X6 fence export`) validates the committed GEN9 XML/binary header, dimensions, groups/masses, one-tick source contract, restore reacquisition, and deterministic driver regeneration. It does not run Blender, compile SHVDN or certify live GTA physics.
