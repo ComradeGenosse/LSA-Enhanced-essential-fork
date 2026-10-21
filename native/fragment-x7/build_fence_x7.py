@@ -67,6 +67,9 @@ def build_variant(v,pack):
        "finalize(out,'"+v.name+"','"+pack+"')")
     env={"__name__":"__main__","__file__":str(HERE/"build_fence_x7.py"),
          "finalize":finalize,"seam_z":seam_z}
+    import bpy
+    # Remove archetypes from the previous variant; each export must contain exactly one.
+    if hasattr(bpy.context.scene,"ytyps"): bpy.context.scene.ytyps.clear()
     exec(compile(source,str(X6/"build_fence.py"),"exec"),env)
     folder=OUT/v.name
     for suffix in (".yft.xml",".yft"):
@@ -79,7 +82,8 @@ def main():
     ap.add_argument("--layout",choices=("grid6x5","torn36"),default="grid6x5")
     ap.add_argument("--session-a",help="analyze_x7.py summary.json from real GTA Session A")
     ap.add_argument("--dry-run",action="store_true")
-    args=ap.parse_args()
+    blender_args=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else None
+    args=ap.parse_args(blender_args)
     tstar=None
     if args.layout=="torn36":
         if not args.session_a: ap.error("torn36 requires validated Session A evidence; no invented T*")

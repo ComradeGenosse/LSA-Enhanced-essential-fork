@@ -198,8 +198,9 @@ def gate_b(shots,tstar):
     return {"pass":False,"measured_criteria_met":len(reasons)==1,
             "reasons":reasons,"model":model}
 
-def report(shots):
-    decision=choose(shots);gate=gate_a(shots,decision)
+def report(shots,session_a=None):
+    decision=choose(shots) if session_a is None else session_a["decision"]
+    gate=gate_a(shots,decision) if session_a is None else session_a["session_a_gate"]
     comparisons=[]
     for i,a in enumerate(shots):
         for b in shots[i+1:]:
@@ -212,8 +213,12 @@ def report(shots):
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument("jsonl",nargs="+");ap.add_argument("--output",required=True)
+    ap.add_argument("--session-a",help="Accepted Session A summary.json, required for independent Session B analysis")
     ns=ap.parse_args();output=Path(ns.output);output.mkdir(parents=True,exist_ok=True)
-    data=report(load(ns.jsonl))
+    previous=json.loads(Path(ns.session_a).read_text()) if ns.session_a else None
+    if previous and not previous["session_a_gate"]["pass"]:
+        ap.error("Session A evidence is not accepted")
+    data=report(load(ns.jsonl),previous)
     (output/"summary.json").write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8")
     lines=["# X7 evidence (unmodified gameplay logs)", "", "Decision: "+data["decision"]["state"],
            "T*: "+str(data["decision"]["selected_tstar"]),
