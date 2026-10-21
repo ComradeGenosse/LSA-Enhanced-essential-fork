@@ -1,0 +1,14 @@
+{
+  "phase": "X7-0",
+  "status": "pending_local_windows_forensics",
+  "source": "ASTRA doc 16 section 7",
+  "cloud_scope": "Remote committed repository only. No installed game data, ignored backup DLC or Blender .blend1 available.",
+  "candidate1_recovered": false,
+  "candidate1_strength": null,
+  "candidate1_min_damage_force": null,
+  "candidate1_damage_health": null,
+  "candidate1_force_transmission": null,
+  "installed_explosion_meta_recovered": false,
+  "explosion_entries": null,
+  "note": "Do not replace null values with public explosion.meta guesses. Windows agent to populate observed values read-only; do not commit proprietary game data."
+}
