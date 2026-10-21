@@ -1,0 +1,261 @@
+[
+  {
+    "file": "20261020-231823-f6e0a5.jsonl",
+    "rows": 5,
+    "completed": true,
+    "verdicts": []
+  },
+  {
+    "file": "20261020-232123-19621b.jsonl",
+    "rows": 11,
+    "completed": false,
+    "verdicts": [
+      {
+        "t": 44196,
+        "frame": 4527,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_FAILED",
+        "walkHole": "skipped",
+        "walkControl": "crossed_off_lane",
+        "anchored": false,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261020-232449-661aa1.jsonl",
+    "rows": 6,
+    "completed": true,
+    "verdicts": [
+      {
+        "t": 34992,
+        "frame": 4249,
+        "kind": "x2_verdict",
+        "verdict": "BASELINE_INVALID"
+      }
+    ]
+  },
+  {
+    "file": "20261020-232822-a9fd91.jsonl",
+    "rows": 9,
+    "completed": true,
+    "verdicts": [
+      {
+        "t": 85599,
+        "frame": 6299,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_FAILED",
+        "walkHole": "skipped",
+        "walkControl": "crossed",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261020-232948-fc7a5d.jsonl",
+    "rows": 4,
+    "completed": false,
+    "verdicts": []
+  },
+  {
+    "file": "20261020-233250-6e6e90.jsonl",
+    "rows": 11,
+    "completed": true,
+    "verdicts": [
+      {
+        "t": 29292,
+        "frame": 3985,
+        "kind": "x2_verdict",
+        "verdict": "BASELINE_INVALID"
+      }
+    ]
+  },
+  {
+    "file": "20261020-233617-d002d7.jsonl",
+    "rows": 11,
+    "completed": true,
+    "verdicts": [
+      {
+        "t": 47115,
+        "frame": 4683,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "crossed",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261020-233708-02cca5.jsonl",
+    "rows": 6,
+    "completed": true,
+    "verdicts": [
+      {
+        "t": 53511,
+        "frame": 4928,
+        "kind": "x2_verdict",
+        "verdict": "SKELETON_UNAVAILABLE"
+      },
+      {
+        "t": 55032,
+        "frame": 4990,
+        "kind": "x2_verdict",
+        "verdict": "SKELETON_UNAVAILABLE"
+      }
+    ]
+  },
+  {
+    "file": "20261020-234059-c87681.jsonl",
+    "rows": 13,
+    "completed": true,
+    "verdicts": [
+      {
+        "t": 25319,
+        "frame": 4134,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_FAILED",
+        "walkHole": "skipped",
+        "walkControl": "crossed_off_lane",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 26864,
+        "frame": 4196,
+        "kind": "x2_verdict",
+        "verdict": "SKELETON_UNAVAILABLE"
+      }
+    ]
+  },
+  {
+    "file": "20261020-234511-3a6de4.jsonl",
+    "rows": 14,
+    "completed": false,
+    "verdicts": [
+      {
+        "t": 25629,
+        "frame": 3844,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_FAILED",
+        "walkHole": "skipped",
+        "walkControl": "crossed_off_lane",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261020-234831-bfb4d4.jsonl",
+    "rows": 17,
+    "completed": true,
+    "verdicts": [
+      {
+        "t": 41166,
+        "frame": 4555,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "crossed",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 44187,
+        "frame": 4677,
+        "kind": "x2_verdict",
+        "verdict": "SKELETON_UNAVAILABLE_AFTER_RENDER",
+        "boneCount": 0
+      },
+      {
+        "t": 47236,
+        "frame": 4799,
+        "kind": "x2_verdict",
+        "verdict": "SKELETON_UNAVAILABLE_AFTER_RENDER",
+        "boneCount": 0
+      }
+    ]
+  },
+  {
+    "file": "20261020-234918-601af0.jsonl",
+    "rows": 36,
+    "completed": true,
+    "verdicts": []
+  },
+  {
+    "file": "20261020-235538-930ecf.jsonl",
+    "rows": 48,
+    "completed": true,
+    "verdicts": [
+      {
+        "t": 30245,
+        "frame": 3910,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_FAILED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": false,
+        "debrisRetained": true
+      },
+      {
+        "t": 51118,
+        "frame": 4745,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "crossed",
+        "anchored": false,
+        "debrisRetained": true
+      },
+      {
+        "t": 92390,
+        "frame": 6384,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "crossed",
+        "anchored": false,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261020-235925-a46126.jsonl",
+    "rows": 44,
+    "completed": true,
+    "verdicts": [
+      {
+        "t": 28973,
+        "frame": 11782,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_CLOSED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 58418,
+        "frame": 12944,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 98482,
+        "frame": 14479,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  }
+]

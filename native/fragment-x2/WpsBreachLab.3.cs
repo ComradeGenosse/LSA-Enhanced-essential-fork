@@ -28,7 +28,7 @@ using GTA.Native;
 
 public class WpsBreachLab : Script
 {
-    const string Ver = "X2-0.3";
+    const string Ver = "X2-0.7";
     const string PedModelName = "a_m_y_beach_01";
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -253,7 +253,7 @@ public class WpsBreachLab : Script
         Prop p = World.CreateProp(m, pos, Vector3.Zero, dyn, false);
         if (p == null || !p.Exists()) throw new Exception("create_failed:" + name);
         owned.Add(p); L.Wall = p;
-        if (variant == "frozen") p.IsPositionFrozen = true;
+        if (variant == "frozen" || variant == "physical") p.IsPositionFrozen = true;
         if (variant == "static") Function.Call(Hash.SET_ENTITY_DYNAMIC, p.Handle, false);
         for (int i = 0; i < 12; i++) Yield();
         L.BaseZ = mn.Z; L.P0 = p.Position; L.Rt = p.RightVector; L.Fw = p.ForwardVector; L.Up = p.UpVector;
@@ -413,54 +413,81 @@ public class WpsBreachLab : Script
 
     // ===================================================================== trial (probe / blast)
     // X2 uses X1 probes, debris discovery, transport, and walk lane checks.
+    void AttachNativeAnchor(Prop wall)
+    {
+        Model model=new Model("prop_barier_conc_01a");if(!model.Request(5000))throw new Exception("anchor_model_unavailable");
+        Prop anchor=World.CreateProp(model,wall.Position,Vector3.Zero,true,false);if(anchor==null||!anchor.Exists())throw new Exception("anchor_create_failed");
+        owned.Add(anchor);preProps.Add(anchor.Handle);anchor.IsPositionFrozen=true;anchor.IsVisible=false;anchor.IsInvincible=true;
+        Function.Call(Hash.SET_ENTITY_COLLISION,anchor.Handle,false,true);
+        wall.IsPositionFrozen=false;Function.Call(Hash.SET_ENTITY_DYNAMIC,wall.Handle,true);
+        wall.AttachToMatrixPhysically(anchor,Vector3.Zero,Vector3.Zero,Vector3.Zero,1e12f,true,true,false,false);
+        Row("native_anchor","model","prop_barier_conc_01a","attached",wall.IsAttachedTo(anchor),"collisionEnabled",false,"frozen",true,"breakForce",1e12f);
+    }
+    Vector3[] AnchorFaces(Lab L,out int valid)
+    {
+        Vector3[] points=new Vector3[20];valid=0;int k=0;
+        foreach(float u in new float[]{-1.25f,1.25f})for(int j=0;j<5;j++)for(int direction=0;direction<2;direction++){
+            Vector3 a=L.W(L.L(direction==0?-1.5f:1.5f,u,.25f+j*.5f));
+            Vector3 b=L.W(L.L(direction==0?1.5f:-1.5f,u,.25f+j*.5f));
+            int h=Function.Call<int>(Hash.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE,a.X,a.Y,a.Z,b.X,b.Y,b.Z,17,0,0);
+            using(OutputArgument hit=new OutputArgument())using(OutputArgument pos=new OutputArgument())using(OutputArgument normal=new OutputArgument())using(OutputArgument entity=new OutputArgument()){
+                int status=Function.Call<int>(Hash.GET_SHAPE_TEST_RESULT,h,hit,pos,normal,entity);
+                if(status==2&&hit.GetResult<bool>()&&entity.GetResult<int>()==L.Wall.Handle){points[k]=pos.GetResult<Vector3>();valid++;}
+            }
+            k++;Yield();
+        }
+        return points;
+    }
+    // Actual anchored collision surfaces are the authority; bone API availability is diagnostic only.
     void Anchored(Dictionary<string,string> a)
     {
-        PrepareSite(); debris.Clear();failedRays=0;unknownRayHits=0;
-        string explosive=S(a,"explosive","grenade"); string variant=S(a,"variant","frozen");
-        Lab L=Spawn("lsa_x2_concrete",variant,SiteSpot(),0.25f); Prop wall=L.Wall;
-        Vector3 start=wall.Position; Vector3 up=wall.UpVector; Vector3 right=wall.RightVector;
-        int groups=wall.FragmentGroupCount;
-        Vector3[] bones=new Vector3[wall.Bones.Count];
-        for(int i=0;i<bones.Length;i++) bones[i]=wall.Bones[i].Position;
-        Row("x2_start","isFragment",wall.IsFragmentObject,"groups",groups,"boneCount",bones.Length,"variant",variant,"explosive",explosive,"assetSha256",ShaOf(Path.Combine(root,"onigiri/dlcpacks/lsa_destruct/dlc.rpf")));
-        if(bones.Length!=31){Row("x2_verdict","verdict","SKELETON_UNAVAILABLE");return;}
-        PlacePlayerFacing(L,-7f,0f);
-        x2Camera=World.CreateCamera(L.W(L.L(-6f,0f,2f)),Vector3.Zero,50f);
+        PrepareSite();debris.Clear();failedRays=0;unknownRayHits=0;
+        string explosive=S(a,"explosive","grenade"),variant=S(a,"variant","physical");
+        Lab L=Spawn("lsa_x2_concrete",variant,SiteSpot(),.25f);Prop wall=L.Wall;
+        if(variant=="physical")AttachNativeAnchor(wall);
+        PlacePlayerFacing(L,-7,0);
+        x2Camera=World.CreateCamera(L.W(L.L(-6,0,2)),Vector3.Zero,50);
         x2Camera.PointAt(L.W(L.L(0,0,1.25f)));World.RenderingCamera=x2Camera;
-        Grid before=Probe(L); int c0,t0;float w0,u0;Passable(L,"baseline",out c0,out t0,out w0,out u0);
-        Row("x2_baseline","failedRayRequests",failedRays,"unknownRayHits",unknownRayHits,"blocked",before.Wall,"cells",before.C.Length,"sweepClearColumns",c0,"sweepColumns",t0,"mask",Arr(Array.ConvertAll(before.C,x=>x.ToString())));
+        Function.Call(Hash.SET_ENTITY_LOD_DIST,wall.Handle,1000);Function.Call(Hash.SET_ENTITY_ALWAYS_PRERENDER,wall.Handle,true);
+        Function.Call(Hash.SET_DISABLE_FRAG_DAMAGE,wall.Handle,false);Function.Call(Hash.SET_DISABLE_BREAKING,wall.Handle,false);Function.Call(Hash.SET_ENTITY_CAN_BE_DAMAGED,wall.Handle,true);
+        for(int f=0;f<60;f++)Yield();
+        Vector3 start=wall.Position,up=wall.UpVector,right=wall.RightVector;int groups=wall.FragmentGroupCount;
+        Row("x2_start","isFragment",wall.IsFragmentObject,"groups",groups,"boneCount",wall.Bones.Count,"variant",variant,"explosive",explosive,"scale",F(a,"scale",1),"propCount",World.PropCount,"colliders",World.EntityColliderCount,"assetSha256",ShaOf(Path.Combine(root,"onigiri/dlcpacks/lsa_destruct/dlc.rpf")));
+        Grid before=Probe(L);int c0,t0;float w0,u0;Passable(L,"baseline",out c0,out t0,out w0,out u0);
+        int valid0;Vector3[] face0=AnchorFaces(L,out valid0);
+        Row("x2_baseline","blocked",before.Wall,"cells",before.C.Length,"sweepClearColumns",c0,"sweepColumns",t0,"anchorFaceHits",valid0,"failedRayRequests",failedRays,"mask",Arr(Array.ConvertAll(before.C,x=>x.ToString())));
         Hold("X2 BASELINE",(int)F(a,"hold",0));
-        if(before.Wall!=before.C.Length||c0!=0){Row("x2_verdict","verdict","BASELINE_INVALID");return;}
-        float blastU=F(a,"du",0f),blastV=F(a,"height",1f);
+        if(before.Wall!=before.C.Length||c0!=0||valid0!=20){Row("x2_verdict","verdict","BASELINE_INVALID");return;}
+        float blastU=F(a,"du",0),blastV=F(a,"height",1);
         Vector3 blast=L.W(L.L(-.1f-F(a,"dx",.4f),blastU,blastV));
-        Row("x2_pre_detonation","explosive",explosive,"boneCount",wall.Bones.Count,"variant",variant);
-        if(explosive!="none")World.AddExplosion(blast,explosive=="sticky"?ExplosionType.StickyBomb:explosive=="rocket"?ExplosionType.Rocket:ExplosionType.Grenade,F(a,"scale",1),0,Game.Player.Character,true,false);
+        Row("x2_pre_detonation","explosive",explosive,"variant",variant);
+        if(explosive!="none")World.AddExplosion(blast,explosive=="rocket"?ExplosionType.Rocket:explosive=="sticky"?ExplosionType.StickyBomb:ExplosionType.Grenade,F(a,"scale",1),0,Game.Player.Character,true,false);
         Row("x2_post_detonation","wallExists",wall.Exists());
-        float maxRoot=0,maxAnchorBone=0,minUp=1,minRight=1;int flagged=0;
+        float maxRoot=0,minUp=1,minRight=1;int flagged=0;bool detected=false;
         for(int f=0;f<180;f++){
-            Yield(); if(!wall.Exists())break;
+            Yield();if(!wall.Exists())break;
             maxRoot=Math.Max(maxRoot,wall.Position.DistanceTo(start));minUp=Math.Min(minUp,Vector3.Dot(up,wall.UpVector));minRight=Math.Min(minRight,Vector3.Dot(right,wall.RightVector));
+            if(f<12&&Function.Call<bool>(Hash.IS_EXPLOSION_IN_SPHERE,-1,blast.X,blast.Y,blast.Z,5f))detected=true;
             if(f%15==0){RefreshDebris(wall,blast);flagged=Math.Max(flagged,lastFlagged);}
-            foreach(string n in new string[]{"chunk_0_0","chunk_0_4","chunk_5_0","chunk_5_4"}){
-                int i=Function.Call<int>(Hash.GET_ENTITY_BONE_INDEX_BY_NAME,wall.Handle,n);if(i>=0&&i<bones.Length)maxAnchorBone=Math.Max(maxAnchorBone,wall.Bones[i].Position.DistanceTo(bones[i]));
-            }
         }
         Grid after=Probe(L);Cmp cmp=Compare(L,before,after,blastU,blastV,1.25f);
         int c,t;float w,u;Passable(L,"debris_present",out c,out t,out w,out u);
+        int valid;Vector3[] faces=AnchorFaces(L,out valid);float maxFace=0;
+        if(valid==20)for(int k=0;k<20;k++)maxFace=Math.Max(maxFace,faces[k].DistanceTo(face0[k]));else maxFace=-1;
         int outerBlocked=0,outerBaseline=0;
-        for(int j=0;j<before.Nv;j++)for(int i=0;i<before.Nu;i++){
-            float x=L.U0+(i+.5f)*L.P;
-            if(Math.Abs(x)>1.05f && before.C[j*before.Nu+i]==1){outerBaseline++;if(after.C[j*before.Nu+i]==1)outerBlocked++;}
-        }
-        int foundAnchors=0;
-        foreach(string n in new string[]{"chunk_0_0","chunk_0_4","chunk_5_0","chunk_5_4"})if(Function.Call<int>(Hash.GET_ENTITY_BONE_INDEX_BY_NAME,wall.Handle,n)>=0)foundAnchors++;
-        bool anchored=foundAnchors==4&&wall.Exists()&&maxRoot<=.02f&&maxAnchorBone<=.02f&&minUp>=.999f&&minRight>=.999f&&outerBaseline>0&&outerBlocked==outerBaseline;
-        Row("x2_geometry","openedClear",cmp.OpenedClear,"residual",cmp.Residual,"outerBlocked",outerBlocked,"outerBaseline",outerBaseline,"maxRootMoveM",maxRoot,"maxAnchorBoneMoveM",maxAnchorBone,"minUpDot",minUp,"minRightDot",minRight,"anchorBonesFound",foundAnchors,"anchored",anchored,"flaggedDetached",flagged,"debrisCount",debris.Count,"sweepWindowM",w,"sweepClearColumns",c,"sweepColumns",t,"mask",Arr(Array.ConvertAll(after.C,x=>x.ToString())));
+        for(int j=0;j<before.Nv;j++)for(int i=0;i<before.Nu;i++)if(Math.Abs(L.U0+(i+.5f)*L.P)>1.05f&&before.C[j*before.Nu+i]==1){outerBaseline++;if(after.C[j*before.Nu+i]==1)outerBlocked++;}
+        bool anchored=wall.Exists()&&valid==20&&maxFace<=.02f&&maxRoot<=.02f&&minUp>=.999f&&minRight>=.999f&&outerBaseline==40&&outerBlocked==40;
+        Row("x2_geometry","openedClear",cmp.OpenedClear,"residual",cmp.Residual,"outerBlocked",outerBlocked,"outerBaseline",outerBaseline,"anchorFaceHits",valid,"maxAnchorFaceMoveM",maxFace,"maxRootMoveM",maxRoot,"minUpDot",minUp,"minRightDot",minRight,"anchored",anchored,"flaggedDetached",flagged,"debrisCount",debris.Count,"sweepWindowM",w,"sweepClearColumns",c,"sweepColumns",t,"explosionDetected",detected,"mask",Arr(Array.ConvertAll(after.C,x=>x.ToString())));
         Hold("X2 AFTER BLAST DEBRIS PRESENT",(int)F(a,"hold",0));
         float progress;string walk="skipped";if(explosive!="none"&&!float.IsNaN(u)&&w>=.5f)walk=Walk(L,u,"x2_hole",out progress);
-        string control=Walk(L,1.25f,"x2_intact",out progress);
-        bool pass=wall.IsFragmentObject&&groups==31&&before.Wall==before.C.Length&&c0==0&&anchored&&cmp.OpenedClear>=4&&w>=.6f&&walk=="crossed"&&control=="blocked"&&flagged>0;
-        string verdict=explosive=="none"?(anchored&&cmp.OpenedClear==0&&control=="blocked"?"CONTROL_CLOSED":"CONTROL_FAILED"):(pass?"LOCAL_ANCHORED_BREACH_CONFIRMED":"NOT_CONFIRMED");
+        string control=Walk(L,1.25f,"x2_intact",out progress);bool controlClosed=control=="blocked"||control=="bypassed_edge";
+        int finalValid;Vector3[] finalFaces=AnchorFaces(L,out finalValid);float finalFaceMove=0;
+        if(finalValid==20)for(int k=0;k<20;k++)finalFaceMove=Math.Max(finalFaceMove,finalFaces[k].DistanceTo(face0[k]));else finalFaceMove=-1;
+        float finalRoot=wall.Exists()?wall.Position.DistanceTo(start):-1;
+        anchored=anchored&&wall.Exists()&&finalValid==20&&finalFaceMove<=.02f&&finalRoot>=0&&finalRoot<=.02f&&Vector3.Dot(up,wall.UpVector)>=.999f&&Vector3.Dot(right,wall.RightVector)>=.999f;
+        Row("x2_final_anchor","anchorFaceHits",finalValid,"maxAnchorFaceMoveM",finalFaceMove,"rootMoveM",finalRoot,"anchored",anchored);
+        bool pass=wall.IsFragmentObject&&groups==31&&anchored&&cmp.OpenedClear>=4&&w>=.6f&&walk=="crossed"&&controlClosed&&flagged>0&&detected;
+        string verdict=explosive=="none"?(anchored&&cmp.OpenedClear==0&&controlClosed?"CONTROL_CLOSED":"CONTROL_FAILED"):(pass?"LOCAL_ANCHORED_BREACH_CONFIRMED":"NOT_CONFIRMED");
         Row("x2_verdict","verdict",verdict,"walkHole",walk,"walkControl",control,"anchored",anchored,"debrisRetained",true);
     }
 
@@ -591,19 +618,20 @@ public class WpsBreachLab : Script
         Vector3 dir = (goal - start); dir.Z = 0f; dir.Normalize(); ped.Heading = (float)(Math.Atan2(-dir.X, dir.Y) * 180.0 / Math.PI);
         for (int i = 0; i < 10; i++) Yield();
         Function.Call(Hash.TASK_GO_STRAIGHT_TO_COORD, ped.Handle, goal.X, goal.Y, goal.Z, 1.0f, 9000, ped.Heading, 0.5f);
-        long t0 = clock.ElapsedMilliseconds; bool crossed = false; float maxT = -99f; float zStart = ped.Position.Z, zMax = zStart; float maxLateral = 0f;
+        long t0 = clock.ElapsedMilliseconds; bool crossed = false; float maxT = -99f; float zStart = ped.Position.Z, zMax = zStart; float maxLateral = 0f; float crossingU=float.NaN,prevT=tFront-2.2f,prevU=u;
         while (clock.ElapsedMilliseconds - t0 < 9500)
         {
             Yield(); Beat();
             Vector3 lp = L.Inv(ped.Position); float t = L.Thin == 0 ? lp.X : lp.Y; maxT = Math.Max(maxT, t); zMax = Math.Max(zMax, ped.Position.Z);
             float lateral = Math.Abs((L.Thin == 0 ? lp.Y : lp.X) - u); maxLateral = Math.Max(maxLateral, lateral);
+            float currentU=L.Thin==0?lp.Y:lp.X;if(float.IsNaN(crossingU)&&prevT<0&&t>=0)crossingU=prevU+(currentU-prevU)*(-prevT)/(t-prevT);prevT=t;prevU=currentU;
             if (t > tBack + 0.6f) { crossed = true; break; }
         }
         progress = maxT - tFront;
         float zGain = zMax - zStart; bool climbed = crossed && zGain > 0.35f;
-        Row("walk", "label", label, "u", u, "crossed", crossed, "climbedOver", climbed, "maxLateralM", maxLateral, "zGainM", zGain, "progressFromFrontM", progress, "wallThicknessM", tBack - tFront, "wallHeightM", L.V1 - L.V0, "ms", clock.ElapsedMilliseconds - t0);
+        Row("walk", "label", label, "u", u, "crossed", crossed, "climbedOver", climbed, "crossingU",crossingU,"outsideWallFootprint",!float.IsNaN(crossingU)&&(crossingU<L.U0||crossingU>L.U1),"maxLateralM", maxLateral, "zGainM", zGain, "progressFromFrontM", progress, "wallThicknessM", tBack - tFront, "wallHeightM", L.V1 - L.V0, "ms", clock.ElapsedMilliseconds - t0);
         try { ped.Delete(); } catch { } owned.Remove(ped);
-        return crossed ? (maxLateral > 0.6f ? "crossed_off_lane" : climbed ? "crossed_climbed" : "crossed") : "blocked";
+        return crossed && !float.IsNaN(crossingU) && (crossingU<L.U0||crossingU>L.U1) ? "bypassed_edge" : crossed ? (maxLateral > 0.6f ? "crossed_off_lane" : climbed ? "crossed_climbed" : "crossed") : "blocked";
     }
 
     float ControlColumn(Lab L, float uHole, int totalU, Grid g0)
@@ -973,6 +1001,12 @@ public class WpsBreachLab : Script
         catch { return "unavailable"; }
     }
 }
+
+
+
+
+
+
 
 
 

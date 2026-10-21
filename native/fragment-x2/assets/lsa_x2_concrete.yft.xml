@@ -3359,7 +3359,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3373,8 +3373,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3390,7 +3390,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3404,8 +3404,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3421,7 +3421,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3435,8 +3435,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3452,7 +3452,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3466,8 +3466,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3545,7 +3545,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3559,8 +3559,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3576,7 +3576,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3590,8 +3590,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3607,7 +3607,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3621,8 +3621,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3638,7 +3638,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3652,8 +3652,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3731,7 +3731,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3745,8 +3745,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3762,7 +3762,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3776,8 +3776,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3793,7 +3793,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3807,8 +3807,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3824,7 +3824,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3838,8 +3838,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3917,7 +3917,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3931,8 +3931,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3948,7 +3948,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3962,8 +3962,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -3979,7 +3979,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -3993,8 +3993,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -4010,7 +4010,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -4024,8 +4024,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -4103,7 +4103,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -4117,8 +4117,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -4134,7 +4134,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -4148,8 +4148,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -4165,7 +4165,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -4179,8 +4179,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />
@@ -4196,7 +4196,7 @@
           <ParentIndex value="0" />
           <GlassWindowIndex value="0" />
           <GlassFlags value="0" />
-          <Strength value="100" />
+          <Strength value="5000" />
           <ForceTransmissionScaleUp value="0.25" />
           <ForceTransmissionScaleDown value="0.25" />
           <JointStiffness value="0" />
@@ -4210,8 +4210,8 @@
           <RestoringMaxTorque value="0" />
           <LatchStrength value="0" />
           <Mass value="120" />
-          <MinDamageForce value="100" />
-          <DamageHealth value="1000" />
+          <MinDamageForce value="2000" />
+          <DamageHealth value="100" />
           <UnkFloat5C value="0" />
           <UnkFloat60 value="1" />
           <UnkFloat64 value="1" />

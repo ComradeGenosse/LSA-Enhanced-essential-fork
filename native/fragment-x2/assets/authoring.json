@@ -7,6 +7,7 @@
   "chunks": 30,
   "groups": 31,
   "density": 2400,
-  "anchoring": "root frozen by test; reinforced outer columns; default group force transmission .25",
-  "blender": "5.2.2 LTS"
+  "anchoring": "Runtime variants: physical native fixed joint, static, frozen; reinforced outer columns; group force transmission .25",
+  "blender": "5.2.2 LTS",
+  "provenanceNote": "Corrected runtime description only; measured binary assets are unchanged."
 }

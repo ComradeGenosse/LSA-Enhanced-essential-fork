@@ -15,3 +15,15 @@ Run no-blast control and repeated center blasts before expanding to center/left/
 - Vehicle physics-child meshes (fragment flag 64) removed for the prop convention. First fresh frozen grenade then returned without crashing, but produced no break. Repeated spawn still reported zero bones and is refused before damage.
 - Enabled rotation/translation channels on the fragment bones and restored Sollumz's default .25 force transmission. Previous zero transmission was an untested authoring assumption, not an engine requirement. Retest intact control, repeated spawn and blast before acceptance.
 - X1's .6 m walk tolerance admits a path around a .5 m edge column. Such outcomes are recorded as failed controls, even when all intact rays/sweeps block. No threshold has been relaxed to accept them. Native obstacle steering was disabled for disposable test peds in X2-0.3; this did not prevent edge bypass in the measured run.
+
+### X2-0.6 pre-registered oracle correction
+
+The stock fence positive control establishes frozen = zero detached parts, static = five native detached parts for the same grenade. Use static anchoring for the wall. Normal concrete chunk Strength 5000 and MinDamageForce 2000 exceed one 120 kg chunk's resting weight; DamageHealth starts at 100. Root and perimeter remain strongly reinforced. All baseline rays and swept columns must still block before any blast.
+
+Bone-count zero is observed on repeated instances, including CodeWalker output. Native bone-position queries in that state crashed the game. Avoid those APIs. Verify the actual surviving collision faces instead: 20 bidirectional surface points across both outer columns must remain root hits within .02 m of baseline, all 40 outer face-grid cells must remain blocked, and the root pose must meet the original movement/orientation bounds. This directly tests surviving structure rather than relying on a render skeleton.
+
+Walking now records the ped's interpolated crossing of the wall plane. A crossing outside the wall footprint is `bypassed_edge`, never a valid hole traversal. An intact control may bypass the finite wall edge; its collision faces must remain closed. The hole must be crossed inside the wall footprint and retain the original .6 m lateral/.35 m climb bounds. Earlier control failures remain in evidence; they are not relabeled as passes.
+
+### X2-0.7 native joint diagnostic
+
+Static anchoring failed: the whole wall moved. The physical variant attaches the dynamic wall through a native fixed joint to a collision-disabled frozen stock anchor. No custom physics solver is used. The final no-blast, grenade and rocket run retained the measured outer collision faces within .02 m, but neither blast opened a hole. Acceptance remains NOT CONFIRMED; three-launch and 20-blast GO criteria have not been met.
