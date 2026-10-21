@@ -37,3 +37,7 @@ X2-0.9 lowers normal group Strength to the approved starting value 100 and MinDa
 ### Fixed candidate qualification
 
 Pack 180618adbe9e56bdaa9a6220e82a87effc6d624ea2b78926cc348263e60af347: strength 500, MinDamageForce 100, health 100, aggregate bounds corrected. Centre rocket scale10 passed a 1.5 m opening and actual traversal with surrounding faces anchored. Freeze this asset for three-launch / 20-blast checks. Charge comparison uses native AddExplosion scales grenade .25, sticky 3, rocket 10; these are explicit calibrated test charges, not assertions about vanilla weapon balance. Keep initial scale1 grenade/sticky diagnostics separately. Test positions centre (du0,height1), left third (du-1,height1), upper third (du0,height2). No native-release diagnostic may count as an explosive pass. Retain all failed traversal, face-query and debris-obstructed trials.
+
+### Target-boundary investigation (before confirmation matrix)
+
+The original left-third projection du=-1 lies exactly on the reinforced outer-column boundary. A third-launch repeat released only one part and made no clear opening; retain it as a failure. Confirmation targets the centre of the adjacent breakable chunk at du=-.75, still within the left third, and upper-third height1.75. Use a balanced 3-position × 3-charge matrix with native scales grenade .5, sticky3, rocket10, keeping the asset and script unchanged. Run the whole matrix, preserve every outcome, and report original boundary/low-charge failures alongside it. No earlier result or threshold is reclassified.

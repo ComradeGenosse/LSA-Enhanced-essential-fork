@@ -1,0 +1,11 @@
+{
+  "candidate500-repeat-centre-baseline.png": "Run 20261021-112658-91c08f, final centre rocket trial, intact baseline before native explosion.",
+  "candidate500-repeat-centre-post-blast.png": "Same final centre rocket trial, AFTER BLAST DEBRIS PRESENT hold; native debris retained, top strip and columns visible. Geometry row: 64 clear cells, 16 explicit native detached parts, 1.5m sweep window; subsequent ped crossing passed.",
+  "native-detach-interior-observation.png": "Run 20261021-111247-680ca8, scripted native releasegroup15 diagnostic only; not an explosive acceptance pass.",
+  "strength100-grenade-native-debris.png": "Run 20261021-111824-82a45b, grenade debris obstruction; NOT_CONFIRMED despite visible opening.",
+  "strength500-left-rocket-baseline.png": "Run 20261021-112312-5588e1, left rocket intact baseline; not after-damage evidence.",
+  "strength500-after-batch.png": "After the batch and lab cleanup; ground view, not damage evidence.",
+  "native-joint-between-trials.png": "Transition between early native-joint trials; not damage evidence.",
+  "native-joint-rocket-observation.png": "Early X2-0.7 intact wall during rocket observation; failed breach, NOT_CONFIRMED.",
+  "launch2-upper-sticky-localized-observation.png": "Fresh launch2, upper-third sticky trial, during control walk after damage. Upper opening and surviving lower material visible; NOT_CONFIRMED because sweep obstructed and one outer face query occluded. This is locality observation, not a traversal pass."
+}

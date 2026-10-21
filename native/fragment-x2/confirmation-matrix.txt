@@ -1,0 +1,10 @@
+anchored explosive=none variant=physical hold=3
+anchored explosive=grenade variant=physical du=0 dx=0.4 height=1 scale=0.5 hold=3
+anchored explosive=sticky variant=physical du=0 dx=0.1 height=1 scale=3 hold=3
+anchored explosive=rocket variant=physical du=0 dx=0.4 height=1 scale=10 hold=3
+anchored explosive=grenade variant=physical du=-0.75 dx=0.4 height=1 scale=0.5 hold=3
+anchored explosive=sticky variant=physical du=-0.75 dx=0.1 height=1 scale=3 hold=3
+anchored explosive=rocket variant=physical du=-0.75 dx=0.4 height=1 scale=10 hold=3
+anchored explosive=grenade variant=physical du=0 dx=0.4 height=1.75 scale=0.5 hold=3
+anchored explosive=sticky variant=physical du=0 dx=0.1 height=1.75 scale=3 hold=3
+anchored explosive=rocket variant=physical du=0 dx=0.4 height=1.75 scale=10 hold=3
