@@ -1,0 +1,33 @@
+name: ASTRA X7 offline source checks
+on:
+  push:
+    branches:
+      - experiment/astra-001-x7-localized-fracture
+  pull_request:
+    paths:
+      - 'native/fragment-x7/**'
+      - '.github/workflows/astra-x7.yml'
+      - 'docs/next-gen-gameplay/astra-001/16-X7*'
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Frozen matrix and analyst unit tests
+        run: |
+          python -m unittest discover -s native/fragment-x7 -p 'test_*.py' -v
+      - name: Build driver from frozen X6 and ensure reproducible artifact
+        run: |
+          python native/fragment-x7/build_x7.py
+          git diff --exit-code -- native/fragment-x7/WpsBreachLabX7.3.cs
+      - name: Source validation (no GTA or export available)
+        run: |
+          python native/fragment-x7/validate_x7.py
+          python native/fragment-x7/validate_x7b.py
+          python native/fragment-x7/spec.py --layout grid6x5 --output /tmp/x7-models-1.json
+          python native/fragment-x7/spec.py --layout grid6x5 --output /tmp/x7-models-2.json
+          cmp /tmp/x7-models-1.json /tmp/x7-models-2.json
+          python native/fragment-x7/build_fence_x7.py --dry-run --layout grid6x5
