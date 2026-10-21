@@ -30,7 +30,7 @@ using GTA.Native;
 
 public class WpsBreachLab : Script
 {
-    const string Ver = "X3-0.2";
+    const string Ver = "X3-0.3";
     const string PedModelName = "a_m_y_beach_01";
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -146,6 +146,7 @@ public class WpsBreachLab : Script
             case "x3breach": X3Geom(a, false); break;
             case "x3multi": X3Geom(a, true); break;
             case "x3player": X3Player(a); break;
+            case "x3cleanuptest": X3CleanupTest(a); break;
             case "anchored": Anchored(a); break;
             case "census": Census(); break;
             case "worldcensus": WorldCensus(F(a, "radius", 250f)); break;
@@ -942,8 +943,7 @@ public class WpsBreachLab : Script
     void CleanupAll()
     {
         if(x2Camera!=null){World.RenderingCamera=null;x2Camera.Delete();x2Camera=null;}
-        foreach (int h in new List<int>(debris)) { try { Entity d = Entity.FromHandle(h); if (d != null && d.Exists()) { d.MarkAsMissionEntity(); d.Delete(); } } catch { } }
-        debris.Clear();
+        CleanupDebris();
         foreach (Entity e in new List<Entity>(owned)) { try { if (e != null && e.Exists()) e.Delete(); } catch { } }
         owned.Clear();
     }
@@ -997,7 +997,7 @@ public class WpsBreachLab : Script
     void ResetX3()
     {
         debris.Clear(); debrisOwner.Clear(); flaggedSet.Clear(); strayNew.Clear(); labHandles.Clear(); otherKinds.Clear();
-        foreignHits = 0; otherLogged = 0; failedRays = 0; unknownRayHits = 0; poolFracMax = 0; stallSeen = false;
+        cleanupDeletedOwned = 0; cleanupSkippedAmbient = 0; foreignHits = 0; otherLogged = 0; failedRays = 0; unknownRayHits = 0; poolFracMax = 0; stallSeen = false;
     }
 
     // ---- pools -------------------------------------------------------------------------------------------------
@@ -1203,7 +1203,45 @@ public class WpsBreachLab : Script
     {
         preProps.Clear(); try { foreach (Prop q in World.GetNearbyProps(centre, radius)) if (q != null && q.Exists()) preProps.Add(q.Handle); } catch { }
     }
-    void DoDelete(int h) { try { Entity d = Entity.FromHandle(h); if (d != null && d.Exists()) { d.MarkAsMissionEntity(); d.Delete(); } } catch { } }
+    // X3-0.3 (PR #290 review, P0): deletion is ownership-verified. A handle is deleted only if it still exists, is a Prop,
+    // and is natively detached from one of THIS lab's walls. Anything else - including newly streamed ambient props that
+    // merely appeared near the wall - is observation-only and is never deleted.
+    int cleanupDeletedOwned, cleanupSkippedAmbient;
+    bool IsVerifiedLabDebris(int h)
+    {
+        try
+        {
+            if (!Exists(h)) return false;
+            Prop p = Entity.FromHandle(h) as Prop; if (p == null) return false;
+            if (labHandles.Contains(h)) return false; // wall/anchor are removed through 'owned', never as debris
+            if (!p.HasBeenDetachedFromParentEntity) return false;
+            Entity par = p.ParentEntityDetachedFrom; if (par == null) return false;
+            int ph = par.Handle;
+            if (labHandles.Contains(ph)) return true;
+            foreach (Entity o in owned) { if (o != null && o.Handle == ph) return true; }
+        }
+        catch { }
+        return false;
+    }
+    void DeleteVerified(int h) { try { Entity d = Entity.FromHandle(h); if (d != null && d.Exists()) { d.MarkAsMissionEntity(); d.Delete(); } } catch { } }
+    void DoDelete(int h)
+    {
+        if (!IsVerifiedLabDebris(h)) { cleanupSkippedAmbient++; return; }
+        DeleteVerified(h); cleanupDeletedOwned++;
+    }
+    void CleanupDebris()
+    {
+        foreach (int h in new List<int>(debris))
+        {
+            if (IsVerifiedLabDebris(h)) { DeleteVerified(h); cleanupDeletedOwned++; }
+            else if (Exists(h))
+            {
+                cleanupSkippedAmbient++;
+                if (cleanupSkippedAmbient <= 25) { uint mh = 0; try { mh = (uint)Entity.FromHandle(h).Model.Hash; } catch { } Row("x3_cleanup_skipped", "trial", trialLabel, "handle", h, "model", mh, "reason", "not verified detached from a lab wall"); }
+            }
+        }
+        debris.Clear();
+    }
 
     // ---- per-wall measurement --------------------------------------------------------------------------------------
     WallBase MeasureBaseline(Lab L)
@@ -1269,7 +1307,7 @@ public class WpsBreachLab : Script
         List<Cand> list = new List<Cand>();
         foreach (int h in new List<int>(flaggedSet))
         {
-            int o; if (!debrisOwner.TryGetValue(h, out o) || !Exists(h)) continue;
+            int o; if (!debrisOwner.TryGetValue(h, out o) || !Exists(h) || !IsVerifiedLabDebris(h)) continue;
             Entity e = Entity.FromHandle(h); if (e == null || !e.Exists()) continue;
             Lab L = labs[o]; Region r = regions[o]; float u, t, v; LocalUTV(L, e.Position, out u, out t, out v);
             Cand c = new Cand(); c.H = h; c.L = L; try { c.Speed = Function.Call<float>(Hash.GET_ENTITY_SPEED, h); } catch { }
@@ -1320,7 +1358,7 @@ public class WpsBreachLab : Script
         CleanupAll(); for (int i = 0; i < 120; i++) Yield();
         Row("x3_leak", "trial", trialLabel, "label", label, "propsBefore", props0, "propsAfter", World.PropCount, "propsDelta", World.PropCount - props0,
             "collidersBefore", coll0, "collidersAfter", World.EntityColliderCount, "collidersDelta", World.EntityColliderCount - coll0,
-            "pedsBefore", peds0, "pedsAfter", World.PedCount, "pools", PoolsRaw());
+            "pedsBefore", peds0, "pedsAfter", World.PedCount, "cleanupDeletedOwned", cleanupDeletedOwned, "cleanupSkippedAmbient", cleanupSkippedAmbient, "pools", PoolsRaw());
     }
 
     // ===================================================================== x3idle: ambient pools and empty-site frame baseline
@@ -1566,6 +1604,44 @@ public class WpsBreachLab : Script
         state = "RUNNING"; step = "";
         for (int f = 0; f < 120; f++) Yield();
         LeakCheck("after_cleanup", props0, coll0, peds0);
+    }
+
+    // ===================================================================== x3cleanuptest: targeted regression test for the P0 cleanup fix
+    // One wall, one grenade. Two unrelated sentinel props are created by the script but are NOT lab-owned: one before the pre-blast
+    // snapshot (control) and one after it (exactly the "new ambient prop" case the old cleanup would have deleted).
+    void X3CleanupTest(Dictionary<string, string> a)
+    {
+        trialLabel = S(a, "label", "cleanuptest");
+        PrepareSite(); ResetX3(); Vector3 spot = SiteSpot(); for (int i = 0; i < 60; i++) Yield();
+        List<Lab> labs = SpawnLayout(1, 1, 0f, 0f, 0f, spot); MakeCamera(labs, 1); Lab L = labs[0];
+        PlacePlayerFacing(L, (L.Thin == 0 ? L.Min.X : L.Min.Y) - 7f, (L.U0 + L.U1) * .5f);
+        for (int f = 0; f < 60; f++) Yield();
+        Model m = new Model("prop_roadcone02a"); bool loaded = m.Request(5000);
+        Prop sentinelPre = null, sentinelNew = null;
+        if (loaded) sentinelPre = World.CreateProp(m, L.W(L.L(-1.5f, -7f, .2f)), Vector3.Zero, false, true);
+        for (int f = 0; f < 30; f++) Yield();
+        Vector3 centre = LabCentre(labs); SnapshotPre(centre, 40f); // sentinelPre is now part of the pre-blast world
+        if (loaded) sentinelNew = World.CreateProp(m, L.W(L.L(-1.5f, 7f, .2f)), Vector3.Zero, false, true); // appears AFTER the snapshot
+        for (int f = 0; f < 30; f++) Yield();
+        int hPre = sentinelPre != null ? sentinelPre.Handle : 0, hNew = sentinelNew != null ? sentinelNew.Handle : 0;
+        Vector3 bp = L.W(L.L(-.1f - .4f, 0f, 1f));
+        SampleCore("burst", 180, 0, delegate() { World.AddExplosion(bp, ExplosionType.Grenade, .25f, 0f, Game.Player.Character, true, false); }, delegate(int f) { if (f % 30 == 0 || f == 179) ScanDebris(labs, centre, 40f); });
+        ScanDebris(labs, centre, 40f);
+        int flagged = flaggedSet.Count; int flaggedAlive = 0; foreach (int h in flaggedSet) if (Exists(h)) flaggedAlive++;
+        bool newInDebris = debris.Contains(hNew), newInStray = strayNew.Contains(hNew), preInDebris = debris.Contains(hPre);
+        PoolRow("before_cleanup");
+        CleanupAll(); for (int f = 0; f < 120; f++) Yield();
+        bool newSurvives = hNew != 0 && Exists(hNew), preSurvives = hPre != 0 && Exists(hPre);
+        int flaggedAfter = 0; foreach (int h in flaggedSet) if (Exists(h)) flaggedAfter++;
+        bool wallGone = !L.Wall.Exists();
+        Row("x3_cleanup_test", "trial", trialLabel, "sentinelModelLoaded", loaded, "flaggedDetached", flagged, "flaggedAliveBefore", flaggedAlive,
+            "newAmbientInOldDeleteSet", newInDebris, "newAmbientObservedAsStray", newInStray, "preSentinelInOldDeleteSet", preInDebris,
+            "newAmbientSurvivesCleanup", newSurvives, "preSentinelSurvivesCleanup", preSurvives, "flaggedAliveAfter", flaggedAfter, "wallRemoved", wallGone,
+            "cleanupDeletedOwned", cleanupDeletedOwned, "cleanupSkippedAmbient", cleanupSkippedAmbient,
+            "pass", loaded && flagged >= 1 && newSurvives && preSurvives && flaggedAfter == 0 && wallGone);
+        try { if (sentinelPre != null && sentinelPre.Exists()) sentinelPre.Delete(); if (sentinelNew != null && sentinelNew.Exists()) sentinelNew.Delete(); } catch { } // the test's own props
+        m.MarkAsNoLongerNeeded();
+        Row("x3_verdict", "trial", trialLabel, "verdict", "MEASURED");
     }
 
     // X3-0.2 diagnostic only: classifies why an anchor-face ray did not return the wall (no measurement semantics changed).

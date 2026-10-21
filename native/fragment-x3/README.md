@@ -20,7 +20,9 @@ Experimental continuation of the frozen X2 lab (`native/fragment-x2`, unchanged)
 | `x3multi n=… gap=… targets=… simul=…` | Several independently anchored walls with per-wall isolation, foreign-debris and anchoring checks |
 | `x3player` | The player (not a ped) is placed in front of the wall and walks; telemetry logs the crossing; used with computer-controlled key hold |
 
-Debris management only ever touches props carrying SHVDN's native "detached from this wall" evidence. The wall root, the anchor and any unflagged prop are never deleted or frozen by management.
+Debris management and end-of-trial cleanup only delete props that are verified, at deletion time, as natively detached from one of this lab's walls (driver `X3-0.3`; see `docs/next-gen-gameplay/astra-001/13-X3-PHASE1-CLOSEOUT-20261021.md`). The wall root, the anchor and any unverified or ambient prop are never deleted or frozen. Drivers before `X3-0.3` could delete newly streamed ambient props at end-of-trial cleanup (PR #290 review, P0); that is fixed.
+
+`x3cleanuptest` (driver `X3-0.3`) is the Phase 1 regression of the cleanup fix: one wall, one grenade, two unrelated sentinel props, checked with `tools/x3_cleanup_check.py`.
 
 ## Reproduce without GTA
 
