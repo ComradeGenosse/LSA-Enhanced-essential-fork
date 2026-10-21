@@ -72,6 +72,15 @@ def build_variant(v,pack):
     if hasattr(bpy.context.scene,"ytyps"): bpy.context.scene.ytyps.clear()
     exec(compile(source,str(X6/"build_fence.py"),"exec"),env)
     folder=OUT/v.name
+    # X6's CodeWalker XML converter resolves embedded DDS references from the
+    # conversion base directory. Retain both the per-model and flat DDS paths.
+    import hashlib
+    texture=folder/"lsa_x6_galvanized.dds"
+    if not texture.exists(): raise RuntimeError("X6 procedural texture missing: "+str(texture))
+    flat=OUT/texture.name
+    if flat.exists() and hashlib.sha256(flat.read_bytes()).digest()!=hashlib.sha256(texture.read_bytes()).digest():
+        raise RuntimeError("Non-identical procedural texture across X7 variants")
+    shutil.copy2(texture,flat)
     for suffix in (".yft.xml",".yft"):
         path=folder/(v.name+suffix)
         if path.exists(): shutil.copy2(path,OUT/path.name)

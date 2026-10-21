@@ -66,7 +66,7 @@ powershell -NoProfile -File native/fragment-x7/build_pack_x7.ps1 -CodeWalker "C:
 python native/fragment-x7/validate_x7.py --require-exports
 ```
 
-*Stop on any script/export error.* The converter must actually reload **twelve** version-171 GEN9 fragments with **31** bones each; the multi-archetype YTYP must have twelve archetypes; `models.json`, `conversion-receipt.json` and `pack/pack-receipt.json` must agree. Verify geometry arrays identical across all twelve models and the authored bounds **2.536 × 2.351 m**. Inspect one intact generated twin from a fixed camera. Resolve any Sollumz/CodeWalker compatibility issue using real exported assets only.
+*Stop on any script/export error.* The converter must actually reload **twelve** version-171 GEN9 fragments with **31** bones each; the multi-archetype YTYP must have twelve archetypes; `models.json`, `conversion-receipt.json` and `pack/pack-receipt.json` must agree. Verify geometry arrays identical across all twelve models and the authored bounds **2.536 × 2.351 m**. Check the common DDS has also been copied flat to `assets/lsa_x6_galvanized.dds` for CodeWalker's texture lookup. Inspect one intact generated twin from a fixed camera. Resolve any Sollumz/CodeWalker compatibility issue using real exported assets only.
 
 With **GTA and RAGEPluginHook stopped**, install the isolated X7a pack and driver using a *new empty* backup directory:
 

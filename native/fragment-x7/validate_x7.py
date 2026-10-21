@@ -46,6 +46,7 @@ if (assets/"models.json").exists():
     assert m["allowlist"]==manifest(m["layout"],m.get("tstar"))["allowlist"] if m["layout"]=="grid6x5" else len(m["allowlist"])==3
     models=a_variants() if m["layout"]=="grid6x5" else []
     if m["layout"]=="grid6x5":
+        if args.require_exports: assert (assets/"lsa_x6_galvanized.dds").exists(), "CodeWalker DDS texture reference missing"
         fingerprints=[]
         for v in models:
             xml=assets/(v.name+".yft.xml")
