@@ -94,6 +94,11 @@ def load(paths):
             walk=next((v for v in subset if v.get("kind")=="x7_player_result"),{})
             value["walk"]={"crossed":walk.get("crossed"),"outsideFootprint":walk.get("outsideFootprint"),
                            "maxRise":walk.get("maxRise")} if walk else None
+            restored=next((v for v in subset if v.get("kind")=="x7_restored"),{})
+            value["restore"]={"originalBlocked":restored.get("originalBlocked"),
+                              "restoredToOriginal":restored.get("restoredToOriginal")} if restored else None
+            band=next((v for v in subset if v.get("kind")=="x7_frame_bands"),{})
+            value["frameBands"]={k:band.get(k) for k in ("postBlocked","postTotal","topBlocked","bottomBlocked","bandTotal")} if band else None
             shots.append(value)
     return shots
 
@@ -143,8 +148,55 @@ def gate_a(shots,decision):
             reasons.append(p+" native/predictive gate failed")
         if v.get("commitMs") is None or v["commitMs"]>.2 or v.get("windowMaxMs") is None or v["windowMaxMs"]>50:
             reasons.append(p+" performance gate unverified/failed")
+        if not v.get("restore") or v["restore"].get("originalBlocked")!=9:
+            reasons.append(p+" original 9/9 restore missing")
     # Restore witness must be examined in the collected log.
     return {"pass":not reasons,"reasons":reasons,"selected_tstar":k}
+
+def gate_b(shots,tstar):
+    """Doc16 section8 acceptance for an observed Session A T*, no invented success."""
+    if tstar not in LEVELS: return {"pass":False,"reasons":["No accepted Session A T*"]}
+    model=f"lsa_x7b_torn_{round(tstar)}"
+    expected=[("P1",POINTS["P1"]),("P2",POINTS["P2"]),("P3",POINTS["P3"])]
+    reasons=[]; selected={}
+    for label,(u,v) in expected:
+        matches=[s for s in shots if s.get("model")==model and abs(s.get("aimU",99)-u)<.05 and abs(s.get("aimV",99)-v)<.05]
+        selected[label]=matches
+        need=2 if label=="P1" else 1
+        if len(matches)<need: reasons.append(label+" missing "+str(need)+" shots")
+        for shot in matches[:need]:
+            if not (4<=shot.get("nativeParts",0)<=16 and .6<=shot.get("removedAreaM2",0)<=2.8
+                    and shot.get("blockedFraction",0)>=.4 and (shot.get("centroidErrorM") or 999)<=.45):
+                reasons.append(label+" local breach gate")
+            frame=shot.get("frameBands") or {}
+            if not frame or frame.get("postBlocked")!=3 or not frame.get("bandTotal") or (
+                frame.get("topBlocked",0)/frame["bandTotal"]<.6 or frame.get("bottomBlocked",0)/frame["bandTotal"]<.6):
+                reasons.append(label+" standing post/bands gate")
+            if shot.get("fallbackUsed") or (shot.get("commitEarlyFrames") or 0)<1 or not shot.get("committed"):
+                reasons.append(label+" predictive native gate")
+            if shot.get("commitMs") is None or shot["commitMs"]>.2 or shot.get("windowMaxMs") is None or shot["windowMaxMs"]>50:
+                reasons.append(label+" performance gate")
+            if not shot.get("restore") or shot["restore"].get("originalBlocked")!=9:
+                reasons.append(label+" 9/9 restore missing")
+    if selected["P1"]:
+        w=selected["P1"][0].get("walk") or {}
+        if not w.get("crossed") or w.get("outsideFootprint") or w.get("maxRise") is None or w["maxRise"]>.45:
+            reasons.append("P1 player traversal gate")
+    if len(selected["P1"])>=2:
+        a,b=selected["P1"][:2]
+        if a["removedAreaM2"]<=0 or abs(b["removedAreaM2"]/a["removedAreaM2"]-1)>.4:
+            reasons.append("P1 area repeatability")
+        if a["centroid"] is None or b["centroid"] is None or math.dist(a["centroid"],b["centroid"])>.3:
+            reasons.append("P1 centroid repeatability")
+    for i,a in enumerate(("P1","P2","P3")):
+        for b in ("P1","P2","P3")[i+1:]:
+            if selected[a] and selected[b]:
+                v=iou(selected[a][0],selected[b][0])
+                if v is None or v>.5: reasons.append(a+"/"+b+" IoU gate")
+    # Qualitative same-camera photos are an explicit owner decision, not auto-passed.
+    reasons.append("visual acceptance requires owner-reviewed before/after screenshots")
+    return {"pass":False,"measured_criteria_met":len(reasons)==1,
+            "reasons":reasons,"model":model}
 
 def report(shots):
     decision=choose(shots);gate=gate_a(shots,decision)
@@ -153,8 +205,10 @@ def report(shots):
         for b in shots[i+1:]:
             if a.get("model")==b.get("model") and a.get("mask") and b.get("mask"):
                 comparisons.append({"a":a["label"],"b":b["label"],"IoU":iou(a,b)})
+    accepted_tstar=decision["selected_tstar"] if gate["pass"] else None
+    b=gate_b(shots,accepted_tstar)
     return {"schema":1,"source_type":"runtime_X7_JSONL_only","shots":shots,
-            "decision":decision,"session_a_gate":gate,"pairwise":comparisons}
+            "decision":decision,"session_a_gate":gate,"session_b_gate":b,"pairwise":comparisons}
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument("jsonl",nargs="+");ap.add_argument("--output",required=True)
@@ -173,7 +227,9 @@ def main():
             for j in range(v["nv"]-1,-1,-1):
                 lines.append(v["mask"][j*v["nu"]:(j+1)*v["nu"]])
             lines.append("```")
-    lines.extend(["","Gate failures: "+("; ".join(data["session_a_gate"]["reasons"]) or "none")])
+    lines.extend(["","Session A gate failures: "+("; ".join(data["session_a_gate"]["reasons"]) or "none"),
+                  "Session B gate: "+str(data["session_b_gate"].get("measured_criteria_met",False)),
+                  "Session B blockers: "+"; ".join(data["session_b_gate"]["reasons"])])
     (output/"summary.md").write_text("\n".join(lines)+"\n",encoding="utf-8")
     print(json.dumps({"shots":len(data["shots"]),"decision":data["decision"],
                       "session_a_gate":data["session_a_gate"]},indent=2))

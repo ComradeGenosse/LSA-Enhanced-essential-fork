@@ -841,6 +841,19 @@ public class WpsBreachLab : Script
         Row("x7_mask","label",label,"model",x7Model,"aimU",aimU,"aimV",aimV,
             "u0",uStart-centreU,"v0",vStart-T.V0,"pitch",pitch,"nu",nu,"nv",nv,
             "mask",mask.ToString(),"postSide","negative_u");
+        // Separate rooted-post and 0.15 m sheet-band witnesses; mask deliberately excludes post.
+        int post=0, top=0, bottom=0, sampleCount=0;
+        foreach(float height in new float[] { .45f, 1.10f, 1.70f })
+            if(Classify(T,T.U0+.025f,T.V0+height)==1) post++;
+        for(float u=T.U0+.10f; u<T.U1-.05f; u+=.1f)
+        {
+            sampleCount++;
+            if(Classify(T,u,T.V0+.075f)==1) bottom++;
+            if(Classify(T,u,T.V0+2.131f-.075f)==1) top++;
+            Yield();
+        }
+        Row("x7_frame_bands","label",label,"model",x7Model,"postBlocked",post,
+            "postTotal",3,"topBlocked",top,"bottomBlocked",bottom,"bandTotal",sampleCount);
     }
     bool X7FindOpening(out float u, out float widthM)
     {
