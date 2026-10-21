@@ -33,7 +33,7 @@ def finalize(folder,model,pack):
         for axis,value in zip("xyz",values): root.find("Drawable/"+tag).set(axis,str(value))
     tree.write(p,encoding="UTF-8",xml_declaration=True)
 
-def build_variant(v,pack):
+def build_variant(v,pack,source_only=False):
     # Keep X6's geometry, collision and seeded procedural texture literally in use.
     source=(X6/"build_fence.py").read_text(encoding="utf-8")
     old="out=pathlib.Path(__file__).resolve().parent/'assets';out.mkdir(exist_ok=True)"
@@ -65,6 +65,10 @@ def build_variant(v,pack):
     source=asserted(source,
        "runpy.run_path(str(out.parent/'finalize_bounds.py'))['finalize'](out)",
        "finalize(out,'"+v.name+"','"+pack+"')")
+    if source_only:
+        import hashlib
+        compile(source, str(X6/"build_fence.py"), "exec")
+        return hashlib.sha256(source.encode("utf-8")).hexdigest()
     env={"__name__":"__main__","__file__":str(HERE/"build_fence_x7.py"),
          "finalize":finalize,"seam_z":seam_z}
     import bpy
@@ -103,7 +107,8 @@ def main():
     models=a_variants() if args.layout=="grid6x5" else b_variants(tstar)
     pack="lsa_x7a" if args.layout=="grid6x5" else "lsa_x7b"
     if args.dry_run:
-        print(json.dumps(manifest(args.layout,tstar),indent=2));return
+        hashes={v.name:build_variant(v,pack,source_only=True) for v in models}
+        print(json.dumps({**manifest(args.layout,tstar),"authored_source_sha256":hashes},indent=2));return
     try: import bpy
     except ImportError: ap.error("Actual authoring requires Blender 5.2.2 and Sollumz 2.9")
     OUT.mkdir(exist_ok=True)
