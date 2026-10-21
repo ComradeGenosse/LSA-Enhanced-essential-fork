@@ -20,6 +20,7 @@ shot=driver.split('void X7Shot(')[1].split('bool X7FindOpening')[0]
 assert 'X7Commit()' in shot and 'X7Mask(label,aimU,aimV)' in shot
 assert 'for (int f = 0; f < 60; f++) Yield();' in shot
 assert 'x7_fallback_forbidden' in shot
+assert 'T.V0+2.131f-vStart' in driver, "dense mask must exclude non-sheet upper empty band"
 for forbidden in ("DetachFragmentPart", "BREAK_OBJECT_FRAGMENT_CHILD", "DAMAGE_OBJECT_FRAGMENT_CHILD",
                   "World.AddExplosion(", ".Delete(", "APPLY_FORCE"):
     assert forbidden not in shot,forbidden

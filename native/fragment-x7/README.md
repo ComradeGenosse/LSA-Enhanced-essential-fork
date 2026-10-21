@@ -88,7 +88,7 @@ Installer preserves byte-for-byte backups and adds only the X7 DLC and isolated 
 python native/fragment-x7/analyze_x7.py <Session-A-jsonl-1> <Session-A-jsonl-2> ... --output native/fragment-x7/evidence/session-a-analysis
 ```
 
-Analyze every actual JSONL for the session (or pass all files as PowerShell arguments). **WHOLE** ≥25 detached or <25% sheet blocking. **LOCAL** 4–14 detached, 0.6–2.8 m² removed, ≥40% blocking, centroid within 0.45 m. **SMALL** 1–3 detached or 0.2–0.6 m²; **NONE** 0 and <0.2 m²; **PARTIAL** otherwise. Session A also requires LOCAL at P0/P2/P3, pairwise IoU ≤0.5, P1 player traversal, predictor ≥1 frame early, commit ≤0.2 ms, no frame >50 ms near swap, zero fallback and **9/9 restored original**. If no level passes, write a one-page F1 independent-module design instead of fabricating T*.
+Analyze every actual JSONL for the session (or pass all files as PowerShell arguments). Dense collision area is measured **only within the 2.131 m metal sheet**, excluding the empty 0.220 m clearance above it. **WHOLE** ≥25 detached or <25% sheet blocking. **LOCAL** 4–14 detached, 0.6–2.8 m² removed, ≥40% blocking, centroid within 0.45 m. **SMALL** 1–3 detached or 0.2–0.6 m²; **NONE** 0 and <0.2 m²; **PARTIAL** otherwise. Session A also requires LOCAL at P0/P2/P3, pairwise IoU ≤0.5, P1 player traversal, predictor ≥1 frame early, commit ≤0.2 ms, no frame >50 ms near swap, zero fallback and **9/9 restored original**. If no level passes, write a one-page F1 independent-module design instead of fabricating T*.
 
 ## Windows Session B — only after actual Session A pass
 

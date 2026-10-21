@@ -831,7 +831,7 @@ public class WpsBreachLab : Script
         Lab T=x7Twin; float centreU=(T.U0+T.U1)/2f;
         float pitch=.1f, uStart=T.U0+.06f, vStart=T.V0+.06f;
         int nu=(int)Math.Floor((T.U1-uStart-.04f)/pitch)+1;
-        int nv=(int)Math.Floor((T.V1-vStart-.04f)/pitch)+1;
+        int nv=(int)Math.Floor((T.V0+2.131f-vStart-.04f)/pitch)+1; // sheet only; exclude X6's 0.22 m empty top band
         StringBuilder mask=new StringBuilder(nu*nv);
         for(int j=0;j<nv;j++)
         {
