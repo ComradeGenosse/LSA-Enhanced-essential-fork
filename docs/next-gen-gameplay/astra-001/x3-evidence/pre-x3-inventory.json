@@ -1,0 +1,27 @@
+{
+  "utc": "2026-10-21T13:02:39.982026+00:00",
+  "files": {
+    "AdaptiveHeadlights.asi": "ab7b72fee2535ebb4f16e20c285aed5e78ee2eeb5af637b0d0d95130310bec52",
+    "DirectStorageFix.asi": "7f50b8a9a2e8a376e2adb7d46bc9483c2754bbbdd964f0918787d4f6f1b76e2c",
+    "ImmersiveSantos.asi": "472b268ebabfc184d0278602c2c540f672414af28a95df70c2ceacdff325aef5",
+    "onigiri.asi": "d97ffcbcea2499b93d12fc032d8771825f6fd051b491bab52814418c87fb4b72",
+    "Reshade64.asi": "0cee63f9c9f13f3ac909c5b4903f4dbb4b719a7ab3b4f13b0deaf83c814b94f7",
+    "ScriptHookVDotNet.asi": "c702e54a7e806acb8bb21de807ff3747e6c24269ce71797aa81e21580d14a08e",
+    "ScriptHookV.dll": "126be57ca9dca00e471f9de611766009c900aad88f89ae6c2926ec62e5aaeb4f",
+    "ScriptHookVDotNet2.dll": "1d4305d1ae206aee3096db28967c98e726c2af9da147da28a766967502f2dfd5",
+    "ScriptHookVDotNet3.dll": "1e4d0bc4d34d05a6038fc87eede492d3dc4265522de473ec19cdf6746b5b0e48",
+    "scripts/BetterChasesPlus.Enhanced.dll": "f2dee46fc5bd6c61e4978dfad04e5fefca990128b6ad4e3869ef37a6d3b31437",
+    "scripts/CustomWeaponDamage.dll": "f8354410ede5ddeba6acd5abec3ca24fb77065fe985852351b9d2dc93e15b3d0",
+    "scripts/EnableAllinteriors.dll": "8cc3261f4b9e2597dc334f7b43542b2ec722dbe808b8c6749199650f95e634fa",
+    "scripts/Fumes.dll": "b9591b6645e2e572fa2e79b36f2199aa8dc5737e1e9494491d56c46ac80c3586",
+    "scripts/iFruitAddon2.dll": "52592d2f03b8b19fcaeb47d0442e4a2ae3e70a19e125a211cf76d5f7526aebe3",
+    "scripts/LemonUI.SHVDN3.dll": "b52ef80136152ed7afdf335bd4ff16183977c8e27223aaf5c94a8c16e62e1aeb",
+    "scripts/LocationalDamage.dll": "775bfa1c392a6455c49c3885c96ace41eb702dc4119b364d17bd780899f1a8cb",
+    "scripts/PoliceRide.dll": "d74d9adf986ac0cc9bc60706657b1433612c4f5913645b62c730da0581b7bb73",
+    "scripts/VehicleRollover.dll": "7c5b680f728c87325338a066358116dd32a65d06521f2d0f01ca8c4af9136559",
+    "onigiri/dlcpacks/lsa_destruct/dlc.rpf": "180618adbe9e56bdaa9a6220e82a87effc6d624ea2b78926cc348263e60af347",
+    "onigiri/common/data/dlclist.xml": "c0c9d70c7b4241c69674126c8aee71143b760fad6e3eaf7bb02aa76fe3b4c234",
+    "ScriptHookVDotNet.ini": "c9ecd8e277f8c7012793e8a2368700c71be626d3d270f0b68e6dba0aca53bb72",
+    "scripts/WpsBreachLab.3.cs": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae"
+  }
+}
