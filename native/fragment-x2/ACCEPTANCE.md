@@ -27,3 +27,9 @@ Walking now records the ped's interpolated crossing of the wall plane. A crossin
 ### X2-0.7 native joint diagnostic
 
 Static anchoring failed: the whole wall moved. The physical variant attaches the dynamic wall through a native fixed joint to a collision-disabled frozen stock anchor. No custom physics solver is used. The final no-blast, grenade and rocket run retained the measured outer collision faces within .02 m, but neither blast opened a hole. Acceptance remains NOT CONFIRMED; three-launch and 20-blast GO criteria have not been met.
+
+### X2-0.8 / X2-0.9 diagnostic continuation — 2026-10-21
+
+X2-0.8 adds an explicit releasegroup diagnostic, always ineligible for explosive acceptance. Group 15 was released through DetachFragmentPart under the physical joint. A visible single-chunk gap appeared while outer collision faces remained anchored, but no detached-parent prop was enumerated and no passable swept window formed. This proves only a scripted native group release, not an explosive breach.
+
+X2-0.9 lowers normal group Strength to the approved starting value 100 and MinDamageForce to 100; health remains 100 and reinforced groups remain unchanged. Native output buffers are initialized explicitly, and hit flags read as 32-bit values. Failed/unresolved queries remain blocked. Compare a no-blast control and grenade/sticky/rocket trials before drawing conclusions.

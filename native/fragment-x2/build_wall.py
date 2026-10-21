@@ -22,8 +22,8 @@ for j in range(5):
 bpy.ops.object.mode_set(mode='OBJECT')
 for b in arm.bones:
  b.sollumz_use_physics=True;b.bone_properties.use_manual_tag=False;b.bone_properties.flags_enum={'RotX','RotY','RotZ','TransX','TransY','TransZ'}
- g=b.group_properties;g.strength=10000000 if b.name=='root' else 5000
- g.min_damage_force=2000;g.damage_health=100
+ g=b.group_properties;g.strength=10000000 if b.name=='root' else 100
+ g.min_damage_force=100;g.damage_health=100
  g.force_transmission_scale_up=.25;g.force_transmission_scale_down=.25
 arm.bones['root'].group_properties.min_damage_force=10000000
 arm.bones['root'].group_properties.damage_health=10000000
@@ -70,7 +70,10 @@ bpy.context.view_layer.update()
 bpy.ops.wm.save_as_mainfile(filepath=str(out/'lsa_x2_concrete.blend'))
 p=prefs.get_export_settings();p.target_versions={'GEN9'};p.target_formats={'NATIVE','CWXML'};p.limit_to_selected=False;p.export_ytyps=True
 print(bpy.ops.sollumz.export_assets(directory=str(out),direct_export=True))
-(out/'authoring.json').write_text(json.dumps({'dimensions':[3,0.2,2.5],'chunks':30,'groups':31,'density':2400,'anchoring':'root static by test; reinforced outer columns; default group force transmission .25','normal_physics':{k:getattr(arm.bones['chunk_1_0'].group_properties,k) for k in ('strength','min_damage_force','damage_health','force_transmission_scale_up','force_transmission_scale_down')},'blender':bpy.app.version_string},indent=2))
+# Rigid models have bone-local vertices; the exporter underestimates aggregate bounds.
+import runpy
+runpy.run_path(str(out.parent/'finalize_bounds.py'))['finalize'](out)
+(out/'authoring.json').write_text(json.dumps({'dimensions':[3,0.2,2.5],'chunks':30,'groups':31,'density':2400,'anchoring':'root attached by native fixed joint in physical test; reinforced outer columns; default group force transmission .25','normal_physics':{k:getattr(arm.bones['chunk_1_0'].group_properties,k) for k in ('strength','min_damage_force','damage_health','force_transmission_scale_up','force_transmission_scale_down')},'blender':bpy.app.version_string},indent=2))
 
 
 

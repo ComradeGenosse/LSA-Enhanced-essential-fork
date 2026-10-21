@@ -28,7 +28,7 @@ using GTA.Native;
 
 public class WpsBreachLab : Script
 {
-    const string Ver = "X2-0.7";
+    const string Ver = "X2-0.10";
     const string PedModelName = "a_m_y_beach_01";
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -300,7 +300,7 @@ public class WpsBreachLab : Script
         using(OutputArgument hit=new OutputArgument())using(OutputArgument pos=new OutputArgument())using(OutputArgument normal=new OutputArgument())using(OutputArgument entity=new OutputArgument()){
             int status=Function.Call<int>(Hash.GET_SHAPE_TEST_RESULT,h,hit,pos,normal,entity);
             if(status!=2){failedRays++;return 3;}
-            if(!hit.GetResult<bool>())return 0;
+            if(hit.GetResult<int>()==0)return 0;
             int e=entity.GetResult<int>();if(e==L.Wall.Handle)return 1;if(debris.Contains(e))return 2;if(unknownRayHits++<5)Row("ray_other","status",status,"entity",e,"pos",pos.GetResult<Vector3>());return 3;
         }
     }
@@ -432,7 +432,7 @@ public class WpsBreachLab : Script
             int h=Function.Call<int>(Hash.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE,a.X,a.Y,a.Z,b.X,b.Y,b.Z,17,0,0);
             using(OutputArgument hit=new OutputArgument())using(OutputArgument pos=new OutputArgument())using(OutputArgument normal=new OutputArgument())using(OutputArgument entity=new OutputArgument()){
                 int status=Function.Call<int>(Hash.GET_SHAPE_TEST_RESULT,h,hit,pos,normal,entity);
-                if(status==2&&hit.GetResult<bool>()&&entity.GetResult<int>()==L.Wall.Handle){points[k]=pos.GetResult<Vector3>();valid++;}
+                if(status==2&&hit.GetResult<int>()!=0&&entity.GetResult<int>()==L.Wall.Handle){points[k]=pos.GetResult<Vector3>();valid++;}
             }
             k++;Yield();
         }
@@ -460,7 +460,13 @@ public class WpsBreachLab : Script
         if(before.Wall!=before.C.Length||c0!=0||valid0!=20){Row("x2_verdict","verdict","BASELINE_INVALID");return;}
         float blastU=F(a,"du",0),blastV=F(a,"height",1);
         Vector3 blast=L.W(L.L(-.1f-F(a,"dx",.4f),blastU,blastV));
-        Row("x2_pre_detonation","explosive",explosive,"variant",variant);
+        int releaseGroup=(int)F(a,"releasegroup",-1);
+        Row("x2_pre_detonation","explosive",explosive,"variant",variant,"diagnosticReleaseGroup",releaseGroup);
+        if(releaseGroup>=0){
+            if(releaseGroup>=groups)throw new Exception("diagnostic_group_out_of_range");
+            wall.DetachFragmentPart(releaseGroup);
+            Row("x2_native_detach_diagnostic","group",releaseGroup,"acceptanceEligible",false);
+        }
         if(explosive!="none")World.AddExplosion(blast,explosive=="rocket"?ExplosionType.Rocket:explosive=="sticky"?ExplosionType.StickyBomb:ExplosionType.Grenade,F(a,"scale",1),0,Game.Player.Character,true,false);
         Row("x2_post_detonation","wallExists",wall.Exists());
         float maxRoot=0,minUp=1,minRight=1;int flagged=0;bool detected=false;
@@ -486,8 +492,8 @@ public class WpsBreachLab : Script
         float finalRoot=wall.Exists()?wall.Position.DistanceTo(start):-1;
         anchored=anchored&&wall.Exists()&&finalValid==20&&finalFaceMove<=.02f&&finalRoot>=0&&finalRoot<=.02f&&Vector3.Dot(up,wall.UpVector)>=.999f&&Vector3.Dot(right,wall.RightVector)>=.999f;
         Row("x2_final_anchor","anchorFaceHits",finalValid,"maxAnchorFaceMoveM",finalFaceMove,"rootMoveM",finalRoot,"anchored",anchored);
-        bool pass=wall.IsFragmentObject&&groups==31&&anchored&&cmp.OpenedClear>=4&&w>=.6f&&walk=="crossed"&&controlClosed&&flagged>0&&detected;
-        string verdict=explosive=="none"?(anchored&&cmp.OpenedClear==0&&controlClosed?"CONTROL_CLOSED":"CONTROL_FAILED"):(pass?"LOCAL_ANCHORED_BREACH_CONFIRMED":"NOT_CONFIRMED");
+        bool pass=releaseGroup<0&&wall.IsFragmentObject&&groups==31&&anchored&&cmp.OpenedClear>=4&&w>=.6f&&walk=="crossed"&&controlClosed&&flagged>0&&detected;
+        string verdict=releaseGroup>=0?"NATIVE_DETACH_DIAGNOSTIC_ONLY":explosive=="none"?(anchored&&cmp.OpenedClear==0&&controlClosed?"CONTROL_CLOSED":"CONTROL_FAILED"):(pass?"LOCAL_ANCHORED_BREACH_CONFIRMED":"NOT_CONFIRMED");
         Row("x2_verdict","verdict",verdict,"walkHole",walk,"walkControl",control,"anchored",anchored,"debrisRetained",true);
     }
 
