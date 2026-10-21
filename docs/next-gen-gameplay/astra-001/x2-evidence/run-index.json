@@ -2,13 +2,41 @@
   {
     "file": "20261020-231823-f6e0a5.jsonl",
     "rows": 5,
+    "scriptSha256": "4b3bba2b484537444f1fe1ec3b57c57d26ab6ac19cf1fc23a483d63098ba687c",
+    "loadedUtc": "2026-10-20T23:18:22.8211776Z",
     "completed": true,
+    "errors": [
+      {
+        "t": 11395,
+        "frame": 3317,
+        "kind": "error",
+        "cmd": "anchored explosive=none hold=12",
+        "message": "Exception: model_invalid:lsa_x2_concrete"
+      },
+      {
+        "t": 12553,
+        "frame": 3367,
+        "kind": "error",
+        "cmd": "anchored explosive=grenade dx=0.4 height=1 hold=15",
+        "message": "Exception: model_invalid:lsa_x2_concrete"
+      },
+      {
+        "t": 13729,
+        "frame": 3417,
+        "kind": "error",
+        "cmd": "anchored explosive=grenade dx=0.4 height=1 hold=15",
+        "message": "Exception: model_invalid:lsa_x2_concrete"
+      }
+    ],
     "verdicts": []
   },
   {
     "file": "20261020-232123-19621b.jsonl",
     "rows": 11,
+    "scriptSha256": "b026d393be11aa246692a9396d298f77fbf974fa65dad06d0aa111bd6606c6a8",
+    "loadedUtc": "2026-10-20T23:21:22.8480109Z",
     "completed": false,
+    "errors": [],
     "verdicts": [
       {
         "t": 44196,
@@ -25,7 +53,10 @@
   {
     "file": "20261020-232449-661aa1.jsonl",
     "rows": 6,
+    "scriptSha256": "73ff3104948903af0be507ccd0b2be7a66379c0b4865b9f962050fa6ceff18b5",
+    "loadedUtc": "2026-10-20T23:24:48.0218042Z",
     "completed": true,
+    "errors": [],
     "verdicts": [
       {
         "t": 34992,
@@ -38,7 +69,10 @@
   {
     "file": "20261020-232822-a9fd91.jsonl",
     "rows": 9,
+    "scriptSha256": "bd6f4931da142cdb7bfd250946bed0d5464111a173a646cb2e6e365813403c9a",
+    "loadedUtc": "2026-10-20T23:28:22.00728Z",
     "completed": true,
+    "errors": [],
     "verdicts": [
       {
         "t": 85599,
@@ -55,13 +89,19 @@
   {
     "file": "20261020-232948-fc7a5d.jsonl",
     "rows": 4,
+    "scriptSha256": "bd6f4931da142cdb7bfd250946bed0d5464111a173a646cb2e6e365813403c9a",
+    "loadedUtc": "2026-10-20T23:28:22.00728Z",
     "completed": false,
+    "errors": [],
     "verdicts": []
   },
   {
     "file": "20261020-233250-6e6e90.jsonl",
     "rows": 11,
+    "scriptSha256": "86e323a15711bcbeb00b745b3c7e4114636f783eba3a69b4ddb0ab0197059fc1",
+    "loadedUtc": "2026-10-20T23:32:50.083516Z",
     "completed": true,
+    "errors": [],
     "verdicts": [
       {
         "t": 29292,
@@ -74,7 +114,10 @@
   {
     "file": "20261020-233617-d002d7.jsonl",
     "rows": 11,
+    "scriptSha256": "86e323a15711bcbeb00b745b3c7e4114636f783eba3a69b4ddb0ab0197059fc1",
+    "loadedUtc": "2026-10-20T23:36:16.9366827Z",
     "completed": true,
+    "errors": [],
     "verdicts": [
       {
         "t": 47115,
@@ -91,7 +134,10 @@
   {
     "file": "20261020-233708-02cca5.jsonl",
     "rows": 6,
+    "scriptSha256": "86e323a15711bcbeb00b745b3c7e4114636f783eba3a69b4ddb0ab0197059fc1",
+    "loadedUtc": "2026-10-20T23:36:16.9366827Z",
     "completed": true,
+    "errors": [],
     "verdicts": [
       {
         "t": 53511,
@@ -110,7 +156,10 @@
   {
     "file": "20261020-234059-c87681.jsonl",
     "rows": 13,
+    "scriptSha256": "86e323a15711bcbeb00b745b3c7e4114636f783eba3a69b4ddb0ab0197059fc1",
+    "loadedUtc": "2026-10-20T23:40:59.5871847Z",
     "completed": true,
+    "errors": [],
     "verdicts": [
       {
         "t": 25319,
@@ -133,7 +182,10 @@
   {
     "file": "20261020-234511-3a6de4.jsonl",
     "rows": 14,
+    "scriptSha256": "a0e7287571df466fd9ef8f740e3fc90f3e5b464b29540705c7169a58530af068",
+    "loadedUtc": "2026-10-20T23:45:11.7902035Z",
     "completed": false,
+    "errors": [],
     "verdicts": [
       {
         "t": 25629,
@@ -150,7 +202,10 @@
   {
     "file": "20261020-234831-bfb4d4.jsonl",
     "rows": 17,
+    "scriptSha256": "b4f71e8c697846aadf63e09c2b6e4d1b5405b1d46f8767041789c8d6b9229cfb",
+    "loadedUtc": "2026-10-20T23:48:30.3142258Z",
     "completed": true,
+    "errors": [],
     "verdicts": [
       {
         "t": 41166,
@@ -181,13 +236,19 @@
   {
     "file": "20261020-234918-601af0.jsonl",
     "rows": 36,
+    "scriptSha256": "b4f71e8c697846aadf63e09c2b6e4d1b5405b1d46f8767041789c8d6b9229cfb",
+    "loadedUtc": "2026-10-20T23:48:30.3142258Z",
     "completed": true,
+    "errors": [],
     "verdicts": []
   },
   {
     "file": "20261020-235538-930ecf.jsonl",
     "rows": 48,
+    "scriptSha256": "dddc3a1f18ebe8a18678531c2c51f0461b43b6c648f7532fa045cc5f024e8c17",
+    "loadedUtc": "2026-10-20T23:55:37.4175008Z",
     "completed": true,
+    "errors": [],
     "verdicts": [
       {
         "t": 30245,
@@ -224,7 +285,10 @@
   {
     "file": "20261020-235925-a46126.jsonl",
     "rows": 44,
+    "scriptSha256": "2ca690ec6885c162327961c76bd269c375bb07040f8143626523c018d4cfdfcd",
+    "loadedUtc": "2026-10-20T23:59:25.0417499Z",
     "completed": true,
+    "errors": [],
     "verdicts": [
       {
         "t": 28973,
@@ -252,6 +316,644 @@
         "kind": "x2_verdict",
         "verdict": "NOT_CONFIRMED",
         "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261021-111247-680ca8.jsonl",
+    "rows": 18,
+    "scriptSha256": "92b4fb9a23dbde6b4b48f05fbcba823114f9bc3bc30867df60afee5ce00116e2",
+    "loadedUtc": "2026-10-21T11:12:38.4728043Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 58580,
+        "frame": 4922,
+        "kind": "x2_verdict",
+        "verdict": "NATIVE_DETACH_DIAGNOSTIC_ONLY",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261021-111722-24ef02.jsonl",
+    "rows": 14,
+    "scriptSha256": "d8a1489c7192729d301a54ed9c7626b4c723299b77420cebe6876a0d86df3789",
+    "loadedUtc": "2026-10-21T11:16:47.945089Z",
+    "completed": true,
+    "errors": [
+      {
+        "t": 47078,
+        "frame": 4520,
+        "kind": "error",
+        "cmd": "anchored explosive=none variant=physical hold=2",
+        "message": "InvalidCastException: Unable to cast object of type 'System.Int32' to native value"
+      },
+      {
+        "t": 50228,
+        "frame": 4642,
+        "kind": "error",
+        "cmd": "anchored explosive=grenade variant=physical dx=0.4 height=1 scale=1 hold=5",
+        "message": "InvalidCastException: Unable to cast object of type 'System.Int32' to native value"
+      },
+      {
+        "t": 53387,
+        "frame": 4764,
+        "kind": "error",
+        "cmd": "anchored explosive=sticky variant=physical dx=0.1 height=1 scale=1 hold=5",
+        "message": "InvalidCastException: Unable to cast object of type 'System.Int32' to native value"
+      },
+      {
+        "t": 56534,
+        "frame": 4886,
+        "kind": "error",
+        "cmd": "anchored explosive=rocket variant=physical dx=0.4 height=1 scale=10 hold=5",
+        "message": "InvalidCastException: Unable to cast object of type 'System.Int32' to native value"
+      }
+    ],
+    "verdicts": []
+  },
+  {
+    "file": "20261021-111824-82a45b.jsonl",
+    "rows": 76,
+    "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+    "loadedUtc": "2026-10-21T11:18:16.3488891Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 41584,
+        "frame": 7209,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_CLOSED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 71574,
+        "frame": 8353,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 104439,
+        "frame": 9601,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261021-112312-5588e1.jsonl",
+    "rows": 111,
+    "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+    "loadedUtc": "2026-10-21T11:22:41.4393928Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 64144,
+        "frame": 5173,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_CLOSED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 100295,
+        "frame": 6548,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": false,
+        "debrisRetained": true
+      },
+      {
+        "t": 136355,
+        "frame": 7924,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": false,
+        "debrisRetained": true
+      },
+      {
+        "t": 175265,
+        "frame": 9402,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 211381,
+        "frame": 10777,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261021-112658-91c08f.jsonl",
+    "rows": 107,
+    "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+    "loadedUtc": "2026-10-21T11:22:41.4393928Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 283536,
+        "frame": 13511,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 309707,
+        "frame": 14506,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 335941,
+        "frame": 15500,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 408896,
+        "frame": 18269,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261021-113317-10c8bb.jsonl",
+    "rows": 143,
+    "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+    "loadedUtc": "2026-10-21T11:33:07.5507356Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 45390,
+        "frame": 4486,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_CLOSED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 71413,
+        "frame": 5483,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 97428,
+        "frame": 6479,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 123540,
+        "frame": 7475,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 149686,
+        "frame": 8470,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": false,
+        "debrisRetained": true
+      },
+      {
+        "t": 202376,
+        "frame": 10472,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 231402,
+        "frame": 11572,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261021-114027-98d666.jsonl",
+    "rows": 157,
+    "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+    "loadedUtc": "2026-10-21T11:40:16.4465966Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 45840,
+        "frame": 4564,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_CLOSED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 71969,
+        "frame": 5561,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 98079,
+        "frame": 6556,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 124191,
+        "frame": 7551,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 150295,
+        "frame": 8546,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 203155,
+        "frame": 10556,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 232139,
+        "frame": 11656,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261021-114430-4ea4b9.jsonl",
+    "rows": 217,
+    "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+    "loadedUtc": "2026-10-21T11:40:16.4465966Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 280319,
+        "frame": 13425,
+        "kind": "x2_verdict",
+        "verdict": "CONTROL_CLOSED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 306489,
+        "frame": 14421,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 332572,
+        "frame": 15415,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": false,
+        "debrisRetained": true
+      },
+      {
+        "t": 361478,
+        "frame": 16513,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 387622,
+        "frame": 17509,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 413789,
+        "frame": 18505,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 439943,
+        "frame": 19500,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 466061,
+        "frame": 20496,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 492155,
+        "frame": 21491,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 518367,
+        "frame": 22485,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261021-114950-274748.jsonl",
+    "rows": 209,
+    "scriptSha256": "5a397f6fc76a6d52a98e841839594c01d58241e78f7837620fbd50bd2f9f9bcf",
+    "loadedUtc": "2026-10-21T11:49:27.2558663Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 69032,
+        "frame": 25864,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 105499,
+        "frame": 27230,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 144636,
+        "frame": 28706,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261021-115336-369273.jsonl",
+    "rows": 159,
+    "scriptSha256": "886bde5fa23aa9c832adc1fdf030fbda6757427afaf1f0afde2b8e0cacbcad2c",
+    "loadedUtc": "2026-10-21T11:53:19.7800933Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 56160,
+        "frame": 33721,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 96294,
+        "frame": 35247,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 126240,
+        "frame": 36383,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261021-120314-c4f156.jsonl",
+    "rows": 84,
+    "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+    "loadedUtc": "2026-10-21T12:03:05.8996121Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 54272,
+        "frame": 7179,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": false,
+        "debrisRetained": true
+      },
+      {
+        "t": 90424,
+        "frame": 8554,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 129418,
+        "frame": 10031,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      }
+    ]
+  },
+  {
+    "file": "20261021-120606-a634ed.jsonl",
+    "rows": 91,
+    "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+    "loadedUtc": "2026-10-21T12:03:05.8996121Z",
+    "completed": true,
+    "errors": [],
+    "verdicts": [
+      {
+        "t": 207182,
+        "frame": 12824,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 233483,
+        "frame": 13818,
+        "kind": "x2_verdict",
+        "verdict": "NOT_CONFIRMED",
+        "walkHole": "skipped",
+        "walkControl": "bypassed_edge",
+        "anchored": true,
+        "debrisRetained": true
+      },
+      {
+        "t": 272576,
+        "frame": 15295,
+        "kind": "x2_verdict",
+        "verdict": "LOCAL_ANCHORED_BREACH_CONFIRMED",
+        "walkHole": "crossed",
         "walkControl": "bypassed_edge",
         "anchored": true,
         "debrisRetained": true

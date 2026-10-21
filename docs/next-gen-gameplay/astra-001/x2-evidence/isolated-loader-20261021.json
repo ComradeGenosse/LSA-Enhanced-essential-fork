@@ -1,0 +1,19 @@
+{
+  "loadedUtc": "2026-10-21T12:03:05.8996121Z",
+  "scriptSha256": "5be72312804d55e7c0ea9b68c2182fbad7fdf4aead86852623bd1c4ffb78adae",
+  "autoLoadScripts": false,
+  "startedScripts": [
+    "WpsBreachLab"
+  ],
+  "isolatedIniSha256": "0d068fd98a55d402eec764bade29abb841c8a805c4c8180c261bb767b2892a19",
+  "originalIniSha256": "c9ecd8e277f8c7012793e8a2368700c71be626d3d270f0b68e6dba0aca53bb72",
+  "remainingAsiMods": [
+    "AdaptiveHeadlights",
+    "DirectStorageFix",
+    "ImmersiveSantos",
+    "onigiri",
+    "Reshade64",
+    "ScriptHookVDotNet"
+  ],
+  "scope": "SHVDN script isolation only; not an unmodded GTA claim"
+}

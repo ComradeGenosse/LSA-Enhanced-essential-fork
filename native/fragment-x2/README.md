@@ -34,3 +34,11 @@ To roll back, stop GTA and restore the backed-up script and DLC list, and leave 
 ## Current result
 
 QUALIFICATION IN PROGRESS. X2-0.10 produced a measured native rocket breach with anchored outer columns, native wall debris, a 1.5 m swept opening and direct ped crossing. Full repeatability/locality gates remain open. Earlier static tests moved the whole wall and were rejected. See `docs/next-gen-gameplay/astra-001/09-X2-CONTINUATION-20261021.md` (and the historical 08 checkpoint) and the adjacent evidence directory. No fundamental engine limitation has been established.
+
+## Isolated SHVDN test session
+
+Stop GTA using the existing helper. `tools/set-lab-autoload.ps1 -GameRoot <root> -BackupRoot <private backup> -Mode Isolate` backs up the exact loader INI and sets only AutoLoadScripts=false. Launch GTA, press F4, enter the native SHVDN console command `Start("WpsBreachLab.3.cs")`, press Enter and close F4. Confirm a fresh loaded source SHA and a log containing only WpsBreachLab as a started SHVDN script. Existing ASI mods remain; this is not an unmodded-stack claim.
+
+After testing, stop GTA and run the helper with `-Mode Restore`. It verifies current and backup hashes before restoring the original loader bytes. Never leave the user's normal scripts disabled without reporting that state.
+
+Generate `trial-summary.json` with summarize_evidence.py, qualification.json with qualify_evidence.py (pins a measured source SHA), and the complete run inventory/checksums with inventory_evidence.py. Diagnostics remain immutable source snapshots; optional native activation experiments did not fix weak-charge clearance and are not in the primary driver.

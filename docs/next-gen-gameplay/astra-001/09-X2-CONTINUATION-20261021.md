@@ -37,3 +37,19 @@ Fresh loaded UTC `2026-10-21T11:33:07.5507356Z`, run `20261021-113317-10c8bb`. I
 Fresh loaded UTC `2026-10-21T11:40:16.4465966Z`, run `20261021-114027-98d666`. Intact control and two further centre rocket traversals passed. The fixed asset has now completed 20 blast trials with no crash and six verified centre traversals across three fresh launches. Every successful centre trial retained 40 outer control cells and 20 face hits, produced native wall debris and a 1.5 m swept window, and logged a direct ped crossing inside the wall footprint. The same asset and script SHA were loaded across all three launches.
 
 Full strict locality remains 14/20 (70%), because no-opening trials count as failures. The native explosion screenshot `launch3-centre-native-explosion.png` captures actual fragment separation; `launch3-after-batch.png` is a post-cleanup camera view and is not traversal evidence. Confirmation proceeds as a balanced 3×3 matrix at interior targets, preserving all boundary-hit/weak-charge failures. No 80% GO is claimed yet.
+
+## Balanced confirmation and debris diagnosis
+
+Run `20261021-114430-4ea4b9`: nine further blasts, no crash; another centre rocket pass (seven centre traversals total). The interior left-third rocket produced a localized 1 square metre opening, four native detached parts, outer faces within .014 m, but no swept traversal window. Weak grenade and left sticky shots remained obstructed. The strict locality score is 19/29, so full GO is still incomplete.
+
+X2-0.11 is a separate diagnostic source revision: adds frozen/static/HasPhysics/velocity telemetry for explicitly detached native wall parts, and optional `wake=1` calls the native ActivatePhysics API on the root and newly identified native debris. No impulses, manual chunk motion, deletion or custom physics solver. Compare wake0/wake1 under otherwise identical weak-grenade parameters. Qualification reports pin the measured script SHA so diagnostics cannot silently alter the accepted cohort.
+
+## Native activation diagnostics
+
+X2-0.11 and X2-0.12 snapshots/logs preserve one-time ActivatePhysics and per-frame native physics-response/gravity tests. They did not clear weak-blast debris. Pieces had gravity enabled already; keeping their native colliders active still left them fitted in place. Do not present activation as a fix. Primary driver is restored to the proven X2-0.10 SHA; no force, wake maintenance or manual fragment motion is added to that path.
+
+Next comparison temporarily disables SHVDN automatic script loading, preserving an exact hash-checked loader backup, then starts only the existing lab through the native SHVDN console. This removes BetterChasesPlus/warrant, PoliceRide and CustomWeaponDamage scripts from the test session without moving their files. Other installed ASI mods remain. Native charge calibration (centre grenade .9 / sticky6 / rocket20) is a new test configuration, not a claim about vanilla weapon balance. The original mixed-stack negative trials remain preserved. Restore the original loader configuration when isolated tests finish.
+
+## Isolated native charge calibration
+
+Fresh loaded UTC `2026-10-21T12:03:05.8996121Z`; SHVDN log shows autoload disabled and only WpsBreachLab started. Existing ASI mods remain. Run `20261021-120314-c4f156` at height1: grenade .9 / sticky6 / rocket20 produced 48 / 48 / 64 clear cells; rocket passed traversal and anchoring, but the first two areas tied. A subsequent exact-centre (height1.25) comparison is preserved separately: grenade .9 did not clear, sticky8 cleared 44 cells, rocket20 cleared 77 cells with a swept opening and anchored outer faces. Do not mix these calibration configurations into a claim that one final parameter set has met all gates. Earlier three-launch/20-blast core proof remains valid for its recorded parameters. A final charge preset must be frozen and confirmed independently before full GO.
