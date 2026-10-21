@@ -12,7 +12,7 @@ if($Mode -eq 'Install'){
  if(Test-Path -LiteralPath $manifest){throw 'Existing backup: restore first or supply a fresh backup directory'}
  $dlc='lsa_fence_'+$Variant
  $paths=@('ScriptHookVDotNet.ini','onigiri/common/data/dlclist.xml',
-          ('onigiri/dlcpacks/'+$dlc+'/dlc.rpf'),'scripts-x7/WpsBreachLabX7.3.cs')
+          ('onigiri/dlcpacks/'+$dlc+'/dlc.rpf'),'scripts-x7/WpsBreachLabX7.3.cs','scripts-x7/x7-models.txt')
  $ini=Join-Path $GameRoot $paths[0];$list=Join-Path $GameRoot $paths[1]
  if(-not(Test-Path $ini) -or -not(Test-Path $list)){throw 'Expected installed Onigiri + SHVDN config missing'}
  $txt=[IO.File]::ReadAllText($ini)
@@ -35,9 +35,13 @@ if($Mode -eq 'Install'){
  }
  # Manifest is authoritative and prevents double installs. If interrupted, restore.
  @{variant=$Variant;rows=$rows;phase='backed_up'} | ConvertTo-Json -Depth 8 | Set-Content $manifest
- foreach($rel in $paths[2..3]){New-Item -ItemType Directory -Force (Split-Path (Join-Path $GameRoot $rel)) | Out-Null}
+ foreach($rel in $paths[2..4]){New-Item -ItemType Directory -Force (Split-Path (Join-Path $GameRoot $rel)) | Out-Null}
  Copy-Item -LiteralPath $bin -Destination (Join-Path $GameRoot $paths[2])
  Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'WpsBreachLabX7.3.cs') -Destination (Join-Path $GameRoot $paths[3])
+ $models=Get-Content (Join-Path $PSScriptRoot 'assets/models.json') -Raw | ConvertFrom-Json
+ if(@($models.allowlist).Count -ne @($info.models).Count){throw 'Pack manifest/receipt disagree'}
+ if((@($models.allowlist) -join ',') -ne (@($info.models) -join ',')){throw 'Pack model list differs from receipt'}
+ @($models.allowlist) | Set-Content (Join-Path $GameRoot $paths[4])
  [IO.File]::WriteAllText($ini,$txt.Replace('ScriptsLocation="scripts"','ScriptsLocation="scripts-x7"'))
  if($orig -notmatch [Regex]::Escape("dlcpacks:/$dlc/")){
    $orig=$orig.Replace('</Paths>',"    <Item>dlcpacks:/$dlc/</Item>`r`n</Paths>")

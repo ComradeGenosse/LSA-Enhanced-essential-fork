@@ -8,6 +8,11 @@ PATCHES=[["const string AssetModel = \"lsa_x7_corrugated\";","const string Asset
 for old,new in PATCHES:
     assert s.count(old)==1, ('X6 drift',old[:75],s.count(old))
     s=s.replace(old,new)
+# Admit only models named by the actually installed X7a/X7b pack.
+EXTRA_PATCHES=[["if (Array.IndexOf(AllowedModels,requested)<0) throw new Exception(\"model_not_in_pack_allowlist\");","if (!X7InPackManifest(requested)) throw new Exception(\"model_not_in_pack_allowlist\");"],["    string x7Model = AssetModel;","    string x7Model = AssetModel;\n    // Pack-specific allowlist beside the script; never read during the one-tick commit.\n    bool X7InPackManifest(string model)\n    {\n        string path = Path.Combine(root, \"scripts-x7\", \"x7-models.txt\");\n        if (!File.Exists(path)) return false;\n        foreach (string line in File.ReadAllLines(path))\n            if (string.Equals(line.Trim(), model, StringComparison.Ordinal)) return true;\n        return false;\n    }\n"]]
+for old,new in EXTRA_PATCHES:
+    assert s.count(old)==1,('pack allowlist drift',old,s.count(old))
+    s=s.replace(old,new)
 assert 'const string Ver = "X7-0.1"' in s
 assert 'World.AddExplosion(' not in s.split('void X7Shot(')[1].split('bool X7FindOpening')[0]
 names=set(re.findall(r'"(lsa_x7a_[a-z0-9]+)"',s.split('AllowedModels =')[1].split('};')[0]))

@@ -27,7 +27,7 @@ for marker in ('World.GetNearbyProps(x7HidePos, 8f)','SET_DISABLE_FRAG_DAMAGE',
                'SET_DISABLE_BREAKING', 'X7SetDormant(true)', 'gone = false; goneFrame = -1;',
                'Classify(T,uStart+i*pitch,vStart+j*pitch)', 'model_not_in_pack_allowlist'):
     assert marker in driver,marker
-assert 'x7Model = requested;' in driver
+assert 'x7Model=requested;' in driver
 assert driver.count('case "x7prepare"')==1
 assert all(driver.count('"'+v.name+'"')>=1 for v in a_variants())
 assert 'x7Shot' in driver or 'X7Shot' in driver

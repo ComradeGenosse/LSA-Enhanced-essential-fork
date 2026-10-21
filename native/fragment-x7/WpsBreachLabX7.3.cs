@@ -623,7 +623,7 @@ public class WpsBreachLab : Script
     {
         if (x7State != "None") throw new Exception("x7restore_first");
         string requested=S(a,"model",AssetModel);
-        if (Array.IndexOf(AllowedModels,requested)<0) throw new Exception("model_not_in_pack_allowlist");
+        if (!X7InPackManifest(requested)) throw new Exception("model_not_in_pack_allowlist");
         x7Model=requested;
         if (x4Active) throw new Exception("x4_active");
         if (S(a, "verified", "") != "1") throw new Exception("target_file_conflict_check_required");
@@ -1689,6 +1689,16 @@ public class WpsBreachLab : Script
     const string AssetModel = "lsa_x7a_ctl";
     static readonly string[] AllowedModels = new string[] { "lsa_x7a_ctl", "lsa_x7a_sx", "lsa_x7a_hx", "lsa_x7a_j300", "lsa_x7a_j550", "lsa_x7a_j1000", "lsa_x7a_j1800", "lsa_x7a_j3200", "lsa_x7a_j5600", "lsa_x7a_j10000", "lsa_x7a_j1000f", "lsa_x7a_j3200f" };
     string x7Model = AssetModel;
+    // Pack-specific allowlist beside the script; never read during the one-tick commit.
+    bool X7InPackManifest(string model)
+    {
+        string path = Path.Combine(root, "scripts-x7", "x7-models.txt");
+        if (!File.Exists(path)) return false;
+        foreach (string line in File.ReadAllLines(path))
+            if (string.Equals(line.Trim(), model, StringComparison.Ordinal)) return true;
+        return false;
+    }
+
     readonly Dictionary<int, int> debrisOwner = new Dictionary<int, int>();
     readonly HashSet<int> flaggedSet = new HashSet<int>();
     readonly HashSet<int> strayNew = new HashSet<int>();
