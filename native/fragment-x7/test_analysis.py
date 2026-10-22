@@ -2,7 +2,7 @@
 import unittest, json, tempfile
 from pathlib import Path
 from unittest.mock import patch
-from analyze_x7 import classify,iou,choose,largest_component,load
+from analyze_x7 import classify,iou,choose,largest_component,load,decode
 class ClassificationContract(unittest.TestCase):
  def test_frozen_order(self):
   self.assertEqual(classify(25,0,1,0),"WHOLE")
@@ -15,6 +15,15 @@ class ClassificationContract(unittest.TestCase):
   b={**a,"mask":"0101"}
   self.assertAlmostEqual(iou(a,b),1/3,places=3)
   self.assertEqual(largest_component("0111",2,2),1)
+ def test_walk5_mask_not_misclassified_as_original_session_a(self):
+  row={"nu":25,"nv":20,"mask":"0"*100+"1"*400,"pitch":.1,"u0":-1.208,"v0":.16}
+  res={"label":"synthetic_only","model":"lsa_x7c_walk5_j1000",
+       "aimU":0,"aimV":.8,"nativeParts":2,"committed":True}
+  shot=decode(res,row)
+  self.assertEqual(shot["layout"],"walk5")
+  self.assertEqual(len(shot["pieceStates"]),5)
+  self.assertEqual(shot["class"],"WALK5_EXPERIMENT")
+  self.assertEqual(choose([shot])["state"],"STOP_CONTROL")
  def test_no_evidence_means_no_tstar(self):
   self.assertEqual(choose([])["state"],"STOP_CONTROL")
  def test_split_commands_keep_pre_result_timing_and_later_restore(self):
