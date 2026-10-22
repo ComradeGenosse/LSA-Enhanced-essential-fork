@@ -123,7 +123,7 @@ namespace Astra.X8
         {
             if (LeaseId != id) throw new InvalidOperationException("x8_wrong_restore_owner");
             Slot s = Get(id); s.Phase = FencePhase.RestorePending;
-            s.HideIntent = hideIntent;
+            s.HideIntent = s.HideIntent || hideIntent;
         }
         public void Restored(string id, bool nineOfNineAndVisible, bool ownedRemoved)
         {
