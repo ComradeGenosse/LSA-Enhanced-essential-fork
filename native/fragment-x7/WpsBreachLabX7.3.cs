@@ -3316,7 +3316,6 @@ namespace Astra.X8
     }
 }
 
-
 // Baseline provenance guard generated verbatim from selection/ProjectileAdmissionPolicy.cs.
 namespace Astra.X7
 {
