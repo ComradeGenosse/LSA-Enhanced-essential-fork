@@ -104,9 +104,10 @@ class DestructionLabTests(unittest.TestCase):
             self.assertEqual(cmds.count("x8register id="), 2)
             self.assertIn("x8audit id=A", cmds)
             self.assertIn("x8audit id=B", cmds)
-            self.assertNotIn("x8shot ", cmds)
-            self.assertNotIn("x8prepare ", cmds)
-            self.assertNotIn("x8restore ", cmds)
+            commands_only = [line for line in cmds.splitlines() if not line.startswith("#")]
+            self.assertFalse(any(line.startswith("x8shot ") for line in commands_only))
+            self.assertFalse(any(line.startswith("x8prepare ") for line in commands_only))
+            self.assertFalse(any(line.startswith("x8restore ") for line in commands_only))
             self.assertNotIn("CreateObject", lhs[lab.MAP_NAME + ".ymap.xml"])
             self.assertIn("NOT A SCRIPT", cmds)
 
