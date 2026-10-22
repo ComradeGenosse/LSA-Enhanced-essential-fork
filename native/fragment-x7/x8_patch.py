@@ -28,6 +28,19 @@ def apply_x8(source: str) -> str:
          '''        if (target == null) throw new Exception("placed_target_missing");
         if (x8Owner != null) X8PreflightCandidate(tpos, thash, target);
         x7Orig = X4OriginalLab(target);'''),
+        ("late original identity", '''        for (int i = 0; i < x7ByPos.Length; i++)
+        {
+            Lab lab = x7ByPos[i];''',
+         '''        if (x8Owner != null)
+        {
+            Astra.X8.Placement site = x8Registry.Get(x8Owner).Site;
+            if (!site.Matches(x7Target.Position.X, x7Target.Position.Y, x7Target.Position.Z,
+                              x7Target.Heading))
+                throw new Exception("x8_original_basis_stale_before_commit");
+        }
+        for (int i = 0; i < x7ByPos.Length; i++)
+        {
+            Lab lab = x7ByPos[i];'''),
         ("runtime adapter", '''    // ===================================================================== lab geometry''',
          (PACKAGE / "X8RuntimeAdapter.inc.cs").read_text(encoding="utf-8") +
          '''    // ===================================================================== lab geometry'''),
