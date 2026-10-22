@@ -846,6 +846,45 @@ public class WpsBreachLab : Script
 
     sealed class X7Frame { public int Frame; public long Ms; public double FrameMs; public float T, U, V, Vt, Ttc, Speed; public bool On; public int Proj; }
 
+
+    // Read-only, bounded X7.3 diagnostics. The pure selector remains the sole commit authority.
+    static bool X7DiagFinite(double value) { return !double.IsNaN(value) && !double.IsInfinity(value); }
+    static string X7DiagRejection(double u, double t, double v, double vu, double vt, double vv, double face)
+    {
+        if (!X7DiagFinite(u) || !X7DiagFinite(t) || !X7DiagFinite(v) ||
+            !X7DiagFinite(vu) || !X7DiagFinite(vt) || !X7DiagFinite(vv) || !X7DiagFinite(face))
+            return "nonfinite";
+        if (vt <= Astra.X7.ImpactSectionSelector.MinimumNormalSpeed) return "normal_speed";
+        double distance = face - t;
+        if (distance < 0) return "behind_face";
+        double seconds = distance / vt;
+        if (!X7DiagFinite(seconds) || seconds > Astra.X7.ImpactSectionSelector.MaximumHorizonSeconds)
+            return "beyond_prediction_window";
+        double impactU = u + vu * seconds, impactV = v + vv * seconds;
+        if (impactU < -Astra.X7.ImpactSectionSelector.Width / 2 ||
+            impactU > Astra.X7.ImpactSectionSelector.Width / 2) return "outside_sheet_u";
+        if (impactV < 0 || impactV > Astra.X7.ImpactSectionSelector.SheetHeight) return "outside_sheet_v";
+        return "unclassified_selector_rejection";
+    }
+    static void X7DiagRemember(Dictionary<string, int> counts, Dictionary<string, object[]> first,
+        Queue<object[]> recent, string reason, int frame, int handle, Vector3 pos, Vector3 vel,
+        double u, double t, double v, double vu, double vt, double vv, double ttcMs, double horizonMs)
+    {
+        int n; counts.TryGetValue(reason, out n); counts[reason] = n + 1;
+        object[] sample = new object[] { frame, reason, handle, pos.X, pos.Y, pos.Z,
+            vel.X, vel.Y, vel.Z, u, t, v, vu, vt, vv, ttcMs, horizonMs };
+        if (!first.ContainsKey(reason)) first[reason] = sample;
+        if (recent.Count == 48) recent.Dequeue();
+        recent.Enqueue(sample);
+    }
+    void X7DiagSample(string scope, object[] s)
+    {
+        Row("x7_diag_sample", "scope", scope, "frame", s[0], "reason", s[1], "projectile", s[2],
+            "x", s[3], "y", s[4], "z", s[5], "vx", s[6], "vy", s[7], "vz", s[8],
+            "u", s[9], "t", s[10], "v", s[11], "vu", s[12], "vt", s[13], "vv", s[14],
+            "ttcMs", s[15], "horizonMs", s[16]);
+    }
+
     void X7Shot(Dictionary<string, string> a)
     {
         if (x7State != "Armed") throw new Exception("x7prepare_required_or_already_active");
@@ -924,6 +963,14 @@ public class WpsBreachLab : Script
         float commitTtc = float.NaN, commitDt = float.NaN, commitHorizon = float.NaN, commitSpeed = float.NaN; double commitFrameMs = 0;
         Dictionary<int, Vector3> prevPos = new Dictionary<int, Vector3>(); Dictionary<int, long> prevMs = new Dictionary<int, long>();
         List<Lab> labs = x7SecLabs.Count > 1 ? new List<Lab>(x7SecLabs) : new List<Lab> { T };
+        int diagQueries = 0, diagQueryErrors = 0, diagNullResults = 0, diagEmptyResults = 0;
+        int diagExcluded = 0, diagInvalid = 0, diagNewObservations = 0;
+        int diagExplosionFrame = -1, diagExplosionDelayMs = -1, diagExplosionQueryErrors = 0;
+        string diagFirstQueryError = "";
+        HashSet<int> diagNewHandles = new HashSet<int>();
+        Dictionary<string, int> diagCounts = new Dictionary<string, int>();
+        Dictionary<string, object[]> diagFirst = new Dictionary<string, object[]>();
+        Queue<object[]> diagRecent = new Queue<object[]>();
         // X7.2b read-only fracture-propagation probe (probe=1): per-frame strip raycasts + native debris first-seen/velocity. Never alters physics.
         bool probeOn = S(a, "probe", "0") == "1"; int probeFrames = 0; const int probeMaxFrames = 220; double probeMsMax = 0, probeMsSum = 0;
         List<string[]> probeRows = new List<string[]>(); List<object[]> debRows = new List<object[]>(); HashSet<int> debSeen = new HashSet<int>();
@@ -942,12 +989,19 @@ public class WpsBreachLab : Script
             int readyCount = 0; bool ready = false;
             double horizonSeconds = Math.Min(Astra.X7.ImpactSectionSelector.MaximumHorizonSeconds,
                 Math.Max(0.0, (baseH + fms * frameK) / 1000.0));
-            Projectile[] ps = null; try { ps = World.GetNearbyProjectiles(centre, 90f); } catch { }
+            Projectile[] ps = null;
+            diagQueries++;
+            try { ps = World.GetNearbyProjectiles(centre, 90f); }
+            catch (Exception ex) { diagQueryErrors++; if (diagFirstQueryError.Length == 0) diagFirstQueryError = ex.GetType().Name; }
+            if (ps == null) diagNullResults++;
+            else if (ps.Length == 0) diagEmptyResults++;
             if (ps != null)
             {
                 foreach (Projectile p in ps)
                 {
-                    if (p == null || !p.Exists() || beforeShotHandles.Contains(p.Handle)) continue;
+                    if (p == null || !p.Exists()) { diagInvalid++; continue; }
+                    if (beforeShotHandles.Contains(p.Handle)) { diagExcluded++; continue; }
+                    diagNewObservations++; diagNewHandles.Add(p.Handle);
                     Vector3 pos = p.Position, vel = p.Velocity; int ph = p.Handle;
                     if (vel.Length() < 5f && prevPos.ContainsKey(ph))
                     {
@@ -957,11 +1011,25 @@ public class WpsBreachLab : Script
                     prevPos[ph] = pos; prevMs[ph] = nowMs;
                     float u, t, v; LocalUTV(T, pos, out u, out t, out v);
                     float vt = Vector3.Dot(vel, axT), vu = Vector3.Dot(vel, axU), vv = Vector3.Dot(vel, T.Up);
+                    double localU = (double)u - cuMid, localV = (double)v - T.V0;
+                    double ttcDiagnostic = vt > 0 ? (tFace - t) / vt * 1000.0 : -1;
+                    if (!X7DiagFinite(ttcDiagnostic)) ttcDiagnostic = -1;
                     Astra.X7.ImpactSectionSelector.Selection selection;
                     if (!Astra.X7.ImpactSectionSelector.TryPredictAndSelect(
-                        (double)u - cuMid, t, (double)v - T.V0,
+                        localU, t, localV,
                         vu, vt, vv, tFace,
-                        Astra.X7.ImpactSectionSelector.MaximumHorizonSeconds, out selection)) continue;
+                        Astra.X7.ImpactSectionSelector.MaximumHorizonSeconds, out selection))
+                    {
+                        X7DiagRemember(diagCounts, diagFirst, diagRecent,
+                            X7DiagRejection(localU, t, localV, vu, vt, vv, tFace),
+                            gf, ph, pos, vel, localU, t, localV, vu, vt, vv,
+                            ttcDiagnostic, horizonSeconds * 1000.0);
+                        continue;
+                    }
+                    X7DiagRemember(diagCounts, diagFirst, diagRecent,
+                        selection.TimeToFaceSeconds <= horizonSeconds ? "eligible_ready" : "eligible_early",
+                        gf, ph, pos, vel, localU, t, localV, vu, vt, vv,
+                        selection.TimeToFaceSeconds * 1000.0, horizonSeconds * 1000.0);
                     if (best == null || selection.TimeToFaceSeconds < bestSelection.TimeToFaceSeconds ||
                         (selection.TimeToFaceSeconds == bestSelection.TimeToFaceSeconds && ph < best.Handle))
                     {
@@ -992,6 +1060,16 @@ public class WpsBreachLab : Script
                 }
             }
             else if (seen && !gone) { gone = true; goneFrame = gf; }
+            // This observational probe also runs when no candidate passed the selector. It never sets exFrame/late or commits.
+            if (!seen && diagExplosionFrame < 0)
+            {
+                try
+                {
+                    if (Function.Call<bool>(Hash.IS_EXPLOSION_IN_SPHERE, -1, centre.X, centre.Y, centre.Z, 1.5f))
+                    { diagExplosionFrame = gf; diagExplosionDelayMs = (int)(nowMs - fireMs); }
+                }
+                catch { diagExplosionQueryErrors++; }
+            }
             // --- impact / explosion near the wall (flag stays true while the explosion is recent; only the first frame is used)
             if (exFrame < 0 && (seen || mode == "manual" || mode == "none") && Function.Call<bool>(Hash.IS_EXPLOSION_IN_SPHERE, -1, centre.X, centre.Y, centre.Z, 1.5f))
             {
@@ -1046,6 +1124,17 @@ public class WpsBreachLab : Script
         double winMax = 0; int winFrame = -1; int ctr = commitFrame >= 0 ? commitFrame : exFrame;
         for (int i = baselineN; i < frameMs.Count; i++) if (ctr >= 0 && frameNo[i] >= ctr - 8 && frameNo[i] <= ctr + 90 && frameMs[i] > winMax) { winMax = frameMs[i]; winFrame = frameNo[i]; }
         int over50 = 0, over100 = 0; for (int i = baselineN; i < frameMs.Count; i++) { if (frameMs[i] > 50) over50++; if (frameMs[i] > 100) over100++; }
+        Row("x7_diag_summary", "baselineHandles", beforeShotHandles.Count, "queryFrames", diagQueries,
+            "queryErrors", diagQueryErrors, "firstQueryErrorType", diagFirstQueryError,
+            "nullResults", diagNullResults, "emptyResults", diagEmptyResults,
+            "invalidCandidates", diagInvalid, "baselineExcluded", diagExcluded,
+            "newObservations", diagNewObservations, "distinctNewHandles", diagNewHandles.Count,
+            "independentExplosionFrame", diagExplosionFrame, "independentExplosionDelayMs", diagExplosionDelayMs,
+            "independentExplosionErrors", diagExplosionQueryErrors, "acceptedSelection", seen);
+        foreach (KeyValuePair<string, int> r in diagCounts)
+            Row("x7_diag_count", "reason", r.Key, "observations", r.Value);
+        foreach (KeyValuePair<string, object[]> r in diagFirst) X7DiagSample("first", r.Value);
+        foreach (object[] s in diagRecent) X7DiagSample("recent", s);
         foreach (X7Frame fr in trace) Row("x7_track", "label", label, "frame", fr.Frame, "ms", fr.Ms - fireMs, "frameMs", fr.FrameMs, "t", fr.T, "u", fr.U, "v", fr.V, "vt", fr.Vt, "speed", fr.Speed, "ttcMs", fr.Ttc, "onCourse", fr.On, "proj", fr.Proj);
         if (x7SecLabs.Count > 1) X7SecState(label);
         if (probeOn)
