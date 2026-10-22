@@ -718,6 +718,13 @@ public class WpsBreachLab : Script
         if (x7Target == null || !x7Target.Exists() || x7Target.Model.Hash != x7HideModel ||
             x7Target.Position.DistanceTo(x7HidePos) > .05f)
             throw new Exception("x7_original_changed_before_commit");
+        if (x8Owner != null)
+        {
+            Astra.X8.Placement site = x8Registry.Get(x8Owner).Site;
+            if (!site.Matches(x7Target.Position.X, x7Target.Position.Y, x7Target.Position.Z,
+                              x7Target.Heading))
+                throw new Exception("x8_original_basis_stale_before_commit");
+        }
         for (int i = 0; i < x7ByPos.Length; i++)
         {
             Lab lab = x7ByPos[i];
@@ -1558,7 +1565,7 @@ public class WpsBreachLab : Script
         {
             // X7Prepare already invokes X7Restore on its own post-stage exceptions.
             // If any staged state remains, restore with the same owner before release.
-            try { if (x7State != "None" || x7Hidden) X7Restore(); } catch { }
+            try { if (x7State != "None" || x7Hidden || x7TimeSet) X7Restore(); } catch { }
             bool clean = x7State == "None" && !x7Hidden && x7SecLabs.Count == 0 &&
                 owned.Count == 0 && debris.Count == 0;
             bool original = X8VerifyOriginal(id);
@@ -1577,6 +1584,11 @@ public class WpsBreachLab : Script
         if (x8Owner != id || x8Registry.Get(id).Phase != Astra.X8.FencePhase.Armed)
             throw new Exception("x8_shot_not_armed_or_wrong_owner");
         // No second shot while committed/Active; do not resummon or rearm native debris.
+        // Recheck authored source identity and hide-scope ambiguity before
+        // entering the X7.3 projectile acquisition/shot loop.
+        Astra.X8.Placement site = x8Registry.Get(id).Site;
+        X8PreflightCandidate(new Vector3((float)site.X, (float)site.Y, (float)site.Z),
+            (uint)site.ModelHash, x7Target);
         X8Receipt(id, "shot_begin");
         try
         {
