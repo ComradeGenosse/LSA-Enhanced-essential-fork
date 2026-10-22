@@ -4,6 +4,46 @@
 Research authority: [doc 16, §§6–8 and 12](../../docs/next-gen-gameplay/astra-001/16-X7-LOCALIZED-FRACTURE-RESEARCH-20261021.md).
 Offline Story Mode ONLY. Do not merge into the production mod based on cloud checks.
 
+## X7.1 small walkable-geometry experiment — source-only, GTA NOT TESTED
+
+**Separate `walk5` layout** with five independently native-fracturing *full-height*
+sheet strips (each 0.507 m wide × 2.131 m tall). If two adjacent strips break
+naturally, a roughly **1.014 m-wide, full-sheet-height lane** becomes possible.
+This is a geometric possibility, **not a guarantee the RPG will detach adjacent
+strips or that the GTA player can cross**. Uses the current X6 corrugation/texture,
+root/post/anchor and hot swap, not script deletion. Each strip mass is 27 kg to
+preserve X6's mass per sheet area; only the new assets differ.
+
+There are just two models in this isolated pack:
+`lsa_x7c_walk5_j1000` (known P0 strength candidate) and
+`lsa_x7c_walk5_j550` (single fallback physics comparison). The original
+X7a 12-model pack and X7b torn36 experiment are unchanged.
+
+To export **on Windows with Blender/Sollumz, CodeWalker and GTA stopped**:
+
+```powershell
+blender.exe -b --python-exit-code 1 --python native/fragment-x7/build_fence_x7.py -- --layout walk5
+powershell -NoProfile -File native/fragment-x7/convert_xml_x7.ps1 -CodeWalker "C:\Path\To\CodeWalker30_dev48"
+powershell -NoProfile -File native/fragment-x7/build_pack_x7.ps1 -CodeWalker "C:\Path\To\CodeWalker30_dev48"
+python native/fragment-x7/validate_x7c.py --require-exports
+powershell -NoProfile -File native/fragment-x7/test-install-x7.ps1 -Mode Install -Variant x7c -GameRoot "C:\Path\To\Grand Theft Auto V Enhanced" -BackupRoot "C:\Private\X7C-Backup"
+```
+
+Run the same proven X7 prepare / shot / walk / restore sequence with
+`model=lsa_x7c_walk5_j1000`, `back=4`, `aimu=0`, `aimv=0.80` on
+a **fresh original 9/9** fence. Check 2+ *adjacent* strips are actually gone,
+the read-only collision probes show a full-height 0.9 m lane, and the **actual
+player crosses within the fence footprint**, not around it. If a simple shot
+is inconclusive, try `lsa_x7c_walk5_j550` once. Preserve original physics
+and fallbacks; **do not** cheat by removing pieces or forcing traversal.
+Run Afterburner preset 1 and F6 OFF as in X7. Shut down and
+`test-install-x7.ps1 -Mode Restore` with the same backup path; verify hashes.
+
+This standalone feasibility probe deliberately does **not** pass the frozen
+X7a Session A gate, nor authorize X7b or X8. Convert/pack/install scripts
+use their existing manifest and receipts; when switching layouts, always
+regenerate real XML/YFT/YTYP/pack and use a fresh backup, not stale assets.
+
 ## Latest Windows recovery retest — October 21, 20:17–20:26 EDT
 
 Pulled `16bdb98d74d8445b76c1e0a5011f96a3ecf10319`, regenerated/compiled the driver, and reused the hash-validated 12-model X7a pack on **COMRADE / RTX 5090**. Afterburner preset 1 was confirmed at 460 W; RenoDX confirmed F6 OFF after each fresh Story Mode load. All fresh preparations started with **original 9/9, dormant twin 0/9**.
