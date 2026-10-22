@@ -30,6 +30,14 @@ See [full result and blockers](evidence/session-a/RESULTS.md), [measurements/mas
 
 The above is a **recovery protocol, not an executed correction or successful rerun**. No gameplay result or previously frozen X7 evidence is changed. If the aligned shot still detonates early, instrument non-destructive corridor and impact-entity diagnostics *before* modifying fracture physics.
 
+## X7 recovery code fix (cloud push; Windows rerun pending)
+
+The driver now **automatically aligns off-centre RPG shots** with their target: `x7shot aimu=-0.70` uses lateral shooter offset `pu=-0.70` (P2), and `aimu=+0.65` uses `pu=+0.65` (P3). For **P0**, the previously successful prepared shooter offset `x7Pu` remains the default. Use `x7shot ... pu=<offset>` to explicitly override this if desired. The shot log records the actual offset.
+
+The near-target explosion detection sphere was narrowed from **6 m to 1.5 m** so an explosion nearly 6 m short of the fence cannot masquerade as a target impact. Premature/missed shots remain **no swap, no fabricated blast**, and must not be counted as accepted. Collision-mask sampling now skips the *known clear 0.10 m bottom row* from the intact `sx` control, and the bottom frame witness samples above that dead strip. Previous logs, numerical results, and threshold remain historically unchanged.
+
+**Still required:** a fresh undamaged Story Mode original (9/9), one observed P2 rerun, subsequent P3/P1/traversal checks, restoration and full visual validation before milestone acceptance. Re-run `python native/fragment-x7/build_x7.py` before Windows compilation, and use a new isolated backup. The X7a model binaries and physics ladder **do not need rebuilding** for this driver-only correction. Never install while GTA is running.
+
 ## Current state and non-claims
 
 | Layer | State | Evidence |
