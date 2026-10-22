@@ -3,8 +3,8 @@ $ErrorActionPreference='Stop'
 [Reflection.Assembly]::LoadFrom((Join-Path $CodeWalker 'CodeWalker.Core.dll')) | Out-Null
 $assets=Join-Path $PSScriptRoot 'assets'
 $manifest=Get-Content (Join-Path $assets 'models.json') -Raw | ConvertFrom-Json
-$pack=if($manifest.layout -eq 'grid6x5'){'lsa_x7a'}elseif($manifest.layout -eq 'torn36'){'lsa_x7b'}else{throw 'Bad layout'}
-$dlc=if($pack -eq 'lsa_x7a'){'lsa_fence_x7a'}else{'lsa_fence_x7b'}
+$pack=if($manifest.layout -eq 'grid6x5'){'lsa_x7a'}elseif($manifest.layout -eq 'torn36'){'lsa_x7b'}elseif($manifest.layout -eq 'walk5'){'lsa_x7c'}else{throw 'Bad layout'}
+$dlc='lsa_fence_'+$pack.Split('_')[1]
 if(-not(Test-Path (Join-Path $assets 'conversion-receipt.json'))){throw 'Actual CodeWalker conversion receipt missing'}
 $out=Join-Path $PSScriptRoot 'pack'
 New-Item -ItemType Directory -Force $out | Out-Null
