@@ -71,9 +71,23 @@ insufficient lane separation. Each run emits byte-identical XML and manifests.
    If either pivot has different terrain Z, **reject the site** rather than
    pretending one flat base Z fits. Record actual survey coordinates and
    provenance privately. Do not reuse October 22 failed A/B coordinates.
-2. Generate source XML with site.json. Use Windows CodeWalker with GTA stopped
-   to convert `.ymap.xml` into a **real binary `.ymap`** and inspect/round-trip
-   both entities and map/streaming extents. This is not a FiveM resource:
+2. Generate source XML with site.json. With GTA stopped, the optional
+   **experimental offline pack builder** can convert XML using the installed
+   CodeWalker assemblies and produce `dlc.rpf` in a **fresh output folder**:
+
+   ~~~powershell
+   powershell -NoProfile -File native/destruction-lab/pack_lab.ps1 `
+     -CodeWalker 'C:\\Path\\To\\CodeWalker30_dev48' `
+     -BuildDir 'C:\\Private\\lab-build' `
+     -OutputDir 'C:\\Private\\lab-pack' -ConfirmedLocalSurvey
+   ~~~
+
+   It never installs or edits the game. The local operator must independently
+   **reload the binary `.ymap` in CodeWalker**, verify both entities, and
+   compare the DLC's `content.xml`/`setup2.xml` mounting to a known-working
+   **GTA Enhanced** map DLC before proceeding. The pack script is untested
+   against local CodeWalker binaries; manual CodeWalker conversion is the
+   fallback. This is not a FiveM resource:
    **never** install fxmanifest.lua or use a FiveM server workflow.
 3. Package the verified binary as a separate
    `lsa_destruction_lab/dlc.rpf` map DLC via the proven Onigiri/Game Enhanced
