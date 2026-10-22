@@ -108,7 +108,7 @@ class Tests(unittest.TestCase):
     def test_session_cannot_takeover(self):
         with self.c.owned(): pass
         other=Controller(self.lab,'claude','other',self.expected)
-        with self.assertRaisesRegex(ProtocolError,'handoff'): 
+        with self.assertRaisesRegex(ProtocolError,'handoff'):
             with other.owned(): pass
 
     def test_timeout_and_restart_never_republish(self):
