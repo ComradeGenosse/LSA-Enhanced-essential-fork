@@ -1,0 +1,13 @@
+{"t":95682,"frame":50045,"kind":"header","script":"WpsBreachLabX7.3.cs","version":"X7-0.1","scriptSha256":"e16d89ad3c48faa86416f649ba3d52cea0093e4d064fed3f4276fd7f7975750d","shvdnApi":"3.9.0.0","gameBuild":"2.0.1158.16","loadedUtc":"2026-10-22T14:01:54.6920814Z","pid":26552,"autoLoadScripts":"AutoLoadScripts=true","pools":{"props":404,"propCap":2300,"colliders":0,"colliderCap":228,"peds":12,"pedCap":256,"vehicles":117,"vehicleCap":300,"projectiles":1,"pickups":0},"commands":["x7restore"]}
+{"t":95683,"frame":50045,"kind":"x3_cleanup_skipped","trial":"","handle":622344,"model":1475200408,"reason":"not verified detached from a lab wall"}
+{"t":95685,"frame":50045,"kind":"x3_cleanup_skipped","trial":"","handle":659720,"model":1916672189,"reason":"not verified detached from a lab wall"}
+{"t":95685,"frame":50045,"kind":"x3_cleanup_skipped","trial":"","handle":659976,"model":1916672189,"reason":"not verified detached from a lab wall"}
+{"t":95685,"frame":50045,"kind":"x3_cleanup_skipped","trial":"","handle":728072,"model":2775383834,"reason":"not verified detached from a lab wall"}
+{"t":95685,"frame":50045,"kind":"x3_cleanup_skipped","trial":"","handle":728328,"model":2775383834,"reason":"not verified detached from a lab wall"}
+{"t":95685,"frame":50045,"kind":"x3_cleanup_skipped","trial":"","handle":762888,"model":1916672189,"reason":"not verified detached from a lab wall"}
+{"t":95685,"frame":50045,"kind":"x3_cleanup_skipped","trial":"","handle":213768,"model":2400375398,"reason":"not verified detached from a lab wall"}
+{"t":95685,"frame":50045,"kind":"x3_cleanup_skipped","trial":"","handle":211720,"model":2400375398,"reason":"not verified detached from a lab wall"}
+{"t":95685,"frame":50045,"kind":"x3_cleanup_skipped","trial":"","handle":214280,"model":2586970039,"reason":"not verified detached from a lab wall"}
+{"t":96184,"frame":50105,"kind":"x7_witness","label":"restored_original","blocked":9,"total":9,"otherHits":0}
+{"t":96184,"frame":50105,"kind":"x7_restored","originalBlocked":9,"originalExists":true,"originalVisibleFlag":true,"restoredToOriginal":true,"pools":{"props":392,"propCap":2300,"colliders":1,"colliderCap":228,"peds":12,"pedCap":256,"vehicles":119,"vehicleCap":300,"projectiles":1,"pickups":0}}
+{"t":96185,"frame":50105,"kind":"done","runId":"20261022-140330-6b5263"}

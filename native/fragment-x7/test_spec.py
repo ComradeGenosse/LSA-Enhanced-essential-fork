@@ -36,6 +36,17 @@ class FrozenMatrix(unittest.TestCase):
         self.assertEqual(manifest("walk5")["allowlist"],[m.name for m in models])
         self.assertEqual(len(a_variants()),12)
         self.assertEqual(len(cells("grid6x5")),30)
+    def test_sec1_independent_sections(self):
+        models=d_variants()
+        self.assertEqual(len(models),6)
+        self.assertEqual([m.name for m in models][:2],["lsa_x7d_sec_j1400","lsa_x7d_secp_j1400"])
+        self.assertEqual([m.post for m in models],[False,True]*3)
+        self.assertTrue(all(m.transmission==0 and m.health==m.strength and m.min_damage_force==m.strength/5 for m in models))
+        self.assertAlmostEqual(SEC_W*SECTIONS,W)
+        self.assertEqual(cells("sec1"),[(-SEC_W/2,SEC_W/2,0.0,SHEET_H)])
+        self.assertEqual(manifest("sec1")["groups"],2)
+        self.assertEqual(manifest("sec1")["allowlist"],[m.name for m in models])
+        self.assertEqual(manifest("walk5")["groups"],6)  # x7c walk5 untouched
     def test_shared_edges(self):
         import math
         for j in range(1,4):

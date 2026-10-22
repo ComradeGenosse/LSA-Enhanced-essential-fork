@@ -8,11 +8,11 @@ import argparse, json, shutil, sys, xml.etree.ElementTree as ET
 from pathlib import Path
 # Blender's --python does not add the script directory to sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from spec import a_variants, b_variants, c_variants, manifest, seam_z, W, H, SHEET_H
+from spec import a_variants, b_variants, c_variants, d_variants, manifest, seam_z, W, H, SHEET_H
 
 HERE=Path(__file__).resolve().parent
 X6=HERE.parent/"fragment-x6"
-OUT=HERE/"assets"
+OUT=HERE/"assets"  # sec1 uses assets-x7d (set in main) so the x7c walk5 assets are never touched
 
 def asserted(src,old,new):
     if src.count(old)!=1:
@@ -40,7 +40,7 @@ def build_variant(v,pack,source_only=False):
     source=(X6/"build_fence.py").read_text(encoding="utf-8")
     old="out=pathlib.Path(__file__).resolve().parent/'assets';out.mkdir(exist_ok=True)"
     source=asserted(source,old,
-         "out=pathlib.Path(__file__).resolve().parent/'assets'/'"+v.name+"';out.mkdir(parents=True,exist_ok=True)")
+         "out=pathlib.Path(__file__).resolve().parent/"+repr(OUT.name)+"/'"+v.name+"';out.mkdir(parents=True,exist_ok=True)")
     source=asserted(source,"'lsa_x6_corrugated'","'"+v.name+"'")
     # second occurrence is asset .blend and should be adapted separately
     source=asserted(source,"'lsa_x6_corrugated.blend'","'"+v.name+".blend'")
@@ -59,6 +59,31 @@ def build_variant(v,pack,source_only=False):
         source=asserted(source,"if j in (1,4):box","if j==0:box")
         source=asserted(source,"'sheet_chunks':30,'groups':31,'sheet_chunk_mass_kg':4.5",
                         "'sheet_chunks':5,'groups':6,'sheet_chunk_mass_kg':27.0")
+    if v.layout=="sec1":
+        # X7.2b: ONE independently breakable native prop per strip position. Root = rail (+ end post
+        # for the secp variant); one strip child with the same per-strip physics as walk5.
+        source=asserted(source,"CW,CH=W/6,SHEET_H/5","CW,CH=W/5,SHEET_H")
+        source=asserted(source,"for j in range(5):\n for i in range(6):",
+                        "for j in range(1):\n for i in range(1):")
+        source=asserted(source,"b.head=(-W/2+(i+.5)*CW,0,(j+.5)*CH)","b.head=(0,0,(j+.5)*CH)")
+        source=asserted(source,"x0=-W/2+i*CW;x1=x0+CW","x0=-CW/2;x1=x0+CW")
+        source=asserted(source,"seam=-.006 if x<0 else .006","seam=0.0")
+        source=asserted(source,"uv.data[li].uv=((v.x+W/2)/W,v.z/H)","uv.data[li].uv=((v.x+CW/2)/W,v.z/H)")
+        source=asserted(source,"),4.5)", "),27.0)")
+        source=asserted(source,"if j in (1,4):box","if j==0:box")
+        post_src=("box('end_post.mesh',(-W/2+.025,0,H/2),(.05,.07,H),S.SollumType.DRAWABLE_MODEL,D,mat,'root')\n"
+                  "flags(box('end_post.col',(-W/2+.025,0,H/2),(.05,.07,H),S.SollumType.BOUND_BOX,C,cm,'root'),8)\n")
+        rail=("box('root_rail.mesh',(0,0,2.20),(CW,.05,.04),S.SollumType.DRAWABLE_MODEL,D,mat,'root')\n"
+              "flags(box('root_rail.col',(0,0,2.20),(CW,.05,.04),S.SollumType.BOUND_BOX,C,cm,'root'),4)\n")
+        if v.post:
+            post_new=post_src.replace("-W/2+.025","-CW/2+.025")
+            source=asserted(source,post_src,rail+post_new)
+        else:
+            source=asserted(source,post_src,rail)
+        source=asserted(source,"a.bb_min=(-W/2,-.07,0);a.bb_max=(W/2,.07,H);a.bs_center=(0,0,H/2);a.bs_radius=1.74",
+                        "a.bb_min=(-CW/2,-.07,0);a.bb_max=(CW/2,.07,H);a.bs_center=(0,0,H/2);a.bs_radius=1.2")
+        source=asserted(source,"'sheet_chunks':30,'groups':31,'sheet_chunk_mass_kg':4.5",
+                        "'sheet_chunks':1,'groups':2,'sheet_chunk_mass_kg':27.0")
     if v.layout=="torn36":
         source=asserted(source,"CW,CH=W/6,SHEET_H/5","CW,CH=W/9,SHEET_H/4")
         source=asserted(source,"for j in range(5):\n for i in range(6):",
@@ -105,7 +130,7 @@ def build_variant(v,pack,source_only=False):
 
 def main():
     ap=argparse.ArgumentParser()
-    ap.add_argument("--layout",choices=("grid6x5","torn36","walk5"),default="grid6x5")
+    ap.add_argument("--layout",choices=("grid6x5","torn36","walk5","sec1"),default="grid6x5")
     ap.add_argument("--session-a",help="analyze_x7.py summary.json from real GTA Session A")
     ap.add_argument("--dry-run",action="store_true")
     blender_args=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else None
@@ -117,9 +142,11 @@ def main():
         gate=report["session_a_gate"]
         if not gate["pass"]: ap.error("Session A gate is not passed; refuse torn asset export")
         tstar=gate["selected_tstar"]
+    global OUT
+    if args.layout=="sec1": OUT=HERE/"assets-x7d"
     models=(a_variants() if args.layout=="grid6x5" else
-            b_variants(tstar) if args.layout=="torn36" else c_variants())
-    pack={"grid6x5":"lsa_x7a","torn36":"lsa_x7b","walk5":"lsa_x7c"}[args.layout]
+            b_variants(tstar) if args.layout=="torn36" else d_variants() if args.layout=="sec1" else c_variants())
+    pack={"grid6x5":"lsa_x7a","torn36":"lsa_x7b","walk5":"lsa_x7c","sec1":"lsa_x7d"}[args.layout]
     if args.dry_run:
         hashes={v.name:build_variant(v,pack,source_only=True) for v in models}
         print(json.dumps({**manifest(args.layout,tstar),"authored_source_sha256":hashes},indent=2));return

@@ -1,0 +1,78 @@
+{
+ "shots": [
+  {
+   "label": "x72b_j1400_center_probe",
+   "aimU": 0.0,
+   "explosionFrame": 81615,
+   "commitFrame": 81614,
+   "nativeParts": 5,
+   "firstDetachFrameAfterExplosion_byStrip_negU_to_posU": [
+    5,
+    3,
+    2,
+    4,
+    6
+   ],
+   "spatialOrder_stripIndex": [
+    2,
+    1,
+    3,
+    0,
+    4
+   ],
+   "stripDistanceFromImpactM": [
+    1.014,
+    0.507,
+    0.0,
+    0.507,
+    1.014
+   ],
+   "probeFrames": 38,
+   "meanProbeMs": 0.312,
+   "maxProbeMs": 1.565,
+   "baselineMedianMs": 7.437,
+   "baselineMaxMs": 10.954,
+   "windowMaxMs": 10.292,
+   "over50": 0,
+   "swapToExplosionFrames": 1,
+   "commitCallMs": 0.085
+  },
+  {
+   "label": "x72b_j1400_off065_probe",
+   "aimU": 0.65,
+   "explosionFrame": 86758,
+   "commitFrame": 86756,
+   "nativeParts": 5,
+   "firstDetachFrameAfterExplosion_byStrip_negU_to_posU": [
+    8,
+    5,
+    4,
+    2,
+    3
+   ],
+   "spatialOrder_stripIndex": [
+    3,
+    4,
+    2,
+    1,
+    0
+   ],
+   "stripDistanceFromImpactM": [
+    1.664,
+    1.157,
+    0.65,
+    0.143,
+    0.364
+   ],
+   "probeFrames": 39,
+   "meanProbeMs": 0.268,
+   "maxProbeMs": 0.514,
+   "baselineMedianMs": 7.605,
+   "baselineMaxMs": 11.385,
+   "windowMaxMs": 9.725,
+   "over50": 0,
+   "swapToExplosionFrames": 2,
+   "commitCallMs": 0.064
+  }
+ ]
+}

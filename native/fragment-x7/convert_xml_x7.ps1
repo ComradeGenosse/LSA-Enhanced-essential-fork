@@ -1,13 +1,14 @@
-param([Parameter(Mandatory)][string]$CodeWalker)
+param([Parameter(Mandatory)][string]$CodeWalker,[string]$AssetsName='assets')
 $ErrorActionPreference='Stop'
 foreach($dll in 'SharpDX.dll','SharpDX.Mathematics.dll','CodeWalker.Core.dll'){
     $null=[Reflection.Assembly]::LoadFrom((Join-Path $CodeWalker $dll))
 }
 [CodeWalker.GameFiles.RpfManager]::IsGen9=$true
-$assets=Join-Path $PSScriptRoot 'assets'
+$assets=Join-Path $PSScriptRoot $AssetsName
 $manifest=Get-Content (Join-Path $assets 'models.json') -Raw | ConvertFrom-Json
-$pack=if($manifest.layout -eq 'grid6x5'){'lsa_x7a'}elseif($manifest.layout -eq 'torn36'){'lsa_x7b'}elseif($manifest.layout -eq 'walk5'){'lsa_x7c'}else{throw 'Invalid layout'}
+$pack=if($manifest.layout -eq 'grid6x5'){'lsa_x7a'}elseif($manifest.layout -eq 'torn36'){'lsa_x7b'}elseif($manifest.layout -eq 'walk5'){'lsa_x7c'}elseif($manifest.layout -eq 'sec1'){'lsa_x7d'}else{throw 'Invalid layout'}
 $count=if($manifest.layout -eq 'grid6x5'){31}elseif($manifest.layout -eq 'torn36'){37}else{6}
+if($manifest.layout -eq 'sec1'){$count=2}
 $receipt=@()
 foreach($model in $manifest.allowlist){
     $xml=Join-Path $assets ($model+'.yft.xml')

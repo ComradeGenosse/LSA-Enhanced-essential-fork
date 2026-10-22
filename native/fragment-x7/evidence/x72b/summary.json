@@ -1,0 +1,374 @@
+{
+ "phase1": {
+  "shots": [
+   {
+    "label": "x72b_j1400_center_probe",
+    "aimU": 0.0,
+    "explosionFrame": 81615,
+    "commitFrame": 81614,
+    "nativeParts": 5,
+    "firstDetachFrameAfterExplosion_byStrip_negU_to_posU": [
+     5,
+     3,
+     2,
+     4,
+     6
+    ],
+    "spatialOrder_stripIndex": [
+     2,
+     1,
+     3,
+     0,
+     4
+    ],
+    "stripDistanceFromImpactM": [
+     1.014,
+     0.507,
+     0.0,
+     0.507,
+     1.014
+    ],
+    "probeFrames": 38,
+    "meanProbeMs": 0.312,
+    "maxProbeMs": 1.565,
+    "baselineMedianMs": 7.437,
+    "baselineMaxMs": 10.954,
+    "windowMaxMs": 10.292,
+    "over50": 0,
+    "swapToExplosionFrames": 1,
+    "commitCallMs": 0.085
+   },
+   {
+    "label": "x72b_j1400_off065_probe",
+    "aimU": 0.65,
+    "explosionFrame": 86758,
+    "commitFrame": 86756,
+    "nativeParts": 5,
+    "firstDetachFrameAfterExplosion_byStrip_negU_to_posU": [
+     8,
+     5,
+     4,
+     2,
+     3
+    ],
+    "spatialOrder_stripIndex": [
+     3,
+     4,
+     2,
+     1,
+     0
+    ],
+    "stripDistanceFromImpactM": [
+     1.664,
+     1.157,
+     0.65,
+     0.143,
+     0.364
+    ],
+    "probeFrames": 39,
+    "meanProbeMs": 0.268,
+    "maxProbeMs": 0.514,
+    "baselineMedianMs": 7.605,
+    "baselineMaxMs": 11.385,
+    "windowMaxMs": 9.725,
+    "over50": 0,
+    "swapToExplosionFrames": 2,
+    "commitCallMs": 0.064
+   }
+  ]
+ },
+ "phase2": [
+  {
+   "label": "x72b_sec_j1400_center",
+   "pattern": null,
+   "aimU": 0,
+   "nativeParts": 5,
+   "firstDetachFrame_byStrip_negU_to_posU": [
+    4,
+    2,
+    2,
+    3,
+    5
+   ],
+   "maskRow_cols0to24": "0000003300000000000000000",
+   "twinBlockedWitness": 0,
+   "swapToExplosionFrames": 2,
+   "commitCallMs": 0.104,
+   "baselineMedianMs": 7.81,
+   "baselineMaxMs": 10.513,
+   "windowMaxMs": 11.657,
+   "over50": 0,
+   "probeMeanMs": 0.341,
+   "probeMaxMs": 1.779,
+   "run": "20261022-135739-46e78c",
+   "walk": null,
+   "restoredOriginal9of9": 9
+  },
+  {
+   "label": "x72b_pat_inv_center",
+   "pattern": "1400,1800,1800,1800,1400",
+   "aimU": 0,
+   "nativeParts": 2,
+   "firstDetachFrame_byStrip_negU_to_posU": [
+    5,
+    null,
+    null,
+    null,
+    6
+   ],
+   "maskRow_cols0to24": "0000011111111111111100000",
+   "twinBlockedWitness": 9,
+   "swapToExplosionFrames": 2,
+   "commitCallMs": 0.177,
+   "baselineMedianMs": 6.811,
+   "baselineMaxMs": 10.274,
+   "windowMaxMs": 11.412,
+   "over50": 0,
+   "probeMeanMs": 0.311,
+   "probeMaxMs": 1.565,
+   "run": "20261022-135906-1ee211",
+   "walk": null,
+   "restoredOriginal9of9": 9
+  },
+  {
+   "label": "x72b_pat_near_off065",
+   "pattern": "1800,1800,1800,1400,1400",
+   "aimU": 0.65,
+   "nativeParts": 2,
+   "firstDetachFrame_byStrip_negU_to_posU": [
+    null,
+    null,
+    null,
+    2,
+    3
+   ],
+   "maskRow_cols0to24": "1111111111111110000000000",
+   "twinBlockedWitness": 6,
+   "swapToExplosionFrames": 1,
+   "commitCallMs": 0.074,
+   "baselineMedianMs": 7.281,
+   "baselineMaxMs": 10.959,
+   "windowMaxMs": 9.506,
+   "over50": 0,
+   "probeMeanMs": 0.271,
+   "probeMaxMs": 0.332,
+   "run": "20261022-135941-c6b9c4",
+   "walk": {
+    "crossed": true,
+    "passed": true,
+    "crossingU": 0.677,
+    "laneU": 0.682,
+    "laneWidthM": 0.9,
+    "outsideFootprint": false,
+    "maxRise": 0,
+    "reason": null
+   },
+   "opening": {
+    "found": true,
+    "u": 0.682,
+    "widthM": 0.9,
+    "columnsClear": 9,
+    "columns": 23
+   },
+   "restoredOriginal9of9": 9
+  },
+  {
+   "label": "x72b_pat_near_center",
+   "pattern": "1800,1400,1400,1800,1800",
+   "aimU": 0,
+   "nativeParts": 2,
+   "firstDetachFrame_byStrip_negU_to_posU": [
+    null,
+    2,
+    2,
+    null,
+    null
+   ],
+   "maskRow_cols0to24": "1111103300000001111111111",
+   "twinBlockedWitness": 3,
+   "swapToExplosionFrames": 2,
+   "commitCallMs": 0.078,
+   "baselineMedianMs": 7.696,
+   "baselineMaxMs": 11.27,
+   "windowMaxMs": 12.051,
+   "over50": 0,
+   "probeMeanMs": 0.305,
+   "probeMaxMs": 1.389,
+   "run": "20261022-140021-cbfb17",
+   "walk": {
+    "crossed": false,
+    "passed": false,
+    "crossingU": null,
+    "laneU": null,
+    "laneWidthM": null,
+    "outsideFootprint": null,
+    "maxRise": null,
+    "reason": "no_clear_lane_0.9m"
+   },
+   "opening": {
+    "found": false,
+    "u": 0,
+    "widthM": 0,
+    "columnsClear": 8,
+    "columns": 23
+   },
+   "restoredOriginal9of9": 9
+  },
+  {
+   "label": "x72b_pat_near_center_r2",
+   "pattern": "1800,1400,1400,1800,1800",
+   "aimU": 0,
+   "nativeParts": 2,
+   "firstDetachFrame_byStrip_negU_to_posU": [
+    null,
+    2,
+    2,
+    null,
+    null
+   ],
+   "maskRow_cols0to24": "1111103300000001111111111",
+   "twinBlockedWitness": 3,
+   "swapToExplosionFrames": 1,
+   "commitCallMs": 0.086,
+   "baselineMedianMs": 7.274,
+   "baselineMaxMs": 10.61,
+   "windowMaxMs": 10.098,
+   "over50": 0,
+   "probeMeanMs": 0.325,
+   "probeMaxMs": 1.583,
+   "run": "20261022-140210-3180da",
+   "walk": null,
+   "restoredOriginal9of9": 9
+  },
+  {
+   "label": "x72b_pat_near_center_v2",
+   "pattern": "1800,1800,1400,1400,1800",
+   "aimU": 0,
+   "nativeParts": 2,
+   "firstDetachFrame_byStrip_negU_to_posU": [
+    null,
+    null,
+    2,
+    3,
+    null
+   ],
+   "maskRow_cols0to24": "1111111111000000000011111",
+   "twinBlockedWitness": 3,
+   "swapToExplosionFrames": 1,
+   "commitCallMs": 0.077,
+   "baselineMedianMs": 7.936,
+   "baselineMaxMs": 8.943,
+   "windowMaxMs": 9.482,
+   "over50": 0,
+   "probeMeanMs": 0.278,
+   "probeMaxMs": 0.477,
+   "run": "20261022-140241-bea513",
+   "walk": {
+    "crossed": true,
+    "passed": true,
+    "crossingU": 0.278,
+    "laneU": 0.232,
+    "laneWidthM": 1,
+    "outsideFootprint": false,
+    "maxRise": 0,
+    "reason": null
+   },
+   "opening": {
+    "found": true,
+    "u": 0.232,
+    "widthM": 1,
+    "columnsClear": 10,
+    "columns": 23
+   },
+   "restoredOriginal9of9": 9
+  },
+  {
+   "label": "x72b_pat_near_offneg065",
+   "pattern": "1400,1400,1800,1800,1800",
+   "aimU": -0.65,
+   "nativeParts": 2,
+   "firstDetachFrame_byStrip_negU_to_posU": [
+    2,
+    2,
+    null,
+    null,
+    null
+   ],
+   "maskRow_cols0to24": "0000003300111111111111111",
+   "twinBlockedWitness": 6,
+   "swapToExplosionFrames": 1,
+   "commitCallMs": 0.074,
+   "baselineMedianMs": 7.165,
+   "baselineMaxMs": 13.061,
+   "windowMaxMs": 10.714,
+   "over50": 0,
+   "probeMeanMs": 0.272,
+   "probeMaxMs": 0.309,
+   "run": "20261022-140314-8d0180",
+   "walk": {
+    "crossed": false,
+    "passed": false,
+    "crossingU": null,
+    "laneU": null,
+    "laneWidthM": null,
+    "outsideFootprint": null,
+    "maxRise": null,
+    "reason": "no_clear_lane_0.9m"
+   },
+   "opening": {
+    "found": false,
+    "u": 0,
+    "widthM": 0,
+    "columnsClear": 7,
+    "columns": 23
+   },
+   "restoredOriginal9of9": 9
+  },
+  {
+   "label": "x72b_pat_near_off065_repeat",
+   "pattern": "1800,1800,1800,1400,1400",
+   "aimU": 0.65,
+   "nativeParts": 2,
+   "firstDetachFrame_byStrip_negU_to_posU": [
+    null,
+    null,
+    null,
+    2,
+    3
+   ],
+   "maskRow_cols0to24": "1111111111111110000000000",
+   "twinBlockedWitness": 6,
+   "swapToExplosionFrames": 2,
+   "commitCallMs": 0.076,
+   "baselineMedianMs": 6.817,
+   "baselineMaxMs": 13.744,
+   "windowMaxMs": 11.752,
+   "over50": 0,
+   "probeMeanMs": 0.266,
+   "probeMaxMs": 0.391,
+   "run": "20261022-140338-294cb3",
+   "walk": {
+    "crossed": true,
+    "passed": true,
+    "crossingU": 0.678,
+    "laneU": 0.682,
+    "laneWidthM": 0.9,
+    "outsideFootprint": false,
+    "maxRise": 0,
+    "reason": null
+   },
+   "opening": {
+    "found": true,
+    "u": 0.682,
+    "widthM": 0.9,
+    "columnsClear": 9,
+    "columns": 23
+   },
+   "restoredOriginal9of9": 9
+  }
+ ],
+ "answer": {
+  "independentSectionsImprovedLocalization": "Not by themselves (uniform strength still broke 5/5). With a strength profile keyed to the aim point they localized correctly.",
+  "smallestRemainingObstacle": "Select strength profile from predicted impact at commit time; validate arbitrary positions and wider walls."
+ }
+}

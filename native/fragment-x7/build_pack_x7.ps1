@@ -1,12 +1,12 @@
-param([Parameter(Mandatory)][string]$CodeWalker)
+param([Parameter(Mandatory)][string]$CodeWalker,[string]$AssetsName='assets',[string]$PackName='pack')
 $ErrorActionPreference='Stop'
 [Reflection.Assembly]::LoadFrom((Join-Path $CodeWalker 'CodeWalker.Core.dll')) | Out-Null
-$assets=Join-Path $PSScriptRoot 'assets'
+$assets=Join-Path $PSScriptRoot $AssetsName
 $manifest=Get-Content (Join-Path $assets 'models.json') -Raw | ConvertFrom-Json
-$pack=if($manifest.layout -eq 'grid6x5'){'lsa_x7a'}elseif($manifest.layout -eq 'torn36'){'lsa_x7b'}elseif($manifest.layout -eq 'walk5'){'lsa_x7c'}else{throw 'Bad layout'}
+$pack=if($manifest.layout -eq 'grid6x5'){'lsa_x7a'}elseif($manifest.layout -eq 'torn36'){'lsa_x7b'}elseif($manifest.layout -eq 'walk5'){'lsa_x7c'}elseif($manifest.layout -eq 'sec1'){'lsa_x7d'}else{throw 'Bad layout'}
 $dlc='lsa_fence_'+$pack.Split('_')[1]
 if(-not(Test-Path (Join-Path $assets 'conversion-receipt.json'))){throw 'Actual CodeWalker conversion receipt missing'}
-$out=Join-Path $PSScriptRoot 'pack'
+$out=Join-Path $PSScriptRoot $PackName
 New-Item -ItemType Directory -Force $out | Out-Null
 $path=Join-Path $out 'dlc.rpf'
 if(Test-Path -LiteralPath $path){Move-Item -LiteralPath $path -Destination ($path+'.previous-'+[DateTime]::UtcNow.Ticks)}
