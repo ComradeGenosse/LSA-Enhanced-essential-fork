@@ -32,6 +32,16 @@ jobs:
           $errors = $null
           [System.Management.Automation.Language.Parser]::ParseFile('native/destruction-lab/pack_lab.ps1', [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count -gt 0) { $errors | Out-Host; exit 1 }
+      - name: Reject synthetic fixture in Windows packer before loading CodeWalker
+        shell: pwsh
+        run: |
+          try {
+            & ./native/destruction-lab/pack_lab.ps1 -CodeWalker "$env:RUNNER_TEMP/lab-a" -BuildDir "$env:RUNNER_TEMP/lab-a" -OutputDir "$env:RUNNER_TEMP/never-pack" -ConfirmedLocalSurvey
+            throw 'ERROR: fixture was accepted'
+          } catch {
+            if ($_.Exception.Message -notmatch 'Refuse synthetic lab fixture') { throw }
+          }
+          if (Test-Path "$env:RUNNER_TEMP/never-pack") { throw 'Fixture created a package' }
       - name: Never generate a deployable map from an unaudited template
         run: |
           if python native/destruction-lab/generate_lab.py --site native/destruction-lab/site.template.json --output "$RUNNER_TEMP/invalid"; then
