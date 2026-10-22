@@ -27,7 +27,15 @@ class DiagnosticSourceTests(unittest.TestCase):
         self.assertIn('if (S(a, "fallback", "0") != "0")', self.shot.replace('if(S(a,"fallback","0")!="0")', 'if (S(a, "fallback", "0") != "0")'))
         self.assertNotIn("World.AddExplosion(", self.shot)
         self.assertNotIn("X7Commit();", self.shot)
-        self.assertIn("if (beforeShotHandles.Contains(p.Handle)) { diagExcluded++; continue; }", self.shot)
+        self.assertIn("bool inBaseline = beforeShotHandles.Contains(ph);", self.shot)
+        self.assertIn("ProjectileAdmissionPolicy.TryLaunchFlight(", self.shot)
+        self.assertIn("ProjectileAdmissionPolicy.Corroborates(", self.shot)
+        self.assertIn("mode != \"script\"", self.shot)
+        self.assertIn("confirmedBaseline.Add(ph);", self.shot)
+        self.assertIn('Row("x7_baseline_recovery"', self.shot)
+        self.assertIn('Row("x7_baseline_snapshot"', self.shot)
+        self.assertIn('X7DiagSample("baseline_first"', self.shot)
+        self.assertIn('X7DiagSample("baseline_last"', self.shot)
 
     def test_rejection_reasons_cover_selector_guards(self):
         for reason in ("nonfinite", "normal_speed", "behind_face", "beyond_prediction_window",
