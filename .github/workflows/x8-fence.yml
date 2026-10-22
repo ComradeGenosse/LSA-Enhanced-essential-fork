@@ -1,0 +1,38 @@
+name: X8 reusable fence offline checks
+on:
+  push:
+    branches:
+      - feature/x8-sequential-fence-catalog-20261022
+  pull_request:
+    paths:
+      - 'native/destruction-props/**'
+      - 'native/fragment-x7/**'
+      - '.github/workflows/x8-fence.yml'
+jobs:
+  x8-offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Pure X8 catalog, transforms, two-slot lifecycle
+        run: dotnet run --project native/destruction-props/tests/X8Tests.csproj --configuration Release
+      - name: Existing X7.3 automatic selector
+        run: dotnet run --project native/fragment-x7/selection-tests/SelectionTests.csproj --configuration Release
+      - name: Rebuild the GTA driver and prove byte-identical output
+        run: |
+          python native/fragment-x7/build_x7.py
+          git diff --exit-code -- native/fragment-x7/WpsBreachLabX7.3.cs
+      - name: Source integration and unchanged projectile authority
+        run: |
+          python native/destruction-props/test_x8_source.py
+          python native/fragment-x7/test_live_selector_source.py
+      - name: Inherited offline matrix and P2 smoke tests
+        run: |
+          python -m unittest discover -s native/fragment-x7 -p 'test_*.py' -v
+          python -m unittest discover -s tools/gta-controller -p 'test_smoke_x73.py' -v
+          python -m unittest discover -s tools/gta-controller -p 'test_smoke_x72c.py' -v
