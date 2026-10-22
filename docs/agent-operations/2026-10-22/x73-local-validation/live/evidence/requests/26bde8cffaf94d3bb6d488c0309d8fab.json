@@ -1,0 +1,14 @@
+{
+  "requestId": "26bde8cffaf94d3bb6d488c0309d8fab",
+  "fence": "2e37f9aab52841cfa85437dbda80dd87",
+  "sessionId": "x73-one-shot-20261022",
+  "experimentId": "X7.3-p2-auto-impact",
+  "trialId": "smoke-camera",
+  "command": "x7cam t=-5.5 u=1.5 z=1.5 lu=0 lz=1.1",
+  "expected": {
+    "pid": 53320,
+    "loadedUtc": "2026-10-22T19:05:11.3114160Z",
+    "scriptSha256": "9892143a69f465b78259829808584a8a4ec8c1e4f7db87d335946d153bbbb9c1"
+  },
+  "expiresUnix": 1792696013.359182
+}

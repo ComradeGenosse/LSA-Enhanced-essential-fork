@@ -1,0 +1,19 @@
+[
+  "C:\\Users\\Chris.COMRADE\\.local\\bin\\claude.exe",
+  "-p",
+  "--output-format",
+  "json",
+  "--json-schema",
+  "{\"type\": \"object\", \"properties\": {\"result\": {\"type\": \"string\"}, \"handoff\": {\"type\": [\"object\", \"null\"], \"properties\": {\"target\": {\"type\": \"string\", \"enum\": [\"claude\", \"codex\"]}, \"prompt\": {\"type\": \"string\"}}, \"required\": [\"target\", \"prompt\"], \"additionalProperties\": false}}, \"required\": [\"result\", \"handoff\"], \"additionalProperties\": false}",
+  "--permission-mode",
+  "dontAsk",
+  "--strict-mcp-config",
+  "--tools",
+  "Read",
+  "--model",
+  "sonnet",
+  "--effort",
+  "high",
+  "--allowedTools",
+  "Read"
+]

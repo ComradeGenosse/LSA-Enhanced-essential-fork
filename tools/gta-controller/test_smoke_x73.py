@@ -79,6 +79,17 @@ class AutoImpactOracleTests(unittest.TestCase):
         rows['restore'] = []
         self.assertEqual(s.analyze(rows)['worldRestoration'], 'FAIL_OR_MISSING')
 
+    def test_original_collision_loss_without_commit_is_not_hidden_swap(self):
+        rows = fixture()
+        rows['shot'].pop(0)  # Failed live shot has no selection event.
+        rows['shot'][0].update(committed=False, projectileSeen=False,
+                               nativeParts=0, framesCommitToExplosion=None)
+        rows['walk'] = []
+        result = s.analyze(rows)
+        self.assertFalse(result['checks']['original_hidden_after_swap'])
+        self.assertEqual(result['fractureOutcome'], 'FAIL_OR_MISSING')
+        self.assertEqual(result['traversalOutcome'], 'NOT_RUN')
+
 
 if __name__ == '__main__':
     unittest.main()

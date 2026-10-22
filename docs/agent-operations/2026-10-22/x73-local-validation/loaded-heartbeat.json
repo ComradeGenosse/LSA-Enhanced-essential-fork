@@ -1,0 +1,17 @@
+{
+  "protocol": 2,
+  "requestId": null,
+  "fence": null,
+  "script": "WpsBreachLabX7.3.cs",
+  "version": "X7-0.1",
+  "scriptSha256": "9892143a69f465b78259829808584a8a4ec8c1e4f7db87d335946d153bbbb9c1",
+  "shvdnApi": "3.9.0.0",
+  "loadedUtc": "2026-10-22T19:05:11.3114160Z",
+  "nowUtc": "2026-10-22T19:05:17.1474325Z",
+  "pid": 53320,
+  "state": "IDLE",
+  "step": "",
+  "cmd": "",
+  "runId": null,
+  "frame": 3877
+}

@@ -1,0 +1,18 @@
+test_frozen_order (test_analysis.ClassificationContract) ... ok
+test_iou (test_analysis.ClassificationContract) ... ok
+test_missing_mask_keeps_failed_swap_and_restore (test_analysis.ClassificationContract) ... ok
+test_multiple_walks_preserve_outside_footprint_failure (test_analysis.ClassificationContract) ... ok
+test_no_evidence_means_no_tstar (test_analysis.ClassificationContract) ... ok
+test_split_commands_keep_pre_result_timing_and_later_restore (test_analysis.ClassificationContract) ... ok
+test_walk5_mask_not_misclassified_as_original_session_a (test_analysis.ClassificationContract) ... ok
+test_matrix (test_spec.FrozenMatrix) ... ok
+test_sec1_independent_sections (test_spec.FrozenMatrix) ... ok
+test_shared_edges (test_spec.FrozenMatrix) ... ok
+test_torn (test_spec.FrozenMatrix) ... ok
+test_walk5_is_isolated_and_player_sized (test_spec.FrozenMatrix) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.015s
+
+OK
+PASS X7.3 live policy guards (not a GTA compilation/gameplay proof)

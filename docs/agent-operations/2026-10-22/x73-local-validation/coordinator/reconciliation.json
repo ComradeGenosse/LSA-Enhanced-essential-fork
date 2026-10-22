@@ -1,0 +1,7 @@
+{
+  "retry": false,
+  "outcome": "TIMED_OUT_NO_REVIEW",
+  "task": "62d9d769383648ed8c96bd0a0bcbacb8",
+  "queueStopRequested": true,
+  "recordedClaudePidAbsent": true
+}

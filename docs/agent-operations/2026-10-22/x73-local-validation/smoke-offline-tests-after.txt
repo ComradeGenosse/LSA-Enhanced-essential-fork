@@ -1,0 +1,15 @@
+test_center_tie_is_one_two_and_not_forced_to_two_three (test_smoke_x73.AutoImpactOracleTests) ... ok
+test_foreign_collision_separate_from_valid_fracture (test_smoke_x73.AutoImpactOracleTests) ... ok
+test_left_and_right_pairs (test_smoke_x73.AutoImpactOracleTests) ... ok
+test_missing_foreign_cannot_be_called_environment (test_smoke_x73.AutoImpactOracleTests) ... ok
+test_missing_selection_fails_closed (test_smoke_x73.AutoImpactOracleTests) ... ok
+test_no_restore_not_claimed (test_smoke_x73.AutoImpactOracleTests) ... ok
+test_original_collision_loss_without_commit_is_not_hidden_swap (test_smoke_x73.AutoImpactOracleTests) ... ok
+test_positive_impact_selects_two_three_without_aim_override (test_smoke_x73.AutoImpactOracleTests) ... ok
+test_wrong_selected_sections_cannot_be_accepted (test_smoke_x73.AutoImpactOracleTests) ... ok
+test_wrong_selection_policy_rejected_even_if_walk_succeeds (test_smoke_x73.AutoImpactOracleTests) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.000s
+
+OK

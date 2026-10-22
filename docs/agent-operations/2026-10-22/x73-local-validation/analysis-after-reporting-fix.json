@@ -1,0 +1,22 @@
+{
+  "checks": {
+    "armed_original_9_of_9_twin_0": true,
+    "valid_projected_two_section_selection": false,
+    "real_projectile_committed_before_explosion": false,
+    "native_fracture_exactly_two_parts": false,
+    "original_hidden_after_swap": false,
+    "five_section_states_logged": true,
+    "sections_match_projected_pair": false,
+    "protected_sections_intact": false,
+    "probe_open_only_at_selected": false,
+    "no_frame_over_50ms": true,
+    "player_traversed_opening": false
+  },
+  "selection": null,
+  "selectedPair": [],
+  "fractureOutcome": "FAIL_OR_MISSING",
+  "traversalOutcome": "NOT_RUN",
+  "foreignCollisionHits": 0,
+  "gameplayOutcome": "FAIL_OR_PARTIAL",
+  "worldRestoration": "FAIL_OR_MISSING"
+}
