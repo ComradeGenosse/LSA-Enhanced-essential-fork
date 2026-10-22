@@ -15,7 +15,10 @@ shot = source.split("void X7Shot(", 1)[1].split("void X7DiagOther(", 1)[0]
 assert shot.count("ImpactSectionSelector.TryPredictAndSelect(") == 1
 assert "X7Commit(bestSelection)" in shot
 assert "selection.TimeToFaceSeconds <= horizonSeconds" in shot
-assert "beforeShotHandles.Contains(p.Handle)" in shot
+assert "beforeShotHandles.Contains(ph)" in shot
+admission = (folder / "selection" / "ProjectileAdmissionPolicy.cs").read_text(encoding="utf-8")
+assert "s = apply_live_selector(s)" in generator
+assert admission[len("using System;\\n\\n"):].rstrip() in source
 assert "readyCount == 1" in shot
 assert "(double)u - cuMid" in shot and "(double)v - T.V0" in shot
 assert "sel=2,3" not in shot
