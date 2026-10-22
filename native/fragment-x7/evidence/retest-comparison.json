@@ -1,0 +1,1091 @@
+{
+  "scope": "Actual targeted recovery trials, not a complete frozen acceptance session",
+  "sessionA": "NOT PASSED",
+  "sessionB": "NOT RUN",
+  "readyForX8": false,
+  "shots": [
+    {
+      "label": "a2_01_j1000_p2",
+      "model": "lsa_x7a_j1000",
+      "aimU": -0.7,
+      "aimV": 1.1,
+      "nativeParts": 12,
+      "removedAreaM2": 2.21,
+      "blockedFraction": 0.558,
+      "debrisFraction": 0.022,
+      "otherHitFraction": 0.064,
+      "centroid": [
+        -0.6080000000000002,
+        0.96
+      ],
+      "centroidErrorM": 0.1675,
+      "largestRemovedComponentM2": 2.21,
+      "pieceStates": [
+        {
+          "covered": 12,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 15,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 25,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 15,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        }
+      ],
+      "class": "LOCAL",
+      "mask": "22002222200001111111111112200003300000111111111111220000330000011111111111100000033000001111111111110000003300000111111111111000000330000011111111111100000033000001111111111110000003300000111111111111000000330000011111111111100000033000001111111111110000003300000111111111111000000330000011111111111100000033000001111111111110000003300000111111111111000000330000011111111111100000033000001111111111110000003300000111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "nu": 25,
+      "nv": 20,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.16,
+      "commitEarlyFrames": 3,
+      "fallbackUsed": false,
+      "commitMs": 0.084,
+      "late": false,
+      "committed": true,
+      "source": "20261022-001745-019866.jsonl",
+      "windowMaxMs": 11.67,
+      "walkAttempts": [],
+      "walk": null,
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 0,
+        "postTotal": 3,
+        "topBlocked": 24,
+        "bottomBlocked": 12,
+        "bandTotal": 24
+      },
+      "session": "retest-a"
+    },
+    {
+      "label": "a2_02_j1000_p3",
+      "model": "lsa_x7a_j1000",
+      "aimU": 0.65,
+      "aimV": 1.6,
+      "nativeParts": 0,
+      "committed": false,
+      "late": false,
+      "fallbackUsed": false,
+      "error": "missing_x7_mask",
+      "commitEarlyFrames": null,
+      "commitMs": 0,
+      "source": "20261022-001816-863c58.jsonl",
+      "windowMaxMs": 0,
+      "walkAttempts": [],
+      "walk": null,
+      "restore": {
+        "originalBlocked": 6,
+        "restoredToOriginal": false
+      },
+      "frameBands": null,
+      "session": "retest-a"
+    },
+    {
+      "label": "a3_01_j1000_p3_short",
+      "model": "lsa_x7a_j1000",
+      "aimU": 0.65,
+      "aimV": 1.6,
+      "nativeParts": 12,
+      "removedAreaM2": 2.05,
+      "blockedFraction": 0.59,
+      "debrisFraction": 0.0,
+      "otherHitFraction": 0.0,
+      "centroid": [
+        0.45541463414634165,
+        1.4146341463414633
+      ],
+      "centroidErrorM": 0.2687,
+      "largestRemovedComponentM2": 2.05,
+      "pieceStates": [
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 15,
+          "blocked": 15,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 4,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 25,
+          "blocked": 5,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 4,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 4,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 15,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        }
+      ],
+      "class": "LOCAL",
+      "mask": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111100001111111111111111111110000111111111111111111111000011111111111111111111100001111111111110000000000000000011111111000000000000000001111111100000000000000000111111110000000000000000011111111000000000000000001111111100000000000000000111111110000000000000000011111111000000000000000001111111100000000000000000111111111111100000000000011111111111110000000000001111111111111000000000000",
+      "nu": 25,
+      "nv": 20,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.16,
+      "commitEarlyFrames": 3,
+      "fallbackUsed": false,
+      "commitMs": 0.158,
+      "late": false,
+      "committed": true,
+      "source": "20261022-002344-c1ea9f.jsonl",
+      "windowMaxMs": 11.749,
+      "walkAttempts": [],
+      "walk": null,
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 3,
+        "postTotal": 3,
+        "topBlocked": 12,
+        "bottomBlocked": 24,
+        "bandTotal": 24
+      },
+      "session": "retest-a3"
+    },
+    {
+      "label": "a3_02_j1000_p1",
+      "model": "lsa_x7a_j1000",
+      "aimU": 0.0,
+      "aimV": 0.8,
+      "nativeParts": 4,
+      "removedAreaM2": 0.72,
+      "blockedFraction": 0.856,
+      "debrisFraction": 0.0,
+      "otherHitFraction": 0.0,
+      "centroid": [
+        -0.0079999999999999,
+        0.9099999999999997
+      ],
+      "centroidErrorM": 0.1103,
+      "largestRemovedComponentM2": 0.72,
+      "pieceStates": [
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 15,
+          "blocked": 15,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 5,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 4,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 25,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        }
+      ],
+      "class": "LOCAL",
+      "mask": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "nu": 25,
+      "nv": 20,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.16,
+      "commitEarlyFrames": 2,
+      "fallbackUsed": false,
+      "commitMs": 0.066,
+      "late": false,
+      "committed": true,
+      "source": "20261022-002415-762b6d.jsonl",
+      "windowMaxMs": 13.644,
+      "walkAttempts": [
+        {
+          "crossed": false,
+          "outsideFootprint": null,
+          "maxRise": null,
+          "reason": "no_clear_lane_0.9m",
+          "crossingU": null,
+          "laneU": null,
+          "laneWidthM": null,
+          "passed": false
+        },
+        {
+          "crossed": true,
+          "outsideFootprint": true,
+          "maxRise": 0,
+          "reason": null,
+          "crossingU": -1.617,
+          "laneU": 0,
+          "laneWidthM": 0.8,
+          "passed": false
+        }
+      ],
+      "walk": {
+        "crossed": true,
+        "outsideFootprint": true,
+        "maxRise": 0
+      },
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 3,
+        "postTotal": 3,
+        "topBlocked": 24,
+        "bottomBlocked": 24,
+        "bandTotal": 24
+      },
+      "session": "retest-a3"
+    },
+    {
+      "label": "a3_03_j550_p1",
+      "model": "lsa_x7a_j550",
+      "aimU": 0.0,
+      "aimV": 0.8,
+      "nativeParts": 4,
+      "removedAreaM2": 0.72,
+      "blockedFraction": 0.856,
+      "debrisFraction": 0.0,
+      "otherHitFraction": 0.0,
+      "centroid": [
+        -0.0079999999999999,
+        0.9099999999999997
+      ],
+      "centroidErrorM": 0.1103,
+      "largestRemovedComponentM2": 0.72,
+      "pieceStates": [
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 15,
+          "blocked": 15,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 5,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 4,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 25,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        }
+      ],
+      "class": "LOCAL",
+      "mask": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "nu": 25,
+      "nv": 20,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.16,
+      "commitEarlyFrames": 2,
+      "fallbackUsed": false,
+      "commitMs": 0.069,
+      "late": false,
+      "committed": true,
+      "source": "20261022-002511-9cb892.jsonl",
+      "windowMaxMs": 12.709,
+      "walkAttempts": [
+        {
+          "crossed": false,
+          "outsideFootprint": null,
+          "maxRise": null,
+          "reason": "no_clear_lane_0.9m",
+          "crossingU": null,
+          "laneU": null,
+          "laneWidthM": null,
+          "passed": false
+        }
+      ],
+      "walk": {
+        "crossed": false,
+        "outsideFootprint": null,
+        "maxRise": null
+      },
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 3,
+        "postTotal": 3,
+        "topBlocked": 24,
+        "bottomBlocked": 24,
+        "bandTotal": 24
+      },
+      "session": "retest-a3"
+    },
+    {
+      "label": "a3_04_j300_p1",
+      "model": "lsa_x7a_j300",
+      "aimU": 0.0,
+      "aimV": 0.8,
+      "nativeParts": 4,
+      "removedAreaM2": 0.72,
+      "blockedFraction": 0.856,
+      "debrisFraction": 0.0,
+      "otherHitFraction": 0.0,
+      "centroid": [
+        -0.0079999999999999,
+        0.9099999999999997
+      ],
+      "centroidErrorM": 0.1103,
+      "largestRemovedComponentM2": 0.72,
+      "pieceStates": [
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 15,
+          "blocked": 15,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 12,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 5,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 4,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 25,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        }
+      ],
+      "class": "LOCAL",
+      "mask": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "nu": 25,
+      "nv": 20,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.16,
+      "commitEarlyFrames": 1,
+      "fallbackUsed": false,
+      "commitMs": 0.068,
+      "late": false,
+      "committed": true,
+      "source": "20261022-002559-4dc30e.jsonl",
+      "windowMaxMs": 10.57,
+      "walkAttempts": [
+        {
+          "crossed": false,
+          "outsideFootprint": null,
+          "maxRise": null,
+          "reason": "no_clear_lane_0.9m",
+          "crossingU": null,
+          "laneU": null,
+          "laneWidthM": null,
+          "passed": false
+        }
+      ],
+      "walk": {
+        "crossed": false,
+        "outsideFootprint": null,
+        "maxRise": null
+      },
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 3,
+        "postTotal": 3,
+        "topBlocked": 24,
+        "bottomBlocked": 24,
+        "bandTotal": 24
+      },
+      "session": "retest-a3"
+    }
+  ],
+  "pairwise": [
+    {
+      "a": "a2_01_j1000_p2",
+      "b": "a3_01_j1000_p3_short",
+      "IoU": 0.1181,
+      "crossSession": true
+    },
+    {
+      "a": "a2_01_j1000_p2",
+      "b": "a3_02_j1000_p1",
+      "IoU": 0.1581,
+      "crossSession": true
+    },
+    {
+      "a": "a3_01_j1000_p3_short",
+      "b": "a3_02_j1000_p1",
+      "IoU": 0.1494,
+      "crossSession": false
+    }
+  ]
+}

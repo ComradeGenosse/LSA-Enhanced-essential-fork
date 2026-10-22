@@ -4,6 +4,20 @@
 Research authority: [doc 16, §§6–8 and 12](../../docs/next-gen-gameplay/astra-001/16-X7-LOCALIZED-FRACTURE-RESEARCH-20261021.md).
 Offline Story Mode ONLY. Do not merge into the production mod based on cloud checks.
 
+## Latest Windows recovery retest — October 21, 20:17–20:26 EDT
+
+Pulled `16bdb98d74d8445b76c1e0a5011f96a3ecf10319`, regenerated/compiled the driver, and reused the hash-validated 12-model X7a pack on **COMRADE / RTX 5090**. Afterburner preset 1 was confirmed at 460 W; RenoDX confirmed F6 OFF after each fresh Story Mode load. All fresh preparations started with **original 9/9, dormant twin 0/9**.
+
+**Native position-dependent destruction works; a playable low hole remains broken. X8 is not ready.** At `j1000`, P2 detached 12 pieces (2.21 m² removed, 55.8% blocking, centroid error 0.168 m); P3 from a shorter `back=4` position detached 12 (2.05 m², 59%, error 0.269 m); P1 detached 4 (0.72 m², 85.6%, error 0.110 m). All three are LOCAL under the frozen numerical classifier, with pairwise hole IoU 0.118–0.158. P2 and P3/P1 were separate clean-world diagnostics with different launch distances, not a complete accepted Session A.
+
+The aligned P3 shot at the original `back=9` still ended ~5.8 m short without a swap, damaging the vanilla original (restore 6/9). That session was stopped and hash-restored. Added a small **read-only corridor check**: `x7shot ... checkonly=1` logs shooter, aim and ray hit without firing; normal shots reject a ray obstruction >0.75 m before the aim. Both inspected P3 corridors returned no ray hit, so the long-shot failure's cause remains unproven. `back=4` successfully bypassed that failure in one actual P3 shot; this is an observed workaround, not a general reliability claim. Native fracture, predictor/one-tick commit, anchor and owned cleanup remain unchanged.
+
+P1's automatic walk found no 0.9 m full-height lane. A direct physical walk at `u=0` crossed **outside** the footprint (`crossingU=-1.617`), so it failed. Two practical lower-preset diagnostics, `j550` and `j300`, produced the same four-piece / 0.72 m² low hole and no walking lane. Calibration stopped without redesign or fake detachment. **Session A NOT PASSED; Session B/X7b NOT RUN; milestone NOT MET.** These targeted recovery trials intentionally did not repeat ctl/sx/hx/P0 after traversal had already blocked progression.
+
+Six actual RPG shots across two fresh worlds; two additional `checkonly` calls fired nothing. Five successful swaps were 1–3 frames early with commit calls 0.066–0.158 ms and reported near-event frame maxima 10.57–13.644 ms. No fallback blast, scripted fracture, or crash. All four shots in the second world restored the original 9/9. GTA is stopped, and both isolated installations have hash-verified rollback. X2–X6 are unchanged.
+
+See [recovery results and next blocker](evidence/RECOVERY-RESULTS.md), [combined actual measurements/IoU](evidence/retest-comparison.json), [first recovery logs](evidence/retest-a/logs/), [short-range diagnostics](evidence/retest-a3/logs/), and [final safety receipt](evidence/retest-a3/final-safety.json). Historical results below remain unchanged. Analyzer now preserves every walk attempt so an edge detour cannot hide behind the first lane-rejection row.
+
 ## Windows result — October 21, 2026
 
 All 12 predefined X7a variants were exported with Blender 5.2.2/Sollumz, converted and reloaded with CodeWalker dev48 as GEN9 v171 / 31 bones, packaged, strict-validated, and tested on desktop **COMRADE / RTX 5090**. Geometry/collision buffer fingerprints match frozen X6. The driver compiled against installed SHVDN Enhanced 3.9 and loaded with SHA256 `1d5b7f5954de252c809fad927dbe9ef41dbf0f8eeda5b87e4216a51f39ad209c`. No runtime driver or X2–X6 source changes were made.

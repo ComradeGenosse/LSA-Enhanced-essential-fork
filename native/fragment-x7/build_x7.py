@@ -31,6 +31,31 @@ for old,new in RECOVERY_PATCHES:
     assert s.count(old)==1, ('X7 recovery drift',old,s.count(old))
     s=s.replace(old,new)
 
+# Read-only launch-corridor diagnosis; never arm early to compensate for an obstacle.
+CORRIDOR_OLD = "        int baselineN = frameMs.Count;\n        int fireFrame"
+CORRIDOR_NEW = """        int baselineN = frameMs.Count;
+        Vector3 shotFrom = pl.Position + new Vector3(0, 0, 1.0f) + pl.ForwardVector * .8f;
+        RaycastResult corridor = World.Raycast(shotFrom, aim, (IntersectFlags)31, pl);
+        Entity obstacle = corridor.HitEntity;
+        float remaining = corridor.DidHit ? corridor.HitPosition.DistanceTo(aim) : 0f;
+        Row("x7_corridor", "label", label, "pu", shotPu, "back", x7Back,
+            "fromX", shotFrom.X, "fromY", shotFrom.Y, "fromZ", shotFrom.Z,
+            "aimX", aim.X, "aimY", aim.Y, "aimZ", aim.Z,
+            "hit", corridor.DidHit, "remainingM", remaining,
+            "entity", obstacle == null ? 0 : obstacle.Handle,
+            "model", obstacle == null ? 0 : obstacle.Model.Hash,
+            "hitX", corridor.HitPosition.X, "hitY", corridor.HitPosition.Y, "hitZ", corridor.HitPosition.Z);
+        if (S(a, "checkonly", "0") == "1") return;
+        if (corridor.DidHit && remaining > .75f) throw new Exception("x7_launch_corridor_obstructed");
+        int fireFrame"""
+assert s.count(CORRIDOR_OLD)==1
+s=s.replace(CORRIDOR_OLD,CORRIDOR_NEW)
+old="Vector3 from = pl.Position + new Vector3(0, 0, 1.0f) + pl.ForwardVector * .8f;"
+shot_start=s.index('    void X7Shot(')
+head,shot=s[:shot_start],s[shot_start:]
+assert shot.count(old)==1
+s=head+shot.replace(old,"Vector3 from = shotFrom;")
+
 assert 'const string Ver = "X7-0.1"' in s
 assert 'World.AddExplosion(' not in s.split('void X7Shot(')[1].split('bool X7FindOpening')[0]
 names=set(re.findall(r'"(lsa_x7a_[a-z0-9]+)"',s.split('AllowedModels =')[1].split('};')[0]))

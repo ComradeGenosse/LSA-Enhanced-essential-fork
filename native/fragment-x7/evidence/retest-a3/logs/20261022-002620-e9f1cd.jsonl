@@ -1,0 +1,6 @@
+{"t":283963,"frame":25169,"kind":"header","script":"WpsBreachLabX7.3.cs","version":"X7-0.1","scriptSha256":"6b3aa048a4836529ea59601d04f578e72c389b0a9cec09076da07a7f3341b692","shvdnApi":"3.9.0.0","gameBuild":"2.0.1158.16","loadedUtc":"2026-10-22T00:21:36.1125084Z","autoLoadScripts":"AutoLoadScripts=true","pools":{"props":390,"propCap":2300,"colliders":3,"colliderCap":228,"peds":64,"pedCap":256,"vehicles":135,"vehicleCap":300,"projectiles":1,"pickups":0},"commands":["x7restore"]}
+{"t":283964,"frame":25169,"kind":"x3_cleanup_skipped","trial":"","handle":125700,"model":3333185780,"reason":"not verified detached from a lab wall"}
+{"t":283964,"frame":25169,"kind":"x3_cleanup_skipped","trial":"","handle":126724,"model":2586970039,"reason":"not verified detached from a lab wall"}
+{"t":284595,"frame":25229,"kind":"x7_witness","label":"restored_original","blocked":9,"total":9,"otherHits":0}
+{"t":284595,"frame":25229,"kind":"x7_restored","originalBlocked":9,"originalExists":true,"originalVisibleFlag":true,"restoredToOriginal":true,"pools":{"props":389,"propCap":2300,"colliders":5,"colliderCap":228,"peds":64,"pedCap":256,"vehicles":138,"vehicleCap":300,"projectiles":1,"pickups":0}}
+{"t":284596,"frame":25229,"kind":"done","runId":"20261022-002620-e9f1cd"}

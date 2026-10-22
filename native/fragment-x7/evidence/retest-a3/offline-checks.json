@@ -1,0 +1,15 @@
+{
+  "unitTests": {
+    "passed": 9,
+    "failed": 0
+  },
+  "strictX7aExports": "PASS",
+  "x7bSourceOnly": "PASS; no actual B export",
+  "twelveModelDryRun": "PASS",
+  "driverRegenerated": true,
+  "driverSha256": "6b3aa048a4836529ea59601d04f578e72c389b0a9cec09076da07a7f3341b692",
+  "compileAgainstInstalledShvdn": "PASS",
+  "x2ThroughX6Modified": false,
+  "gameplayGate": "NOT PASSED",
+  "tornAssetBuilt": false
+}

@@ -43,4 +43,15 @@ class ClassificationContract(unittest.TestCase):
    self.assertFalse(shot['committed'])
    self.assertEqual(shot['restore']['originalBlocked'],6)
    self.assertIsNone(iou(shot,shot))
+ def test_multiple_walks_preserve_outside_footprint_failure(self):
+  with tempfile.TemporaryDirectory() as temp:
+   a=Path(temp)/'01.jsonl'
+   a.write_text('\n'.join(json.dumps(x) for x in [
+    {"kind":"x7_shot_begin","label":"fixture"},
+    {"kind":"x7_result","label":"fixture","committed":False},
+    {"kind":"x7_player_result","crossed":False,"reason":"no_clear_lane_0.9m"},
+    {"kind":"x7_player_result","crossed":True,"outsideFootprint":True,"maxRise":0}]))
+   shot=load([a])[0]
+   self.assertEqual(len(shot['walkAttempts']),2)
+   self.assertTrue(shot['walk']['outsideFootprint'])
 if __name__=="__main__":unittest.main()

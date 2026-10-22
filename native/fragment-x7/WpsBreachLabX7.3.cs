@@ -719,10 +719,23 @@ public class WpsBreachLab : Script
         long lastT = Stopwatch.GetTimestamp();
         for (int f = 0; f < 60; f++) { Yield(); long n = Stopwatch.GetTimestamp(); frameMs.Add((n - lastT) * 1000.0 / Stopwatch.Frequency); frameNo.Add(Game.FrameCount); lastT = n; }
         int baselineN = frameMs.Count;
+        Vector3 shotFrom = pl.Position + new Vector3(0, 0, 1.0f) + pl.ForwardVector * .8f;
+        RaycastResult corridor = World.Raycast(shotFrom, aim, (IntersectFlags)31, pl);
+        Entity obstacle = corridor.HitEntity;
+        float remaining = corridor.DidHit ? corridor.HitPosition.DistanceTo(aim) : 0f;
+        Row("x7_corridor", "label", label, "pu", shotPu, "back", x7Back,
+            "fromX", shotFrom.X, "fromY", shotFrom.Y, "fromZ", shotFrom.Z,
+            "aimX", aim.X, "aimY", aim.Y, "aimZ", aim.Z,
+            "hit", corridor.DidHit, "remainingM", remaining,
+            "entity", obstacle == null ? 0 : obstacle.Handle,
+            "model", obstacle == null ? 0 : obstacle.Model.Hash,
+            "hitX", corridor.HitPosition.X, "hitY", corridor.HitPosition.Y, "hitZ", corridor.HitPosition.Z);
+        if (S(a, "checkonly", "0") == "1") return;
+        if (corridor.DidHit && remaining > .75f) throw new Exception("x7_launch_corridor_obstructed");
         int fireFrame = Game.FrameCount; long fireMs = clock.ElapsedMilliseconds;
         if (mode == "script")
         {
-            Vector3 from = pl.Position + new Vector3(0, 0, 1.0f) + pl.ForwardVector * .8f;
+            Vector3 from = shotFrom;
             Row("x7_charge", "method", "rpg_projectile_SHOOT_SINGLE_BULLET_BETWEEN_COORDS", "fromX", from.X, "fromY", from.Y, "fromZ", from.Z);
             Function.Call(Hash.SHOOT_SINGLE_BULLET_BETWEEN_COORDS, from.X, from.Y, from.Z, aim.X, aim.Y, aim.Z, 100, true, wh, pl.Handle, true, false, 80f);
         }

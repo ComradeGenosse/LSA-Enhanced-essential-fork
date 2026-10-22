@@ -100,7 +100,10 @@ def load(paths):
         value["source"]=sources[i]
         frame=next((v for v in subset if v.get("kind")=="x7_frames"),{})
         value["windowMaxMs"]=frame.get("windowMaxMs")
-        walk=next((v for v in subset if v.get("kind")=="x7_player_result"),{})
+        attempts=[v for v in subset if v.get("kind")=="x7_player_result"]
+        value["walkAttempts"]=[{key:v.get(key) for key in
+            ("crossed","outsideFootprint","maxRise","reason","crossingU","laneU","laneWidthM","passed")} for v in attempts]
+        walk=attempts[-1] if attempts else {}
         value["walk"]={"crossed":walk.get("crossed"),"outsideFootprint":walk.get("outsideFootprint"),
                        "maxRise":walk.get("maxRise")} if walk else None
         restored=next((v for v in subset if v.get("kind")=="x7_restored"),{})
