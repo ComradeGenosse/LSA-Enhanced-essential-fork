@@ -50,7 +50,8 @@ def decode(result,row):
               if pts else None)
     aimU=float(result["aimU"]);aimV=float(result["aimV"])
     error=math.dist(centroid,(aimU,aimV)) if centroid else float("inf")
-    layout="torn36" if result["model"].startswith("lsa_x7b") else "grid6x5"
+    layout=("torn36" if result["model"].startswith("lsa_x7b") else
+            "walk5" if result["model"].startswith("lsa_x7c") else "grid6x5")
     part=[]
     for x0,x1,z0,z1 in cells(layout):
         ids=[j*nu+i for j in range(nv) for i in range(nu)
@@ -64,7 +65,9 @@ def decode(result,row):
             "otherHitFraction":round(other/total,4),"centroid":centroid,
             "centroidErrorM":round(error,4) if math.isfinite(error) else None,
             "largestRemovedComponentM2":round(largest_component(mask,nu,nv)*pitch*pitch,4),
-            "pieceStates":part,"class":classify(int(result.get("nativeParts",0)),area,blocked,error),
+            "pieceStates":part,"layout":layout,
+            "class":("WALK5_EXPERIMENT" if layout=="walk5" else
+                     classify(int(result.get("nativeParts",0)),area,blocked,error)),
             "mask":mask,"nu":nu,"nv":nv,"pitch":pitch,"u0":u0,"v0":v0,
             "commitEarlyFrames":result.get("framesCommitToExplosion"),
             "fallbackUsed":result.get("fallbackUsed",False),"commitMs":result.get("commitCallMs"),
