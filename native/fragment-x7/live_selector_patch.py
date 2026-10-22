@@ -12,5 +12,10 @@ def apply_live_selector(source):
             raise RuntimeError(f"live selector generator drift ({change['label']}): expected 1, got {count}")
         source = source.replace(old, new, 1)
     pure = (folder / "selection" / "ImpactSectionSelector.cs").read_text(encoding="utf-8")
-    assert pure.startswith("using System;\n\n")
-    return source.rstrip() + "\n\n// Pure selector is generated verbatim from selection/ImpactSectionSelector.cs.\n" + pure[len("using System;\n\n"):]
+    admission = (folder / "selection" / "ProjectileAdmissionPolicy.cs").read_text(encoding="utf-8")
+    assert pure.startswith("using System;\n\n") and admission.startswith("using System;\n\n")
+    return (source.rstrip()
+            + "\n\n// Baseline provenance guard generated verbatim from selection/ProjectileAdmissionPolicy.cs.\n"
+            + admission[len("using System;\n\n"):].rstrip()
+            + "\n\n// Pure selector is generated verbatim from selection/ImpactSectionSelector.cs.\n"
+            + pure[len("using System;\n\n"):])
