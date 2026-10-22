@@ -17,6 +17,20 @@ for old,new in EXTRA_PATCHES:
 FRAME_PATCH=["        Row(\"x7_mask\",\"label\",label,\"model\",x7Model,\"aimU\",aimU,\"aimV\",aimV,\n            \"u0\",uStart-centreU,\"v0\",vStart-T.V0,\"pitch\",pitch,\"nu\",nu,\"nv\",nv,\n            \"mask\",mask.ToString(),\"postSide\",\"negative_u\");","        Row(\"x7_mask\",\"label\",label,\"model\",x7Model,\"aimU\",aimU,\"aimV\",aimV,\n            \"u0\",uStart-centreU,\"v0\",vStart-T.V0,\"pitch\",pitch,\"nu\",nu,\"nv\",nv,\n            \"mask\",mask.ToString(),\"postSide\",\"negative_u\");\n        // Separate rooted-post and 0.15 m sheet-band witnesses; mask deliberately excludes post.\n        int post=0, top=0, bottom=0, sampleCount=0;\n        foreach(float height in new float[] { .45f, 1.10f, 1.70f })\n            if(Classify(T,T.U0+.025f,T.V0+height)==1) post++;\n        for(float u=T.U0+.10f; u<T.U1-.05f; u+=.1f)\n        {\n            sampleCount++;\n            if(Classify(T,u,T.V0+.075f)==1) bottom++;\n            if(Classify(T,u,T.V0+2.131f-.075f)==1) top++;\n            Yield();\n        }\n        Row(\"x7_frame_bands\",\"label\",label,\"model\",x7Model,\"postBlocked\",post,\n            \"postTotal\",3,\"topBlocked\",top,\"bottomBlocked\",bottom,\"bandTotal\",sampleCount);"]
 assert s.count(FRAME_PATCH[0])==1
 s=s.replace(*FRAME_PATCH)
+
+# X7 small recovery fix: align off-centre RPGs and avoid a 6m false near-target blast.
+# Keep all native fragment physics and frozen X6 assets unchanged.
+RECOVERY_PATCHES = [
+    ["        PlacePlayerFacing(T, -x7Back, cuMid + x7Pu);", "        // Preserve the proven P0 setup; align off-centre shots with the target by default.\n        // A shot-level pu= override remains available for controlled comparisons.\n        float shotPu = F(a, \"pu\", Math.Abs(aimU) < .05f ? x7Pu : aimU);\n        PlacePlayerFacing(T, -x7Back, cuMid + shotPu);"],
+    ["\"back\", x7Back, \"pu\", x7Pu, \"aimX\"", "\"back\", x7Back, \"pu\", shotPu, \"aimX\""],
+    ["centre.X, centre.Y, centre.Z, 6f))", "centre.X, centre.Y, centre.Z, 1.5f))"],
+    ["float pitch=.1f, uStart=T.U0+.06f, vStart=T.V0+.06f;", "float pitch=.1f, uStart=T.U0+.06f, vStart=T.V0+.16f; // skip lower empty collision edge"],
+    ["Classify(T,u,T.V0+.075f)==1", "Classify(T,u,T.V0+.175f)==1"],
+]
+for old,new in RECOVERY_PATCHES:
+    assert s.count(old)==1, ('X7 recovery drift',old,s.count(old))
+    s=s.replace(old,new)
+
 assert 'const string Ver = "X7-0.1"' in s
 assert 'World.AddExplosion(' not in s.split('void X7Shot(')[1].split('bool X7FindOpening')[0]
 names=set(re.findall(r'"(lsa_x7a_[a-z0-9]+)"',s.split('AllowedModels =')[1].split('};')[0]))
