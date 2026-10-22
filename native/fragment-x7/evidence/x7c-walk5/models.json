@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "layout": "walk5",
+  "models": [
+    {
+      "name": "lsa_x7c_walk5_j1000",
+      "layout": "walk5",
+      "strength": 1000,
+      "min_damage_force": 200.0,
+      "health": 1000,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "X7.1 walkable-geometry experiment; GTA UNTESTED"
+    },
+    {
+      "name": "lsa_x7c_walk5_j550",
+      "layout": "walk5",
+      "strength": 550,
+      "min_damage_force": 110.0,
+      "health": 550,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "X7.1 walkable-geometry experiment; GTA UNTESTED"
+    }
+  ],
+  "allowlist": [
+    "lsa_x7c_walk5_j1000",
+    "lsa_x7c_walk5_j550"
+  ],
+  "bounds_m": [
+    2.536,
+    0.14,
+    2.351
+  ],
+  "sheet_height_m": 2.131,
+  "groups": 6,
+  "root": {
+    "strength": 10000000,
+    "min_damage_force": 10000000,
+    "health": 10000000
+  },
+  "physics_authority": "RAGE native only",
+  "export_status": "source only; check assets/conversion-receipt.json for actual conversion",
+  "layout_fingerprint": "0ad01a994ec2cd9b28e044e527eacc33590adfa91728f17c2d0e81d964307510"
+}

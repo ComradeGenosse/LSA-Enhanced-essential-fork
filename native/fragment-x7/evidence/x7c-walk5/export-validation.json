@@ -1,0 +1,11 @@
+{
+  "layout": "walk5",
+  "models": [
+    "lsa_x7c_walk5_j1000",
+    "lsa_x7c_walk5_j550"
+  ],
+  "pieces": 5,
+  "adjacent_width_m": 1.0144,
+  "actual_export_validated": true,
+  "gta_traversal": "NOT_TESTED"
+}

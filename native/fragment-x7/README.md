@@ -4,7 +4,11 @@
 Research authority: [doc 16, §§6–8 and 12](../../docs/next-gen-gameplay/astra-001/16-X7-LOCALIZED-FRACTURE-RESEARCH-20261021.md).
 Offline Story Mode ONLY. Do not merge into the production mod based on cloud checks.
 
-## X7.1 small walkable-geometry experiment — source-only, GTA NOT TESTED
+## X7.1 desktop result — October 22, 2026
+
+**Walkability PASS; localized retained-sheet hole not achieved.** On COMRADE at `6cc034d4`, one `lsa_x7c_walk5_j1000` P1 RPG shot with `back=4` natively detached all five strips. The actual player walked through a probed 1.6 m lane, crossing at U=0.337 m inside the footprint with zero rise and no detour. No fallback blast or scripted fracture/removal. Original restored 9/9; GTA stopped and all five installation paths hash-restored. No j550 shot or runtime change needed. X7a Session A / X7b / X8 remain unpassed. See [results, limits and next step](evidence/x7c-walk5/RESULTS.md), [raw sanitized logs](evidence/x7c-walk5/logs/), [screenshots](evidence/x7c-walk5/screenshots/) and [rollback receipt](evidence/x7c-walk5/install-restored.json).
+
+## X7.1 small walkable-geometry experiment — build recipe
 
 **Separate `walk5` layout** with five independently native-fracturing *full-height*
 sheet strips (each 0.507 m wide × 2.131 m tall). If two adjacent strips break
