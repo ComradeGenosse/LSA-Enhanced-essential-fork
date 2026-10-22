@@ -49,7 +49,8 @@ result={"scope":"cloud source-only unless real exports present",
         "x2_to_x6_modified_by_x7":False,"real_exports_validated":False}
 if (assets/"models.json").exists():
     m=json.loads((assets/"models.json").read_text())
-    assert m["allowlist"]==manifest(m["layout"],m.get("tstar"))["allowlist"] if m["layout"]=="grid6x5" else len(m["allowlist"])==3
+    assert m["layout"] in ("grid6x5","torn36","walk5")
+    assert m["allowlist"]==manifest(m["layout"],m.get("tstar"))["allowlist"]
     models=a_variants() if m["layout"]=="grid6x5" else []
     if m["layout"]=="grid6x5":
         if args.require_exports: assert (assets/"lsa_x6_galvanized.dds").exists(), "CodeWalker DDS texture reference missing"
