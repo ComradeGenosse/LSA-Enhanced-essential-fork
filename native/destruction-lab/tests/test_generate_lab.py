@@ -111,6 +111,17 @@ class DestructionLabTests(unittest.TestCase):
             self.assertNotIn("CreateObject", lhs[lab.MAP_NAME + ".ymap.xml"])
             self.assertIn("NOT A SCRIPT", cmds)
 
+    def test_pack_requires_resource_entry_and_nve_streaming_metadata(self):
+        # A binary YMAP that reopens in CodeWalker can still be unsuitable
+        # for GTA streaming if stored with the wrong RPF entry kind.
+        packer = (Path(__file__).resolve().parents[1] / "pack_lab.ps1").read_text(encoding="utf-8")
+        self.assertIn("RpfResourceFileEntry", packer)
+        self.assertIn("$entry[0].Version -ne 2", packer)
+        self.assertIn("GROUP_UPDATE_STREAMING", packer)
+        self.assertIn("CONTENTS_DLC_MAP_DATA", packer)
+        self.assertIn("filesToEnable", packer)
+        self.assertNotIn("<fileType>MAP_DATA</fileType>", packer)
+
     def test_no_output_for_missing_site(self):
         with self.assertRaises(ValueError):
             lab.create_plan({"x": 1, "y": 2, "z": 3, "heading": 0})
