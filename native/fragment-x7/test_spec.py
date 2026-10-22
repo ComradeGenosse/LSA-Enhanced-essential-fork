@@ -23,6 +23,19 @@ class FrozenMatrix(unittest.TestCase):
             self.assertEqual(v.weapon_scale,.15)
             self.assertEqual(v.transmission,0)
         with self.assertRaises(ValueError): b_variants(1555)
+    def test_walk5_is_isolated_and_player_sized(self):
+        self.assertEqual(len(cells("walk5")),5)
+        strips=cells("walk5")
+        self.assertAlmostEqual(strips[0][3]-strips[0][2],SHEET_H)
+        self.assertGreaterEqual(2*(strips[0][1]-strips[0][0]),.9)
+        models=c_variants()
+        self.assertEqual(len(models),2)
+        self.assertEqual([m.strength for m in models],[1000,550])
+        self.assertTrue(all(m.transmission==0 for m in models))
+        self.assertEqual(manifest("walk5")["groups"],6)
+        self.assertEqual(manifest("walk5")["allowlist"],[m.name for m in models])
+        self.assertEqual(len(a_variants()),12)
+        self.assertEqual(len(cells("grid6x5")),30)
     def test_shared_edges(self):
         import math
         for j in range(1,4):
