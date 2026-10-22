@@ -9,5 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../selection/ImpactSectionSelector.cs" Link="ImpactSectionSelector.cs" />
+    <Compile Include="../selection/ProjectileAdmissionPolicy.cs" Link="ProjectileAdmissionPolicy.cs" />
   </ItemGroup>
 </Project>
