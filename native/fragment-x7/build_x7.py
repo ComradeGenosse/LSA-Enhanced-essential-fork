@@ -620,11 +620,12 @@ for label, old, new in P2_PATCHES:
         raise RuntimeError(f'P2 generation drift ({label}): expected one match, got {count}')
     s = s.replace(old, new, 1)
 
-from x8_patch import apply_x8
-s = apply_x8(s)
-
 from live_selector_patch import apply_live_selector
 s = apply_live_selector(s)
+
+# X8 decorates fully generated X7.3; never change the frozen selector sources.
+from x8_patch import apply_x8
+s = apply_x8(s)
 
 assert 'const string Ver = "X7-0.1"' in s
 assert 'World.AddExplosion(' not in s.split('void X7Shot(')[1].split('bool X7FindOpening')[0]
