@@ -26,6 +26,9 @@ static class Program
         Run("overflow cannot select a section", Overflow);
         Run("dense independent nearest-pair oracle and determinism", DenseSweep);
         Run("projection invariant under T-origin translation", TranslatedFace);
+        Run("baseline handle reuse: two-frame launch corridor proof", BaselineHandleReuse);
+        Run("baseline guard rejects unrelated/stationary/reversed", BaselineRejectUnrelated);
+        Run("baseline guard rejects stale/nonfinite/one-frame artifact", BaselineRejectInvalid);
         Console.WriteLine("PASS: " + tests + " deterministic tests, " + assertions + " assertions. No GTA/native calls.");
     }
 
@@ -253,5 +256,65 @@ static class Program
         Check(Predict(new double[] { -0.65, 98, 1, 13, 20, -2, 100, 0.1 }, out selection), "Translated local T origin accepted");
         Near(selection.ImpactU, 0.65, "T-origin translation leaves U selection unchanged");
         Check(selection.FirstIndex == 3, "Translated prediction picks same physical pair");
+    }
+
+    static ProjectileAdmissionPolicy.Point3 P(double x, double y, double z)
+    {
+        return new ProjectileAdmissionPolicy.Point3(x, y, z);
+    }
+
+    static void BaselineHandleReuse()
+    {
+        // A pre-fire handle can be recycled. The original position is not itself flight proof;
+        // a plausible sample AND forward movement one frame later may make it eligible.
+        var origin = P(0, 0, 0); var target = P(4, 0, 0);
+        var first = P(.7, .1, .1); var next = P(.75, .1, .1);
+        double along;
+        Check(ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, first, P(5, 0, 0), 240, out along),
+            "First frame in corridor should be considered only provisionally");
+        Check(ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, next, P(6, .1, 0), 248, out along),
+            "Second moving frame is flight-compatible");
+        Check(ProjectileAdmissionPolicy.Corroborates(origin, target, first, next, 1),
+            "Post-fire movement permits promotion of a recycled baseline handle");
+        Check(!ProjectileAdmissionPolicy.Corroborates(origin, target, first, first, 1),
+            "Single repeated stationary sample is not corroboration");
+    }
+
+    static void BaselineRejectUnrelated()
+    {
+        var origin = P(0, 0, 0); var target = P(4, 0, 0);
+        double along;
+        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(6, 0, 0), P(5, 0, 0), 200, out along),
+            "Projectile too far beyond target");
+        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 2, 0), P(5, 0, 0), 200, out along),
+            "Lateral unrelated projectile");
+        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 0, 0), P(0, 0, 0), 200, out along),
+            "Stationary baseline object");
+        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 0, 0), P(-5, 0, 0), 200, out along),
+            "Reverse flight");
+        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 0, 0), P(5, 5, 0), 200, out along),
+            "Unrelated oblique flight");
+        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 0, 0), P(1, 0, 0), 200, out along),
+            "Too slow to establish provenance");
+    }
+
+    static void BaselineRejectInvalid()
+    {
+        var origin = P(0, 0, 0); var target = P(4, 0, 0);
+        double along;
+        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 0, 0), P(5, 0, 0), 1201, out along),
+            "Object first moving after rocket-flight window stays excluded");
+        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 0, 0), P(5, 0, 0), -1, out along),
+            "Pre-shot observation excluded");
+        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(double.NaN, 0, 0), P(5, 0, 0), 100, out along),
+            "Nonfinite position excluded");
+        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 0, 0), P(double.PositiveInfinity, 0, 0), 100, out along),
+            "Nonfinite velocity excluded");
+        Check(!ProjectileAdmissionPolicy.Corroborates(origin, target, P(.7, 0, 0), P(.71, 0, 0), 1),
+            "Sub-threshold displacement not enough");
+        Check(!ProjectileAdmissionPolicy.Corroborates(origin, target, P(.7, 0, 0), P(.75, 0, 0), 9),
+            "Non-consecutive stale samples not enough");
+        Check(!ProjectileAdmissionPolicy.Corroborates(origin, target, P(.7, 0, 0), P(.75, 0, 0), 0),
+            "Same-frame artifact not enough");
     }
 }
