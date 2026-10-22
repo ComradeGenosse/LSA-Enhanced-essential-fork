@@ -23,7 +23,7 @@ class DiagnosticSourceTests(unittest.TestCase):
     def test_selector_remains_the_only_authority(self):
         self.assertEqual(self.shot.count("ImpactSectionSelector.TryPredictAndSelect("), 1)
         self.assertIn("X7Commit(bestSelection)", self.shot)
-        self.assertIn("selection.TimeToFaceSeconds <= horizonSeconds && readyCount == 1", self.shot)
+        self.assertIn("bestSelection.TimeToFaceSeconds <= horizonSeconds && readyCount == 1", self.shot)
         self.assertIn('if (S(a, "fallback", "0") != "0")', self.shot.replace('if(S(a,"fallback","0")!="0")', 'if (S(a, "fallback", "0") != "0")'))
         self.assertNotIn("World.AddExplosion(", self.shot)
         self.assertNotIn("X7Commit();", self.shot)
