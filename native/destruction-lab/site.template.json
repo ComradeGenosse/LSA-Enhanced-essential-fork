@@ -1,0 +1,9 @@
+{
+  "_comment": "Copy to a LOCAL, untracked site.json only after auditing an actually empty and level GTA Enhanced location. Never insert guessed coordinates.",
+  "x": null,
+  "y": null,
+  "z": null,
+  "heading": 0,
+  "surveyed": false,
+  "evidence": ""
+}
