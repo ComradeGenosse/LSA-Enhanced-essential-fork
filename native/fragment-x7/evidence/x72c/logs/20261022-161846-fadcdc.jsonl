@@ -1,0 +1,16 @@
+{"t":151614,"frame":21171,"kind":"header","script":"WpsBreachLabX7.3.cs","version":"X7-0.1","scriptSha256":"b00eccae1699b324ae53d02c07a1e7db0bd2d75cb70915dff0c62d147ed267fb","shvdnApi":"3.9.0.0","gameBuild":"2.0.1158.16","loadedUtc":"2026-10-22T16:16:15.2772224Z","pid":5512,"autoLoadScripts":"AutoLoadScripts=true","pools":{"props":406,"propCap":2300,"colliders":2,"colliderCap":228,"peds":30,"pedCap":256,"vehicles":105,"vehicleCap":300,"projectiles":1,"pickups":0},"commands":["x7restore"]}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":419076,"model":1167949327,"reason":"not verified detached from a lab wall"}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":419332,"model":1013430847,"reason":"not verified detached from a lab wall"}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":419588,"model":1475200408,"reason":"not verified detached from a lab wall"}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":419844,"model":657068640,"reason":"not verified detached from a lab wall"}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":420100,"model":3070971696,"reason":"not verified detached from a lab wall"}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":480004,"model":1916672189,"reason":"not verified detached from a lab wall"}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":480260,"model":1916672189,"reason":"not verified detached from a lab wall"}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":488964,"model":2775383834,"reason":"not verified detached from a lab wall"}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":489220,"model":2775383834,"reason":"not verified detached from a lab wall"}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":580100,"model":1916672189,"reason":"not verified detached from a lab wall"}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":737284,"model":1185366416,"reason":"not verified detached from a lab wall"}
+{"t":151615,"frame":21171,"kind":"x3_cleanup_skipped","trial":"","handle":734724,"model":2586970039,"reason":"not verified detached from a lab wall"}
+{"t":152119,"frame":21231,"kind":"x7_witness","label":"restored_original","blocked":9,"total":9,"otherHits":0}
+{"t":152119,"frame":21231,"kind":"x7_restored","originalBlocked":9,"originalExists":true,"originalVisibleFlag":true,"restoredToOriginal":true,"pools":{"props":394,"propCap":2300,"colliders":3,"colliderCap":228,"peds":30,"pedCap":256,"vehicles":106,"vehicleCap":300,"projectiles":1,"pickups":0}}
+{"t":152120,"frame":21231,"kind":"done","runId":"20261022-161846-fadcdc"}

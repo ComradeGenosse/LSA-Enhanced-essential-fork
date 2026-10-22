@@ -374,6 +374,84 @@ for label, old, new in SECTION_PATCHES:
         raise RuntimeError(f'X7.2b generation drift ({label}): expected one match, got {count}')
     s = s.replace(old, new, 1)
 
+# X7.2c selective-fracture experiment (gameplay-tested, see evidence/x72c): all five sections stay visible and
+# solid after the swap; native damage/breaking is enabled only on two adjacent selected sections (sel=a,b).
+X72C_PATCHES = [
+    (
+        'selective fracture fields and helpers',
+        "    Vector3 x7HidePos; int x7HideModel; bool x7Hidden, x7Committed, x7Dormant;\n",
+        """    Vector3 x7HidePos; int x7HideModel; bool x7Hidden, x7Committed, x7Dormant;
+    // X7.2c selective fracture: positions (0..4, negative U to positive U) whose native damage/breaking is enabled at commit; null = all (X7.2b behaviour).
+    HashSet<int> x7SelPos; readonly Dictionary<int, Vector3> x7SecStart = new Dictionary<int, Vector3>();
+    static int X7PosOf(int labIdx) { return labIdx == 0 ? 2 : (labIdx <= 2 ? labIdx - 1 : labIdx); }
+    void X7ActivateSelective()
+    {
+        // Every section becomes visible and solid; only the selected pair is allowed to take native damage / break. Flags first, then collision, then visibility.
+        for (int i = 0; i < x7SecLabs.Count; i++)
+        {
+            Prop w = x7SecLabs[i].Wall; bool sel = x7SelPos.Contains(X7PosOf(i));
+            Function.Call(Hash.SET_DISABLE_FRAG_DAMAGE, w.Handle, !sel); Function.Call(Hash.SET_DISABLE_BREAKING, w.Handle, !sel); Function.Call(Hash.SET_ENTITY_CAN_BE_DAMAGED, w.Handle, sel);
+            Function.Call(Hash.SET_ENTITY_COLLISION, w.Handle, true, true);
+            w.IsVisible = true;
+        }
+    }
+    void X7SecState(string label)
+    {
+        for (int i = 0; i < x7SecLabs.Count; i++)
+        {
+            Lab sl = x7SecLabs[i]; Prop w = sl.Wall; int pos = X7PosOf(i); bool ex = w != null && w.Exists(); Vector3 st; x7SecStart.TryGetValue(pos, out st);
+            Row("x7_secstate", "label", label, "pos", pos, "selected", x7SelPos != null && x7SelPos.Contains(pos), "exists", ex, "visible", ex && w.IsVisible, "frag", ex && w.IsFragmentObject,
+                "attached", ex && sl.Anchor != null && w.IsAttachedTo(sl.Anchor), "moved", ex ? (w.Position - st).Length() : -1f, "rootAlive", sl.Anchor != null && sl.Anchor.Exists());
+        }
+    }
+""",
+    ),
+    (
+        'selective commit',
+        "        X7SetDormant(false);\n        Function.Call(Hash.CREATE_MODEL_HIDE_EXCLUDING",
+        "        if (x7SelPos != null) X7ActivateSelective(); else X7SetDormant(false);\n        Function.Call(Hash.CREATE_MODEL_HIDE_EXCLUDING",
+    ),
+    (
+        'sel= parsing',
+        "        x7SecLabs.Clear(); x7SecHandles.Clear();\n",
+        """        x7SecLabs.Clear(); x7SecHandles.Clear(); x7SecStart.Clear(); x7SelPos = null;
+        if (S(a, "sel", "").Length > 0)
+        {
+            if (!sectional) throw new Exception("sel_requires_sectional_model");
+            string[] sp = S(a, "sel", "").Split(','); if (sp.Length != 2) throw new Exception("sel_requires_2_positions");
+            int s0 = int.Parse(sp[0].Trim(), Inv), s1 = int.Parse(sp[1].Trim(), Inv);
+            if (s0 < 0 || s1 > 4 || s1 != s0 + 1) throw new Exception("sel_must_be_adjacent_lo_hi_0_to_4");
+            x7SelPos = new HashSet<int> { s0, s1 };
+        }
+""",
+    ),
+    (
+        'sections row reports sel',
+        '"pat", patK == null ? "uniform" : string.Join(",", patK));',
+        '"pat", patK == null ? "uniform" : string.Join(",", patK), "sel", x7SelPos == null ? "all" : string.Join(",", x7SelPos));',
+    ),
+    (
+        'record section start positions',
+        "            x7Twin.Start = x7Twin.Wall.Position; x7Twin.StartUp",
+        "            if (sectional) for (int si2 = 0; si2 < x7SecLabs.Count; si2++) x7SecStart[X7PosOf(si2)] = x7SecLabs[si2].Wall.Position;\n            x7Twin.Start = x7Twin.Wall.Position; x7Twin.StartUp",
+    ),
+    (
+        'section state row after shot',
+        "        if (probeOn)\n        {\n            foreach (string[] pr in probeRows)",
+        "        if (x7SecLabs.Count > 1) X7SecState(label);\n        if (probeOn)\n        {\n            foreach (string[] pr in probeRows)",
+    ),
+    (
+        'restore clears selection',
+        "x7Twin = null; x7SecLabs.Clear(); x7SecHandles.Clear();\n        }",
+        "x7Twin = null; x7SecLabs.Clear(); x7SecHandles.Clear(); x7SelPos = null;\n        }",
+    ),
+]
+for label, old, new in X72C_PATCHES:
+    count = s.count(old)
+    if count != 1:
+        raise RuntimeError(f'X7.2c generation drift ({label}): expected one match, got {count}')
+    s = s.replace(old, new, 1)
+
 assert 'const string Ver = "X7-0.1"' in s
 assert 'World.AddExplosion(' not in s.split('void X7Shot(')[1].split('bool X7FindOpening')[0]
 names=set(re.findall(r'"(lsa_x7a_[a-z0-9]+)"',s.split('AllowedModels =')[1].split('};')[0]))

@@ -577,6 +577,29 @@ public class WpsBreachLab : Script
     readonly List<Lab> x7SecLabs = new List<Lab>(); readonly HashSet<int> x7SecHandles = new HashSet<int>();
     bool IsWall(Lab L, int h) { return L.Wall != null && (h == L.Wall.Handle || (L == x7Twin && x7SecHandles.Count > 0 && x7SecHandles.Contains(h))); }
     Vector3 x7HidePos; int x7HideModel; bool x7Hidden, x7Committed, x7Dormant;
+    // X7.2c selective fracture: positions (0..4, negative U to positive U) whose native damage/breaking is enabled at commit; null = all (X7.2b behaviour).
+    HashSet<int> x7SelPos; readonly Dictionary<int, Vector3> x7SecStart = new Dictionary<int, Vector3>();
+    static int X7PosOf(int labIdx) { return labIdx == 0 ? 2 : (labIdx <= 2 ? labIdx - 1 : labIdx); }
+    void X7ActivateSelective()
+    {
+        // Every section becomes visible and solid; only the selected pair is allowed to take native damage / break. Flags first, then collision, then visibility.
+        for (int i = 0; i < x7SecLabs.Count; i++)
+        {
+            Prop w = x7SecLabs[i].Wall; bool sel = x7SelPos.Contains(X7PosOf(i));
+            Function.Call(Hash.SET_DISABLE_FRAG_DAMAGE, w.Handle, !sel); Function.Call(Hash.SET_DISABLE_BREAKING, w.Handle, !sel); Function.Call(Hash.SET_ENTITY_CAN_BE_DAMAGED, w.Handle, sel);
+            Function.Call(Hash.SET_ENTITY_COLLISION, w.Handle, true, true);
+            w.IsVisible = true;
+        }
+    }
+    void X7SecState(string label)
+    {
+        for (int i = 0; i < x7SecLabs.Count; i++)
+        {
+            Lab sl = x7SecLabs[i]; Prop w = sl.Wall; int pos = X7PosOf(i); bool ex = w != null && w.Exists(); Vector3 st; x7SecStart.TryGetValue(pos, out st);
+            Row("x7_secstate", "label", label, "pos", pos, "selected", x7SelPos != null && x7SelPos.Contains(pos), "exists", ex, "visible", ex && w.IsVisible, "frag", ex && w.IsFragmentObject,
+                "attached", ex && sl.Anchor != null && w.IsAttachedTo(sl.Anchor), "moved", ex ? (w.Position - st).Length() : -1f, "rootAlive", sl.Anchor != null && sl.Anchor.Exists());
+        }
+    }
     float x7Back = 9f, x7Pu = 1.5f; float x7OpenU;
     bool x7TimeSet; int x7SavedH, x7SavedM, x7SavedS;
     const float X7HideRadius = .15f;
@@ -626,7 +649,7 @@ public class WpsBreachLab : Script
     long X7Commit()
     {
         long t0 = Stopwatch.GetTimestamp();
-        X7SetDormant(false);
+        if (x7SelPos != null) X7ActivateSelective(); else X7SetDormant(false);
         Function.Call(Hash.CREATE_MODEL_HIDE_EXCLUDING_SCRIPT_OBJECTS, x7HidePos.X, x7HidePos.Y, x7HidePos.Z, X7HideRadius, x7HideModel, true);
         x7Hidden = true; x7Committed = true;
         return Stopwatch.GetTimestamp() - t0;
@@ -649,7 +672,15 @@ public class WpsBreachLab : Script
             if (patK.Length != 5) throw new Exception("pat_requires_5_values");
             for (int pi = 0; pi < 5; pi++) if (!X7InPackManifest(X7SecName(pi, patK, requested, plainModel))) throw new Exception("pat_model_not_in_pack_allowlist:" + patK[pi]);
         }
-        x7SecLabs.Clear(); x7SecHandles.Clear();
+        x7SecLabs.Clear(); x7SecHandles.Clear(); x7SecStart.Clear(); x7SelPos = null;
+        if (S(a, "sel", "").Length > 0)
+        {
+            if (!sectional) throw new Exception("sel_requires_sectional_model");
+            string[] sp = S(a, "sel", "").Split(','); if (sp.Length != 2) throw new Exception("sel_requires_2_positions");
+            int s0 = int.Parse(sp[0].Trim(), Inv), s1 = int.Parse(sp[1].Trim(), Inv);
+            if (s0 < 0 || s1 > 4 || s1 != s0 + 1) throw new Exception("sel_must_be_adjacent_lo_hi_0_to_4");
+            x7SelPos = new HashSet<int> { s0, s1 };
+        }
         if (x4Active) throw new Exception("x4_active");
         if (S(a, "verified", "") != "1") throw new Exception("target_file_conflict_check_required");
         uint thash = uint.Parse(S(a, "hash", "0"), Inv);
@@ -709,12 +740,13 @@ public class WpsBreachLab : Script
                     }
                 }
                 finally { x7Dormant = false; }
-                Row("x7_sections", "count", x7SecLabs.Count, "secW", secW, "model", requested, "plain", plainModel, "pat", patK == null ? "uniform" : string.Join(",", patK));
+                Row("x7_sections", "count", x7SecLabs.Count, "secW", secW, "model", requested, "plain", plainModel, "pat", patK == null ? "uniform" : string.Join(",", patK), "sel", x7SelPos == null ? "all" : string.Join(",", x7SelPos));
             }
             x7Twin.U0 = cuMid - half; x7Twin.U1 = cuMid + half; x7Twin.Nu = Math.Max(1, (int)Math.Floor((x7Twin.U1 - x7Twin.U0) / x7Twin.P));
             if (!sectional) { x7Twin.Index = 0; x7Twin.Anchor = AttachNativeAnchor(x7Twin.Wall); ConfigureWall(x7Twin); }
             X7SetDormant(true);
             if (!sectional) { labHandles.Add(x7Twin.Wall.Handle); labHandles.Add(x7Twin.Anchor.Handle); }
+            if (sectional) for (int si2 = 0; si2 < x7SecLabs.Count; si2++) x7SecStart[X7PosOf(si2)] = x7SecLabs[si2].Wall.Position;
             x7Twin.Start = x7Twin.Wall.Position; x7Twin.StartUp = x7Twin.Wall.UpVector; x7Twin.StartRight = x7Twin.Wall.RightVector;
             for (int f = 0; f < 90; f++) { Yield(); if (f == 30) X7SetDormant(true); }
             Row("x7_stage", "at", "twin_dormant", "visible", x7Twin.Wall.IsVisible, "frag", x7Twin.Wall.IsFragmentObject, "wallX", x7Twin.Wall.Position.X, "wallY", x7Twin.Wall.Position.Y, "wallZ", x7Twin.Wall.Position.Z, "heading", x7Twin.Wall.Heading, "attached", x7Twin.Wall.IsAttachedTo(x7Twin.Anchor));
@@ -902,6 +934,7 @@ public class WpsBreachLab : Script
         for (int i = baselineN; i < frameMs.Count; i++) if (ctr >= 0 && frameNo[i] >= ctr - 8 && frameNo[i] <= ctr + 90 && frameMs[i] > winMax) { winMax = frameMs[i]; winFrame = frameNo[i]; }
         int over50 = 0, over100 = 0; for (int i = baselineN; i < frameMs.Count; i++) { if (frameMs[i] > 50) over50++; if (frameMs[i] > 100) over100++; }
         foreach (X7Frame fr in trace) Row("x7_track", "label", label, "frame", fr.Frame, "ms", fr.Ms - fireMs, "frameMs", fr.FrameMs, "t", fr.T, "u", fr.U, "v", fr.V, "vt", fr.Vt, "speed", fr.Speed, "ttcMs", fr.Ttc, "onCourse", fr.On, "proj", fr.Proj);
+        if (x7SecLabs.Count > 1) X7SecState(label);
         if (probeOn)
         {
             foreach (string[] pr in probeRows) Row("x7_probe", "label", label, "frame", int.Parse(pr[0], Inv), "dFrame", pr[1], "probeMs", double.Parse(pr[2], Inv), "strips_blocked_debris_other", pr[3]);
@@ -1059,7 +1092,7 @@ public class WpsBreachLab : Script
         finally
         {
             if (x7Hidden) Function.Call(Hash.REMOVE_MODEL_HIDE, x7HidePos.X, x7HidePos.Y, x7HidePos.Z, X7HideRadius, x7HideModel, false);
-            x7Hidden = false; x7Committed = false; x7State = "None"; x7Twin = null; x7SecLabs.Clear(); x7SecHandles.Clear();
+            x7Hidden = false; x7Committed = false; x7State = "None"; x7Twin = null; x7SecLabs.Clear(); x7SecHandles.Clear(); x7SelPos = null;
         }
         for (int f = 0; f < 60; f++) Yield();
         // Model hide invalidates the original handle. Reacquire before restore witness (X5 limitation).

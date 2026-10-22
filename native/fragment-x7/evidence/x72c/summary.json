@@ -1,0 +1,4 @@
+{"result":"PASS","experiment":"five independent j1400 sections; native damage/breaking enabled on 2 adjacent selected sections only, other 3 protected via SET_DISABLE_FRAG_DAMAGE/SET_DISABLE_BREAKING/SET_ENTITY_CAN_BE_DAMAGED, all visible, solid, anchored",
+"shots":"shots.json","fallbackNeeded":false,
+"drivers":{"WpsBreachLabX7.3.cs sha256 prefix":"B00ECCAE1699B324AE53","reproduced_by":"build_x7.py X72C_PATCHES"},
+"nextStep":"derive sel at commit from predicted impact U (ImpactSectionSelector) and re-run center/+0.65/-0.65/off-aim shots"}

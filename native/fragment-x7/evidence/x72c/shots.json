@@ -1,0 +1,326 @@
+[
+ {
+  "label": "x72c_sel23_center",
+  "selectedPositions": "2,3",
+  "aimU": 0,
+  "nativeParts": 2,
+  "secState_pos0to4": [
+   {
+    "pos": 0,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 1,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 2,
+    "selected": true,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 3,
+    "selected": true,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 4,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   }
+  ],
+  "finalProbe_strip0to4_blockedDebrisOther": "300 300 000 000 300",
+  "firstDetachFrameAfterExplosion_byStrip": [
+   null,
+   null,
+   2,
+   3,
+   null
+  ],
+  "maskRow_cols0to24": "1111111111000000000011111",
+  "twinBlockedWitness": 3,
+  "originalBlockedAfterSwap": 0,
+  "commitToExplosionFrames": 2,
+  "commitCallMs": 0.446,
+  "baselineMedianMs": 6.964,
+  "windowMaxMs": 10.273,
+  "over50": 0,
+  "probeMeanMs": 0.335,
+  "probeMaxMs": 1.339,
+  "debrisRows": 67,
+  "run": "20261022-161716-263440",
+  "walk": {
+   "crossed": true,
+   "passed": true,
+   "crossingU": 0.228,
+   "laneU": 0.232,
+   "laneWidthM": 1,
+   "outsideFootprint": false,
+   "maxRise": 0
+  },
+  "restoredOriginal9of9": 9
+ },
+ {
+  "label": "x72c_sel34_off065",
+  "selectedPositions": "3,4",
+  "aimU": 0.65,
+  "nativeParts": 2,
+  "secState_pos0to4": [
+   {
+    "pos": 0,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 1,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 2,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 3,
+    "selected": true,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0.001,
+    "rootAlive": true
+   },
+   {
+    "pos": 4,
+    "selected": true,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   }
+  ],
+  "finalProbe_strip0to4_blockedDebrisOther": "300 300 300 000 000",
+  "firstDetachFrameAfterExplosion_byStrip": [
+   null,
+   null,
+   null,
+   2,
+   3
+  ],
+  "maskRow_cols0to24": "1111111111111110000000000",
+  "twinBlockedWitness": 6,
+  "originalBlockedAfterSwap": 0,
+  "commitToExplosionFrames": 1,
+  "commitCallMs": 0.08,
+  "baselineMedianMs": 6.897,
+  "windowMaxMs": 11.505,
+  "over50": 0,
+  "probeMeanMs": 0.276,
+  "probeMaxMs": 0.319,
+  "debrisRows": 75,
+  "run": "20261022-161803-8c3a49",
+  "walk": {
+   "crossed": true,
+   "passed": true,
+   "crossingU": 0.687,
+   "laneU": 0.682,
+   "laneWidthM": 0.9,
+   "outsideFootprint": false,
+   "maxRise": 0
+  },
+  "restoredOriginal9of9": 9
+ },
+ {
+  "label": "x72c_sel34_hit_protected_center",
+  "selectedPositions": "3,4",
+  "aimU": 0,
+  "nativeParts": 2,
+  "secState_pos0to4": [
+   {
+    "pos": 0,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 1,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 2,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 3,
+    "selected": true,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 4,
+    "selected": true,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   }
+  ],
+  "finalProbe_strip0to4_blockedDebrisOther": "300 300 300 000 000",
+  "firstDetachFrameAfterExplosion_byStrip": [
+   null,
+   null,
+   null,
+   3,
+   6
+  ],
+  "maskRow_cols0to24": "1111111111111110000000000",
+  "twinBlockedWitness": 6,
+  "originalBlockedAfterSwap": 0,
+  "commitToExplosionFrames": 2,
+  "commitCallMs": 0.08,
+  "baselineMedianMs": 7.246,
+  "windowMaxMs": 11.158,
+  "over50": 0,
+  "probeMeanMs": 0.279,
+  "probeMaxMs": 0.321,
+  "debrisRows": 65,
+  "run": "20261022-161835-8b70f4",
+  "walk": null,
+  "restoredOriginal9of9": 9
+ },
+ {
+  "label": "x72c_sel23_center_repeat",
+  "selectedPositions": "2,3",
+  "aimU": 0,
+  "nativeParts": 2,
+  "secState_pos0to4": [
+   {
+    "pos": 0,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 1,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 2,
+    "selected": true,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 3,
+    "selected": true,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   },
+   {
+    "pos": 4,
+    "selected": false,
+    "exists": true,
+    "visible": true,
+    "attached": true,
+    "moved": 0,
+    "rootAlive": true
+   }
+  ],
+  "finalProbe_strip0to4_blockedDebrisOther": "300 300 000 000 300",
+  "firstDetachFrameAfterExplosion_byStrip": [
+   null,
+   null,
+   2,
+   3,
+   null
+  ],
+  "maskRow_cols0to24": "1111111111000000000011111",
+  "twinBlockedWitness": 3,
+  "originalBlockedAfterSwap": 0,
+  "commitToExplosionFrames": 1,
+  "commitCallMs": 0.098,
+  "baselineMedianMs": 6.901,
+  "windowMaxMs": 11.781,
+  "over50": 0,
+  "probeMeanMs": 0.307,
+  "probeMaxMs": 1.036,
+  "debrisRows": 75,
+  "run": "20261022-161858-1d9ee1",
+  "walk": {
+   "crossed": true,
+   "passed": true,
+   "crossingU": 0.286,
+   "laneU": 0.232,
+   "laneWidthM": 1,
+   "outsideFootprint": false,
+   "maxRise": 0
+  },
+  "restoredOriginal9of9": 9
+ }
+]
