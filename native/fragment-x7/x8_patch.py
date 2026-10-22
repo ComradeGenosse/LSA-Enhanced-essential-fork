@@ -55,4 +55,7 @@ def apply_x8(source: str) -> str:
     # The pure C# source starts with using directives, which must be at file top.
     # Source already imports System and System.Collections.Generic.
     catalog = catalog.replace("using System;\n", "", 1).replace("using System.Collections.Generic;\n", "", 1).lstrip()
-    return source.rstrip() + "\n\n" + catalog
+    anchor = "\n\n// Baseline provenance guard generated verbatim"
+    if source.count(anchor) != 1:
+        raise RuntimeError("X8 selector insertion marker missing")
+    return source.replace(anchor, "\n\n" + catalog.rstrip() + anchor, 1)
