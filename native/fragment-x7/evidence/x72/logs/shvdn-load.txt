@@ -1,0 +1,4 @@
+[08:20:02] [DEBUG] Successfully compiled WpsBreachLabX7.3.cs.
+[08:20:02] [INFO] Found 1 script(s) in WpsBreachLabX7.3.cs resolved to API version 3.9.0 (target API version: 3.9.0).
+[08:20:02] [DEBUG] Instantiating script WpsBreachLab ...
+[08:20:02] [INFO] Started script WpsBreachLab.
