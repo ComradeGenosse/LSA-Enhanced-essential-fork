@@ -12,4 +12,4 @@ This is a dated audit of experimental branch state at `a613f8e2987fba85e63c4444b
 
 Publishing this review does not change game code, deployment settings or the source experiment's results. Source links are repository-relative; machine-specific runtime details in the audit describe the inspected PC.
 
-Offline implementation follow-up: [P2 controller adoption runbook](../GTA-CONTROLLER-RUNBOOK.md) and [proposed root AGENTS addition](../AGENTS.proposed.md). These are source/offline candidates only; no installed or live-session adoption is claimed. The [X7.2b source report](../../../../native/fragment-x7/evidence/x72b/RESULTS.md) now contains a generated correction from all eight structured records.
+Offline implementation follow-up: [P2 controller adoption runbook](../GTA-CONTROLLER-RUNBOOK.md) and [proposed root AGENTS addition](../AGENTS.proposed.md). These are source/offline candidates only; no installed or live-session adoption is claimed. The [X7.2b source report](../../../native/fragment-x7/evidence/x72b/RESULTS.md) now contains a generated correction from all eight structured records.
