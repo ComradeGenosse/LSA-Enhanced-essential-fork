@@ -8,9 +8,7 @@ def apply_x8(source: str) -> str:
     changes = [
         ("dispatch", '''        switch (verb)
         {
-            case "x7prepare":''', '''        // While X8 holds a lease, never permit bare singleton X7 commands
-        // to bypass the placement catalog and its restoration ledger.
-        if (x8Owner != null && verb.StartsWith("x7", StringComparison.Ordinal))
+            case "x7prepare":''', '''        if (x8Owner != null && verb.StartsWith("x7", StringComparison.Ordinal))
             throw new Exception("x8_owner_requires_x8_command");
         switch (verb)
         {
