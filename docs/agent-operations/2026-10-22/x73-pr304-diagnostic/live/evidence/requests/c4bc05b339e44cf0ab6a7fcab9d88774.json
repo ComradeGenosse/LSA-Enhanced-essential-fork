@@ -1,0 +1,14 @@
+{
+  "requestId": "c4bc05b339e44cf0ab6a7fcab9d88774",
+  "fence": "1c1abf074c6848a4a9c6b2557907edf4",
+  "sessionId": "x73-diag-one-shot-20261022",
+  "experimentId": "X7.3-p2-auto-impact",
+  "trialId": "smoke-shot",
+  "command": "x7shot label=p2smoke_auto_center aimu=0 aimv=0.80 back=4 probe=1 horizon=60",
+  "expected": {
+    "pid": 32244,
+    "loadedUtc": "2026-10-22T19:53:21.1486139Z",
+    "scriptSha256": "1e77f4d82e681030132010d97cf6386c4a45234430ecab89e198d2955f59cc64"
+  },
+  "expiresUnix": 1792698922.7591345
+}

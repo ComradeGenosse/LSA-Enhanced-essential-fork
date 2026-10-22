@@ -1,0 +1,16 @@
+PASS frozen spec dimensions
+PASS observed profile examples
+PASS pair ties and one-ULP neighbours
+PASS float-origin coordinates keep strict bounds
+PASS all section seams and sheet edges
+PASS reject sheet misses and empty top band
+PASS reject nonfinite hit coordinates
+PASS oblique prediction uses intersection, not present U
+PASS normal direction and already-crossed rejection
+PASS projection horizon and exact-face boundary
+PASS projected miss is rejected without clamping
+PASS reject every nonfinite projection input
+PASS overflow cannot select a section
+PASS dense independent nearest-pair oracle and determinism
+PASS projection invariant under T-origin translation
+PASS: 15 deterministic tests, 120221 assertions. No GTA/native calls.

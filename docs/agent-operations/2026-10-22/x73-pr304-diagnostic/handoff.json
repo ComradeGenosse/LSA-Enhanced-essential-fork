@@ -1,0 +1,21 @@
+{
+  "state": "GTA_STOPPED_FILESYSTEM_RESTORED_WORLD_FAILED",
+  "operator": "codex",
+  "publisher": "codex",
+  "candidate": "6faf2e8cbef6c27f32b96b811a0f01f1d0f40505",
+  "driverSha256": "1e77f4d82e681030132010d97cf6386c4a45234430ecab89e198d2955f59cc64",
+  "session": "x73-diag-one-shot-20261022",
+  "authorization": "Chris authorizes one controlled diagnostic shot on PR304, rollback and separate draft PR; no second shot or X8",
+  "acknowledgedBy": "codex",
+  "backup": "C:\\Users\\Chris.COMRADE\\Documents\\Codex\\2026-10-22\\run-one-controlled-windows-gta-diagnostic\\work\\backup",
+  "baseline": "baseline.json",
+  "nextAction": "Offline report only; no second shot, merge or X8",
+  "outcome": {
+    "command": "FAILED",
+    "gameplay": "FAIL",
+    "world": "FAIL_0_OF_9",
+    "filesystem": "PASS_4_HASHES_3_ABSENT",
+    "gtaStopped": true
+  },
+  "controllerReleased": true
+}
