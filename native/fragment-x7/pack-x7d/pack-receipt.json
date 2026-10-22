@@ -1,0 +1,13 @@
+{
+  "source": "actual CodeWalker pack; GTA test pending",
+  "sha256": "22DF444C4DE5BD2C73D1AFD65C999AEE1DB15F1D00BA27193E8E06DC09CD8AA0",
+  "models": [
+    "lsa_x7d_sec_j1400",
+    "lsa_x7d_secp_j1400",
+    "lsa_x7d_sec_j1800",
+    "lsa_x7d_secp_j1800",
+    "lsa_x7d_sec_j2400",
+    "lsa_x7d_secp_j2400"
+  ],
+  "pack": "lsa_fence_x7d"
+}

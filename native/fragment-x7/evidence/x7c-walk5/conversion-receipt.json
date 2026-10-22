@@ -1,0 +1,21 @@
+{
+    "models":  [
+                   {
+                       "bones":  6,
+                       "sha256":  "B77B57D8AB2ADAE9EAC93EBFABEFA5388D2B6BCA52209AD6C4424A19DEE2F6AA",
+                       "name":  "lsa_x7c_walk5_j1000",
+                       "version":  171
+                   },
+                   {
+                       "bones":  6,
+                       "sha256":  "7C35757C8B344DE7AD13EA7C57FBB522A17F0C6FE3BEF2F9170EC5BEEC0A8580",
+                       "name":  "lsa_x7c_walk5_j550",
+                       "version":  171
+                   }
+               ],
+    "ytypSha256":  "4D948DC207F4B0671715EA5CEF9294FC2C7BDD8066A240137964EC063E2CDA77",
+    "source":  "actual Windows conversion; GTA runtime acceptance still pending",
+    "archetypes":  2,
+    "writer":  "CodeWalker dev48: XmlYft EnsureGen9 and XmlMeta.GetRSCData",
+    "ytyp":  "lsa_x7c"
+}

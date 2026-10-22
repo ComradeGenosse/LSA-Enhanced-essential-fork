@@ -1,0 +1,3 @@
+{"t":9239,"frame":39197,"kind":"header","script":"WpsBreachLabX7.3.cs","version":"X7-0.1","scriptSha256":"e16d89ad3c48faa86416f649ba3d52cea0093e4d064fed3f4276fd7f7975750d","shvdnApi":"3.9.0.0","gameBuild":"2.0.1158.16","loadedUtc":"2026-10-22T14:01:54.6920814Z","pid":26552,"autoLoadScripts":"AutoLoadScripts=true","pools":{"props":379,"propCap":2300,"colliders":3,"colliderCap":228,"peds":45,"pedCap":256,"vehicles":49,"vehicleCap":300,"projectiles":1,"pickups":0},"commands":["x7cam t=-5.5 u=1.5 z=1.5 lu=0 lz=1.1"]}
+{"t":9243,"frame":39197,"kind":"x7_cam","t":-5.5,"u":1.5,"z":1.5}
+{"t":9243,"frame":39197,"kind":"done","runId":"20261022-140203-cc6635"}

@@ -1,0 +1,33 @@
+{"t":157714,"frame":19034,"kind":"header","script":"WpsBreachLabX7.3.cs","version":"X7-0.1","scriptSha256":"1d5b7f5954de252c809fad927dbe9ef41dbf0f8eeda5b87e4216a51f39ad209c","shvdnApi":"3.9.0.0","gameBuild":"2.0.1158.16","loadedUtc":"2026-10-21T23:48:45.1054645Z","autoLoadScripts":"AutoLoadScripts=true","pools":{"props":413,"propCap":2300,"colliders":7,"colliderCap":228,"peds":56,"pedCap":256,"vehicles":119,"vehicleCap":300,"projectiles":1,"pickups":4},"commands":["x7restore","x7prepare model=lsa_x7a_j1000 verified=1 hash=1185366416 tx=1065.758 ty=-1773.716 tz=34.851 px=1072 py=-1772.5 pz=36.5 pu=1.5 back=9","x7cam t=-5.5 u=1.5 z=1.5 lu=0 lz=1.1"]}
+{"t":157714,"frame":19034,"kind":"x3_cleanup_skipped","trial":"","handle":273411,"model":1475200408,"reason":"not verified detached from a lab wall"}
+{"t":157714,"frame":19034,"kind":"x3_cleanup_skipped","trial":"","handle":274435,"model":2586970039,"reason":"not verified detached from a lab wall"}
+{"t":157714,"frame":19034,"kind":"x3_cleanup_skipped","trial":"","handle":275715,"model":3354248223,"reason":"not verified detached from a lab wall"}
+{"t":157714,"frame":19034,"kind":"x3_cleanup_skipped","trial":"","handle":275971,"model":3354248223,"reason":"not verified detached from a lab wall"}
+{"t":157714,"frame":19034,"kind":"x3_cleanup_skipped","trial":"","handle":276227,"model":3354248223,"reason":"not verified detached from a lab wall"}
+{"t":157714,"frame":19034,"kind":"x3_cleanup_skipped","trial":"","handle":276483,"model":3354248223,"reason":"not verified detached from a lab wall"}
+{"t":157714,"frame":19034,"kind":"x3_cleanup_skipped","trial":"","handle":276739,"model":3354248223,"reason":"not verified detached from a lab wall"}
+{"t":158297,"frame":19094,"kind":"x7_witness","label":"restored_original","blocked":9,"total":9,"otherHits":0}
+{"t":158297,"frame":19094,"kind":"x7_restored","originalBlocked":9,"originalExists":true,"originalVisibleFlag":true,"restoredToOriginal":true,"pools":{"props":389,"propCap":2300,"colliders":8,"colliderCap":228,"peds":45,"pedCap":256,"vehicles":118,"vehicleCap":300,"projectiles":1,"pickups":4}}
+{"t":158299,"frame":19094,"kind":"x7_time","savedH":23,"savedM":55,"savedS":15}
+{"t":159822,"frame":19264,"kind":"x7_target","hash":1185366416,"x":1065.758,"y":-1773.716,"z":34.851,"heading":110.189,"width":2.536,"height":2.351,"matchDistance":0}
+{"t":159822,"frame":19264,"kind":"x7_witness","label":"original_before","blocked":9,"total":9,"otherHits":0}
+{"t":159822,"frame":19264,"kind":"x7_stage","at":"twin_spawn_start"}
+{"t":159953,"frame":19279,"kind":"native_anchor","model":"prop_barier_conc_01a","attached":true,"collisionEnabled":false,"frozen":true,"breakForce":1000000000000}
+{"t":160735,"frame":19369,"kind":"x7_stage","at":"twin_dormant","visible":false,"frag":true,"wallX":1065.383,"wallY":-1772.575,"wallZ":34.827,"heading":110.189,"attached":true}
+{"t":160735,"frame":19369,"trial":"","entity":62978,"kind":"t3:m1185366416"}
+{"t":160735,"frame":19369,"trial":"","entity":0,"kind":"map_or_zero"}
+{"t":160735,"frame":19369,"trial":"","entity":62978,"kind":"t3:m1185366416"}
+{"t":160735,"frame":19369,"trial":"","entity":0,"kind":"map_or_zero"}
+{"t":160735,"frame":19369,"trial":"","entity":62978,"kind":"t3:m1185366416"}
+{"t":160735,"frame":19369,"trial":"","entity":0,"kind":"map_or_zero"}
+{"t":160735,"frame":19369,"trial":"","entity":62978,"kind":"t3:m1185366416"}
+{"t":160735,"frame":19369,"trial":"","entity":62978,"kind":"t3:m1185366416"}
+{"t":160735,"frame":19369,"trial":"","entity":62978,"kind":"t3:m1185366416"}
+{"t":160736,"frame":19369,"trial":"","entity":62978,"kind":"t3:m1185366416"}
+{"t":160736,"frame":19369,"trial":"","entity":62978,"kind":"t3:m1185366416"}
+{"t":160736,"frame":19369,"trial":"","entity":62978,"kind":"t3:m1185366416"}
+{"t":160736,"frame":19369,"kind":"x7_witness","label":"twin_dormant","blocked":0,"total":9,"otherHits":9}
+{"t":160736,"frame":19369,"kind":"x7_witness","label":"original_armed","blocked":9,"total":9,"otherHits":0}
+{"t":160736,"frame":19369,"kind":"x7_armed","originalBlocked":9,"twinBlocked":0,"assetWidth":2.536,"assetHeight":2.351,"playerX":1073.312,"playerY":-1768.061,"playerZ":35.721,"pools":{"props":382,"propCap":2300,"colliders":9,"colliderCap":228,"peds":48,"pedCap":256,"vehicles":122,"vehicleCap":300,"projectiles":1,"pickups":4}}
+{"frame":19369,"kind":"x7_cam","t":-5.5,"u":1.5,"z":1.5}
+{"t":160737,"frame":19369,"kind":"done","runId":"20261021-235122-399333"}

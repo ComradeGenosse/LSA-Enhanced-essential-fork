@@ -1,0 +1,7 @@
+__pycache__/
+*.blend1
+*.previous-*
+assets/
+pack/
+evidence/*.jsonl
+evidence/*.png

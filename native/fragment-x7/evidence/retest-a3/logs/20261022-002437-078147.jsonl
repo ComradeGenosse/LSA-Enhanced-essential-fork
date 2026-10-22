@@ -1,0 +1,8 @@
+{"t":181679,"frame":14280,"kind":"header","script":"WpsBreachLabX7.3.cs","version":"X7-0.1","scriptSha256":"6b3aa048a4836529ea59601d04f578e72c389b0a9cec09076da07a7f3341b692","shvdnApi":"3.9.0.0","gameBuild":"2.0.1158.16","loadedUtc":"2026-10-22T00:21:36.1125084Z","autoLoadScripts":"AutoLoadScripts=true","pools":{"props":418,"propCap":2300,"colliders":17,"colliderCap":228,"peds":78,"pedCap":256,"vehicles":131,"vehicleCap":300,"projectiles":1,"pickups":0},"commands":["x7walk"]}
+{"t":181905,"frame":14303,"kind":"x7_opening_mask","dz":0.5,"u0":-1.118,"mask":"11111111111111111111111"}
+{"t":181905,"frame":14303,"kind":"x7_opening_mask","dz":0.9,"u0":-1.118,"mask":"11111110000000001111111"}
+{"t":181905,"frame":14303,"kind":"x7_opening_mask","dz":1.3,"u0":-1.118,"mask":"11111110000000001111111"}
+{"t":181905,"frame":14303,"kind":"x7_opening_mask","dz":1.7,"u0":-1.118,"mask":"11111111111111111111111"}
+{"t":181905,"frame":14303,"kind":"x7_opening","found":false,"u":0,"widthM":0,"columnsClear":0,"columns":23,"nativeParts":4}
+{"t":181905,"frame":14303,"kind":"x7_player_result","isPlayer":true,"crossed":false,"passed":false,"reason":"no_clear_lane_0.9m"}
+{"t":181905,"frame":14303,"kind":"done","runId":"20261022-002437-078147"}

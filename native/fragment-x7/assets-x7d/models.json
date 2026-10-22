@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "layout": "sec1",
+  "models": [
+    {
+      "name": "lsa_x7d_sec_j1400",
+      "layout": "sec1",
+      "strength": 1400,
+      "min_damage_force": 280.0,
+      "health": 1400,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "X7.2b independent-prop experiment; GTA UNTESTED",
+      "post": false
+    },
+    {
+      "name": "lsa_x7d_secp_j1400",
+      "layout": "sec1",
+      "strength": 1400,
+      "min_damage_force": 280.0,
+      "health": 1400,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "X7.2b independent-prop experiment; GTA UNTESTED",
+      "post": true
+    },
+    {
+      "name": "lsa_x7d_sec_j1800",
+      "layout": "sec1",
+      "strength": 1800,
+      "min_damage_force": 360.0,
+      "health": 1800,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "X7.2b independent-prop experiment; GTA UNTESTED",
+      "post": false
+    },
+    {
+      "name": "lsa_x7d_secp_j1800",
+      "layout": "sec1",
+      "strength": 1800,
+      "min_damage_force": 360.0,
+      "health": 1800,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "X7.2b independent-prop experiment; GTA UNTESTED",
+      "post": true
+    },
+    {
+      "name": "lsa_x7d_sec_j2400",
+      "layout": "sec1",
+      "strength": 2400,
+      "min_damage_force": 480.0,
+      "health": 2400,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "X7.2b independent-prop experiment; GTA UNTESTED",
+      "post": false
+    },
+    {
+      "name": "lsa_x7d_secp_j2400",
+      "layout": "sec1",
+      "strength": 2400,
+      "min_damage_force": 480.0,
+      "health": 2400,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "X7.2b independent-prop experiment; GTA UNTESTED",
+      "post": true
+    }
+  ],
+  "allowlist": [
+    "lsa_x7d_sec_j1400",
+    "lsa_x7d_secp_j1400",
+    "lsa_x7d_sec_j1800",
+    "lsa_x7d_secp_j1800",
+    "lsa_x7d_sec_j2400",
+    "lsa_x7d_secp_j2400"
+  ],
+  "bounds_m": [
+    0.5072,
+    0.14,
+    2.351
+  ],
+  "sheet_height_m": 2.131,
+  "groups": 2,
+  "root": {
+    "strength": 10000000,
+    "min_damage_force": 10000000,
+    "health": 10000000
+  },
+  "physics_authority": "RAGE native only",
+  "export_status": "source only; check assets/conversion-receipt.json for actual conversion",
+  "layout_fingerprint": "3e1dbcffbb9cc4b2b8255e49cc37ff4d2f3a3a42fb654b8b5d6a80b7aa40e376"
+}

@@ -1,0 +1,48 @@
+{
+  "variant": "x7d",
+  "rows": [
+    {
+      "relative": "ScriptHookVDotNet.ini",
+      "before": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+      "backup": "0.bak",
+      "installed": "EC36851B7737CA3EA19A8101B5EFBB067A0128A413439D3109EB60D6D0BCA9CA"
+    },
+    {
+      "relative": "onigiri/common/data/dlclist.xml",
+      "before": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234",
+      "backup": "1.bak",
+      "installed": "A1D3045F825594FB82A114FC0EC230D3A85F799624B2BD989E9554651DE1DEC2"
+    },
+    {
+      "relative": "onigiri/dlcpacks/lsa_fence_x7d/dlc.rpf",
+      "before": null,
+      "backup": "2.bak",
+      "installed": "22DF444C4DE5BD2C73D1AFD65C999AEE1DB15F1D00BA27193E8E06DC09CD8AA0"
+    },
+    {
+      "relative": "scripts-x7/WpsBreachLabX7.3.cs",
+      "before": null,
+      "backup": "3.bak",
+      "installed": "B00ECCAE1699B324AE53D02C07A1E7DB0BD2D75CB70915DFF0C62D147ED267FB"
+    },
+    {
+      "relative": "scripts-x7/x7-models.txt",
+      "before": null,
+      "backup": "4.bak",
+      "installed": "A786949C6492072321531AC93A4DC52A5C03FBA976846D1E63177A769CBC4375"
+    }
+  ],
+  "renames": [
+    {
+      "from": "renodx-dlss.addon64",
+      "to": "renodx-dlss.addon64.x72off",
+      "sha256": "D3184429254F09D2F8A50B7F3D10B9B24CC3B630B35AEB81F8CB43BEB9E50AFC"
+    },
+    {
+      "from": "renodx-dlss-hotkey.addon64",
+      "to": "renodx-dlss-hotkey.addon64.x72off",
+      "sha256": "A64BE8C4B00901F31894EFC15238BFDD0BEB6C16B9C545C88C7B3131B49183DB"
+    }
+  ],
+  "phase": "installed"
+}

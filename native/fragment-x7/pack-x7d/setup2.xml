@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SSetupData><deviceName>dlc_lsa_fence_x7d</deviceName><datFile>content.xml</datFile><nameHash>lsa_fence_x7d</nameHash><contentChangeSetGroups><Item><NameHash>GROUP_STARTUP</NameHash><ContentChangeSets><Item>LSA_FENCE_X7_STREAMING</Item></ContentChangeSets></Item></contentChangeSetGroups><startupScript/><scriptCallstackSize value="0"/><type>EXTRACONTENT_LEVEL_PACK</type><order value="100"/><minorOrder value="0"/><isLevelPack value="false"/><dependencyPackHash/><requiredVersion/><subPackCount value="0"/></SSetupData>

@@ -1,0 +1,13 @@
+{
+  "status": "XML generated; Windows GEN9 binary export and reload validation required",
+  "layout": "sec1",
+  "tstar": null,
+  "models": [
+    "lsa_x7d_sec_j1400",
+    "lsa_x7d_secp_j1400",
+    "lsa_x7d_sec_j1800",
+    "lsa_x7d_secp_j1800",
+    "lsa_x7d_sec_j2400",
+    "lsa_x7d_secp_j2400"
+  ]
+}

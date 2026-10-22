@@ -1,0 +1,1026 @@
+{
+  "schema": 1,
+  "source_type": "runtime_X7_JSONL_only",
+  "shots": [
+    {
+      "label": "a01_ctl_p0",
+      "model": "lsa_x7a_ctl",
+      "aimU": 0.0,
+      "aimV": 1.05,
+      "nativeParts": 30,
+      "removedAreaM2": 5.25,
+      "blockedFraction": 0.0,
+      "debrisFraction": 0.0324,
+      "otherHitFraction": 0.0743,
+      "centroid": [
+        -0.007999999999999837,
+        1.0599999999999976
+      ],
+      "centroidErrorM": 0.0128,
+      "largestRemovedComponentM2": 5.25,
+      "pieceStates": [
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 25,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        }
+      ],
+      "class": "WHOLE",
+      "mask": "222220222222000000000000002222223000000000000000000000003300000000000000000000000330000000000000000000000033000000000000000000000003300000000000000000000000330000000000000000000000033000000000000000000000003300000000000000000000000330000000000000000000000033000000000000000000000003300000000000000000000000330000000000000000000000033000000000000000000000003300000000000000000000000330000000000000000000000033000000000000000000000003300000000000000000000000330000000000000000000000033000000000000000000000003300000000000000000",
+      "nu": 25,
+      "nv": 21,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.06,
+      "commitEarlyFrames": 3,
+      "fallbackUsed": false,
+      "commitMs": 0.086,
+      "late": false,
+      "committed": true,
+      "source": "20261021-234953-58f917.jsonl",
+      "windowMaxMs": 11.357,
+      "walk": null,
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 0,
+        "postTotal": 3,
+        "topBlocked": 0,
+        "bottomBlocked": 0,
+        "bandTotal": 24
+      }
+    },
+    {
+      "label": "a02_sx_p0",
+      "model": "lsa_x7a_sx",
+      "aimU": 0.0,
+      "aimV": 1.05,
+      "nativeParts": 0,
+      "removedAreaM2": 0.25,
+      "blockedFraction": 0.9524,
+      "debrisFraction": 0.0,
+      "otherHitFraction": 0.0038,
+      "centroid": [
+        -0.00799999999999983,
+        0.06000000000000003
+      ],
+      "centroidErrorM": 0.99,
+      "largestRemovedComponentM2": 0.25,
+      "pieceStates": [
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 15,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 25,
+          "blocked": 25,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        }
+      ],
+      "class": "SMALL",
+      "mask": "000000330000000000000000011111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "nu": 25,
+      "nv": 21,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.06,
+      "commitEarlyFrames": 3,
+      "fallbackUsed": false,
+      "commitMs": 0.065,
+      "late": false,
+      "committed": true,
+      "source": "20261021-235030-6682e8.jsonl",
+      "windowMaxMs": 10.886,
+      "walk": null,
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 3,
+        "postTotal": 3,
+        "topBlocked": 24,
+        "bottomBlocked": 0,
+        "bandTotal": 24
+      }
+    },
+    {
+      "label": "a03_hx_p0",
+      "model": "lsa_x7a_hx",
+      "aimU": 0.0,
+      "aimV": 1.05,
+      "nativeParts": 5,
+      "removedAreaM2": 1.17,
+      "blockedFraction": 0.7771,
+      "debrisFraction": 0.0133,
+      "otherHitFraction": 0.0,
+      "centroid": [
+        0.034735042735042854,
+        0.8394871794871794
+      ],
+      "centroidErrorM": 0.2134,
+      "largestRemovedComponentM2": 0.92,
+      "pieceStates": [
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 15,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 5,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 4,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 25,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        }
+      ],
+      "class": "LOCAL",
+      "mask": "220222220000000000000000011111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111111110000111111111111111111111000011111111111111111111100001111111111111111111110000111111111111111111111000011111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "nu": 25,
+      "nv": 21,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.06,
+      "commitEarlyFrames": 3,
+      "fallbackUsed": false,
+      "commitMs": 0.066,
+      "late": false,
+      "committed": true,
+      "source": "20261021-235107-9cca38.jsonl",
+      "windowMaxMs": 10.483,
+      "walk": null,
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 3,
+        "postTotal": 3,
+        "topBlocked": 24,
+        "bottomBlocked": 0,
+        "bandTotal": 24
+      }
+    },
+    {
+      "label": "a04_j1000_p0",
+      "model": "lsa_x7a_j1000",
+      "aimU": 0.0,
+      "aimV": 1.05,
+      "nativeParts": 5,
+      "removedAreaM2": 1.17,
+      "blockedFraction": 0.7771,
+      "debrisFraction": 0.0076,
+      "otherHitFraction": 0.0019,
+      "centroid": [
+        0.034735042735042854,
+        0.8394871794871794
+      ],
+      "centroidErrorM": 0.2134,
+      "largestRemovedComponentM2": 0.92,
+      "pieceStates": [
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 15,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 5,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 4,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 25,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        }
+      ],
+      "class": "LOCAL",
+      "mask": "000222230000000000000000011111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111111110000111111111111111111111000011111111111111111111100001111111111111111111110000111111111111111111111000011111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "nu": 25,
+      "nv": 21,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.06,
+      "commitEarlyFrames": 3,
+      "fallbackUsed": false,
+      "commitMs": 0.068,
+      "late": false,
+      "committed": true,
+      "source": "20261021-235136-bbe3ea.jsonl",
+      "windowMaxMs": 10.804,
+      "walk": null,
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 3,
+        "postTotal": 3,
+        "topBlocked": 24,
+        "bottomBlocked": 0,
+        "bandTotal": 24
+      }
+    },
+    {
+      "label": "a05_j1000f_p0",
+      "model": "lsa_x7a_j1000f",
+      "aimU": 0.0,
+      "aimV": 1.05,
+      "nativeParts": 5,
+      "removedAreaM2": 1.17,
+      "blockedFraction": 0.7771,
+      "debrisFraction": 0.0152,
+      "otherHitFraction": 0.0,
+      "centroid": [
+        0.034735042735042854,
+        0.8394871794871794
+      ],
+      "centroidErrorM": 0.2134,
+      "largestRemovedComponentM2": 0.92,
+      "pieceStates": [
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 15,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 5,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 4,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 25,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 20,
+          "blocked": 20,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 12,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        },
+        {
+          "covered": 16,
+          "blocked": 16,
+          "state": "attached_like"
+        }
+      ],
+      "class": "LOCAL",
+      "mask": "222222220000000000000000011111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111000000000111111111111111100000000011111111111111110000000001111111111111111111110000111111111111111111111000011111111111111111111100001111111111111111111110000111111111111111111111000011111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "nu": 25,
+      "nv": 21,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.06,
+      "commitEarlyFrames": 3,
+      "fallbackUsed": false,
+      "commitMs": 0.062,
+      "late": false,
+      "committed": true,
+      "source": "20261021-235226-b7ab25.jsonl",
+      "windowMaxMs": 10.347,
+      "walk": null,
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 3,
+        "postTotal": 3,
+        "topBlocked": 24,
+        "bottomBlocked": 0,
+        "bandTotal": 24
+      }
+    },
+    {
+      "label": "a06_j1000_p2",
+      "model": "lsa_x7a_j1000",
+      "aimU": -0.7,
+      "aimV": 1.1,
+      "nativeParts": 0,
+      "committed": false,
+      "late": true,
+      "fallbackUsed": false,
+      "error": "missing_x7_mask",
+      "commitEarlyFrames": null,
+      "commitMs": 0,
+      "source": "20261021-235312-d95087.jsonl",
+      "windowMaxMs": 10.5,
+      "walk": null,
+      "restore": {
+        "originalBlocked": 6,
+        "restoredToOriginal": false
+      },
+      "frameBands": null
+    }
+  ],
+  "decision": {
+    "selected_tstar": 1000,
+    "state": "CANDIDATE_ONLY",
+    "note": "Not accepted until position/traversal/safety gate passes"
+  },
+  "session_a_gate": {
+    "pass": false,
+    "reasons": [
+      "P2 not LOCAL",
+      "P3 not LOCAL",
+      "P1 walk missing",
+      "P0/P2 IoU gate failed",
+      "P2 native/predictive gate failed",
+      "P2 original 9/9 restore missing"
+    ],
+    "selected_tstar": 1000
+  },
+  "session_b_gate": {
+    "pass": false,
+    "reasons": [
+      "No accepted Session A T*"
+    ]
+  },
+  "pairwise": []
+}

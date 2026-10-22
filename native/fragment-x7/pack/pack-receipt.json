@@ -1,0 +1,14 @@
+{
+  "sha256": "67E375A66F36BF778A0B777C4140E918C9D0AA944AAE2C8EC3AD05E1A2D0734B",
+  "models": [
+    "lsa_x7c_walk5_j1000",
+    "lsa_x7c_walk5_j550",
+    "lsa_x7c_walk5_j1800",
+    "lsa_x7c_walk5_j3200",
+    "lsa_x7c_walk5_j1300",
+    "lsa_x7c_walk5_j1400",
+    "lsa_x7c_walk5_j1600"
+  ],
+  "source": "actual CodeWalker pack; GTA test pending",
+  "pack": "lsa_fence_x7c"
+}
