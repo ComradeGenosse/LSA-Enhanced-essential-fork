@@ -1,0 +1,17 @@
+{
+  "completedUtc": "2026-10-22T18:00:01.9384194Z",
+  "testedCandidate": "acfe7be9d3e49ecfaf3fdd480afe331bb116f382",
+  "commandOutcome": "ALL_DONE",
+  "gameplayOutcome": "PASS",
+  "worldRestoration": "PASS_9_OF_9",
+  "filesystemRestoration": "PASS",
+  "originalFileHashesMatched": 4,
+  "temporaryFilesAbsent": 3,
+  "shotCount": 1,
+  "gtaStopped": true,
+  "controllerReleased": true,
+  "nativeDriverChanged": false,
+  "generatorChanged": false,
+  "sourceReview": "claude-sonnet-5-5 high",
+  "manualApprovalsNeeded": "None for completed test; merge, another live test, Opus 5.5 or Sol ultra require separate authorization"
+}

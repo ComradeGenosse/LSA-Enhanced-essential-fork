@@ -1,0 +1,14 @@
+{
+  "requestId": "b49da5ae6a1b4fd0b0dad9268766fa3d",
+  "fence": "346e75b667a04a0e94a6a3bedaabcaeb",
+  "sessionId": "x72c-repair-20261022",
+  "experimentId": "X7.2c-p2-smoke",
+  "trialId": "smoke-restore",
+  "command": "x7restore",
+  "expected": {
+    "pid": 62932,
+    "loadedUtc": "2026-10-22T17:55:52.9180734Z",
+    "scriptSha256": "da37a140305ae6d3c0b2b8918aef423aa379926eb05e1ceb9e2840df8746642c"
+  },
+  "expiresUnix": 1792691897.5412412
+}

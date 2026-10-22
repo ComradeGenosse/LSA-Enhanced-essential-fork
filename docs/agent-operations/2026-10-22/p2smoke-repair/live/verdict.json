@@ -1,0 +1,35 @@
+{
+  "experiment": "X7.2c-p2-smoke",
+  "stepsCompleted": [
+    "prepare",
+    "camera",
+    "shot",
+    "walk",
+    "restore"
+  ],
+  "requestIds": [
+    "53d4f90cffa647bda8557823b04459d7",
+    "aa88b18851f940c29c4ba9a46732b705",
+    "4514a90039b14e16a2b61c82d3095747",
+    "5cc488f8a4f645678e28a412dff98bae",
+    "b49da5ae6a1b4fd0b0dad9268766fa3d"
+  ],
+  "error": null,
+  "restoreAfterFailure": null,
+  "commandOutcome": "ALL_DONE",
+  "filesystemRestoration": "NOT_ASSESSED_RUN_verify_hashes_AFTER_GTA_STOPPED",
+  "checks": {
+    "armed_original_9_of_9_twin_0": true,
+    "real_projectile_committed_before_explosion": true,
+    "native_fracture_exactly_two_parts": true,
+    "original_hidden_after_swap": true,
+    "five_section_states_logged": true,
+    "selected_positions_are_2_3": true,
+    "protected_sections_intact": true,
+    "final_probe_open_only_at_selected": true,
+    "no_frame_over_50ms": true,
+    "player_traversed_opening": true
+  },
+  "gameplayOutcome": "PASS",
+  "worldRestoration": "PASS_9_OF_9"
+}

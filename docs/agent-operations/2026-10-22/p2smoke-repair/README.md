@@ -72,4 +72,51 @@ samples are about 7 ms apart. TTC predicts the target plane, not the exact colli
 instant; horizon=60 is an empirically justified margin, not a mathematical guarantee.
 Codex retains the decision and requires live evidence.
 
-Live result and stopped-game restoration: pending. No successful acceptance claimed yet.
+## Live result: PASS, one shot
+
+Exact tested candidate `acfe7be9d3e49ecfaf3fdd480afe331bb116f382`; both CI checks
+passed before installation: X7 run 39826570171 and Windows run 39826570260.
+The first Windows run exposed a transient heartbeat read sharing conflict on
+Python 3.12. A bounded PermissionError read retry fixed it; no command is replayed.
+
+Runtime PID 62932, loaded `2026-10-22T17:55:52.9180734Z`, approved driver hash above.
+Session `x72c-repair-20261022`, owner Codex. Five correlated requests in
+`live/request-ids.json`; exact run files and SHA256 inventory in `live/evidence/manifest.json`.
+
+| Verdict | Exact result |
+| --- | --- |
+| Commands | ALL_DONE: prepare, camera, one real RPG shot, native player walk, restore |
+| Hot swap | committed=true, late=false, fallbackUsed=false; four frames / 28 ms before impact |
+| Timing | TTC 65.635 ms, horizon 70.270 ms, commit call 0.470 ms |
+| Native fracture | exactly 2 native parts; selected positions 2,3 open |
+| Neighbors | 0,1,4 visible, anchored, root alive, movement 0; final probes `300 300 000 000 300` |
+| Traversal | actual player crossed, passed=true, 1.0 m lane, crossing U=0.291, outsideFootprint=false, maxRise=0, 1820 ms |
+| Frames | baseline median 6.063 ms; window max 11.881 ms; zero frames over 50 ms |
+| World restoration | PASS_9_OF_9, original exists and visible, restoredToOriginal=true |
+| Filesystem | GTA stopped, all four original SHA256 match and three temporary files absent |
+
+Stopped-game results are separate in `filesystem-restoration.json` and
+`installer-restored.json`; the live adapter's original verdict is preserved verbatim
+and intentionally says filesystem not assessed. Normal quit completed before rollback.
+The final written handoff records restoration before controller ownership release;
+pending was null. No timeout, repeated shot, scripted detachment/blast or merge.
+
+Limits: one known fence/site, RPG, selected pair 2/3 and one trial. The extra horizon
+is a small tested margin, not a general collision predictor correction. Exact identity
+of the old failed restoration's reacquired prop remains unknown. GPU preflight verified
+the existing 80%/460 W power cap only; no preset reapplication or claim about all GPU
+settings. No additional approval is needed to retain this result; merging or another
+live trial remains a separate user decision. Opus 5.5/Sol ultra require confirmation.
+
+Sonnet low reviewed the supplied final structured results through the coordinator
+and agreed that this one trial passes. Codex checked its remaining questions:
+`twinBlocked=3` is the post-shot nine-ray witness hitting the one protected sampled
+column (the other two sampled columns are selected/open), as in the prior successful
+center trial. `twinIntactAfterMiss=false` is expected for a committed shot (defined
+as `!committed && parts == 0`). The raw restore file also contains the separate
+`x7_witness` row with blocked=9, total=9, otherHits=0. Explosion is four frames after
+commit; first fracture is seven frames after commit / three after explosion.
+These clarifications preserve the raw independent review without overstating it.
+
+All 15 collected evidence-file hashes were verified after collection. `FINAL.json`
+joins the separate verdicts. The model queue is stopped; no idle model calls remain.
