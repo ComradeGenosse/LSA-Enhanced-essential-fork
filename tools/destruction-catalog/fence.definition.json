@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "id": "corrugated-fence-x7",
+  "revision": 1,
+  "source_model": "prop_fnccorgm_02e",
+  "layout": "x7_sec1",
+  "section_models": [
+    "lsa_x7d_secp_j1400",
+    "lsa_x7d_sec_j1400",
+    "lsa_x7d_sec_j1400",
+    "lsa_x7d_sec_j1400",
+    "lsa_x7d_sec_j1400"
+  ]
+}

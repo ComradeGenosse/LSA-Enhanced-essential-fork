@@ -1,0 +1,16 @@
+[
+  {
+    "instance_id": "synthetic.fence-a",
+    "definition_id": "corrugated-fence-x7",
+    "source_origin_world": [0, 0, 0],
+    "twin_origin_world": [0, 0, 0],
+    "basis": {"u": [1, 0, 0], "t": [0, 1, 0], "v": [0, 0, 1]}
+  },
+  {
+    "instance_id": "synthetic.fence-b",
+    "definition_id": "corrugated-fence-x7",
+    "source_origin_world": [100, 200, 10],
+    "twin_origin_world": [100.25, 200.5, 10.1],
+    "basis": {"u": [0, 1, 0], "t": [-1, 0, 0], "v": [0, 0, 1]}
+  }
+]
