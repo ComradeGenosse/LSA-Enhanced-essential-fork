@@ -15,7 +15,15 @@ class ProtocolError(RuntimeError):
 
 
 def read(path):
-    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+    # Windows can briefly deny opens while the runtime atomically replaces a heartbeat.
+    # Retry only the read; never republish a command or accept malformed JSON.
+    for attempt in range(20):
+        try:
+            return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+        except PermissionError:
+            if attempt == 19:
+                raise
+            time.sleep(.005)
 
 
 def atomic(path, value):
