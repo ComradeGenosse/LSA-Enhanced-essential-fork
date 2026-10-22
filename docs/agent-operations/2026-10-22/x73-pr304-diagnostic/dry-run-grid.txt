@@ -1,0 +1,181 @@
+{
+  "schema": 1,
+  "layout": "grid6x5",
+  "models": [
+    {
+      "name": "lsa_x7a_ctl",
+      "layout": "grid6x5",
+      "strength": 35,
+      "min_damage_force": 5,
+      "health": 25,
+      "transmission": 0.25,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    },
+    {
+      "name": "lsa_x7a_sx",
+      "layout": "grid6x5",
+      "strength": 10000000.0,
+      "min_damage_force": 5,
+      "health": 25,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    },
+    {
+      "name": "lsa_x7a_hx",
+      "layout": "grid6x5",
+      "strength": 35,
+      "min_damage_force": 10000000.0,
+      "health": 10000000.0,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    },
+    {
+      "name": "lsa_x7a_j300",
+      "layout": "grid6x5",
+      "strength": 300,
+      "min_damage_force": 60.0,
+      "health": 300,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    },
+    {
+      "name": "lsa_x7a_j550",
+      "layout": "grid6x5",
+      "strength": 550,
+      "min_damage_force": 110.0,
+      "health": 550,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    },
+    {
+      "name": "lsa_x7a_j1000",
+      "layout": "grid6x5",
+      "strength": 1000,
+      "min_damage_force": 200.0,
+      "health": 1000,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    },
+    {
+      "name": "lsa_x7a_j1800",
+      "layout": "grid6x5",
+      "strength": 1800,
+      "min_damage_force": 360.0,
+      "health": 1800,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    },
+    {
+      "name": "lsa_x7a_j3200",
+      "layout": "grid6x5",
+      "strength": 3200,
+      "min_damage_force": 640.0,
+      "health": 3200,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    },
+    {
+      "name": "lsa_x7a_j5600",
+      "layout": "grid6x5",
+      "strength": 5600,
+      "min_damage_force": 1120.0,
+      "health": 5600,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    },
+    {
+      "name": "lsa_x7a_j10000",
+      "layout": "grid6x5",
+      "strength": 10000,
+      "min_damage_force": 2000.0,
+      "health": 10000,
+      "transmission": 0,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    },
+    {
+      "name": "lsa_x7a_j1000f",
+      "layout": "grid6x5",
+      "strength": 1000,
+      "min_damage_force": 200.0,
+      "health": 1000,
+      "transmission": 0.25,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    },
+    {
+      "name": "lsa_x7a_j3200f",
+      "layout": "grid6x5",
+      "strength": 3200,
+      "min_damage_force": 640.0,
+      "health": 3200,
+      "transmission": 0.25,
+      "weapon_scale": 1.0,
+      "source": "ASTRA doc16 section7",
+      "post": false
+    }
+  ],
+  "allowlist": [
+    "lsa_x7a_ctl",
+    "lsa_x7a_sx",
+    "lsa_x7a_hx",
+    "lsa_x7a_j300",
+    "lsa_x7a_j550",
+    "lsa_x7a_j1000",
+    "lsa_x7a_j1800",
+    "lsa_x7a_j3200",
+    "lsa_x7a_j5600",
+    "lsa_x7a_j10000",
+    "lsa_x7a_j1000f",
+    "lsa_x7a_j3200f"
+  ],
+  "bounds_m": [
+    2.536,
+    0.14,
+    2.351
+  ],
+  "sheet_height_m": 2.131,
+  "groups": 31,
+  "root": {
+    "strength": 10000000,
+    "min_damage_force": 10000000,
+    "health": 10000000
+  },
+  "physics_authority": "RAGE native only",
+  "export_status": "source only; check assets/conversion-receipt.json for actual conversion",
+  "layout_fingerprint": "c935d0c926d40cf359b9520e27fe12c15249f510859aaafab1dc9f8a289c4af6",
+  "authored_source_sha256": {
+    "lsa_x7a_ctl": "051e2c88ab51881dc7f5a5b21de6bc99e54865b6e7da4f241aa53970387a0961",
+    "lsa_x7a_sx": "059b7a82380a76d3554c6b65724cc4a942ca6ac50230465dfb54e405ffccfff0",
+    "lsa_x7a_hx": "7b6cd15ad016d6b44f3888e722701bab0e14d63372434b9336d8c3e3ea180d03",
+    "lsa_x7a_j300": "2536a60d13bf55a4f78a373cbf8e7d07f751089ef08498dbab968a7411b2d2df",
+    "lsa_x7a_j550": "134bb4ccc29a8818ae03ebfc88f5085073ab2ab60576e35ac99d7fd05ad08a14",
+    "lsa_x7a_j1000": "df4f162c8654a0f3b5bdcfd1b29b1585013836a77c5685a7338acb7b42396e33",
+    "lsa_x7a_j1800": "d58f7f1b8efc5df9411d09c3ed2ba252e8bfcd2ec326075f174a1b7b85398e94",
+    "lsa_x7a_j3200": "6b14a8e48c66e1ecda308bfb1f21f239999e985cf90e0d870c10f48b3e32c230",
+    "lsa_x7a_j5600": "8801e4b0e4a3bc65c1ef1d5ae4df30ecec4253fd845e2d9d2b78c3d4e64c51cc",
+    "lsa_x7a_j10000": "3ef20306bf2c51acce1d99f83458ba40afa91c7607bdfc8b928a28a0e415d0eb",
+    "lsa_x7a_j1000f": "245036da644743552f49ffd4400405aea8f9e2a60ffcd22392b46819f059d1d4",
+    "lsa_x7a_j3200f": "2a5468cdd76980cde7cc1ecf213195ecf0e061cdbec9ee57154da80eba8a22d8"
+  }
+}

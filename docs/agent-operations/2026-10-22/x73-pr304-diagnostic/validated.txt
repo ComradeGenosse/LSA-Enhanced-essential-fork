@@ -1,0 +1,15 @@
+{
+  "layout": "sec1",
+  "models": [
+    "lsa_x7d_sec_j1400",
+    "lsa_x7d_secp_j1400",
+    "lsa_x7d_sec_j1800",
+    "lsa_x7d_secp_j1800",
+    "lsa_x7d_sec_j2400",
+    "lsa_x7d_secp_j2400"
+  ],
+  "sections": 5,
+  "section_width_m": 0.5072,
+  "actual_export_validated": false,
+  "gta_result": "NOT_TESTED"
+}

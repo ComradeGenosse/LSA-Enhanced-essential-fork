@@ -1,0 +1,42 @@
+One auto-selected trial; inspect independent fracture/traversal verdicts. No retest.
+{
+  "experiment": "X7.3-p2-auto-impact",
+  "stepsCompleted": [
+    "prepare",
+    "camera",
+    "shot"
+  ],
+  "requestIds": [
+    "1699bfeb440a4f9d8d0be5a95332fbf2",
+    "85ff8ac6eb7848538d0f260631123946",
+    "c4bc05b339e44cf0ab6a7fcab9d88774",
+    "278210f5294742c096d6d135d0c834b0"
+  ],
+  "error": {
+    "step": "shot",
+    "message": "Gameplay acceptance failed; no further trial steps"
+  },
+  "restoreAfterFailure": "FAILED: runtime failure: {'protocol': 2, 'requestId': '278210f5294742c096d6d135d0c834b0', 'fence': '1c1abf074c6848a4a9c6b2557907edf4', 'sessionId': 'x73-diag-one-shot-20261022', 'experimentId': 'X7.3-p2-auto-impact', 'trialId': 'smoke-restore-after-failure', 'command': 'x7restore', 'state': 'ERROR', 'error': 'original_restore_requires_9_of_9', 'runId': '20261022-195412-7439af', 'pid': 32244, 'loadedUtc': '2026-10-22T19:53:21.1486139Z', 'scriptSha256': '1e77f4d82e681030132010d97cf6386c4a45234430ecab89e198d2955f59cc64'}",
+  "commandOutcome": "FAILED",
+  "filesystemRestoration": "NOT_ASSESSED_RUN_verify_hashes_AFTER_GTA_STOPPED",
+  "checks": {
+    "armed_original_9_of_9_twin_0": true,
+    "valid_projected_two_section_selection": false,
+    "real_projectile_committed_before_explosion": false,
+    "native_fracture_exactly_two_parts": false,
+    "original_hidden_after_swap": false,
+    "five_section_states_logged": true,
+    "sections_match_projected_pair": false,
+    "protected_sections_intact": false,
+    "probe_open_only_at_selected": false,
+    "no_frame_over_50ms": true,
+    "player_traversed_opening": false
+  },
+  "selection": null,
+  "selectedPair": [],
+  "fractureOutcome": "FAIL_OR_MISSING",
+  "traversalOutcome": "NOT_RUN",
+  "foreignCollisionHits": 0,
+  "gameplayOutcome": "FAIL_OR_PARTIAL",
+  "worldRestoration": "FAIL_OR_MISSING"
+}

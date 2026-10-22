@@ -1,0 +1,11 @@
+test_existing_evidence_refused_before_command (test_smoke_x72c.SmokeTests) ... ok
+test_failed_shot_stops_before_walk_and_retains_failed_restore (test_smoke_x72c.SmokeTests) ... ok
+test_unknown_restore_requires_reconciliation (test_smoke_x72c.SmokeTests) ... ok
+test_unknown_shot_does_not_send_restore (test_smoke_x72c.SmokeTests) ... ok
+test_unreadable_pending_response_does_not_send_restore (test_smoke_x72c.SmokeTests) ... ok
+test_unreadable_shot_evidence_still_restores_once (test_smoke_x72c.SmokeTests) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.021s
+
+OK
