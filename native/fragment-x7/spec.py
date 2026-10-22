@@ -37,9 +37,20 @@ def b_variants(tstar: int):
                     source=f"Session A observed T*={tstar}; not yet runtime verified")
             for k in values]
 
+def c_variants():
+    """One small experimental pack: full-height strips for physical player traversal.
+
+    j1000 is the measured LOCAL candidate; j550 is a modest existing
+    threshold comparison. Neither is a claim of walkability or acceptance.
+    """
+    return [Variant(f"lsa_x7c_walk5_j{k}", "walk5", k, k/5, k, 0,
+                    source="X7.1 walkable-geometry experiment; GTA UNTESTED")
+            for k in (1000, 550)]
+
 def cells(layout):
     """Shared authored rectangle basis, row-major order. Torn mesh uses shared jag functions."""
-    nx, nz = (6, 5) if layout == "grid6x5" else (9, 4)
+    dims = {"grid6x5": (6, 5), "torn36": (9, 4), "walk5": (5, 1)}
+    nx, nz = dims[layout]
     return [(-W/2+i*W/nx, -W/2+(i+1)*W/nx,
              j*SHEET_H/nz, (j+1)*SHEET_H/nz)
             for j in range(nz) for i in range(nx)]
@@ -55,7 +66,10 @@ def seam_z(j: int, x: float, layout="torn36"):
     return base + .011*math.sin((x+W/2)*2*math.pi/PITCH + j*.83) + .007*math.sin((x+W/2)*7.7+j*1.67)
 
 def manifest(layout="grid6x5", tstar=None):
-    variants = a_variants() if layout == "grid6x5" else b_variants(tstar)
+    variants = (a_variants() if layout == "grid6x5" else
+                b_variants(tstar) if layout == "torn36" else
+                c_variants() if layout == "walk5" else
+                (_ for _ in ()).throw(ValueError("Unknown layout")))
     out = {
        "schema": 1, "layout": layout, "models": [asdict(v) for v in variants],
        "allowlist": [v.name for v in variants], "bounds_m": [W,.14,H],
@@ -70,7 +84,7 @@ def manifest(layout="grid6x5", tstar=None):
 
 if __name__ == "__main__":
     import argparse
-    ap=argparse.ArgumentParser();ap.add_argument("--layout",choices=("grid6x5","torn36"),default="grid6x5")
+    ap=argparse.ArgumentParser();ap.add_argument("--layout",choices=("grid6x5","torn36","walk5"),default="grid6x5")
     ap.add_argument("--tstar",type=int);ap.add_argument("--output")
     args=ap.parse_args()
     m=manifest(args.layout,args.tstar)
