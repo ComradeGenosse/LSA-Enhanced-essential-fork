@@ -114,6 +114,7 @@
         // Never invent a player start from the source pivot; local operator
         // must approve a real, clear firing position for each placement.
         X8Required(a, "px"); X8Required(a, "py"); X8Required(a, "pz");
+        if (PoolFrac() > .50) throw new Exception("x8_pool_pressure_refusal");
         Astra.X8.Slot slot = x8Registry.Begin(id);
         x8Owner = id;
         Dictionary<string, string> args = new Dictionary<string, string>(a);
@@ -131,6 +132,11 @@
             if (x7State != "Armed" || x7Target == null || !x7Target.Exists() ||
                 x7SecLabs.Count != 5 || x7SecHandles.Count != 5)
                 throw new Exception("x8_staging_incomplete");
+            foreach (Lab sl in x7SecLabs)
+                if (sl.Wall == null || !sl.Wall.Exists() ||
+                    sl.Anchor == null || !sl.Anchor.Exists() ||
+                    !sl.Wall.IsAttachedTo(sl.Anchor))
+                    throw new Exception("x8_stage_anchor_missing");
             x8Registry.Armed(id, x7Target.Handle, 5, 5);
             X8Receipt(id, "armed");
         }
