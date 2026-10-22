@@ -1,0 +1,65 @@
+# GTA controller: shared operating runbook
+
+Status: **offline candidate; not installed or GTA accepted**. Claude owns the current X7.2c session. Do not use these tools against it. Integration owner and live operator must be named separately in the handoff record.
+
+## Read and adopt
+
+1. Read Astra's [audit](2026-10-22/PC-agent-testing-review.md), the corrected [X7.2b results](../../native/fragment-x7/evidence/x72b/RESULTS.md), and this runbook. The center-v2 pattern passed; the original center pattern failed, and its repeat has no walk record.
+2. Review/adopt together: `tools/gta-controller/controller.py`, the P2 adapter in `native/fragment-x7/WpsBreachLabX7.3.cs`, and the proposed [AGENTS addition](AGENTS.proposed.md). Rebase/cherry-pick in a separate integration worktree and reconcile Claude's X7.2c edits by hand. Do not overwrite its driver.
+3. The **current GTA session must end before deployment/runtime adoption**. Offline source review and merging later do not themselves require GTA shutdown, but this PR is draft and must not be merged automatically. The named operator must stop GTA, preserve evidence/rollback receipts and verify the game process is absent before replacing any script/pack/config. No deployment command is supplied here.
+4. After a separately authorized stopped-game installation, record candidate SHA256, installed SHA256 and loaded startup SHA256. Start GTA through the established launcher, verify SHVDN protocol 2, and explicitly approve the expected `(pid, loadedUtc, scriptSha256)` tuple. Do not generate expected identity by blindly copying an arbitrary heartbeat. Check source hash against the approved candidate independently. The source SHA is captured at runtime construction, not a cryptographic attestation of SHVDN's compiled IL; prohibit source edits during compilation/load/session.
+
+## Ownership and commands
+
+Use **one Windows host controller** for the game directory. Claude submits command specifications/handoff files from Cowork; it must not acquire a separate Linux lock through the mount. Cross-VM filesystem locking has not been qualified. No direct `command.txt`, old X3/PowerShell sender, hot redeploy, independent desktop control or parallel installer is permitted for a P2 session. This is cooperative ownership, not a security boundary against arbitrary filesystem writers.
+
+`controller.lock` is an OS lock held through publication and completion. `controller.json` persists the named owner/session, random fence and unresolved intent after process death. Another session cannot take over by waiting for expiry. Same-owner recovery must reuse the same session. Never delete a lock file or ownership state to steal control. `release` archives ownership and requires no pending request; only release after the operator records world/filesystem restoration and a written handoff. The next named operator creates a new session/fence.
+
+Python 3.10+, no third-party packages. Set explicit paths (Windows host paths only for live use):
+
+```powershell
+$controllerArgs = @('--lab', 'C:\explicit\game\WpsBreachLab', '--owner', 'claude', '--session', 'x72c-session-id', '--expected', 'C:\handoff\approved-runtime.json')
+python tools/gta-controller/controller.py @controllerArgs send 'x7restore' --experiment X7.2c --trial restore-001 --timeout 80
+python tools/gta-controller/controller.py @controllerArgs reconcile --timeout 10
+python tools/gta-controller/controller.py @controllerArgs release
+```
+
+Expected JSON has exactly the relevant identity fields: `pid` (integer), `loadedUtc` (exact runtime string), `scriptSha256` (startup source hash). Each send checks a fresh heartbeat and waits up to three seconds for an advancing frame. Request IDs, fence, session/experiment/trial, runtime tuple and expiry travel together. Runtime claims a request durably before executing it; a duplicate cannot execute again after reload. P2 deliberately rejects the legacy protocol. Its 11-line UTF-8 envelope is documented by the sender and `AcceptRequest`; do not hand-write it.
+
+Exit 0 means only **this command completed without a protocol/runtime error**. Exit 2 means failure or unknown outcome. A DONE handler result does not establish physical acceptance: inspect `passed`, collision witnesses, native logs and the exact trial's acceptance oracle separately. X7 original baseline/restore requires 9/9 witnesses. Runtime refusals, unknown verbs, exceptions, error rows and aborts cannot report DONE.
+
+## Timeout, crash and recovery
+
+A timeout is **UNKNOWN**, even if the game may still be executing. Never send a replacement command, abort or restore through a second writer. Run `reconcile` with the same owner/session: it reads only the original immutable response and never republishes. Wrong IDs, partial responses and runtime mismatches retain pending intent. An ERROR result is failure, even if evidence was written.
+
+If no terminal receipt can be recovered, preserve `controller.json`, request/claim/response and logs. Have the named operator end the old game session and review world restoration. While GTA is stopped, manually quarantine any queued `request.txt`/legacy `command.txt` with that evidence; do not replay it in a new runtime. After a new approved runtime is verified, use `abandon-ended-runtime --confirm-old-runtime-ended` with the original owner/session and the **new** expected identity. It requires a changed runtime and absent command slots, archives the old outcome as UNKNOWN and never declares the old effect successful. Only then may a fresh trial start. There is no automatic expiry takeover or rollback.
+
+`journal.py` provides tested write-ahead, hash-fenced rename/recovery primitives: intent before mutation, applied receipt afterward, explicit undo and refusal of ambiguous states. It is **not wired into the historical installers**; they remain unsafe for live use. Adopt it only in a separately reviewed stopped-game installer, preserving that installer's process-absence gate and complete rollback manifest. No installer/deployment paths were touched by this work.
+
+## Durable jobs and evidence
+
+For an offline long-running command, use explicit argv:
+
+```powershell
+python tools/gta-controller/jobs.py start C:\handoff\jobs -- python -m unittest discover -s tools/gta-controller -p test_controller.py
+python tools/gta-controller/jobs.py status C:\handoff\jobs\JOB_ID
+python tools/gta-controller/jobs.py collect C:\handoff\jobs\JOB_ID
+```
+
+The worker persists intent, process IDs, output, exit code and terminal result. Missing terminal receipt means UNKNOWN_OR_RUNNING; reconcile the recorded job/process/output before starting another copy. This is a small detached worker, not a scheduler. A killed worker/host can leave a child running; it never fabricates success or automatically restarts it. Use normal shell commands for short work.
+
+Put exact IDs in a JSON manifest `{"requestIds":["32_lowercase_hex_id"]}`; collect using `controller.py` with the same common arguments, then `collect --requests manifest.json --out NEW_DIRECTORY`. Collection copies only listed requests/responses and their exact run directories, validates row correlation and inventories SHA256 for every file. Failed/partial collections remain visibly incomplete (no final manifest); retain them for diagnosis. Historical X7.2b logs lack P2 IDs, so review them through their structured records rather than this collector.
+
+Use [the shared handoff template](2026-10-22/agent-test-handoff.template.json) for branch/HEAD, dirty paths, protected outputs/hashes, operator/publisher, candidate and loaded identity, request/run manifest, separate command/gameplay/world/filesystem outcomes, rollback state and one exact next authorized action. Sender writes the record; independent reviewer checks evidence; receiving operator acknowledges before ownership release/claim. Never infer authority to message another agent or operate its desktop from a file alone.
+
+## Offline checks and remaining gate
+
+```powershell
+python -m unittest discover -s tools/gta-controller -p test_controller.py -v
+python tools/gta-controller/test_runtime_offline.py
+python tools/gta-controller/evidence_table.py --check
+```
+
+The runtime harness needs .NET 10 SDK and builds with cleared NuGet sources. It compiles/exercises actual request admission, publication and OnTick methods with offline stubs. It does not compile the complete GTA/SHVDN script or test native game calls. Tests use temporary directories only.
+
+Before live acceptance, qualify full SHVDN compilation, current X7.2c coexistence, heartbeat under long native waits, actual 9/9 restore, stopped-game journal integration and a controlled owner handoff/reload/timeout rehearsal. Windows local locking was tested; Cowork mount lock interoperability, power-loss filesystem durability and GTA gameplay remain unverified. Continue X7 work with its current operator until that later integration window.

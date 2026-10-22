@@ -3,7 +3,7 @@
 // WpsBreachLabX4.3.cs - ASTRA-001 X1 "Native fragment breach" lab. ISOLATED EXPERIMENT SCRIPT.
 // GTA V Enhanced + ScriptHookVDotNet Enhanced 3.9 (API 3.9.0). Offline Story Mode only.
 //
-// * Idle until a command file appears: <GTA root>\WpsBreachLab\command.txt (one command per line).
+// * P2 requests only: see tools/gta-controller and docs/agent-operations/GTA-CONTROLLER-RUNBOOK.md.
 // * Spawns only disposable lab-owned props/peds and deletes them afterwards (also on abort).
 // * Touches no LSA / Essential / production state, writes no game assets. Only side effects while a command
 //   runs: player teleport to the test site + back, player invincible, wanted level suppressed -> all restored.
@@ -70,7 +70,56 @@ public class WpsBreachLab : Script
     string runDir, runId, state = "IDLE", step = "", curCmd = "";
     StreamWriter rows;
     long nextBeat; int nextPoll;
-    bool busy, abortRequested;
+    bool busy, abortRequested, commandFailed;
+    string requestId, fence, sessionId, experimentId, trialId, commandError;
+
+    // P2 is deliberately line-framed to avoid adding a JSON assembly to SHVDN.
+    // Immutable claim files prevent replay across script reloads and controller crashes.
+    bool AcceptRequest(string[] wire)
+    {
+        requestId = null; runId = null; commandError = null; commandFailed = false;
+        if (wire.Length != 11 || wire[0] != "X7P2" || !IsToken(wire[1], true)) return false;
+        requestId = wire[1]; fence = wire[2]; sessionId = wire[3]; experimentId = wire[4]; trialId = wire[5]; curCmd = wire[10];
+        try
+        {
+            string responses = Path.Combine(lab, "responses"); Directory.CreateDirectory(responses);
+            if (File.Exists(Path.Combine(responses, requestId + ".json"))) return false;
+            long expiry; int pid;
+            if (!IsToken(fence, true) || !IsToken(sessionId, false) || !IsToken(experimentId, false) || !IsToken(trialId, false) ||
+                !int.TryParse(wire[6], out pid) || pid != Process.GetCurrentProcess().Id || wire[7] != loadedUtc.ToString("o") ||
+                !string.Equals(wire[8], scriptSha, StringComparison.OrdinalIgnoreCase) ||
+                !long.TryParse(wire[9], out expiry) || expiry < (long)(DateTime.UtcNow - new DateTime(1970,1,1)).TotalSeconds ||
+                expiry > (long)(DateTime.UtcNow - new DateTime(1970,1,1)).TotalSeconds + 3601 ||
+                File.ReadAllText(Path.Combine(lab, "controller.fence")).Trim() != fence || string.IsNullOrWhiteSpace(curCmd))
+                throw new Exception("request_fence_expiry_or_runtime_mismatch");
+            string claims = Path.Combine(lab, "claims"); Directory.CreateDirectory(claims);
+            using (FileStream claim = new FileStream(Path.Combine(claims, requestId), FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            { byte[] b = Encoding.UTF8.GetBytes(loadedUtc.ToString("o")); claim.Write(b, 0, b.Length); claim.Flush(true); }
+            return true;
+        }
+        catch (Exception ex) { commandError = ex.Message; state = "REJECTED"; Respond(); return false; }
+    }
+    static bool IsToken(string value, bool hex)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length > 100 || (hex && value.Length != 32)) return false;
+        foreach (char c in value) if (hex ? !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) : !(char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '.')) return false;
+        return true;
+    }
+    void Respond()
+    {
+        if (requestId == null) return;
+        string dst = Path.Combine(lab, "responses", requestId + ".json");
+        AtomicText(dst, Obj("protocol", 2, "requestId", requestId, "fence", fence, "sessionId", sessionId,
+            "experimentId", experimentId, "trialId", trialId, "command", curCmd, "state", state, "error", commandError,
+            "runId", runId, "pid", Process.GetCurrentProcess().Id, "loadedUtc", loadedUtc.ToString("o"), "scriptSha256", scriptSha));
+    }
+    static void AtomicText(string dst, string text)
+    {
+        string tmp = dst + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        using (FileStream f = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        { byte[] b = Encoding.UTF8.GetBytes(text); f.Write(b, 0, b.Length); f.Flush(true); }
+        if (File.Exists(dst)) File.Replace(tmp, dst, null); else File.Move(tmp, dst);
+    }
     int savedMaxWanted = -1; bool savedInvincible; Vector3 originPos; float originHeading; bool teleported;
 
     // ===================================================================== lifecycle
@@ -95,11 +144,13 @@ public class WpsBreachLab : Script
     {
         Beat();
         if (busy) return;
-        string cf = Path.Combine(lab, "command.txt");
+        string cf = Path.Combine(lab, "request.txt");
         if (!File.Exists(cf)) return;
         string[] lines;
-        try { lines = File.ReadAllLines(cf); File.Move(cf, Path.Combine(lab, "command.consumed-" + DateTime.UtcNow.Ticks + ".txt")); }
+        try { if (new FileInfo(cf).Length > 4096) return; lines = File.ReadAllLines(cf); File.Move(cf, Path.Combine(lab, "request.consumed-" + DateTime.UtcNow.Ticks + ".txt")); }
         catch { return; }
+        if (!AcceptRequest(lines)) return;
+        lines = new string[] { curCmd };
         busy = true; abortRequested = false;
         try
         {
@@ -117,17 +168,17 @@ public class WpsBreachLab : Script
                 curCmd = line; state = "RUNNING"; step = "start";
                 Beat(true);
                 try { RunCommand(line); }
-                catch (Exception ex) { Row("error", "cmd", line, "message", ex.GetType().Name + ": " + ex.Message, "stack", Trim(ex.StackTrace, 600)); }
+                catch (Exception ex) { commandFailed = true; commandError = ex.Message; Row("error", "cmd", line, "message", ex.GetType().Name + ": " + ex.Message, "stack", Trim(ex.StackTrace, 600)); }
                 finally { if (!x4Active && x7State == "None") CleanupAll(); }
             }
         }
-        catch (Exception ex2) { try { Row("error", "message", ex2.ToString()); } catch { } }
+        catch (Exception ex2) { commandFailed = true; commandError = ex2.Message; try { Row("error", "message", ex2.ToString()); } catch { } }
         finally
         {
-            try { if (!x4Active && x7State == "None") RestorePlayer(); } catch { }
-            try { if (frameLog != null) { frameLog.Dispose(); frameLog = null; } } catch { }
-            try { if (rows != null) { Row("done", "runId", runId); rows.Dispose(); rows = null; } } catch { }
-            state = "DONE"; step = runId; busy = false; Beat(true);
+            try { if (!x4Active && x7State == "None") RestorePlayer(); } catch (Exception ex) { commandFailed = true; commandError = ex.Message; }
+            try { if (frameLog != null) { frameLog.Dispose(); frameLog = null; } } catch (Exception ex) { commandFailed = true; commandError = ex.Message; }
+            try { if (rows != null) { Row("done", "runId", runId, "commandFailed", commandFailed); rows.Dispose(); rows = null; } } catch (Exception ex) { commandFailed = true; commandError = ex.Message; }
+            state = commandFailed || abortRequested ? "ERROR" : "DONE"; if (abortRequested) commandError = "aborted"; step = runId; busy = false; Beat(true); Respond();
         }
     }
 
@@ -673,7 +724,7 @@ public class WpsBreachLab : Script
         if (Math.Abs(width - 2.536f) > .08f || Math.Abs(height - 2.351f) > .08f) throw new Exception("target_size_requires_asset_adaptation");
         if (Vector3.Dot(target.UpVector, Vector3.WorldUp) < .985f) throw new Exception("target_not_upright");
         int w0 = X7Witness("original_before", x7Orig);
-        if (w0 < 8) throw new Exception("original_collision_not_found");
+        if (w0 != 9) throw new Exception("original_collision_not_found");
         x7Target = target; x7HidePos = target.Position; x7HideModel = target.Model.Hash; x7Hidden = false; x7Committed = false;
         x7State = "Preparing";
         try
@@ -721,7 +772,7 @@ public class WpsBreachLab : Script
             int wt = X7Witness("twin_dormant", x7Twin);
             int wo = X7Witness("original_armed", x7Orig);
             if (wt != 0) throw new Exception("dormant_twin_collides");
-            if (wo < 8) throw new Exception("original_changed_while_armed");
+            if (wo != 9) throw new Exception("original_changed_while_armed");
             SnapshotPre(oc, 30f);
             x7Back = F(a, "back", 9f); x7Pu = F(a, "pu", 1.5f);
             PlacePlayerFacing(x7Twin, -x7Back, cuMid + x7Pu);
@@ -1074,8 +1125,10 @@ public class WpsBreachLab : Script
         {
             int w = X7Witness("restored_original", x7Orig);
             bool vis = false; try { vis = x7Target != null && x7Target.Exists() && x7Target.IsVisible; } catch { }
-            Row("x7_restored", "originalBlocked", w, "originalExists", x7Target != null && x7Target.Exists(), "originalVisibleFlag", vis, "restoredToOriginal", w >= 8, "pools", PoolsRaw());
+            Row("x7_restored", "originalBlocked", w, "originalExists", x7Target != null && x7Target.Exists(), "originalVisibleFlag", vis, "restoredToOriginal", w == 9, "pools", PoolsRaw());
+            if (w != 9) { commandFailed = true; commandError = "original_restore_requires_9_of_9"; }
         }
+        else { commandFailed = true; commandError = "original_restore_witness_missing"; }
         RestorePlayer();
     }
 
@@ -2548,20 +2601,20 @@ public class WpsBreachLab : Script
         nextBeat = now + beatMs;
         try
         {
-            string tmp = Path.Combine(lab, "status.json.tmp"), dst = Path.Combine(lab, "status.json");
-            File.WriteAllText(tmp, Obj("script", "WpsBreachLabX7.3.cs", "version", Ver, "scriptSha256", scriptSha, "shvdnApi", shvdnVer, "loadedUtc", loadedUtc.ToString("o"),
+            string dst = Path.Combine(lab, "status.json");
+            AtomicText(dst, Obj("protocol", 2, "requestId", requestId, "fence", fence,"script", "WpsBreachLabX7.3.cs", "version", Ver, "scriptSha256", scriptSha, "shvdnApi", shvdnVer, "loadedUtc", loadedUtc.ToString("o"),
                 "nowUtc", DateTime.UtcNow.ToString("o"), "pid", Process.GetCurrentProcess().Id, "state", state, "step", step, "cmd", curCmd, "runId", runId, "frame", Game.FrameCount));
-            if (File.Exists(dst)) File.Delete(dst);
-            File.Move(tmp, dst);
         }
         catch { }
     }
 
     void Row(string kind, params object[] kv)
     {
+        if (kind == "error" || kind == "exception" || kind == "refused" || kind == "unknown_command" || kind.EndsWith("_error"))
+        { commandFailed = true; commandError = kind; }
         if (rows == null) return;
         List<object> all = new List<object>(); all.Add("t"); all.Add(clock.ElapsedMilliseconds); all.Add("frame"); all.Add(Game.FrameCount); all.Add("kind"); all.Add(kind);
-        all.AddRange(kv); rows.WriteLine(Obj(all.ToArray()));
+        all.Add("requestId"); all.Add(requestId); all.Add("sessionId"); all.Add(sessionId); all.Add("experimentId"); all.Add(experimentId); all.Add("trialId"); all.Add(trialId); all.AddRange(kv); rows.WriteLine(Obj(all.ToArray()));
     }
 
     sealed class Raw { public string S; public Raw(string s) { S = s; } }
