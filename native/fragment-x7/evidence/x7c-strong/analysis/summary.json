@@ -1,0 +1,108 @@
+{
+  "schema": 1,
+  "source_type": "runtime_X7_JSONL_only",
+  "shots": [
+    {
+      "label": "x7c_j1800_P1",
+      "model": "lsa_x7c_walk5_j1800",
+      "aimU": 0.0,
+      "aimV": 0.8,
+      "nativeParts": 0,
+      "removedAreaM2": 0.0,
+      "blockedFraction": 1.0,
+      "debrisFraction": 0.0,
+      "otherHitFraction": 0.0,
+      "centroid": null,
+      "centroidErrorM": null,
+      "largestRemovedComponentM2": 0.0,
+      "pieceStates": [
+        {
+          "covered": 100,
+          "blocked": 100,
+          "state": "attached_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 100,
+          "state": "attached_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 100,
+          "state": "attached_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 100,
+          "state": "attached_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 100,
+          "state": "attached_like"
+        }
+      ],
+      "layout": "walk5",
+      "class": "WALK5_EXPERIMENT",
+      "mask": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "nu": 25,
+      "nv": 20,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.16,
+      "commitEarlyFrames": 2,
+      "fallbackUsed": false,
+      "commitMs": 0.08,
+      "late": false,
+      "committed": true,
+      "source": "20261022-110357-dd2156.jsonl",
+      "windowMaxMs": 28.028,
+      "walkAttempts": [
+        {
+          "crossed": false,
+          "outsideFootprint": null,
+          "maxRise": null,
+          "reason": "no_clear_lane_0.9m",
+          "crossingU": null,
+          "laneU": null,
+          "laneWidthM": null,
+          "passed": false
+        }
+      ],
+      "walk": {
+        "crossed": false,
+        "outsideFootprint": null,
+        "maxRise": null
+      },
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 3,
+        "postTotal": 3,
+        "topBlocked": 24,
+        "bottomBlocked": 24,
+        "bandTotal": 24
+      }
+    }
+  ],
+  "decision": {
+    "selected_tstar": null,
+    "state": "STOP_CONTROL",
+    "reason": "X6 control not WHOLE"
+  },
+  "session_a_gate": {
+    "pass": false,
+    "reasons": [
+      "No observed T*"
+    ]
+  },
+  "session_b_gate": {
+    "pass": false,
+    "reasons": [
+      "No accepted Session A T*"
+    ]
+  },
+  "pairwise": []
+}

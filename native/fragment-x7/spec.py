@@ -40,12 +40,12 @@ def b_variants(tstar: int):
 def c_variants():
     """One small experimental pack: full-height strips for physical player traversal.
 
-    j1000 is the measured LOCAL candidate; j550 is a modest existing
-    threshold comparison. Neither is a claim of walkability or acceptance.
+    j1000 produced a broad walkable breach; the stronger j1800/j3200
+    comparisons preserve geometry. See separate actual gameplay evidence.
     """
     return [Variant(f"lsa_x7c_walk5_j{k}", "walk5", k, k/5, k, 0,
                     source="X7.1 walkable-geometry experiment; GTA UNTESTED")
-            for k in (1000, 550)]
+            for k in (1000, 550, 1800, 3200)]
 
 def cells(layout):
     """Shared authored rectangle basis, row-major order. Torn mesh uses shared jag functions."""

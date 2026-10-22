@@ -13,13 +13,13 @@ ap.add_argument("--require-exports",action="store_true")
 args=ap.parse_args()
 models=c_variants()
 pieces=cells("walk5")
-assert len(models)==2 and len(pieces)==5
+assert len(models)==4 and len(pieces)==5
 assert all(abs(z0)<1e-9 and abs(z1-SHEET_H)<1e-9 for _,_,z0,z1 in pieces)
 assert 2*(pieces[0][1]-pieces[0][0])>=.9
 assert manifest("walk5")["groups"]==6
-assert len({v.name for v in models})==2
+assert len({v.name for v in models})==4
 assert [(v.strength,v.health,v.min_damage_force,v.transmission) for v in models]==[
-    (1000,1000,200,0),(550,550,110,0)]
+    (1000,1000,200,0),(550,550,110,0),(1800,1800,360,0),(3200,3200,640,0)]
 builder=(p/"build_fence_x7.py").read_text(encoding="utf-8")
 assert 'v.layout=="walk5"' in builder
 for marker in ("CW,CH=W/5,SHEET_H", "for j in range(1)", "for i in range(5)", "),27.0)"):
@@ -38,7 +38,7 @@ if args.require_exports:
     assert (assets/"lsa_x6_galvanized.dds").exists()
     conversion=json.loads((assets/"conversion-receipt.json").read_text(encoding="utf-8-sig"))
     pack=json.loads((p/"pack"/"pack-receipt.json").read_text(encoding="utf-8-sig"))
-    assert conversion["archetypes"]==2 and conversion["ytyp"]=="lsa_x7c"
+    assert conversion["archetypes"]==4 and conversion["ytyp"]=="lsa_x7c"
     assert [m["name"] for m in conversion["models"]]==actual["allowlist"]
     assert pack["pack"]=="lsa_fence_x7c" and pack["models"]==actual["allowlist"]
     def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest().upper()

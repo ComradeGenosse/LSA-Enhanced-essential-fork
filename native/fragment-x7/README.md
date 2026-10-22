@@ -4,6 +4,10 @@
 Research authority: [doc 16, §§6–8 and 12](../../docs/next-gen-gameplay/astra-001/16-X7-LOCALIZED-FRACTURE-RESEARCH-20261021.md).
 Offline Story Mode ONLY. Do not merge into the production mod based on cloud checks.
 
+## X7.1 stronger-strip trial — October 22, 2026
+
+**j1800: 0/5 detached, no lane.** Same walk5 geometry, P1/back=4; all five strips retained 100% twin-mask blocking. j3200 exported/validated but not fired because j1800 already resisted the shot. Original restored 9/9; game stopped and installation hash-restored. Next useful tuning lies between j1000 (all five detached) and j1800, with matched focus/frame conditions. User confirmed DLSS5 OFF; this launch lacked an independent F6 log entry. [Actual result, evidence and limits](evidence/x7c-strong/RESULTS.md).
+
 ## X7.1 desktop result — October 22, 2026
 
 **Walkability PASS; localized retained-sheet hole not achieved.** On COMRADE at `6cc034d4`, one `lsa_x7c_walk5_j1000` P1 RPG shot with `back=4` natively detached all five strips. The actual player walked through a probed 1.6 m lane, crossing at U=0.337 m inside the footprint with zero rise and no detour. No fallback blast or scripted fracture/removal. Original restored 9/9; GTA stopped and all five installation paths hash-restored. No j550 shot or runtime change needed. X7a Session A / X7b / X8 remain unpassed. See [results, limits and next step](evidence/x7c-walk5/RESULTS.md), [raw sanitized logs](evidence/x7c-walk5/logs/), [screenshots](evidence/x7c-walk5/screenshots/) and [rollback receipt](evidence/x7c-walk5/install-restored.json).
@@ -18,9 +22,9 @@ strips or that the GTA player can cross**. Uses the current X6 corrugation/textu
 root/post/anchor and hot swap, not script deletion. Each strip mass is 27 kg to
 preserve X6's mass per sheet area; only the new assets differ.
 
-There are just two models in this isolated pack:
-`lsa_x7c_walk5_j1000` (known P0 strength candidate) and
-`lsa_x7c_walk5_j550` (single fallback physics comparison). The original
+The isolated pack contains `lsa_x7c_walk5_j1000`, `lsa_x7c_walk5_j550`,
+`lsa_x7c_walk5_j1800` and `lsa_x7c_walk5_j3200`. The stronger pair tests
+whether two adjacent strips can detach while the outer strips survive. The original
 X7a 12-model pack and X7b torn36 experiment are unchanged.
 
 To export **on Windows with Blender/Sollumz, CodeWalker and GTA stopped**:
