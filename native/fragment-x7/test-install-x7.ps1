@@ -2,7 +2,7 @@ param(
  [Parameter(Mandatory)][string]$GameRoot,
  [Parameter(Mandatory)][string]$BackupRoot,
  [ValidateSet('Install','Restore')][string]$Mode='Install',
- [ValidateSet('x7a','x7b')][string]$Variant='x7a'
+ [ValidateSet('x7a','x7b','x7c')][string]$Variant='x7a'
 )
 $ErrorActionPreference='Stop'
 if(Get-Process GTA5_Enhanced,RAGEPluginHook -ErrorAction SilentlyContinue){throw 'Stop GTA/RPH before install or restore'}
