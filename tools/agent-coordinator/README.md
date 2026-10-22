@@ -93,6 +93,13 @@ active jobs, archive queue, remove the worktree only after preserving edits.
 
 ## GTA adapter boundary
 
+For render preflight, first run `Test-GpuPowerLimit.ps1` in this directory.
+It reads saved Profile1's PowerLimit and checks live NVIDIA telemetry. PASS/exit 0
+means the power cap already matches: no preset click/reapplication is needed.
+Mismatch or unknown exits 2 and changes nothing. This checks the power limit,
+not all clock/voltage/fan settings; requirements for those need separate evidence.
+Use `-ExpectedPercent 80` if checking a fixed cap instead of the saved profile.
+
 Codex owns Windows execution, build, GitHub, deployment and the single GTA session;
 Claude owns experiment design, coding assignments and independent review. Read
 `docs/agent-operations/GTA-CONTROLLER-RUNBOOK.md` first. Existing controller P2
