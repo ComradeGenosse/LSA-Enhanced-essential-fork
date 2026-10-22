@@ -9,8 +9,10 @@ GTA was stopped, no controller ownership/pending slot or GTA sender was present.
 Original hashes were recorded before the specified X7d installer ran with the
 repository driver. Installed and loaded SHA256 both matched
 da37a140305ae6d3c0b2b8918aef423aa379926eb05e1ceb9e2840df8746642c.
-Afterburner preset 1 was invoked; observed GPU cap 460 W (not independent proof
-of all preset settings). Steam app 3240220 launched with offline Story Mode
+Afterburner preset 1 was requested, but the launch command's final receipt says
+the operation was canceled by the user. Preset application is therefore NOT
+confirmed. Observed GPU cap was 460 W, not proof of all preset settings.
+Steam app 3240220 launched with offline Story Mode
 arguments. The Story Mode window and fresh advancing P2 heartbeat were verified.
 Runtime identity is in expected.json; session p2smoke-20261022, owner codex.
 
