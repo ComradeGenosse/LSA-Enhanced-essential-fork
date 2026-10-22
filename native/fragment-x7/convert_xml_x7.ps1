@@ -6,8 +6,8 @@ foreach($dll in 'SharpDX.dll','SharpDX.Mathematics.dll','CodeWalker.Core.dll'){
 [CodeWalker.GameFiles.RpfManager]::IsGen9=$true
 $assets=Join-Path $PSScriptRoot 'assets'
 $manifest=Get-Content (Join-Path $assets 'models.json') -Raw | ConvertFrom-Json
-$pack=if($manifest.layout -eq 'grid6x5'){'lsa_x7a'}elseif($manifest.layout -eq 'torn36'){'lsa_x7b'}else{throw 'Invalid layout'}
-$count=if($manifest.layout -eq 'grid6x5'){31}else{37}
+$pack=if($manifest.layout -eq 'grid6x5'){'lsa_x7a'}elseif($manifest.layout -eq 'torn36'){'lsa_x7b'}elseif($manifest.layout -eq 'walk5'){'lsa_x7c'}else{throw 'Invalid layout'}
+$count=if($manifest.layout -eq 'grid6x5'){31}elseif($manifest.layout -eq 'torn36'){37}else{6}
 $receipt=@()
 foreach($model in $manifest.allowlist){
     $xml=Join-Path $assets ($model+'.yft.xml')
