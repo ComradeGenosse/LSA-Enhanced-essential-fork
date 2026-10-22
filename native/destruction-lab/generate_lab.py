@@ -186,7 +186,8 @@ def emit(plan, output_dir):
     if "FIXTURE" in plan["classification"]:
         outputs["NOT_DEPLOYABLE.txt"] = "Synthetic offline fixture. Never install these coordinates in GTA.\n"
     for name, data in outputs.items():
-        (dest / name).write_text(data, encoding="utf-8")
+        # Preserve exact LF bytes on Windows too: SHA receipts must match.
+        (dest / name).write_bytes(data.encode("utf-8"))
     return outputs
 
 
