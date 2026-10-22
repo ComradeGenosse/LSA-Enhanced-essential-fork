@@ -1,0 +1,17 @@
+{
+  "previousFailedWindows": {
+    "cause": "Transient Windows heartbeat read PermissionError; bounded read-only retry added",
+    "run": 39826339485
+  },
+  "windows": {
+    "run": 39826570260,
+    "coordinatorTests": 11,
+    "controllerSmokeTests": 21,
+    "outcome": "success"
+  },
+  "x7": {
+    "outcome": "success",
+    "run": 39826570171
+  },
+  "candidate": "acfe7be9d3e49ecfaf3fdd480afe331bb116f382"
+}

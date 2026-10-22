@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - 'native/fragment-x7/**'
+      - 'tools/gta-controller/**'
       - '.github/workflows/astra-x7.yml'
       - 'docs/next-gen-gameplay/astra-001/16-X7*'
 jobs:

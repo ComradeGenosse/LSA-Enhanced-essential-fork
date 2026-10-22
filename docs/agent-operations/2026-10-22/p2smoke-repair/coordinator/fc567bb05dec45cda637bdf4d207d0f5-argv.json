@@ -1,0 +1,12 @@
+[
+  "C:\\Users\\Chris.COMRADE\\AppData\\Local\\OpenAI\\Codex\\bin\\a96ca4c1eee0cf35\\codex.exe",
+  "exec",
+  "--sandbox",
+  "read-only",
+  "--json",
+  "--output-schema",
+  "C:\\Users\\Chris.COMRADE\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\x72c-repair-queue-20261022\\runs\\fc567bb05dec45cda637bdf4d207d0f5\\schema.json",
+  "-o",
+  "C:\\Users\\Chris.COMRADE\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\x72c-repair-queue-20261022\\runs\\fc567bb05dec45cda637bdf4d207d0f5\\answer.json",
+  "-"
+]

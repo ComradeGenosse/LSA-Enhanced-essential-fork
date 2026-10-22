@@ -1,0 +1,93 @@
+[
+  {
+    "id": "ad6a76aac73b4e96b62fb7d76e587c00",
+    "root_id": "ad6a76aac73b4e96b62fb7d76e587c00",
+    "parent": null,
+    "depth": 0,
+    "target": "claude",
+    "state": "SUCCEEDED",
+    "session": "d7a14c88-41ca-46b4-ab22-35a592cf8d11",
+    "complexity": null,
+    "model": null,
+    "effort": null,
+    "error": null
+  },
+  {
+    "id": "e9146fefeaed47999dfb1070012ca9d0",
+    "root_id": "e9146fefeaed47999dfb1070012ca9d0",
+    "parent": null,
+    "depth": 0,
+    "target": "claude",
+    "state": "SUCCEEDED",
+    "session": "06409af8-c323-4bbf-8490-03c600768d06",
+    "complexity": null,
+    "model": null,
+    "effort": null,
+    "error": null
+  },
+  {
+    "id": "a31cd7a0fb7e47c3a14882311214a6f6",
+    "root_id": "a31cd7a0fb7e47c3a14882311214a6f6",
+    "parent": null,
+    "depth": 0,
+    "target": "claude",
+    "state": "SUCCEEDED",
+    "session": "06409af8-c323-4bbf-8490-03c600768d06",
+    "complexity": null,
+    "model": null,
+    "effort": null,
+    "error": null
+  },
+  {
+    "id": "fc567bb05dec45cda637bdf4d207d0f5",
+    "root_id": "a31cd7a0fb7e47c3a14882311214a6f6",
+    "parent": "a31cd7a0fb7e47c3a14882311214a6f6",
+    "depth": 1,
+    "target": "codex",
+    "state": "SUCCEEDED",
+    "session": "01a164b6-a425-7301-a78d-38f296068ba1",
+    "complexity": null,
+    "model": null,
+    "effort": null,
+    "error": null
+  },
+  {
+    "id": "420c0d3aab634960adc7574843105462",
+    "root_id": "420c0d3aab634960adc7574843105462",
+    "parent": null,
+    "depth": 0,
+    "target": "claude",
+    "state": "REVIEWED",
+    "session": null,
+    "complexity": "complex",
+    "model": "fable",
+    "effort": "high",
+    "error": "Read-only review refused before inference: Fable requires usage credits. PID 13500 absent, no workspace effects. No credit purchase, fallback or replay. User excludes Fable/Astra; removed from supported models."
+  },
+  {
+    "id": "f9c69e66a94b454e83389890ad65a311",
+    "root_id": "f9c69e66a94b454e83389890ad65a311",
+    "parent": null,
+    "depth": 0,
+    "target": "claude",
+    "state": "SUCCEEDED",
+    "session": "a925ec7c-1e06-4194-8bbd-c07ad7ff40e4",
+    "complexity": "complex",
+    "model": "sonnet",
+    "effort": "high",
+    "error": null
+  },
+  {
+    "id": "06ecf5f93b484c60a3436548786b256e",
+    "root_id": "06ecf5f93b484c60a3436548786b256e",
+    "parent": null,
+    "depth": 0,
+    "target": "claude",
+    "state": "SUCCEEDED",
+    "session": "838f0688-4d1b-43b6-850e-b14ae4d39ff5",
+    "complexity": "normal",
+    "model": "sonnet",
+    "effort": "low",
+    "error": null
+  }
+]

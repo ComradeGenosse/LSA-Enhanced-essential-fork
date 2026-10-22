@@ -35,7 +35,7 @@ class Tests(unittest.TestCase):
     def reply(self, state='DONE', wrong=None):
         def runtime():
             slot=self.lab/'request.txt'
-            end=time.monotonic()+2
+            end=time.monotonic()+5
             while not slot.exists():
                 if time.monotonic()>end: return
                 time.sleep(.002)
@@ -48,7 +48,9 @@ class Tests(unittest.TestCase):
             slot.unlink()
         t=threading.Thread(target=runtime); t.start(); self.addCleanup(lambda:t.join(timeout=2))
 
-    def send(self, timeout=.5): return self.c.submit('x7restore','x7','trial1',timeout)
+    # Hosted Windows runners can deschedule the fake runtime for >500 ms.
+    # Deliberate timeout tests pass their own short deadlines explicitly.
+    def send(self, timeout=2): return self.c.submit('x7restore','x7','trial1',timeout)
 
     def test_success_and_exact_collection(self):
         self.reply(); r=self.send()

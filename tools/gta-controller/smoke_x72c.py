@@ -1,8 +1,7 @@
 """Bounded X7.2c selective-fracture smoke trial over the P2 controller (Windows host operator only).
 
 One trial: prepare -> camera -> real RPG shot -> player walk -> restore, each a separate strict P2 request.
-The walk step blocks until the player crosses; the operator (or a separately authorized desktop session)
-must hold W in GTA during that step. Exit 0 requires command, gameplay and world verdicts to all pass.
+The walk step uses the driver's bounded native player task. Exit 0 requires command, gameplay and world verdicts to all pass.
 Filesystem restoration is NOT assessed here: run verify_hashes.py after GTA is stopped.
 """
 import argparse
@@ -18,7 +17,9 @@ SHOT_LABEL = 'p2smoke_sel23_center'
 STEPS = [
     ('prepare', 'x7prepare model=lsa_x7d_secp_j1400 sel=2,3 verified=1 hash=1185366416 tx=1065.758 ty=-1773.716 tz=34.851 px=1072 py=-1772.5 pz=36.5 pu=0 back=4'),
     ('camera', 'x7cam t=-5.5 u=1.5 z=1.5 lu=0 lz=1.1'),
-    ('shot', 'x7shot label=' + SHOT_LABEL + ' aimu=0 aimv=0.80 back=4 probe=1'),
+    # The 40 ms default missed the last pre-impact sample by 0.053 ms in the failed smoke.
+    # 60 ms provides a small margin for the RPG's collision nose ahead of the target plane.
+    ('shot', 'x7shot label=' + SHOT_LABEL + ' aimu=0 aimv=0.80 back=4 probe=1 horizon=60'),
     ('walk', 'x7walk hold=3'),
     ('restore', 'x7restore'),
 ]
@@ -73,32 +74,58 @@ def analyze(rows_by_step, label=SHOT_LABEL):
 def run(ctl, out):
     """Return (verdict dict, exit code). Never resubmits; a timeout stops everything for reconcile."""
     out = Path(out)
+    if out.exists():
+        raise ValueError('Evidence directory must be new')
     done, request_ids, error, unknown = [], [], None, False
+    restore_attempted = False
     for name, command in STEPS:
         try:
+            if name == 'restore':
+                restore_attempted = True
             result = ctl.submit(command, EXPERIMENT, 'smoke-' + name, timeout=120 if name == 'walk' else 80)
             request_ids.append(result['requestId']); done.append(name)
+            if name in ('prepare', 'shot'):
+                rows = rows_of(ctl.lab / result['runId'] / 'trials.jsonl')
+                if name == 'prepare':
+                    armed = first(rows, 'x7_armed')
+                    accepted = bool(armed and armed.get('originalBlocked') == 9 and armed.get('twinBlocked') == 0)
+                else:
+                    checks = analyze({'shot': rows})['checks']
+                    accepted = all(v for k, v in checks.items() if k not in ('armed_original_9_of_9_twin_0', 'player_traversed_opening'))
+                if not accepted:
+                    error = {'step': name, 'message': 'Gameplay acceptance failed; no further trial steps'}
+                    break
+        except (OSError, ValueError, KeyError) as e:
+            error = {'step': name, 'message': 'Evidence acceptance failed: ' + str(e)}
+            unknown = bool(getattr(ctl, 'state', {}).get('pending'))
+            break
         except c.ProtocolError as e:
             error = {'step': name, 'message': str(e)}
-            unknown = 'TIMEOUT_UNKNOWN' in str(e)
+            unknown = 'TIMEOUT_UNKNOWN' in str(e) or bool(getattr(ctl, 'state', {}).get('pending'))
             last = getattr(ctl, 'state', {}).get('last')
             if last and last.get('command') == command:
                 request_ids.append(last['requestId'])  # definite runtime failure: keep its evidence
             break
     restore_after_failure = None
-    if error and not unknown and 'prepare' in done and 'restore' not in done:
+    if error and not unknown and 'prepare' in done and not restore_attempted:
         # Definite failure (never a timeout): one restore through the SAME controller/session.
         try:
             r = ctl.submit('x7restore', EXPERIMENT, 'smoke-restore-after-failure', timeout=80)
             request_ids.append(r['requestId']); restore_after_failure = 'DONE'
         except c.ProtocolError as e:
             restore_after_failure = 'FAILED: ' + str(e)
+            unknown = 'TIMEOUT_UNKNOWN' in str(e) or bool(getattr(ctl, 'state', {}).get('pending'))
+            last = getattr(ctl, 'state', {}).get('last')
+            if not unknown and last and last.get('command') == 'x7restore':
+                request_ids.append(last['requestId'])
     verdict = dict(experiment=EXPERIMENT, stepsCompleted=done, requestIds=request_ids, error=error,
                    restoreAfterFailure=restore_after_failure,
                    commandOutcome='ALL_DONE' if len(done) == len(STEPS) and not error else ('UNKNOWN_RECONCILE_REQUIRED' if unknown else 'FAILED'),
                    filesystemRestoration='NOT_ASSESSED_RUN_verify_hashes_AFTER_GTA_STOPPED')
     code = 2
     out.mkdir(parents=True, exist_ok=True)
+    # Preserve command outcomes even if exact evidence collection cannot finish.
+    (out / 'verdict.json').write_text(json.dumps(verdict, indent=2), encoding='utf-8')
     if not unknown and request_ids:
         (out / 'request-ids.json').write_text(json.dumps({'requestIds': request_ids}), encoding='utf-8')
         c.collect(ctl.lab, request_ids, out / 'evidence')
@@ -121,7 +148,7 @@ def main():
     p.add_argument('--out', required=True, type=Path, help='new evidence directory')
     a = p.parse_args()
     ctl = c.Controller(a.lab, a.owner, a.session, c.read(a.expected))
-    print('Walk step: hold W in GTA while the controller waits for x7walk.', file=sys.stderr)
+    print('One trial; x7walk uses a bounded native player task.', file=sys.stderr)
     try:
         verdict, code = run(ctl, a.out)
     except (c.ProtocolError, OSError, ValueError, KeyError) as e:

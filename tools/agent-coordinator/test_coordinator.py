@@ -12,7 +12,30 @@ class QueueTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.q = c.Queue(Path(self.tmp.name)/'queue'); self.addCleanup(self.q.db.close)
         self.ws = str(Path(self.tmp.name).resolve())
-        c.dump(self.q.root/'config.json',{'workspaces':{'claude':[self.ws],'codex':[self.ws]},'max_hops':2})
+        c.dump(self.q.root/'config.json',{'workspaces':{'claude':[self.ws],'codex':[self.ws]},'max_hops':2,
+            'model_profiles': {a: {k: {'model':'test-model','effort':e} for k,e in
+                                  [('simple','low'),('normal','medium'),('complex','high')]} for a in ['claude','codex']},
+            'supported_models': {a: {'test-model':['low','medium','high']} for a in ['claude','codex']}})
+
+    def test_selection_is_frozen_and_complex_handoff_keeps_effort(self):
+        a = self.q.submit('claude', self.ws, 'critical review', complexity='complex')
+        child = self.submit('codex', self.q.get(a))
+        self.assertEqual(self.q.get(child)['effort'], 'high')
+        cfg = self.q.config(); cfg['model_profiles']['codex']['complex']['effort'] = 'low'
+        c.dump(self.q.root/'config.json', cfg)
+        self.assertEqual(self.q.get(child)['effort'], 'high')
+        with self.assertRaisesRegex(ValueError, 'no silent downgrade'):
+            self.q.submit('codex', self.ws, 'critical', complexity='complex')
+
+    def test_missing_or_unsupported_selection_fails_closed(self):
+        with self.assertRaises(ValueError):
+            self.q.submit('claude', self.ws, 'review', model='unknown', effort='high')
+        with self.assertRaises(ValueError):
+            self.q.submit('claude', self.ws, 'review', model='test-model')
+        cfg = self.q.config(); del cfg['model_profiles']
+        c.dump(self.q.root/'config.json', cfg)
+        with self.assertRaisesRegex(ValueError, 'no implicit CLI default'):
+            self.submit()
 
     def submit(self,target='claude',parent=None):
         return self.q.submit(target,self.ws,'harmless task',5,parent)
@@ -58,7 +81,7 @@ class QueueTests(unittest.TestCase):
         other=c.Queue(self.q.root)
         try:
             self.assertEqual(other.get(a)['state'],'SUCCEEDED')
-            self.assertEqual(other.db.execute('SELECT count(*) FROM events').fetchone()[0],2)
+            self.assertEqual(other.db.execute('SELECT count(*) FROM events').fetchone()[0],3)
         finally: other.db.close()
 
     def test_actual_timeout_terminates_process(self):

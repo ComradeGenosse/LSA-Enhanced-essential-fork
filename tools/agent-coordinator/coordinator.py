@@ -41,6 +41,10 @@ class Queue:
             result TEXT, error TEXT);
             CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY, task TEXT, at REAL, event TEXT, detail TEXT);
             CREATE TABLE IF NOT EXISTS control (key TEXT PRIMARY KEY, value TEXT);''')
+        columns = {r['name'] for r in self.db.execute('PRAGMA table_info(tasks)')}
+        for name in ('complexity', 'model', 'effort'):
+            if name not in columns:
+                self.db.execute('ALTER TABLE tasks ADD COLUMN ' + name + ' TEXT')
 
     @contextlib.contextmanager
     def transaction(self):
@@ -58,7 +62,8 @@ class Queue:
     def config(self):
         return json.loads((self.root / 'config.json').read_text(encoding='utf-8-sig'))
 
-    def submit(self, target, workspace, prompt, timeout=180, parent=None, session=None):
+    def submit(self, target, workspace, prompt, timeout=180, parent=None, session=None,
+               complexity=None, model=None, effort=None):
         cfg = self.config(); workspace = str(Path(workspace).resolve())
         if workspace not in cfg['workspaces'].get(target, []):
             raise ValueError('Workspace must be explicitly registered for this agent')
@@ -69,12 +74,28 @@ class Queue:
             raise ValueError('Handoff hop budget exhausted')
         if parent and parent['target'] == target:
             raise ValueError('Self-delegation refused')
+        complexity = complexity or (parent.get('complexity') if parent else None) or 'normal'
+        if complexity not in ('simple', 'normal', 'complex'):
+            raise ValueError('Unknown task complexity')
+        if bool(model) != bool(effort):
+            raise ValueError('Explicit model and effort must be supplied together')
+        selection = cfg.get('model_profiles', {}).get(target, {}).get(complexity, {})
+        model, effort = model or selection.get('model'), effort or selection.get('effort')
+        if not model or effort not in ('low', 'medium', 'high', 'xhigh', 'max', 'ultra'):
+            raise ValueError('Configure an explicit model/effort profile; no implicit CLI default')
+        if complexity == 'complex' and effort not in ('high', 'xhigh', 'max', 'ultra'):
+            raise ValueError('Complex tasks require high or greater effort; no silent downgrade')
+        supported = cfg.get('supported_models', {}).get(target, {})
+        if effort not in supported.get(model, []):
+            raise ValueError('Model/effort must be verified in local supported_models config')
         tid = uuid.uuid4().hex
         self.db.execute('''INSERT INTO tasks(id,root_id,parent,depth,target,workspace,prompt,timeout,session,state,created,updated)
                           VALUES(?,?,?,?,?,?,?,?,?,'QUEUED',?,?)''',
             (tid, parent['root_id'] if parent else tid, parent['id'] if parent else None,
              depth, target, workspace, prompt, timeout, session, time.time(), time.time()))
         self.event(tid, 'QUEUED', {'target': target, 'parent': parent['id'] if parent else None})
+        self.db.execute('UPDATE tasks SET complexity=?,model=?,effort=? WHERE id=?', (complexity, model, effort, tid))
+        self.event(tid, 'MODEL_SELECTION', {'complexity': complexity, 'model': model, 'effort': effort})
         return tid
 
     def state(self, tid, state, **fields):
@@ -121,6 +142,9 @@ def execute(q, task):
     cfg = q.config(); tid = task['id']; agent = task['target']
     run = q.root / 'runs' / tid; run.mkdir(parents=True, exist_ok=True)
     dump(run / 'task.json', task); dump(run / 'schema.json', SCHEMA)
+    if not task.get('model') or not task.get('effort'):
+        raise ValueError('Legacy queued task has no explicit selection; review and resubmit')
+    dump(run / 'selection.json', {k: task[k] for k in ('complexity', 'model', 'effort')})
     exe = cfg['executables'][agent]
     # Executables only: .cmd wrappers create avoidable shell quoting risks on Windows.
     if not Path(exe).is_file() or (os.name == 'nt' and Path(exe).suffix.lower() != '.exe'):
@@ -133,6 +157,7 @@ def execute(q, task):
               +'\nTask:\n'+task['prompt'])
     if agent == 'codex':
         args = [exe, 'exec', '--sandbox', cfg.get('codex_sandbox', 'read-only')]
+        args += ['--model', task['model'], '-c', 'model_reasoning_effort=' + json.dumps(task['effort'])]
         if task['session']: args += ['resume', task['session']]
         args += ['--json',
                  '--output-schema', str(run / 'schema.json'), '-o', str(run / 'answer.json'), '-']
@@ -140,6 +165,7 @@ def execute(q, task):
         permitted = ','.join(cfg.get('claude_tools', []))
         args = [exe, '-p', '--output-format', 'json', '--json-schema', json.dumps(SCHEMA),
                 '--permission-mode', 'dontAsk', '--strict-mcp-config', '--tools', permitted]
+        args += ['--model', task['model'], '--effort', task['effort']]
         if permitted: args += ['--allowedTools', permitted]
         if task['session']: args += ['--resume', task['session']]
     dump(run / 'argv.json', args)
@@ -239,6 +265,8 @@ def main():
     i.add_argument('--codex-workspace', required=True); i.add_argument('--claude-workspace', required=True)
     s = sub.add_parser('submit'); s.add_argument('target', choices=['claude','codex']); s.add_argument('--workspace', required=True)
     s.add_argument('--prompt-file', required=True, type=Path); s.add_argument('--timeout', type=int, default=180); s.add_argument('--session')
+    s.add_argument('--complexity', choices=['simple','normal','complex'], default='normal')
+    s.add_argument('--model'); s.add_argument('--effort')
     h = sub.add_parser('handoff'); h.add_argument('parent'); h.add_argument('target', choices=['claude','codex'])
     h.add_argument('--prompt-file', required=True, type=Path)
     for name in ['status', 'cancel', 'resolve']:
@@ -253,7 +281,8 @@ def main():
              'workspaces': {'codex':[str(Path(a.codex_workspace).resolve())], 'claude':[str(Path(a.claude_workspace).resolve())]},
              'max_hops':2, 'codex_sandbox':'read-only'})
     elif a.cmd == 'submit':
-        with q.transaction(): print(q.submit(a.target, a.workspace, a.prompt_file.read_text(encoding='utf-8-sig'), a.timeout, session=a.session))
+        with q.transaction(): print(q.submit(a.target, a.workspace, a.prompt_file.read_text(encoding='utf-8-sig'), a.timeout,
+                                            session=a.session, complexity=a.complexity, model=a.model, effort=a.effort))
     elif a.cmd == 'handoff':
         with q.transaction():
             parent = q.get(a.parent)

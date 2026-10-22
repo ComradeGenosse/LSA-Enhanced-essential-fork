@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'tools/agent-coordinator/**'
+      - 'tools/gta-controller/**'
       - '.github/workflows/local-agent-coordinator.yml'
 jobs:
   queue:
@@ -15,3 +16,5 @@ jobs:
           python-version: '3.12'
       - name: Queue, recovery, locking and bounded process checks (no models or GTA)
         run: python -m unittest discover -s tools/agent-coordinator -p test_coordinator.py -v
+      - name: Controller and failed-smoke replay (no GTA)
+        run: python -m unittest discover -s tools/gta-controller -p 'test_*.py' -v

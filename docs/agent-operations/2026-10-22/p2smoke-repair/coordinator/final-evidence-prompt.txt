@@ -1,0 +1,53 @@
+Bounded final evidence review only. Sonnet low, short answer, no tools or delegation needed. Codex owns final decisions. Personal mod: sufficient is sufficient. Judge only the supplied structured evidence: does it support this one site/weapon trial passing, with limitations? Return result under 250 words and handoff null. No placeholders. Do not claim broader safety/performance or identify the exact old restored fragment.
+Candidate acfe7be9; X7 CI39826570171 and Windows CI39826570260 passed before installation. Same unchanged driver SHA da37a140305ae6d3c0b2b8918aef423aa379926eb05e1ceb9e2840df8746642c, exact runtime pid62932 loadedUtc2026-10-22T17:55:52.9180734Z, session x72c-repair-20261022, owner codex. One shot only. Prepare original9 twin0. All5 commands DONE.
+{"t":55781,"frame":9771,"kind":"x7_frames","requestId":"4514a90039b14e16a2b61c82d3095747","sessionId":"x72c-repair-20261022","experimentId":"X7.2c-p2-smoke","trialId":"smoke-shot","label":"p2smoke_sel23_center","baselineMedianMs":6.063,"baselineMaxMs":14.215,"windowMaxMs":11.881,"windowMaxFrame":9485,"over50":0,"over100":0,"frames":332}
+{"t":55781,"frame":9771,"kind":"x7_result","requestId":"4514a90039b14e16a2b61c82d3095747","sessionId":"x72c-repair-20261022","experimentId":"X7.2c-p2-smoke","trialId":"smoke-shot","label":"p2smoke_sel23_center","model":"lsa_x7d_secp_j1400","aimU":0,"aimV":0.8,"mode":"script","predict":true,"committed":true,"projectileSeen":true,"late":false,"fallbackUsed":false,"fireFrame":9379,"commitFrame":9467,"explosionFrame":9471,"fractureSeenFrame":9474,"framesCommitToExplosion":4,"msCommitToExplosion":28,"ttcAtCommitMs":65.635,"distToFaceAtCommitM":0.504,"horizonMs":70.27,"projSpeed":7.712,"frameMsAtCommit":6.847,"commitCallMs":0.47,"nativeParts":2,"originalBlocked":0,"twinBlocked":3,"twinIntactAfterMiss":false,"pools":{"props":421,"propCap":2300,"colliders":20,"colliderCap":228,"peds":53,"pedCap":256,"vehicles":75,"vehicleCap":300,"projectiles":1,"pickups":0}}
+{"t":60652,"frame":10434,"kind":"x7_player_result","requestId":"5cc488f8a4f645678e28a412dff98bae","sessionId":"x72c-repair-20261022","experimentId":"X7.2c-p2-smoke","trialId":"smoke-walk","isPlayer":true,"startX":1067.18,"startY":-1771.667,"startZ":35.789,"endX":1064.463,"endY":-1772.578,"endZ":35.749,"ms":1820,"crossed":true,"crossingU":0.291,"laneU":0.232,"laneWidthM":1,"outsideFootprint":false,"maxRise":0,"passed":true}
+{"t":65277,"frame":11049,"kind":"x7_restored","requestId":"b49da5ae6a1b4fd0b0dad9268766fa3d","sessionId":"x72c-repair-20261022","experimentId":"X7.2c-p2-smoke","trialId":"smoke-restore","originalBlocked":9,"originalExists":true,"originalVisibleFlag":true,"restoredToOriginal":true,"pools":{"props":418,"propCap":2300,"colliders":5,"colliderCap":228,"peds":46,"pedCap":256,"vehicles":109,"vehicleCap":300,"projectiles":1,"pickups":0}}
+Final strip probes 300 300 000 000 300; protected pos0,1,4 all visible,attached,rootAlive,moved0. GTA exited normally, processes absent before rollback. Installer restored original hashes; independent read-only verifier matched4 original hashes and3 absent temporary files. Ownership released with pending null.
+Filesystem verifier:
+[
+  {
+    "relative": "ScriptHookVDotNet.ini",
+    "expected": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+    "actual": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+    "match": true
+  },
+  {
+    "relative": "onigiri/common/data/dlclist.xml",
+    "expected": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234",
+    "actual": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234",
+    "match": true
+  },
+  {
+    "relative": "renodx-dlss.addon64",
+    "expected": "D3184429254F09D2F8A50B7F3D10B9B24CC3B630B35AEB81F8CB43BEB9E50AFC",
+    "actual": "D3184429254F09D2F8A50B7F3D10B9B24CC3B630B35AEB81F8CB43BEB9E50AFC",
+    "match": true
+  },
+  {
+    "relative": "renodx-dlss-hotkey.addon64",
+    "expected": "A64BE8C4B00901F31894EFC15238BFDD0BEB6C16B9C545C88C7B3131B49183DB",
+    "actual": "A64BE8C4B00901F31894EFC15238BFDD0BEB6C16B9C545C88C7B3131B49183DB",
+    "match": true
+  },
+  {
+    "relative": "onigiri/dlcpacks/lsa_fence_x7d/dlc.rpf",
+    "expected": null,
+    "actual": null,
+    "match": true
+  },
+  {
+    "relative": "scripts-x7/WpsBreachLabX7.3.cs",
+    "expected": null,
+    "actual": null,
+    "match": true
+  },
+  {
+    "relative": "scripts-x7/x7-models.txt",
+    "expected": null,
+    "actual": null,
+    "match": true
+  }
+]
+
