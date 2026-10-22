@@ -120,3 +120,10 @@ These clarifications preserve the raw independent review without overstating it.
 
 All 15 collected evidence-file hashes were verified after collection. `FINAL.json`
 joins the separate verdicts. The model queue is stopped; no idle model calls remain.
+
+Post-trial failure-only guard `e7c258b0`: malformed/unreadable receipts with an
+unresolved controller intent now remain UNKNOWN and suppress restoration attempts,
+just like timeouts. A focused regression case raises the controller/smoke total to
+22 passing tests under Windows Python 3.12. The successful command/gameplay path,
+shot parameters and native runtime are unchanged; no second GTA shot was run.
+The exact live-tested candidate remains acfe7be9, independently recorded above.
