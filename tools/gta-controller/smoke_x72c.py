@@ -1,0 +1,133 @@
+"""Bounded X7.2c selective-fracture smoke trial over the P2 controller (Windows host operator only).
+
+One trial: prepare -> camera -> real RPG shot -> player walk -> restore, each a separate strict P2 request.
+The walk step blocks until the player crosses; the operator (or a separately authorized desktop session)
+must hold W in GTA during that step. Exit 0 requires command, gameplay and world verdicts to all pass.
+Filesystem restoration is NOT assessed here: run verify_hashes.py after GTA is stopped.
+"""
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import controller as c
+
+EXPERIMENT = 'X7.2c-p2-smoke'
+SHOT_LABEL = 'p2smoke_sel23_center'
+# Exactly the validated X7.2c center shot (evidence/x72c, run 20261022-161716-263440) with a P2 label.
+STEPS = [
+    ('prepare', 'x7prepare model=lsa_x7d_secp_j1400 sel=2,3 verified=1 hash=1185366416 tx=1065.758 ty=-1773.716 tz=34.851 px=1072 py=-1772.5 pz=36.5 pu=0 back=4'),
+    ('camera', 'x7cam t=-5.5 u=1.5 z=1.5 lu=0 lz=1.1'),
+    ('shot', 'x7shot label=' + SHOT_LABEL + ' aimu=0 aimv=0.80 back=4 probe=1'),
+    ('walk', 'x7walk hold=3'),
+    ('restore', 'x7restore'),
+]
+SELECTED = {2, 3}
+PROTECTED_MOVE_LIMIT = 0.05
+
+
+def rows_of(path):
+    return [json.loads(line) for line in Path(path).read_text(encoding='utf-8-sig').splitlines() if line.strip()]
+
+
+def first(rows, kind, **match):
+    for r in rows:
+        if r.get('kind') == kind and all(r.get(k) == v for k, v in match.items()):
+            return r
+    return None
+
+
+def analyze(rows_by_step, label=SHOT_LABEL):
+    """Gameplay and world verdicts from structured rows only. Command success is never an input."""
+    checks = {}
+    armed = first(rows_by_step.get('prepare', []), 'x7_armed')
+    checks['armed_original_9_of_9_twin_0'] = bool(armed and armed.get('originalBlocked') == 9 and armed.get('twinBlocked') == 0)
+    shot = rows_by_step.get('shot', [])
+    res = first(shot, 'x7_result', label=label)
+    checks['real_projectile_committed_before_explosion'] = bool(
+        res and res.get('committed') and res.get('projectileSeen') and not res.get('late') and not res.get('fallbackUsed')
+        and (res.get('framesCommitToExplosion') or 0) >= 1)
+    checks['native_fracture_exactly_two_parts'] = bool(res and res.get('nativeParts') == 2)
+    checks['original_hidden_after_swap'] = bool(res and res.get('originalBlocked') == 0)
+    states = {r['pos']: r for r in shot if r.get('kind') == 'x7_secstate' and r.get('label') == label}
+    five = sorted(states) == [0, 1, 2, 3, 4]
+    checks['five_section_states_logged'] = five
+    checks['selected_positions_are_2_3'] = five and {p for p, r in states.items() if r.get('selected')} == SELECTED
+    checks['protected_sections_intact'] = five and all(
+        r.get('exists') and r.get('visible') and r.get('attached') and r.get('rootAlive') and 0 <= r.get('moved', -1) < PROTECTED_MOVE_LIMIT
+        for p, r in states.items() if p not in SELECTED)
+    probes = [r for r in shot if r.get('kind') == 'x7_probe' and r.get('label') == label]
+    final = probes[-1].get('strips_blocked_debris_other', '').split() if probes else []
+    checks['final_probe_open_only_at_selected'] = len(final) == 5 and all(
+        (s[0] == '0') == (i in SELECTED) and (s[0] == '3') == (i not in SELECTED) for i, s in enumerate(final))
+    frames = first(shot, 'x7_frames', label=label)
+    checks['no_frame_over_50ms'] = bool(frames and frames.get('over50') == 0)
+    walk = first(rows_by_step.get('walk', []), 'x7_player_result')
+    checks['player_traversed_opening'] = bool(walk and walk.get('isPlayer') and walk.get('crossed') and walk.get('passed') and not walk.get('outsideFootprint'))
+    restored = first(rows_by_step.get('restore', []), 'x7_restored')
+    world = bool(restored and restored.get('restoredToOriginal') and restored.get('originalExists') and restored.get('originalBlocked') == 9)
+    return dict(checks=checks, gameplayOutcome='PASS' if all(checks.values()) else 'FAIL',
+                worldRestoration='PASS_9_OF_9' if world else 'FAIL_OR_MISSING')
+
+
+def run(ctl, out):
+    """Return (verdict dict, exit code). Never resubmits; a timeout stops everything for reconcile."""
+    out = Path(out)
+    done, request_ids, error, unknown = [], [], None, False
+    for name, command in STEPS:
+        try:
+            result = ctl.submit(command, EXPERIMENT, 'smoke-' + name, timeout=120 if name == 'walk' else 80)
+            request_ids.append(result['requestId']); done.append(name)
+        except c.ProtocolError as e:
+            error = {'step': name, 'message': str(e)}
+            unknown = 'TIMEOUT_UNKNOWN' in str(e)
+            last = getattr(ctl, 'state', {}).get('last')
+            if last and last.get('command') == command:
+                request_ids.append(last['requestId'])  # definite runtime failure: keep its evidence
+            break
+    restore_after_failure = None
+    if error and not unknown and 'prepare' in done and 'restore' not in done:
+        # Definite failure (never a timeout): one restore through the SAME controller/session.
+        try:
+            r = ctl.submit('x7restore', EXPERIMENT, 'smoke-restore-after-failure', timeout=80)
+            request_ids.append(r['requestId']); restore_after_failure = 'DONE'
+        except c.ProtocolError as e:
+            restore_after_failure = 'FAILED: ' + str(e)
+    verdict = dict(experiment=EXPERIMENT, stepsCompleted=done, requestIds=request_ids, error=error,
+                   restoreAfterFailure=restore_after_failure,
+                   commandOutcome='ALL_DONE' if len(done) == len(STEPS) and not error else ('UNKNOWN_RECONCILE_REQUIRED' if unknown else 'FAILED'),
+                   filesystemRestoration='NOT_ASSESSED_RUN_verify_hashes_AFTER_GTA_STOPPED')
+    code = 2
+    out.mkdir(parents=True, exist_ok=True)
+    if not unknown and request_ids:
+        (out / 'request-ids.json').write_text(json.dumps({'requestIds': request_ids}), encoding='utf-8')
+        c.collect(ctl.lab, request_ids, out / 'evidence')
+        by_step = {}
+        for rid in request_ids:
+            resp = c.read(ctl.lab / 'responses' / (rid + '.json'))
+            step = resp['trialId'].replace('smoke-', '').replace('restore-after-failure', 'restore')
+            by_step.setdefault(step, []).extend(rows_of(ctl.lab / resp['runId'] / 'trials.jsonl'))
+        verdict.update(analyze(by_step))
+        if verdict['commandOutcome'] == 'ALL_DONE' and verdict['gameplayOutcome'] == 'PASS' and verdict['worldRestoration'] == 'PASS_9_OF_9':
+            code = 0
+    (out / 'verdict.json').write_text(json.dumps(verdict, indent=2), encoding='utf-8')
+    return verdict, code
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--lab', required=True, type=Path); p.add_argument('--owner', required=True)
+    p.add_argument('--session', required=True); p.add_argument('--expected', required=True, type=Path)
+    p.add_argument('--out', required=True, type=Path, help='new evidence directory')
+    a = p.parse_args()
+    ctl = c.Controller(a.lab, a.owner, a.session, c.read(a.expected))
+    print('Walk step: hold W in GTA while the controller waits for x7walk.', file=sys.stderr)
+    try:
+        verdict, code = run(ctl, a.out)
+    except (c.ProtocolError, OSError, ValueError, KeyError) as e:
+        print(str(e), file=sys.stderr); raise SystemExit(2)
+    print(json.dumps(verdict, indent=2)); raise SystemExit(code)
+
+
+if __name__ == '__main__':
+    main()
