@@ -21,7 +21,11 @@ assert not any(k in commit for k in ("Yield(","Row(","Request(","Wait("))
 shot=driver.split('void X7Shot(')[1].split('bool X7FindOpening')[0]
 assert 'X7Commit(bestSelection)' in shot and 'X7Mask(label,aimU,aimV)' in shot
 assert 'ImpactSectionSelector.TryPredictAndSelect(' in shot
-assert 'readyCount == 1' in shot and 'beforeShotHandles.Contains(p.Handle)' in shot
+assert 'readyCount == 1' in shot and 'beforeShotHandles.Contains(ph)' in shot
+assert 'ProjectileAdmissionPolicy.TryLaunchFlight(' in shot
+assert 'ProjectileAdmissionPolicy.Corroborates(' in shot
+assert 'mode != "script"' in shot and 'confirmedBaseline.Add(ph)' in shot
+assert 'baselinePromotedObservations' in shot and 'x7_baseline_snapshot' in shot
 assert 'x7_live_impact_requires_five_sections_no_preselection' in shot
 assert 'for (int f = 0; f < 60; f++) Yield();' in shot
 assert 'x7_fallback_forbidden' in shot
