@@ -1,0 +1,35 @@
+{
+  "experiment": "X7.2c-p2-smoke",
+  "stepsCompleted": [
+    "prepare",
+    "camera",
+    "shot"
+  ],
+  "requestIds": [
+    "786d1ac8d54c4d0497080da2ea004215",
+    "a75c01add6c943c7a0c32bfbb45728ef",
+    "5c16f6b5c724498daf92d7c5ecc23fee",
+    "c15e1627e88945b58d38f437261c9b5c"
+  ],
+  "error": {
+    "step": "walk",
+    "message": "runtime failure: {'protocol': 2, 'requestId': 'c15e1627e88945b58d38f437261c9b5c', 'fence': 'ee4845bc9fd149beb4f437da69c5c1ac', 'sessionId': 'p2smoke-20261022', 'experimentId': 'X7.2c-p2-smoke', 'trialId': 'smoke-walk', 'command': 'x7walk hold=3', 'state': 'ERROR', 'error': 'error', 'runId': '20261022-170805-e0239b', 'pid': 25352, 'loadedUtc': '2026-10-22T17:07:00.4080519Z', 'scriptSha256': 'da37a140305ae6d3c0b2b8918aef423aa379926eb05e1ceb9e2840df8746642c'}"
+  },
+  "restoreAfterFailure": "FAILED: runtime failure: {'protocol': 2, 'requestId': '8e1c89e4a2b341e0aacd5d92bfc1a498', 'fence': 'ee4845bc9fd149beb4f437da69c5c1ac', 'sessionId': 'p2smoke-20261022', 'experimentId': 'X7.2c-p2-smoke', 'trialId': 'smoke-restore-after-failure', 'command': 'x7restore', 'state': 'ERROR', 'error': 'original_restore_requires_9_of_9', 'runId': '20261022-170807-6159aa', 'pid': 25352, 'loadedUtc': '2026-10-22T17:07:00.4080519Z', 'scriptSha256': 'da37a140305ae6d3c0b2b8918aef423aa379926eb05e1ceb9e2840df8746642c'}",
+  "commandOutcome": "FAILED",
+  "filesystemRestoration": "NOT_ASSESSED_RUN_verify_hashes_AFTER_GTA_STOPPED",
+  "checks": {
+    "armed_original_9_of_9_twin_0": true,
+    "real_projectile_committed_before_explosion": false,
+    "native_fracture_exactly_two_parts": false,
+    "original_hidden_after_swap": true,
+    "five_section_states_logged": true,
+    "selected_positions_are_2_3": true,
+    "protected_sections_intact": false,
+    "final_probe_open_only_at_selected": false,
+    "no_frame_over_50ms": true,
+    "player_traversed_opening": false
+  },
+  "gameplayOutcome": "FAIL",
+  "worldRestoration": "FAIL_OR_MISSING"
+}
