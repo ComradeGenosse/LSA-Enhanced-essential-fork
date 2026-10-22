@@ -25,6 +25,13 @@ jobs:
       - name: Frozen matrix and analyst unit tests
         run: |
           python -m unittest discover -s native/fragment-x7 -p 'test_*.py' -v
+      - name: P2 auto-impact acceptance oracle (no GTA)
+        run: |
+          python -m unittest discover -s tools/gta-controller -p 'test_smoke_x73.py' -v
+          python -m unittest discover -s tools/gta-controller -p 'test_smoke_x72c.py' -v
+      - name: Generator source and live integration guards
+        run: |
+          python native/fragment-x7/test_live_selector_source.py
       - name: Build driver from frozen X6 and ensure reproducible artifact
         run: |
           python native/fragment-x7/build_x7.py
