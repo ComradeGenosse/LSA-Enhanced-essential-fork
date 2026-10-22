@@ -27,6 +27,8 @@ jobs:
         run: |
           python native/fragment-x7/validate_x7.py
           python native/fragment-x7/validate_x7b.py
+          python native/fragment-x7/validate_x7c.py
+          python native/fragment-x7/build_fence_x7.py --dry-run --layout walk5
           python native/fragment-x7/spec.py --layout grid6x5 --output /tmp/x7-models-1.json
           python native/fragment-x7/spec.py --layout grid6x5 --output /tmp/x7-models-2.json
           cmp /tmp/x7-models-1.json /tmp/x7-models-2.json
