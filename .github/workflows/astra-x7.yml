@@ -16,6 +16,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Deterministic impact-to-section selection (no GTA)
+        run: dotnet run --project native/fragment-x7/selection-tests/SelectionTests.csproj --configuration Release
       - name: Frozen matrix and analyst unit tests
         run: |
           python -m unittest discover -s native/fragment-x7 -p 'test_*.py' -v
@@ -28,6 +33,7 @@ jobs:
           python native/fragment-x7/validate_x7.py
           python native/fragment-x7/validate_x7b.py
           python native/fragment-x7/validate_x7c.py
+          python native/fragment-x7/validate_x7d.py
           python native/fragment-x7/build_fence_x7.py --dry-run --layout walk5
           python native/fragment-x7/spec.py --layout grid6x5 --output /tmp/x7-models-1.json
           python native/fragment-x7/spec.py --layout grid6x5 --output /tmp/x7-models-2.json

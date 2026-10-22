@@ -4,6 +4,27 @@
 Research authority: [doc 16, §§6–8 and 12](../../docs/next-gen-gameplay/astra-001/16-X7-LOCALIZED-FRACTURE-RESEARCH-20261021.md).
 Offline Story Mode ONLY. Do not merge into the production mod based on cloud checks.
 
+## X7.2c design and offline selector — October 22, 2026
+
+The latest [X7.2b independent-section evidence](evidence/x72b/RESULTS.md) supports
+mixed strength profiles: uniform independent j1400 still broke 5/5, whereas
+preselected j1400/j1800 profiles broke the intended weak pair. Profile selection
+from a tracked impact during flight remains untested. See the
+[X7.2c architecture, runtime audit and gameplay gates](research/X7.2c-design.md).
+
+Recommended smallest candidate: five weak native section props, all visible and
+colliding at commit, with fracture enabled only for the selected adjacent pair.
+Fallback: pre-stage strong/weak pairs and activate one member per position.
+Both require gameplay discriminators before runtime integration; restore and
+reprepare between controlled impacts initially.
+
+The [pure C# selector](selection/README.md) and package-free deterministic tests
+run without GTA. The driver does not call the selector yet. This update preserves
+the current runtime and repairs its generator so the X7.2b section/probe code
+reproduces byte-for-byte. No asset rebuild, install, GTA session or acceptance
+claim is included; PR #296 remains draft and unmerged. Older results below are
+preserved as dated evidence.
+
 ## X7.1 j1300 / j1400 result — October 22, 2026
 
 **Both produce a real walkable doorway with outer strips retained.** At P1/back=4, j1300 and j1400 each natively detached the three middle strips while both outer strips stayed attached (40% twin-mask blocking). Actual player walks passed inside the footprint with zero rise: clear lanes 1.2 m / 1.5 m. Exact two-strip doorway not achieved. Both originals restored 9/9; GTA stopped and all five install paths hash-restored. [Results, measurements, screenshots and limits](evidence/x7c-mid/RESULTS.md). No full X7a/X7b/X8 acceptance or merge.
