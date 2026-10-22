@@ -133,3 +133,32 @@ An actual Claude → Codex → Claude acceptance requires authenticated CLIs. Su
 the example prompt in `offline-demo.txt` to Claude and run the worker. Inspect all
 three durable task records and the final independent answer; fake CLI tests are
 not a substitute for this live service integration.
+
+## Explicit model and effort (small local configuration)
+
+Codex leads the project end-to-end; use Claude for bounded questions and independent
+reviews. Copy `model_profiles` and `supported_models` from `model-profiles.example.json`
+into the local queue config **after checking the installed CLIs and account access**.
+The example respects this project's cost preference: Haiku/Luna low for simple tasks,
+Sonnet/Sol low for planned implementation, Sonnet/Sol high for complex debugging or review.
+Fable/Astra are excluded. Opus 5.5 and Sol ultra require Chris's explicit confirmation
+before use and are excluded from the example allowlist. Do not enable paid credits
+or upgrade models automatically. Use an existing plan to keep implementation light.
+
+Discover flags with each executable's `--help`. Codex's local `models_cache.json`
+lists model slugs and supported reasoning levels; Claude's print-mode `/model`
+lists aliases, and `--model sonnet --effort high -p /model` resolves the selection
+without an inference call. These lists do not guarantee quota or subscription access:
+the real request can still be refused. Record capability evidence outside the queue's
+private credentials and refresh the config when CLI/account availability changes.
+
+Submit with `--complexity simple|normal|complex` (default normal), optionally supplying
+both `--model` and `--effort`. Selection is validated against local `supported_models`,
+frozen in the task and MODEL_SELECTION event, and written to `selection.json` and argv.
+Complex work requires high or greater effort. A peer handoff inherits complexity and
+uses the receiving agent's configured profile; it cannot silently become a simple task.
+Missing profiles, legacy queued tasks without selection, and unsupported combinations
+fail closed. CLI model/refusal output is retained; no fallback or automatic retry is
+configured. Reconcile UNKNOWN as usual before submitting a different authorized model.
+Check raw CLI response metadata for the actual model and usage; do not treat a local
+selection receipt or a placeholder answer as a completed review.

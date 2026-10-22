@@ -1,0 +1,24 @@
+{
+  "model_profiles": {
+    "claude": {
+      "simple": {"model": "haiku", "effort": "low"},
+      "normal": {"model": "sonnet", "effort": "low"},
+      "complex": {"model": "sonnet", "effort": "high"}
+    },
+    "codex": {
+      "simple": {"model": "gpt-6-luna", "effort": "low"},
+      "normal": {"model": "gpt-6.1-sol", "effort": "low"},
+      "complex": {"model": "gpt-6.1-sol", "effort": "high"}
+    }
+  },
+  "supported_models": {
+    "claude": {
+      "haiku": ["low", "medium", "high"],
+      "sonnet": ["low", "medium", "high"]
+    },
+    "codex": {
+      "gpt-6-luna": ["low", "medium", "high"],
+      "gpt-6.1-sol": ["low", "medium", "high"]
+    }
+  }
+}
