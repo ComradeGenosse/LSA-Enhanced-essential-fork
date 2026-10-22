@@ -56,7 +56,21 @@ existing generated `WpsBreachLabX7.3.cs`, not a new physics engine. Existing
 assets/pack/selector/controller were not edited. Linux CI cannot prove native
 fragment behavior or compile the installed SHVDN build.
 
-## Minimal later local Codex/P2 handoff — NOT AUTHORIZED HERE
+## Read-only P2 placement audit
+
+After registering a placement, `x8audit id=A` records the currently streamed
+source, its nine collision owners, nearby props, unit basis, 18 approach rays
+and ground samples. `stream=1 px=... py=... pz=...` additionally streams the
+explicit player position, only when no native lease exists. It never stages or
+hides a fence, fires, or selects damage. A failed audit is a stop; clear rays
+alone do not prove capsule clearance, acceptable ground grade or traversal.
+Coordinates must come from real map/native data.
+
+## Local Codex/P2 acceptance procedure
+
+The October 22 user authorized the recorded session. It ended at the collision
+stop; the commands below describe the still-uncompleted acceptance, not a retry
+within that ended session.
 
 1. Inspect two real, unobstructed `prop_fnccorgm_02e` placements **read-only**.
    Determine exact pivots (`tx ty tz`), headings, unit/upright basis, accessible
