@@ -45,7 +45,7 @@ def c_variants():
     """
     return [Variant(f"lsa_x7c_walk5_j{k}", "walk5", k, k/5, k, 0,
                     source="X7.1 walkable-geometry experiment; GTA UNTESTED")
-            for k in (1000, 550, 1800, 3200, 1300, 1400)]
+            for k in (1000, 550, 1800, 3200, 1300, 1400, 1600)]
 
 def cells(layout):
     """Shared authored rectangle basis, row-major order. Torn mesh uses shared jag functions."""

@@ -1,0 +1,100 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<CMapTypes><archetypes><Item type="CBaseArchetypeDef">
+      <lodDist value="200" />
+      <flags value="131072" />
+      <specialAttribute value="0" />
+      <bbMin x="-1.268" y="-0.035" z="0.0" />
+      <bbMax x="1.268" y="0.0625" z="2.351" />
+      <bsCentre x="0.0" y="0.01375" z="1.1755" />
+      <bsRadius value="1.7297401" />
+      <hdTextureDist value="100" />
+      <name>lsa_x7c_walk5_j1000</name>
+      <textureDictionary>lsa_x7c_walk5_j1000</textureDictionary>
+      <assetType>ASSET_TYPE_FRAGMENT</assetType>
+      <assetName>lsa_x7c_walk5_j1000</assetName>
+    </Item>
+  <Item type="CBaseArchetypeDef">
+      <lodDist value="200" />
+      <flags value="131072" />
+      <specialAttribute value="0" />
+      <bbMin x="-1.268" y="-0.035" z="0.0" />
+      <bbMax x="1.268" y="0.0625" z="2.351" />
+      <bsCentre x="0.0" y="0.01375" z="1.1755" />
+      <bsRadius value="1.7297401" />
+      <hdTextureDist value="100" />
+      <name>lsa_x7c_walk5_j550</name>
+      <textureDictionary>lsa_x7c_walk5_j550</textureDictionary>
+      <assetType>ASSET_TYPE_FRAGMENT</assetType>
+      <assetName>lsa_x7c_walk5_j550</assetName>
+    </Item>
+  <Item type="CBaseArchetypeDef">
+      <lodDist value="200" />
+      <flags value="131072" />
+      <specialAttribute value="0" />
+      <bbMin x="-1.268" y="-0.035" z="0.0" />
+      <bbMax x="1.268" y="0.0625" z="2.351" />
+      <bsCentre x="0.0" y="0.01375" z="1.1755" />
+      <bsRadius value="1.7297401" />
+      <hdTextureDist value="100" />
+      <name>lsa_x7c_walk5_j1800</name>
+      <textureDictionary>lsa_x7c_walk5_j1800</textureDictionary>
+      <assetType>ASSET_TYPE_FRAGMENT</assetType>
+      <assetName>lsa_x7c_walk5_j1800</assetName>
+    </Item>
+  <Item type="CBaseArchetypeDef">
+      <lodDist value="200" />
+      <flags value="131072" />
+      <specialAttribute value="0" />
+      <bbMin x="-1.268" y="-0.035" z="0.0" />
+      <bbMax x="1.268" y="0.0625" z="2.351" />
+      <bsCentre x="0.0" y="0.01375" z="1.1755" />
+      <bsRadius value="1.7297401" />
+      <hdTextureDist value="100" />
+      <name>lsa_x7c_walk5_j3200</name>
+      <textureDictionary>lsa_x7c_walk5_j3200</textureDictionary>
+      <assetType>ASSET_TYPE_FRAGMENT</assetType>
+      <assetName>lsa_x7c_walk5_j3200</assetName>
+    </Item>
+  <Item type="CBaseArchetypeDef">
+      <lodDist value="200" />
+      <flags value="131072" />
+      <specialAttribute value="0" />
+      <bbMin x="-1.268" y="-0.035" z="0.0" />
+      <bbMax x="1.268" y="0.0625" z="2.351" />
+      <bsCentre x="0.0" y="0.01375" z="1.1755" />
+      <bsRadius value="1.7297401" />
+      <hdTextureDist value="100" />
+      <name>lsa_x7c_walk5_j1300</name>
+      <textureDictionary>lsa_x7c_walk5_j1300</textureDictionary>
+      <assetType>ASSET_TYPE_FRAGMENT</assetType>
+      <assetName>lsa_x7c_walk5_j1300</assetName>
+    </Item>
+  <Item type="CBaseArchetypeDef">
+      <lodDist value="200" />
+      <flags value="131072" />
+      <specialAttribute value="0" />
+      <bbMin x="-1.268" y="-0.035" z="0.0" />
+      <bbMax x="1.268" y="0.0625" z="2.351" />
+      <bsCentre x="0.0" y="0.01375" z="1.1755" />
+      <bsRadius value="1.7297401" />
+      <hdTextureDist value="100" />
+      <name>lsa_x7c_walk5_j1400</name>
+      <textureDictionary>lsa_x7c_walk5_j1400</textureDictionary>
+      <assetType>ASSET_TYPE_FRAGMENT</assetType>
+      <assetName>lsa_x7c_walk5_j1400</assetName>
+    </Item>
+  <Item type="CBaseArchetypeDef">
+      <lodDist value="200" />
+      <flags value="131072" />
+      <specialAttribute value="0" />
+      <bbMin x="-1.268" y="-0.035" z="0.0" />
+      <bbMax x="1.268" y="0.0625" z="2.351" />
+      <bsCentre x="0.0" y="0.01375" z="1.1755" />
+      <bsRadius value="1.7297401" />
+      <hdTextureDist value="100" />
+      <name>lsa_x7c_walk5_j1600</name>
+      <textureDictionary>lsa_x7c_walk5_j1600</textureDictionary>
+      <assetType>ASSET_TYPE_FRAGMENT</assetType>
+      <assetName>lsa_x7c_walk5_j1600</assetName>
+    </Item>
+  </archetypes><name>lsa_x7c</name></CMapTypes>
