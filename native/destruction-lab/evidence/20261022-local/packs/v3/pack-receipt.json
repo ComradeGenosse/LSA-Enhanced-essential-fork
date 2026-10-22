@@ -1,0 +1,15 @@
+{
+  "pack": "lsa_destruction_lab",
+  "map": "lsa_destruction_lab.ymap",
+  "mapSha256": "2B1B81C96AAD5332D687F8AEC4B4379E2C51B93F67383233866067DF80EE8DA0",
+  "dlcSha256": "9010CC5F599D2168992D7FF5D5401D0FA9D94CAC9F1B51C6C6866876888D0927",
+  "sourceSha256": "d1914feb6980a261f409d363371bcab7eed1a1f42235765d91ebcc4ba4fb98e4",
+  "sourceEvidence": "P2/d03d058cba4347aa96fa7c99f3c7265b",
+  "binaryReloadEntities": 2,
+  "packedReloadEntities": 2,
+  "dependencyDictionary": "v_fences",
+  "mountingReference": "Installed NVE_props_addon: RPF_FILE map archive, GROUP_UPDATE_STREAMING, isLevelPack=true",
+  "classification": "EXPERIMENTAL_BINARY_UNVERIFIED_IN_GTA",
+  "onigiriDlclistLine": "<Item>dlcpacks:/lsa_destruction_lab/</Item>",
+  "note": "Does NOT install; local CodeWalker binary reload and Enhanced map DLC mount required."
+}

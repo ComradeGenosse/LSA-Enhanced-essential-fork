@@ -1,0 +1,20 @@
+{
+  "state": "GTA_STOPPED_FILESYSTEM_RESTORED_P2_RELEASED",
+  "operator": "codex-lab",
+  "publisher": "codex",
+  "authorization": "User explicitly authorizes X8 installation, survey and qualified map acceptance sessions, maximum one RPG per real fence, restoration and PR310 push; no X9",
+  "candidateDriver": "5AD91373AD99FBD6B1D0B7757951C1E05A7AE20C50EA03729818145248815803",
+  "backup": "C:\\Users\\Chris.COMRADE\\Documents\\Codex\\2026-10-22\\take-ownership-of-completing-and-validating\\work\\backup",
+  "session": "lab-survey-20261022",
+  "acknowledgedBy": "codex-lab",
+  "outcome": {
+    "command": "SURVEY_DONE_MAP_AUDITS_ERROR_SOURCE_MISSING",
+    "customMap": "FAIL_NOT_LOADED_IN_V1_V2_V3_NOT_TESTED",
+    "gameplay": "NOT_RUN",
+    "world": "NO_PREPARE_HIDE_SPAWN_OR_DAMAGE_COMMANDS_ZERO_SHOTS",
+    "filesystem": "PASS_ORIGINAL_HASHES_AND_ABSENCES_RESTORED",
+    "shots": 0
+  },
+  "nextAction": "Cloud diagnose map streaming from preserved failed-load evidence; v3 unqualified; do not claim gameplay acceptance; leave PR310 draft/unmerged",
+  "p2OwnershipReleased": true
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CDataFileMgr__ContentsOfDataFileXml><disabledFiles/><includedXmlFiles/><includedDataFiles/>
+<dataFiles>
+<Item><filename>dlc_lsa_destruction_lab:/%PLATFORM%/lsa_destruction_lab.rpf</filename><fileType>RPF_FILE</fileType><overlay value="false"/><disabled value="false"/><persistent value="false"/><contents>CONTENTS_DLC_MAP_DATA</contents></Item>
+
+</dataFiles><contentChangeSets>
+<Item><changeSetName>LSA_DESTRUCTION_LAB_STREAMING</changeSetName><filesToEnable><Item>dlc_lsa_destruction_lab:/%PLATFORM%/lsa_destruction_lab.rpf/</Item></filesToEnable>
+<executionConditions><activeChangesetConditions/><genericConditions>&#36;level=MO_JIM_L11</genericConditions></executionConditions></Item>
+</contentChangeSets><patchFiles/></CDataFileMgr__ContentsOfDataFileXml>

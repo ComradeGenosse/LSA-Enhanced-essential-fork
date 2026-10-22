@@ -17,7 +17,9 @@ jobs:
           python-version: '3.12'
       - name: Compile generator and run offline unit tests
         run: |
-          python -m py_compile native/destruction-lab/generate_lab.py
+          python -m py_compile native/destruction-lab/generate_lab.py native/destruction-lab/build_runtime.py native/destruction-lab/install_lab.py
+          python native/destruction-lab/build_runtime.py "$RUNNER_TEMP/lab-runtime"
+          git diff --exit-code -- native/fragment-x7/WpsBreachLabX7.3.cs
           python -m unittest discover -s native/destruction-lab/tests -p 'test_*.py' -v
       - name: Verify deterministic synthetic-only generation
         run: |

@@ -1,0 +1,15 @@
+{
+  "checkedUtc": "2026-10-22T22:04:45.5821891Z",
+  "status": "PASS",
+  "gpuIndex": 0,
+  "expectedPercent": 80.0,
+  "expectedSource": "C:\\Program Files (x86)\\MSI Afterburner\\Profiles\\VEN_10DE&DEV_2B85&SUBSYS_205710DE&REV_A1&BUS_1&DEV_0&FN_0.cfg [Profile1] PowerLimit",
+  "scope": "GPU power limit only; full preset, clock offsets, voltage curve and fan policy not verified",
+  "settingsChanged": false,
+  "currentLimitWatts": 460.0,
+  "defaultLimitWatts": 575.0,
+  "expectedLimitWatts": 460.0,
+  "actualPercent": 80.0,
+  "toleranceWatts": 1.0,
+  "action": "No preset action needed for the power cap."
+}

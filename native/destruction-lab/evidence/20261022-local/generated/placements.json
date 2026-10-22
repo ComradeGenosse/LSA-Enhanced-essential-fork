@@ -1,0 +1,48 @@
+{
+  "classification": "PROPOSED_UNVERIFIED_IN_GTA",
+  "evidence": "P2/d03d058cba4347aa96fa7c99f3c7265b",
+  "name": "lsa_destruction_lab",
+  "placements": [
+    {
+      "hash": 1185366416,
+      "heading": 0.0,
+      "id": "A",
+      "model": "prop_fnccorgm_02e",
+      "quaternion": [
+        0.0,
+        0.0,
+        -0.0,
+        1.0
+      ],
+      "x": -1255.0,
+      "y": -3350.0,
+      "z": 13.049618
+    },
+    {
+      "hash": 1185366416,
+      "heading": 90.0,
+      "id": "B",
+      "model": "prop_fnccorgm_02e",
+      "quaternion": [
+        0.0,
+        0.0,
+        -0.7071067811865476,
+        0.7071067811865476
+      ],
+      "x": -1225.0,
+      "y": -3350.0,
+      "z": 13.049618
+    }
+  ],
+  "requirements": [
+    "CodeWalker binary conversion and reload",
+    "GTA streaming identity at both sites",
+    "source 9/9 and dormant twin 0/9",
+    "18 clear approach rays each",
+    "walkable ground and no overlap with ambient collision",
+    "verify quaternion/native heading and valid shooter origins",
+    "hash-verified stopped-game installation and restoration"
+  ],
+  "schema": 1,
+  "sourceSha256": "d1914feb6980a261f409d363371bcab7eed1a1f42235765d91ebcc4ba4fb98e4"
+}

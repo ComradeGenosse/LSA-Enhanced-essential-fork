@@ -1,8 +1,15 @@
-# LSA Destruction Lab — X8 deterministic map-entity test scene
+# LSA Destruction Lab â€” X8 deterministic map-entity test scene
 
-**Status:** cloud-side authoring prototype, based on draft X8 PR #309; **NOT
-installed, converted or accepted in GTA**. No known safe coordinates are
-embedded. Separate draft PR; X7.3/X8 physics and the P2 protocol are unchanged.
+**Status:** Windows CodeWalker dev48 conversion, direct binary reload and nested
+DLC reload validated locally. Live qualification results are recorded in
+`evidence/20261022-local/RESULTS.md`. Based on draft X8 PR #309;
+X7.3/X8 physics, selector and P2 protocol are unchanged.
+
+**Live result: map streaming NOT established.** V1/V2 audits could not find the
+authored source fences. V3 packaging was installed but not qualified before the
+user ended testing. Zero preparations and zero RPG shots. GTA is stopped, original
+files/addons are hash-restored, and P2 is released. Cloud diagnosis continues in
+[the preserved handoff](evidence/20261022-local/RESULTS.md).
 
 ## Why this exists
 
@@ -15,7 +22,7 @@ They are not SHVDN CreateObject/script-owned props. This preserves the
 map-hide vs. script-exclusion distinction of our X7.3 replacement path.
 
 The map contains exactly two upright, unit-scale original fences, A/B,
-**30 meters apart**, oriented **90° apart**. No floor, custom physics,
+**30 meters apart**, oriented **90Â° apart**. No floor, custom physics,
 duplicate model, new YTYP, trainer, traffic modifications or YBN. Ground and
 nearby environment remain vanilla/NVE and MUST be audited locally. We
 intentionally don't use off-map coordinates before proving a solid ground plane.
@@ -48,20 +55,20 @@ python native/destruction-lab/generate_lab.py \
 
 Generated files:
 
-- `lsa_destruction_lab.ymap.xml` — genuine CodeWalker CMapData XML with 2
+- `lsa_destruction_lab.ymap.xml` â€” genuine CodeWalker CMapData XML with 2
   CEntityDefs; no manually spawned entities.
-- `placements.json` — absolute pivot/yaw, model hashes, QA requirements and
+- `placements.json` â€” absolute pivot/yaw, model hashes, QA requirements and
   stable SHA-256 of the XML. Classification stays `PROPOSED_UNVERIFIED_IN_GTA`.
-- `p2-operator-commands.txt` — **review-only**, registration and audit
+- `p2-operator-commands.txt` â€” **review-only**, registration and audit
   command suggestions. It does not contain a shot, prepare or auto-restore.
-- `NOT_DEPLOYABLE.txt` — only with --fixture, forbids deploying synthetic
+- `NOT_DEPLOYABLE.txt` â€” only with --fixture, forbids deploying synthetic
   coordinates. Do not use fixtures to qualify a real location.
 
 The generator refuses empty/unattested site data, non-finite numbers, outside
 conservative coordinate limits, unsafe evidence fields, bad yaw, and
 insufficient lane separation. Each run emits byte-identical XML and manifests.
 
-## Local Codex / P2 handoff (not authorized by this PR)
+## Local Codex / P2 workflow
 
 1. With normal, **unmodified GTA Enhanced** and the user's existing map stack,
    survey a genuinely flat, empty site large enough for two 30m-apart lanes,
@@ -85,9 +92,10 @@ insufficient lane separation. Each run emits byte-identical XML and manifests.
    It never installs or edits the game. The local operator must independently
    **reload the binary `.ymap` in CodeWalker**, verify both entities, and
    compare the DLC's `content.xml`/`setup2.xml` mounting to a known-working
-   **GTA Enhanced** map DLC before proceeding. The pack script is untested
-   against local CodeWalker binaries; manual CodeWalker conversion is the
-   fallback. This is not a FiveM resource:
+   **GTA Enhanced** map DLC before proceeding. The packer now verifies both direct and nested binary reloads, including
+   the YMAP-to-`v_fences` dependency in `_manifest.ymf`. It uses the installed
+   NVE map archive mounting pattern (`RPF_FILE`, `GROUP_UPDATE_STREAMING`,
+   `isLevelPack=true`). This is not a FiveM resource:
    **never** install fxmanifest.lua or use a FiveM server workflow.
 3. Package the verified binary as a separate
    `lsa_destruction_lab/dlc.rpf` map DLC via the proven Onigiri/Game Enhanced
@@ -128,3 +136,25 @@ insufficient lane separation. Each run emits byte-identical XML and manifests.
 - Native RPG fracture, exact pair selection, traversal and post-shot
   restoration **have not yet been measured** in this lab.
 - No automatic game install, automatic site selection or PC access occurs.
+
+## Windows operator tools
+
+`build_runtime.py OUTPUT_DIRECTORY` generates the unchanged X8 driver and adds
+only `labsurvey x=... y=... z=...`. Send that verb through P2: it temporarily
+streams the player at the proposed site and records ground samples and nearby
+props, then inherited cleanup returns the player. It never creates, hides or
+damages a map object. Compile the resulting `WpsBreachLabX7.3.cs` against the
+installed SHVDN API and bind its installed/loaded hash as usual.
+
+Use Python **3.11+** for the P2 controller's .NET timestamps. Run lifecycle and
+process checks on the Windows host: the desktop sandbox filters process
+enumeration and cannot establish that the real game has stopped.
+
+`install_lab.py install --game-root GAME --pack PACK --backup FRESH_BACKUP`
+installs only the separate lab archive and the Onigiri DLC list. It checks pack
+hashes, process absence and unresolved P2 intent, writes all verified backups
+before mutation, journals each write and verifies installed hashes.
+`install_lab.py restore --game-root GAME --backup SAME_BACKUP` refuses unknown
+file hashes and restores original bytes/absence. The native X7 assets and survey
+driver still use the established stopped-game driver installation workflow.
+Restore map files before restoring the driver install's DLC-list backup.

@@ -1,0 +1,59 @@
+[
+  {
+    "t": 14247,
+    "frame": 5470,
+    "kind": "header",
+    "requestId": "96fe6e49f82c4c61b3ac5d04a2967a06",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "enable-map-v2",
+    "script": "WpsBreachLabX7.3.cs",
+    "version": "X7-0.1",
+    "scriptSha256": "5ad91373ad99fbd6b1d0b7757951c1e05a7ae20c50ea03729818145248815803",
+    "shvdnApi": "3.9.0.0",
+    "gameBuild": "2.0.1158.16",
+    "loadedUtc": "2026-10-22T22:13:36.0211364Z",
+    "pid": 30696,
+    "autoLoadScripts": "AutoLoadScripts=true",
+    "pools": {
+      "props": 378,
+      "propCap": 2300,
+      "colliders": 5,
+      "colliderCap": 228,
+      "peds": 65,
+      "pedCap": 256,
+      "vehicles": 75,
+      "vehicleCap": 300,
+      "projectiles": 0,
+      "pickups": 1
+    },
+    "commands": [
+      "x8enable enable=1 approved=1"
+    ]
+  },
+  {
+    "t": 14258,
+    "frame": 5470,
+    "kind": "x8_enabled",
+    "requestId": "96fe6e49f82c4c61b3ac5d04a2967a06",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "enable-map-v2",
+    "enabled": true,
+    "concurrentNativeContexts": 1,
+    "placementsMax": 2,
+    "realPlacementsEmbedded": false,
+    "validation": "not_gameplay_accepted"
+  },
+  {
+    "t": 14259,
+    "frame": 5470,
+    "kind": "done",
+    "requestId": "96fe6e49f82c4c61b3ac5d04a2967a06",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "enable-map-v2",
+    "runId": "20261022-221350-b55a97",
+    "commandFailed": false
+  }
+]
