@@ -49,6 +49,8 @@ handoffs per root (three CLI calls). Self-delegation and excess hops fail closed
 An agent may also invoke the `submit`/`handoff` CLI from a separately authorized
 session; queued agents are instructed to use JSON only. This is cooperative
 coordination, not a security boundary against programs running as the same user.
+An invalid/excess-budget handoff produces HANDOFF_REJECTED, retaining the CLI
+answer and an explicit rejection reason without creating a child.
 
 ## Permissions and recovery
 
@@ -77,6 +79,11 @@ Resolution marks REVIEWED, never success and never replay. Submit a new task onl
 after determining that repetition is safe. Logs can contain project data; do not
 commit raw credentials, queue databases or private transcripts. The worker has a
 brief process-launch/receipt gap; recovery deliberately reports UNKNOWN.
+Malformed/missing post-launch output or unconfirmed process-tree termination
+also becomes UNKNOWN and pauses the queue. A bounded writer thread keeps large
+stdin prompts from blocking timeout/cancel checks. A CLI that exits after
+spawning detached descendants can still leave them alive; this MVP has no Windows
+Job Object containment. Reconcile descendants before resuming UNKNOWN work.
 
 Persistent CLI allowlists are legitimate within those CLIs' policies. Desktop
 app sandbox escalation, OS/UAC, browser login and managed policy remain enforced.

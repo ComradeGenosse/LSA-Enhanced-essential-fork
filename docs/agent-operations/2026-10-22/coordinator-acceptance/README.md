@@ -1,4 +1,4 @@
-# Local collaboration acceptance — October 22, 2026
+# Local collaboration acceptance â€” October 22, 2026
 
 Implemented on isolated branch integration/local-agent-coordinator-20261022,
 based on X7 P2 9efef271. Codex and Claude have separate registered worktrees.
@@ -28,19 +28,19 @@ Claude requested a sum of squares; Codex returned 9+16+25=50 and handed back;
 Claude independently verified 50 and returned null handoff. Each directory
 contains exact argv, structured answer and captured stdout; tasks.json records
 parent/root/depth/state/result. No credentials or authentication-status identity
-fields were exported. Separate Codex tasks verify session resumption.
+fields were exported. Separate Codex and Claude tasks verify session resumption; Claude resumed b2ec099a-f958-4e90-bc00-3880dd0a4350 successfully.
 
-Eight focused queue checks pass: hop/self-loop rejection, workspace/timeout
+Nine focused queue checks pass (including review regressions): hop/self-loop rejection, workspace/timeout
 gates, transactional child rollback, interrupted-worker UNKNOWN with global
 pause/no replay, queued cancellation, worker exclusion, durable reopen/event
 journal, actual timeout/process termination. The real timeout test uses a
-sleeping Python child and Windows taskkill; corrected test finished in 5.483 s.
+sleeping Python child and Windows taskkill; final blocked-stdin timeout check finished within the 5.562-second suite.
 Hidden worker start/stop and queued cancellation were also exercised.
 
 ## GTA acceptance remains failed
 
 Draft #298 was opened first; X7 CI green before the single smoke. Candidate and
-loaded driver SHA da37a140… matched. Shot saw projectile but was late and never
+loaded driver SHA da37a140â€¦ matched. Shot saw projectile but was late and never
 committed; nativeParts=0. Walk ERROR x7_active_required; restoration ERROR with
 6/9 witnesses. No timeout, resend, retry or second trial. GTA ended, controller
 ownership released, installer rollback verified all four original file hashes
@@ -67,7 +67,7 @@ was installed, and idle checks are local SQLite queries with zero model calls.
 
 Worker/host death can leave children/side effects; UNKNOWN pauses all work until
 operator reconciliation. Cancellation terminates a tree but cannot undo edits.
-Tool-enabled coding is separate from the harmless handoff acceptance. GTA
+Tool-enabled source reading was exercised by the independent Claude review; coding edits are separate from the harmless handoff acceptance. GTA
 deployment still uses the existing stopped-game operator procedure; no generic
 queue task grants live-session ownership. The failed smoke requires offline
 diagnosis and another explicit trial authorization before further GTA activity.

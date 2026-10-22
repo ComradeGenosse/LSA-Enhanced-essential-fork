@@ -7,6 +7,7 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 import uuid
 
@@ -16,6 +17,9 @@ SCHEMA = {"type": "object", "properties": {
         "target": {"type": "string", "enum": ["claude", "codex"]},
         "prompt": {"type": "string"}}, "required": ["target", "prompt"], "additionalProperties": False}},
     "required": ["result", "handoff"], "additionalProperties": False}
+
+class UnknownExecution(RuntimeError):
+    """Termination could not be established; never allow another queued effect."""
 
 def dump(path, obj):
     path = Path(path)
@@ -86,7 +90,9 @@ class Queue:
 
 @contextlib.contextmanager
 def worker_lock(root):
-    f = (root / 'worker.lock').open('a+b'); f.seek(0); f.write(b'0'); f.flush(); f.seek(0)
+    f = (root / 'worker.lock').open('a+b')
+    if not (root / 'worker.lock').stat().st_size: f.write(b'0'); f.flush()
+    f.seek(0)
     try:
         if os.name == 'nt':
             import msvcrt
@@ -100,13 +106,16 @@ def worker_lock(root):
     finally: f.close()
 
 def kill_tree(p):
-    if os.name == 'nt':
-        r = subprocess.run(['taskkill', '/PID', str(p.pid), '/T', '/F'], capture_output=True)
-        if r.returncode and p.poll() is None: raise RuntimeError('Could not terminate task tree')
-    else:
-        import signal
-        os.killpg(p.pid, signal.SIGKILL)
-    p.wait(timeout=15)
+    try:
+        if os.name == 'nt':
+            r = subprocess.run(['taskkill', '/PID', str(p.pid), '/T', '/F'], capture_output=True, timeout=15)
+            if r.returncode and p.poll() is None: raise RuntimeError('Could not terminate task tree')
+        else:
+            import signal
+            os.killpg(p.pid, signal.SIGKILL)
+        p.wait(timeout=15)
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as e:
+        raise UnknownExecution('Task-tree termination unconfirmed; inspect recorded PID before resolving') from e
 
 def execute(q, task):
     cfg = q.config(); tid = task['id']; agent = task['target']
@@ -134,13 +143,22 @@ def execute(q, task):
         if permitted: args += ['--allowedTools', permitted]
         if task['session']: args += ['--resume', task['session']]
     dump(run / 'argv.json', args)
+    # STARTING cancellation must not launch another process.
+    if q.get(tid)['cancel'] or q.db.execute("SELECT 1 FROM control WHERE key='stop'").fetchone():
+        q.state(tid, 'CANCELLED'); return
     with (run / 'stdout.jsonl').open('wb') as out, (run / 'stderr.log').open('wb') as err:
         p = subprocess.Popen(args, cwd=task['workspace'], stdin=subprocess.PIPE, stdout=out, stderr=err,
                              start_new_session=os.name != 'nt', creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         q.state(tid, 'RUNNING', pid=p.pid)
+        write_errors = []
+        def feed():
+            try:
+                p.stdin.write(prompt.encode('utf-8')); p.stdin.close()
+            except (OSError, ValueError) as e: write_errors.append(str(e))
+        writer = threading.Thread(target=feed, daemon=True)
+        until = time.monotonic() + task['timeout']
+        writer.start()
         try:
-            p.stdin.write(prompt.encode('utf-8')); p.stdin.close()
-            until = time.monotonic() + task['timeout']
             while p.poll() is None:
                 stopped = q.db.execute("SELECT value FROM control WHERE key='stop'").fetchone()
                 if q.get(tid)['cancel'] or stopped or time.monotonic() > until:
@@ -152,6 +170,9 @@ def execute(q, task):
         except BaseException:
             if p.poll() is None: kill_tree(p)
             raise
+        writer.join(timeout=1)
+        if writer.is_alive() or write_errors:
+            raise UnknownExecution('Prompt delivery unconfirmed; inspect CLI logs and effects')
     raw = (run / 'stdout.jsonl').read_text(encoding='utf-8-sig')
     session = task['session']
     if agent == 'codex':
@@ -173,12 +194,21 @@ def execute(q, task):
         raise ValueError('Invalid handoff schema')
     dump(run / 'answer.json', answer)
     with q.transaction():
+        if q.get(tid)['cancel'] or q.db.execute("SELECT 1 FROM control WHERE key='stop'").fetchone():
+            q.state(tid, 'CANCELLED', result=json.dumps({'answer':answer,'child':None}), session=session,
+                    error='CLI completed while cancellation arrived; handoff suppressed')
+            return
         child = None
+        rejected = None
         if handoff:
             # Agent output may request text work only; it cannot select arbitrary paths or commands.
-            peer_workspace = cfg['workspaces'][handoff['target']][0]
-            child = q.submit(handoff['target'], peer_workspace, handoff['prompt'], task['timeout'], task)
-        q.state(tid, 'SUCCEEDED', result=json.dumps({'answer': answer, 'child': child}), session=session)
+            try:
+                peer_workspace = cfg['workspaces'][handoff['target']][0]
+                child = q.submit(handoff['target'], peer_workspace, handoff['prompt'], task['timeout'], task)
+            except (ValueError, KeyError, IndexError) as e:
+                rejected = str(e); q.event(tid, 'HANDOFF_REJECTED', rejected)
+        q.state(tid, 'HANDOFF_REJECTED' if rejected else 'SUCCEEDED',
+                result=json.dumps({'answer': answer, 'child': child}), session=session, error=rejected)
 
 def worker(q, once=False):
     with worker_lock(q.root):
@@ -195,7 +225,10 @@ def worker(q, once=False):
             if task:
                 task = dict(task)
                 try: execute(q, task)
-                except Exception as e: q.state(task['id'], 'FAILED', error=str(e))
+                except UnknownExecution as e: q.state(task['id'], 'UNKNOWN', error=str(e))
+                except Exception as e:
+                    state = 'UNKNOWN' if q.get(task['id'])['state'] == 'RUNNING' else 'FAILED'
+                    q.state(task['id'], state, error=str(e))
             elif once: break
             else: time.sleep(1)  # Local SQLite check only; no idle model calls.
 
@@ -244,10 +277,10 @@ def main():
         q.db.execute("INSERT OR REPLACE INTO control VALUES('stop','1')")
     elif a.cmd == 'start':
         with worker_lock(q.root): q.db.execute("DELETE FROM control WHERE key='stop'")
-        log = (q.root/'worker.log').open('ab')
-        proc = subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'--queue',str(q.root),'work'],
-            stdin=subprocess.DEVNULL,stdout=log,stderr=log,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0, start_new_session=os.name != 'nt')
+        with (q.root/'worker.log').open('ab') as log:
+            proc = subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'--queue',str(q.root),'work'],
+                stdin=subprocess.DEVNULL,stdout=log,stderr=log,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0, start_new_session=os.name != 'nt')
         print(json.dumps({'workerPid':proc.pid,'log':str(q.root/'worker.log')}))
     else: worker(q,a.once)
 

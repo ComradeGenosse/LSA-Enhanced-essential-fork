@@ -63,7 +63,8 @@ class QueueTests(unittest.TestCase):
 
     def test_actual_timeout_terminates_process(self):
         cfg=self.q.config(); cfg['executables']={'codex':sys.executable}; c.dump(self.q.root/'config.json',cfg)
-        task=self.submit('codex'); original=subprocess.Popen; children=[]
+        # Exceeds the pipe buffer; child never drains stdin. Timeout must still fire.
+        task=self.q.submit('codex',self.ws,'x'*90000,5); original=subprocess.Popen; children=[]
         def launch(_args, **kw):
             if len(_args) < 2 or _args[1] != 'exec': return original(_args, **kw)
             child=original([sys.executable,'-c','import time; time.sleep(60)'],**kw)
@@ -71,5 +72,12 @@ class QueueTests(unittest.TestCase):
         with patch.object(c.subprocess,'Popen',side_effect=launch): c.worker(self.q,True)
         self.assertEqual(self.q.get(task)['state'],'TIMED_OUT')
         self.assertIsNotNone(children[0].poll())
+
+    def test_unconfirmed_termination_pauses_queue(self):
+        a=self.submit(); b=self.submit('codex')
+        with patch.object(c,'execute',side_effect=c.UnknownExecution('termination unknown')):
+            with self.assertRaises(RuntimeError): c.worker(self.q,True)
+        self.assertEqual(self.q.get(a)['state'],'UNKNOWN')
+        self.assertEqual(self.q.get(b)['state'],'QUEUED')
 
 if __name__=='__main__': unittest.main()
