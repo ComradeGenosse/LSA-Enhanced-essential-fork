@@ -452,6 +452,174 @@ for label, old, new in X72C_PATCHES:
         raise RuntimeError(f'X7.2c generation drift ({label}): expected one match, got {count}')
     s = s.replace(old, new, 1)
 
+# P2 fenced request protocol, strict command results and 9/9 restoration (PR #297 adapter), applied on top of the X7.2c driver.
+# Each patch is an explicit unique substitution; drift aborts before the output file is written.
+P2_PATCHES = [
+    (
+        'P2 provenance comment',
+        r"""// * Idle until a command file appears: <GTA root>\WpsBreachLab\command.txt (one command per line).
+""",
+        r"""// * P2 requests only: see tools/gta-controller and docs/agent-operations/GTA-CONTROLLER-RUNBOOK.md.
+""",
+    ),
+    (
+        'P2 request fields, AcceptRequest, Respond, AtomicText',
+        r"""    bool busy, abortRequested;
+""",
+        r"""    bool busy, abortRequested, commandFailed;
+    string requestId, fence, sessionId, experimentId, trialId, commandError;
+
+    // P2 is deliberately line-framed to avoid adding a JSON assembly to SHVDN.
+    // Immutable claim files prevent replay across script reloads and controller crashes.
+    bool AcceptRequest(string[] wire)
+    {
+        requestId = null; runId = null; commandError = null; commandFailed = false;
+        if (wire.Length != 11 || wire[0] != "X7P2" || !IsToken(wire[1], true)) return false;
+        requestId = wire[1]; fence = wire[2]; sessionId = wire[3]; experimentId = wire[4]; trialId = wire[5]; curCmd = wire[10];
+        try
+        {
+            string responses = Path.Combine(lab, "responses"); Directory.CreateDirectory(responses);
+            if (File.Exists(Path.Combine(responses, requestId + ".json"))) return false;
+            long expiry; int pid;
+            if (!IsToken(fence, true) || !IsToken(sessionId, false) || !IsToken(experimentId, false) || !IsToken(trialId, false) ||
+                !int.TryParse(wire[6], out pid) || pid != Process.GetCurrentProcess().Id || wire[7] != loadedUtc.ToString("o") ||
+                !string.Equals(wire[8], scriptSha, StringComparison.OrdinalIgnoreCase) ||
+                !long.TryParse(wire[9], out expiry) || expiry < (long)(DateTime.UtcNow - new DateTime(1970,1,1)).TotalSeconds ||
+                expiry > (long)(DateTime.UtcNow - new DateTime(1970,1,1)).TotalSeconds + 3601 ||
+                File.ReadAllText(Path.Combine(lab, "controller.fence")).Trim() != fence || string.IsNullOrWhiteSpace(curCmd))
+                throw new Exception("request_fence_expiry_or_runtime_mismatch");
+            string claims = Path.Combine(lab, "claims"); Directory.CreateDirectory(claims);
+            using (FileStream claim = new FileStream(Path.Combine(claims, requestId), FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            { byte[] b = Encoding.UTF8.GetBytes(loadedUtc.ToString("o")); claim.Write(b, 0, b.Length); claim.Flush(true); }
+            return true;
+        }
+        catch (Exception ex) { commandError = ex.Message; state = "REJECTED"; Respond(); return false; }
+    }
+    static bool IsToken(string value, bool hex)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length > 100 || (hex && value.Length != 32)) return false;
+        foreach (char c in value) if (hex ? !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) : !(char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '.')) return false;
+        return true;
+    }
+    void Respond()
+    {
+        if (requestId == null) return;
+        string dst = Path.Combine(lab, "responses", requestId + ".json");
+        AtomicText(dst, Obj("protocol", 2, "requestId", requestId, "fence", fence, "sessionId", sessionId,
+            "experimentId", experimentId, "trialId", trialId, "command", curCmd, "state", state, "error", commandError,
+            "runId", runId, "pid", Process.GetCurrentProcess().Id, "loadedUtc", loadedUtc.ToString("o"), "scriptSha256", scriptSha));
+    }
+    static void AtomicText(string dst, string text)
+    {
+        string tmp = dst + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        using (FileStream f = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        { byte[] b = Encoding.UTF8.GetBytes(text); f.Write(b, 0, b.Length); f.Flush(true); }
+        if (File.Exists(dst)) File.Replace(tmp, dst, null); else File.Move(tmp, dst);
+    }
+""",
+    ),
+    (
+        'P2 request slot and admission',
+        r"""        string cf = Path.Combine(lab, "command.txt");
+        if (!File.Exists(cf)) return;
+        string[] lines;
+        try { lines = File.ReadAllLines(cf); File.Move(cf, Path.Combine(lab, "command.consumed-" + DateTime.UtcNow.Ticks + ".txt")); }
+        catch { return; }
+""",
+        r"""        string cf = Path.Combine(lab, "request.txt");
+        if (!File.Exists(cf)) return;
+        string[] lines;
+        try { if (new FileInfo(cf).Length > 4096) return; lines = File.ReadAllLines(cf); File.Move(cf, Path.Combine(lab, "request.consumed-" + DateTime.UtcNow.Ticks + ".txt")); }
+        catch { return; }
+        if (!AcceptRequest(lines)) return;
+        lines = new string[] { curCmd };
+""",
+    ),
+    (
+        'P2 command failure tracking and terminal response',
+        r"""                catch (Exception ex) { Row("error", "cmd", line, "message", ex.GetType().Name + ": " + ex.Message, "stack", Trim(ex.StackTrace, 600)); }
+                finally { if (!x4Active && x7State == "None") CleanupAll(); }
+            }
+        }
+        catch (Exception ex2) { try { Row("error", "message", ex2.ToString()); } catch { } }
+        finally
+        {
+            try { if (!x4Active && x7State == "None") RestorePlayer(); } catch { }
+            try { if (frameLog != null) { frameLog.Dispose(); frameLog = null; } } catch { }
+            try { if (rows != null) { Row("done", "runId", runId); rows.Dispose(); rows = null; } } catch { }
+            state = "DONE"; step = runId; busy = false; Beat(true);
+""",
+        r"""                catch (Exception ex) { commandFailed = true; commandError = ex.Message; Row("error", "cmd", line, "message", ex.GetType().Name + ": " + ex.Message, "stack", Trim(ex.StackTrace, 600)); }
+                finally { if (!x4Active && x7State == "None") CleanupAll(); }
+            }
+        }
+        catch (Exception ex2) { commandFailed = true; commandError = ex2.Message; try { Row("error", "message", ex2.ToString()); } catch { } }
+        finally
+        {
+            try { if (!x4Active && x7State == "None") RestorePlayer(); } catch (Exception ex) { commandFailed = true; commandError = ex.Message; }
+            try { if (frameLog != null) { frameLog.Dispose(); frameLog = null; } } catch (Exception ex) { commandFailed = true; commandError = ex.Message; }
+            try { if (rows != null) { Row("done", "runId", runId, "commandFailed", commandFailed); rows.Dispose(); rows = null; } } catch (Exception ex) { commandFailed = true; commandError = ex.Message; }
+            state = commandFailed || abortRequested ? "ERROR" : "DONE"; if (abortRequested) commandError = "aborted"; step = runId; busy = false; Beat(true); Respond();
+""",
+    ),
+    (
+        'P2 prepare requires original 9/9',
+        r"""        if (w0 < 8) throw new Exception("original_collision_not_found");
+""",
+        r"""        if (w0 != 9) throw new Exception("original_collision_not_found");
+""",
+    ),
+    (
+        'P2 armed state requires original 9/9',
+        r"""            if (wo < 8) throw new Exception("original_changed_while_armed");
+""",
+        r"""            if (wo != 9) throw new Exception("original_changed_while_armed");
+""",
+    ),
+    (
+        'P2 restore requires original 9/9 and a witness',
+        r"""            Row("x7_restored", "originalBlocked", w, "originalExists", x7Target != null && x7Target.Exists(), "originalVisibleFlag", vis, "restoredToOriginal", w >= 8, "pools", PoolsRaw());
+        }
+""",
+        r"""            Row("x7_restored", "originalBlocked", w, "originalExists", x7Target != null && x7Target.Exists(), "originalVisibleFlag", vis, "restoredToOriginal", w == 9, "pools", PoolsRaw());
+            if (w != 9) { commandFailed = true; commandError = "original_restore_requires_9_of_9"; }
+        }
+        else { commandFailed = true; commandError = "original_restore_witness_missing"; }
+""",
+    ),
+    (
+        'P2 atomic heartbeat',
+        r"""            string tmp = Path.Combine(lab, "status.json.tmp"), dst = Path.Combine(lab, "status.json");
+            File.WriteAllText(tmp, Obj("script", "WpsBreachLabX7.3.cs", "version", Ver, "scriptSha256", scriptSha, "shvdnApi", shvdnVer, "loadedUtc", loadedUtc.ToString("o"),
+                "nowUtc", DateTime.UtcNow.ToString("o"), "pid", Process.GetCurrentProcess().Id, "state", state, "step", step, "cmd", curCmd, "runId", runId, "frame", Game.FrameCount));
+            if (File.Exists(dst)) File.Delete(dst);
+            File.Move(tmp, dst);
+""",
+        r"""            string dst = Path.Combine(lab, "status.json");
+            AtomicText(dst, Obj("protocol", 2, "requestId", requestId, "fence", fence,"script", "WpsBreachLabX7.3.cs", "version", Ver, "scriptSha256", scriptSha, "shvdnApi", shvdnVer, "loadedUtc", loadedUtc.ToString("o"),
+                "nowUtc", DateTime.UtcNow.ToString("o"), "pid", Process.GetCurrentProcess().Id, "state", state, "step", step, "cmd", curCmd, "runId", runId, "frame", Game.FrameCount));
+""",
+    ),
+    (
+        'P2 error rows fail the command; rows carry request identity',
+        r"""        if (rows == null) return;
+        List<object> all = new List<object>(); all.Add("t"); all.Add(clock.ElapsedMilliseconds); all.Add("frame"); all.Add(Game.FrameCount); all.Add("kind"); all.Add(kind);
+        all.AddRange(kv); rows.WriteLine(Obj(all.ToArray()));
+""",
+        r"""        if (kind == "error" || kind == "exception" || kind == "refused" || kind == "unknown_command" || kind.EndsWith("_error"))
+        { commandFailed = true; commandError = kind; }
+        if (rows == null) return;
+        List<object> all = new List<object>(); all.Add("t"); all.Add(clock.ElapsedMilliseconds); all.Add("frame"); all.Add(Game.FrameCount); all.Add("kind"); all.Add(kind);
+        all.Add("requestId"); all.Add(requestId); all.Add("sessionId"); all.Add(sessionId); all.Add("experimentId"); all.Add(experimentId); all.Add("trialId"); all.Add(trialId); all.AddRange(kv); rows.WriteLine(Obj(all.ToArray()));
+""",
+    ),
+]
+for label, old, new in P2_PATCHES:
+    count = s.count(old)
+    if count != 1:
+        raise RuntimeError(f'P2 generation drift ({label}): expected one match, got {count}')
+    s = s.replace(old, new, 1)
+
 assert 'const string Ver = "X7-0.1"' in s
 assert 'World.AddExplosion(' not in s.split('void X7Shot(')[1].split('bool X7FindOpening')[0]
 names=set(re.findall(r'"(lsa_x7a_[a-z0-9]+)"',s.split('AllowedModels =')[1].split('};')[0]))
