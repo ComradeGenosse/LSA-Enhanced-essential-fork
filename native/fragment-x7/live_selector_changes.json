@@ -1,0 +1,75 @@
+{
+  "baseline": "39eb1601e17b770a616cb93c2bda0e337fa305f8",
+  "patches": [
+    {
+      "label": "physical map field",
+      "old": "    HashSet<int> x7SelPos; readonly Dictionary<int, Vector3> x7SecStart = new Dictionary<int, Vector3>();",
+      "new": "    HashSet<int> x7SelPos; readonly Dictionary<int, Vector3> x7SecStart = new Dictionary<int, Vector3>();\n    // Independent physical order (negative U -> positive U); debris ownership remains shared index 0.\n    readonly Lab[] x7ByPos = new Lab[5];"
+    },
+    {
+      "label": "activation physical mapping",
+      "old": "        for (int i = 0; i < x7SecLabs.Count; i++)\n        {\n            Prop w = x7SecLabs[i].Wall; bool sel = x7SelPos.Contains(X7PosOf(i));",
+      "new": "        for (int i = 0; i < x7ByPos.Length; i++)\n        {\n            Prop w = x7ByPos[i].Wall; bool sel = x7SelPos.Contains(i);"
+    },
+    {
+      "label": "impact guarded commit",
+      "old": "    long X7Commit()\n    {\n        long t0 = Stopwatch.GetTimestamp();\n        if (x7SelPos != null) X7ActivateSelective(); else X7SetDormant(false);\n        Function.Call(Hash.CREATE_MODEL_HIDE_EXCLUDING_SCRIPT_OBJECTS, x7HidePos.X, x7HidePos.Y, x7HidePos.Z, X7HideRadius, x7HideModel, true);\n        x7Hidden = true; x7Committed = true;\n        return Stopwatch.GetTimestamp() - t0;\n    }",
+      "new": "    long X7Commit(Astra.X7.ImpactSectionSelector.Selection selected)\n    {\n        // Validate before the first mutation. The hot path has no Yield, model load, file read or Row.\n        if (x7State != \"Armed\" || x7Committed || x7SecLabs.Count != 5 ||\n            selected.SecondIndex != selected.FirstIndex + 1 || selected.FirstIndex < 0 || selected.SecondIndex > 4)\n            throw new Exception(\"x7_auto_commit_invalid_state\");\n        if (x7Target == null || !x7Target.Exists() || x7Target.Model.Hash != x7HideModel ||\n            x7Target.Position.DistanceTo(x7HidePos) > .05f)\n            throw new Exception(\"x7_original_changed_before_commit\");\n        for (int i = 0; i < x7ByPos.Length; i++)\n        {\n            Lab lab = x7ByPos[i];\n            if (lab == null || lab.Wall == null || !lab.Wall.Exists() ||\n                lab.Anchor == null || !lab.Anchor.Exists() || !lab.Wall.IsAttachedTo(lab.Anchor))\n                throw new Exception(\"x7_section_preflight_failed:\" + i);\n        }\n        x7SelPos = new HashSet<int> { selected.FirstIndex, selected.SecondIndex };\n        long t0 = Stopwatch.GetTimestamp();\n        X7ActivateSelective();\n        // Record hide intent before the native call so restore can compensate even if it throws.\n        x7Hidden = true;\n        Function.Call(Hash.CREATE_MODEL_HIDE_EXCLUDING_SCRIPT_OBJECTS, x7HidePos.X, x7HidePos.Y, x7HidePos.Z, X7HideRadius, x7HideModel, true);\n        x7Committed = true;\n        return Stopwatch.GetTimestamp() - t0;\n    }"
+    },
+    {
+      "label": "reset physical map",
+      "old": "        x7SecLabs.Clear(); x7SecHandles.Clear(); x7SecStart.Clear(); x7SelPos = null;",
+      "new": "        x7SecLabs.Clear(); x7SecHandles.Clear(); x7SecStart.Clear(); x7SelPos = null;\n        Array.Clear(x7ByPos, 0, x7ByPos.Length);"
+    },
+    {
+      "label": "centre protection gap",
+      "old": "                x7Twin.Index = 0; x7Twin.Anchor = AttachNativeAnchor(x7Twin.Wall); ConfigureWall(x7Twin);\n                labHandles.Add(x7Twin.Wall.Handle);",
+      "new": "                x7Twin.Index = 0; x7Twin.Anchor = AttachNativeAnchor(x7Twin.Wall); ConfigureWall(x7Twin);\n                X7SetDormantOne(x7Twin.Wall, true); // no yielding with damage enabled\n                labHandles.Add(x7Twin.Wall.Handle);"
+    },
+    {
+      "label": "other protection gap",
+      "old": "                        sl.Index = 0; sl.Anchor = AttachNativeAnchor(sl.Wall); ConfigureWall(sl);\n                        x7SecLabs.Add(sl);",
+      "new": "                        sl.Index = 0; sl.Anchor = AttachNativeAnchor(sl.Wall); ConfigureWall(sl);\n                        X7SetDormantOne(sl.Wall, true);\n                        x7SecLabs.Add(sl);"
+    },
+    {
+      "label": "build physical map",
+      "old": "            if (sectional) for (int si2 = 0; si2 < x7SecLabs.Count; si2++) x7SecStart[X7PosOf(si2)] = x7SecLabs[si2].Wall.Position;",
+      "new": "            if (sectional) for (int si2 = 0; si2 < x7SecLabs.Count; si2++)\n            {\n                int posIndex = X7PosOf(si2);\n                if (x7ByPos[posIndex] != null) throw new Exception(\"x7_duplicate_physical_position\");\n                x7ByPos[posIndex] = x7SecLabs[si2];\n                x7SecStart[posIndex] = x7SecLabs[si2].Wall.Position;\n            }"
+    },
+    {
+      "label": "auto shot gate",
+      "old": "        bool predict = S(a, \"predict\", \"1\") == \"1\", fallback = false;",
+      "new": "        bool predict = S(a, \"predict\", \"1\") == \"1\", fallback = false;\n        // The automatic experiment cannot inherit a command-chosen profile or bypass prediction.\n        if (x7SecLabs.Count != 5 || x7SelPos != null || !predict)\n            throw new Exception(\"x7_live_impact_requires_five_sections_no_preselection\");"
+    },
+    {
+      "label": "preexisting projectile exclusion",
+      "old": "        if (corridor.DidHit && remaining > .75f) throw new Exception(\"x7_launch_corridor_obstructed\");\n        int fireFrame",
+      "new": "        if (corridor.DidHit && remaining > .75f) throw new Exception(\"x7_launch_corridor_obstructed\");\n        // One controlled RPG shot. Exclude projectiles that existed before launch;\n        // there is no SHVDN owner/weapon proof, so multiple eligible newcomers fail closed.\n        HashSet<int> beforeShotHandles = new HashSet<int>();\n        Projectile[] beforeShot = World.GetNearbyProjectiles(centre, 90f);\n        if (beforeShot == null) throw new Exception(\"x7_projectile_baseline_unavailable\");\n        foreach (Projectile p0 in beforeShot)\n            if (p0 != null && p0.Exists()) beforeShotHandles.Add(p0.Handle);\n        int fireFrame"
+    },
+    {
+      "label": "live selection and commit",
+      "old": "            // --- projectile tracking (cheap: one nearby query, a few dot products)\n            Projectile best = null; float bestVt = 0f, bu = 0f, bt = 0f, bv = 0f, bttc = float.NaN, bspeed = 0f; bool bon = false;\n            Projectile[] ps = null; try { ps = World.GetNearbyProjectiles(centre, 90f); } catch { }\n            if (ps != null)\n            {\n                foreach (Projectile p in ps)\n                {\n                    if (p == null || !p.Exists()) continue;\n                    Vector3 pos = p.Position, vel = p.Velocity; int ph = p.Handle;\n                    if (vel.Length() < 5f && prevPos.ContainsKey(ph)) { double dts = (nowMs - prevMs[ph]) / 1000.0; if (dts > 0) vel = (pos - prevPos[ph]) / (float)dts; }\n                    prevPos[ph] = pos; prevMs[ph] = nowMs;\n                    float u, t, v; LocalUTV(T, pos, out u, out t, out v);\n                    float vt = Vector3.Dot(vel, axT), vu = Vector3.Dot(vel, axU), vv = Vector3.Dot(vel, T.Up);\n                    float dt = tFace - t;\n                    if (vt <= 3f || dt < -.6f) continue;\n                    float ttc = Math.Max(0f, dt) / vt;\n                    float uc = u + vu * ttc, vc = v + vv * ttc;\n                    bool on = uc >= T.U0 - .4f && uc <= T.U1 + .4f && vc >= T.V0 - .4f && vc <= T.V1 + .4f;\n                    if (best == null || dt < (tFace - bt)) { best = p; bestVt = vt; bu = u; bt = t; bv = v; bttc = ttc; bspeed = vel.Length(); bon = on; }\n                }\n            }\n            if (best != null)\n            {\n                gone = false; goneFrame = -1; // Reacquisition cancels a transient tracking gap.\n                seen = true;\n                trace.Add(new X7Frame { Frame = gf, Ms = nowMs, FrameMs = fms, T = bt, U = bu, V = bv, Vt = bestVt, Ttc = bttc * 1000f, Speed = bspeed, On = bon, Proj = best.Handle });\n                float horizon = baseH + (float)fms * frameK;\n                if (!committed && predict && bon && bttc * 1000f <= horizon)\n                {\n                    commitTicks = X7Commit();\n                    committed = true; commitFrame = gf; commitMs = nowMs; commitTtc = bttc * 1000f; commitDt = tFace - bt; commitHorizon = horizon; commitSpeed = bspeed; commitFrameMs = fms; commitProj = best.Handle;\n                }\n            }",
+      "new": "            // Only genuine, newly observed, forward-moving projectiles whose predicted\n            // sheet intersection passes the pure selector are considered. Never use aimU.\n            Projectile best = null;\n            Astra.X7.ImpactSectionSelector.Selection bestSelection = default(Astra.X7.ImpactSectionSelector.Selection);\n            float bestVt = 0f, bu = 0f, bt = 0f, bv = 0f, bttc = float.NaN, bspeed = 0f;\n            int readyCount = 0; bool ready = false;\n            double horizonSeconds = Math.Min(Astra.X7.ImpactSectionSelector.MaximumHorizonSeconds,\n                Math.Max(0.0, (baseH + fms * frameK) / 1000.0));\n            Projectile[] ps = null; try { ps = World.GetNearbyProjectiles(centre, 90f); } catch { }\n            if (ps != null)\n            {\n                foreach (Projectile p in ps)\n                {\n                    if (p == null || !p.Exists() || beforeShotHandles.Contains(p.Handle)) continue;\n                    Vector3 pos = p.Position, vel = p.Velocity; int ph = p.Handle;\n                    if (vel.Length() < 5f && prevPos.ContainsKey(ph))\n                    {\n                        double dts = (nowMs - prevMs[ph]) / 1000.0;\n                        if (dts > 0 && dts <= .1) vel = (pos - prevPos[ph]) / (float)dts;\n                    }\n                    prevPos[ph] = pos; prevMs[ph] = nowMs;\n                    float u, t, v; LocalUTV(T, pos, out u, out t, out v);\n                    float vt = Vector3.Dot(vel, axT), vu = Vector3.Dot(vel, axU), vv = Vector3.Dot(vel, T.Up);\n                    Astra.X7.ImpactSectionSelector.Selection selection;\n                    if (!Astra.X7.ImpactSectionSelector.TryPredictAndSelect(\n                        (double)u - cuMid, t, (double)v - T.V0,\n                        vu, vt, vv, tFace,\n                        Astra.X7.ImpactSectionSelector.MaximumHorizonSeconds, out selection)) continue;\n                    if (best == null || selection.TimeToFaceSeconds < bestSelection.TimeToFaceSeconds ||\n                        (selection.TimeToFaceSeconds == bestSelection.TimeToFaceSeconds && ph < best.Handle))\n                    {\n                        best = p; bestSelection = selection; bestVt = vt; bu = u; bt = t; bv = v;\n                        bttc = (float)selection.TimeToFaceSeconds; bspeed = vel.Length();\n                    }\n                    if (selection.TimeToFaceSeconds <= horizonSeconds) readyCount++;\n                }\n            }\n            if (best != null)\n            {\n                gone = false; goneFrame = -1;\n                seen = true;\n                trace.Add(new X7Frame { Frame = gf, Ms = nowMs, FrameMs = fms, T = bt, U = bu, V = bv, Vt = bestVt, Ttc = bttc * 1000f, Speed = bspeed, On = true, Proj = best.Handle });\n                ready = bestSelection.TimeToFaceSeconds <= horizonSeconds && readyCount == 1;\n                if (!committed && ready)\n                {\n                    try { commitTicks = X7Commit(bestSelection); }\n                    catch { x7State = \"RestorePending\"; throw; }\n                    committed = true; commitFrame = gf; commitMs = nowMs; commitTtc = bttc * 1000f;\n                    commitDt = tFace - bt; commitHorizon = (float)(horizonSeconds * 1000.0);\n                    commitSpeed = bspeed; commitFrameMs = fms; commitProj = best.Handle;\n                    Row(\"x7_selection\", \"label\", label, \"projectile\", commitProj,\n                        \"impactU\", bestSelection.ImpactU, \"impactV\", bestSelection.ImpactV,\n                        \"ttcMs\", bestSelection.TimeToFaceSeconds * 1000.0,\n                        \"first\", bestSelection.FirstIndex, \"second\", bestSelection.SecondIndex,\n                        \"mask\", bestSelection.Mask, \"readyCount\", readyCount, \"origin\", \"projected_intersection\");\n                }\n            }"
+    },
+    {
+      "label": "disable untracked preview",
+      "old": "            case \"x7preview\": if (x7State != \"Armed\") throw new Exception(\"x7prepare_required\"); X7Commit(); x7State = \"Active\"; Row(\"x7_preview\", \"diagnosticOnly\", true); break;",
+      "new": "            case \"x7preview\": throw new Exception(\"x7_preview_forbidden_for_impact_selected_runtime\");"
+    },
+    {
+      "label": "restore map",
+      "old": "            x7Hidden = false; x7Committed = false; x7State = \"None\"; x7Twin = null; x7SecLabs.Clear(); x7SecHandles.Clear(); x7SelPos = null;",
+      "new": "            x7Hidden = false; x7Committed = false; x7State = \"None\"; x7Twin = null; x7SecLabs.Clear(); x7SecHandles.Clear(); x7SelPos = null;\n            Array.Clear(x7ByPos, 0, x7ByPos.Length);"
+    },
+    {
+      "label": "spawn protection gap",
+      "old": "        if (x7Dormant) { p.IsVisible = false; Function.Call(Hash.SET_ENTITY_COLLISION, p.Handle, false, true); }",
+      "new": "        if (x7Dormant) X7SetDormantOne(p, true); // fully protect before Spawn's first Yield"
+    },
+    {
+      "label": "configure respects dormant",
+      "old": "        Function.Call(Hash.SET_DISABLE_FRAG_DAMAGE, wall.Handle, false); Function.Call(Hash.SET_DISABLE_BREAKING, wall.Handle, false); Function.Call(Hash.SET_ENTITY_CAN_BE_DAMAGED, wall.Handle, true);",
+      "new": "        Function.Call(Hash.SET_DISABLE_FRAG_DAMAGE, wall.Handle, x7Dormant);\n        Function.Call(Hash.SET_DISABLE_BREAKING, wall.Handle, x7Dormant);\n        Function.Call(Hash.SET_ENTITY_CAN_BE_DAMAGED, wall.Handle, !x7Dormant);"
+    }
+  ]
+}
