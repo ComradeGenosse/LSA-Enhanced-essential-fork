@@ -51,6 +51,8 @@ internal static class X8Tests
         r.Active("A");
         Throws(() => r.Active("A"), "no repeat damage");
         r.Restore("A", true);
+        r.Restore("A", false); // never erase prior hide intent on reconciliation
+        Check(r.Get("A").HideIntent, "restore intent is sticky");
         Throws(() => r.Restored("A", false, true), "unknown restoration must latch");
         Check(r.LeaseId == "A" && r.Get("A").HideIntent, "retain hide intent");
         Throws(() => r.Begin("B"), "B blocked on restore pending");
