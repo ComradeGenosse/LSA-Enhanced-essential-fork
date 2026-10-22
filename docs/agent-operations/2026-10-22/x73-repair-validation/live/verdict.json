@@ -1,0 +1,62 @@
+{
+  "experiment": "X7.3-p2-auto-impact",
+  "stepsCompleted": [
+    "prepare",
+    "camera",
+    "shot",
+    "walk",
+    "restore"
+  ],
+  "requestIds": [
+    "18500e6b0147420e917a32b436157268",
+    "dd9344afcb234796a9f92b922eea3f0e",
+    "83b6e0272d0c4826b409fdac569a7ae9",
+    "930d9eb9563d47339db804626545e625",
+    "1c94137d193b4b188341c75057d843a0"
+  ],
+  "error": null,
+  "restoreAfterFailure": null,
+  "commandOutcome": "ALL_DONE",
+  "filesystemRestoration": "NOT_ASSESSED_RUN_verify_hashes_AFTER_GTA_STOPPED",
+  "checks": {
+    "armed_original_9_of_9_twin_0": true,
+    "valid_projected_two_section_selection": true,
+    "real_projectile_committed_before_explosion": true,
+    "native_fracture_exactly_two_parts": true,
+    "original_hidden_after_swap": true,
+    "five_section_states_logged": true,
+    "sections_match_projected_pair": true,
+    "protected_sections_intact": true,
+    "probe_open_only_at_selected": true,
+    "no_frame_over_50ms": true,
+    "player_traversed_opening": true
+  },
+  "selection": {
+    "t": 44480,
+    "frame": 8381,
+    "kind": "x7_selection",
+    "requestId": "83b6e0272d0c4826b409fdac569a7ae9",
+    "sessionId": "x73-repair-one-shot-20261022",
+    "experimentId": "X7.3-p2-auto-impact",
+    "trialId": "smoke-shot",
+    "label": "p2smoke_auto_center",
+    "projectile": 269314,
+    "impactU": 0.006,
+    "impactV": 0.808,
+    "ttcMs": 68.468,
+    "first": 2,
+    "second": 3,
+    "mask": 12,
+    "readyCount": 1,
+    "origin": "projected_intersection"
+  },
+  "selectedPair": [
+    2,
+    3
+  ],
+  "fractureOutcome": "PASS",
+  "traversalOutcome": "PASS",
+  "foreignCollisionHits": 6,
+  "gameplayOutcome": "PASS",
+  "worldRestoration": "PASS_9_OF_9"
+}

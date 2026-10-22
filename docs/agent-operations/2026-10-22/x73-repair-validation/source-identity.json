@@ -1,0 +1,10 @@
+{
+  "pr": 306,
+  "head": "8210588b1a948d7e009df52f9fee9dda04dc8f4d",
+  "base305": "f74909592be75b292b04ec59ae4201f196053d68",
+  "driverSha256": "0e9950e9d640b4e4ee3e44c5c94dfa0ef6f73eaf689fb5f9cfad8017c9c0104a",
+  "gpuPowerLimitW": 460,
+  "gpuDefaultW": 575,
+  "noBehaviorChanges": true,
+  "shotBudget": 1
+}

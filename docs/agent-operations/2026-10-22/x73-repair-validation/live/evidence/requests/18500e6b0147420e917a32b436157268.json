@@ -1,0 +1,14 @@
+{
+  "requestId": "18500e6b0147420e917a32b436157268",
+  "fence": "a7801d17f0fc4ff38eecd71c0e2062bc",
+  "sessionId": "x73-repair-one-shot-20261022",
+  "experimentId": "X7.3-p2-auto-impact",
+  "trialId": "smoke-prepare",
+  "command": "x7prepare model=lsa_x7d_secp_j1400 verified=1 hash=1185366416 tx=1065.758 ty=-1773.716 tz=34.851 px=1072 py=-1772.5 pz=36.5 pu=0 back=4",
+  "expected": {
+    "pid": 3892,
+    "loadedUtc": "2026-10-22T20:23:23.4854516Z",
+    "scriptSha256": "0e9950e9d640b4e4ee3e44c5c94dfa0ef6f73eaf689fb5f9cfad8017c9c0104a"
+  },
+  "expiresUnix": 1792700721.846381
+}
