@@ -4,6 +4,10 @@
 Research authority: [doc 16, §§6–8 and 12](../../docs/next-gen-gameplay/astra-001/16-X7-LOCALIZED-FRACTURE-RESEARCH-20261021.md).
 Offline Story Mode ONLY. Do not merge into the production mod based on cloud checks.
 
+## X7.1 j1300 / j1400 result — October 22, 2026
+
+**Both produce a real walkable doorway with outer strips retained.** At P1/back=4, j1300 and j1400 each natively detached the three middle strips while both outer strips stayed attached (40% twin-mask blocking). Actual player walks passed inside the footprint with zero rise: clear lanes 1.2 m / 1.5 m. Exact two-strip doorway not achieved. Both originals restored 9/9; GTA stopped and all five install paths hash-restored. [Results, measurements, screenshots and limits](evidence/x7c-mid/RESULTS.md). No full X7a/X7b/X8 acceptance or merge.
+
 ## X7.1 stronger-strip trial — October 22, 2026
 
 **j1800: 0/5 detached, no lane.** Same walk5 geometry, P1/back=4; all five strips retained 100% twin-mask blocking. j3200 exported/validated but not fired because j1800 already resisted the shot. Original restored 9/9; game stopped and installation hash-restored. Next useful tuning lies between j1000 (all five detached) and j1800, with matched focus/frame conditions. User confirmed DLSS5 OFF; this launch lacked an independent F6 log entry. [Actual result, evidence and limits](evidence/x7c-strong/RESULTS.md).
@@ -23,7 +27,8 @@ root/post/anchor and hot swap, not script deletion. Each strip mass is 27 kg to
 preserve X6's mass per sheet area; only the new assets differ.
 
 The isolated pack contains `lsa_x7c_walk5_j1000`, `lsa_x7c_walk5_j550`,
-`lsa_x7c_walk5_j1800` and `lsa_x7c_walk5_j3200`. The stronger pair tests
+`lsa_x7c_walk5_j1800`, `lsa_x7c_walk5_j3200`, `lsa_x7c_walk5_j1300` and
+`lsa_x7c_walk5_j1400`. The threshold comparisons test
 whether two adjacent strips can detach while the outer strips survive. The original
 X7a 12-model pack and X7b torn36 experiment are unchanged.
 

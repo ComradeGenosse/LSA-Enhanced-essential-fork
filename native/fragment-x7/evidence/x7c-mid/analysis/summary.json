@@ -1,0 +1,198 @@
+{
+  "schema": 1,
+  "source_type": "runtime_X7_JSONL_only",
+  "shots": [
+    {
+      "label": "x7c_j1300_P1",
+      "model": "lsa_x7c_walk5_j1300",
+      "aimU": 0.0,
+      "aimV": 0.8,
+      "nativeParts": 3,
+      "removedAreaM2": 3.0,
+      "blockedFraction": 0.4,
+      "debrisFraction": 0.0,
+      "otherHitFraction": 0.08,
+      "centroid": [
+        -0.007999999999999861,
+        1.11
+      ],
+      "centroidErrorM": 0.3101,
+      "largestRemovedComponentM2": 3.0,
+      "pieceStates": [
+        {
+          "covered": 100,
+          "blocked": 100,
+          "state": "attached_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 100,
+          "state": "attached_like"
+        }
+      ],
+      "layout": "walk5",
+      "class": "WALK5_EXPERIMENT",
+      "mask": "11111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111",
+      "nu": 25,
+      "nv": 20,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.16,
+      "commitEarlyFrames": 1,
+      "fallbackUsed": false,
+      "commitMs": 0.081,
+      "late": false,
+      "committed": true,
+      "source": "20261022-112401-340427.jsonl",
+      "windowMaxMs": 28.053,
+      "walkAttempts": [
+        {
+          "crossed": true,
+          "outsideFootprint": false,
+          "maxRise": 0,
+          "reason": null,
+          "crossingU": 0.164,
+          "laneU": 0.132,
+          "laneWidthM": 1.2,
+          "passed": true
+        }
+      ],
+      "walk": {
+        "crossed": true,
+        "outsideFootprint": false,
+        "maxRise": 0
+      },
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 3,
+        "postTotal": 3,
+        "topBlocked": 9,
+        "bottomBlocked": 9,
+        "bandTotal": 24
+      }
+    },
+    {
+      "label": "x7c_j1400_P1",
+      "model": "lsa_x7c_walk5_j1400",
+      "aimU": 0.0,
+      "aimV": 0.8,
+      "nativeParts": 3,
+      "removedAreaM2": 3.0,
+      "blockedFraction": 0.4,
+      "debrisFraction": 0.0,
+      "otherHitFraction": 0.08,
+      "centroid": [
+        -0.007999999999999861,
+        1.11
+      ],
+      "centroidErrorM": 0.3101,
+      "largestRemovedComponentM2": 3.0,
+      "pieceStates": [
+        {
+          "covered": 100,
+          "blocked": 100,
+          "state": "attached_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 0,
+          "state": "missing_like"
+        },
+        {
+          "covered": 100,
+          "blocked": 100,
+          "state": "attached_like"
+        }
+      ],
+      "layout": "walk5",
+      "class": "WALK5_EXPERIMENT",
+      "mask": "11111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111111110330000000000001111111111033000000000000111111111103300000000000011111",
+      "nu": 25,
+      "nv": 20,
+      "pitch": 0.1,
+      "u0": -1.208,
+      "v0": 0.16,
+      "commitEarlyFrames": 2,
+      "fallbackUsed": false,
+      "commitMs": 0.059,
+      "late": false,
+      "committed": true,
+      "source": "20261022-112509-6a47c1.jsonl",
+      "windowMaxMs": 27.583,
+      "walkAttempts": [
+        {
+          "crossed": true,
+          "outsideFootprint": false,
+          "maxRise": 0,
+          "reason": null,
+          "crossingU": -0.023,
+          "laneU": -0.018,
+          "laneWidthM": 1.5,
+          "passed": true
+        }
+      ],
+      "walk": {
+        "crossed": true,
+        "outsideFootprint": false,
+        "maxRise": 0
+      },
+      "restore": {
+        "originalBlocked": 9,
+        "restoredToOriginal": true
+      },
+      "frameBands": {
+        "postBlocked": 3,
+        "postTotal": 3,
+        "topBlocked": 9,
+        "bottomBlocked": 9,
+        "bandTotal": 24
+      }
+    }
+  ],
+  "decision": {
+    "selected_tstar": null,
+    "state": "STOP_CONTROL",
+    "reason": "X6 control not WHOLE"
+  },
+  "session_a_gate": {
+    "pass": false,
+    "reasons": [
+      "No observed T*"
+    ]
+  },
+  "session_b_gate": {
+    "pass": false,
+    "reasons": [
+      "No accepted Session A T*"
+    ]
+  },
+  "pairwise": []
+}
