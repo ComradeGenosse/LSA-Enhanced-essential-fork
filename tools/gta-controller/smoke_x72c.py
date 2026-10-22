@@ -97,10 +97,11 @@ def run(ctl, out):
                     break
         except (OSError, ValueError, KeyError) as e:
             error = {'step': name, 'message': 'Evidence acceptance failed: ' + str(e)}
+            unknown = bool(getattr(ctl, 'state', {}).get('pending'))
             break
         except c.ProtocolError as e:
             error = {'step': name, 'message': str(e)}
-            unknown = 'TIMEOUT_UNKNOWN' in str(e)
+            unknown = 'TIMEOUT_UNKNOWN' in str(e) or bool(getattr(ctl, 'state', {}).get('pending'))
             last = getattr(ctl, 'state', {}).get('last')
             if last and last.get('command') == command:
                 request_ids.append(last['requestId'])  # definite runtime failure: keep its evidence
@@ -113,7 +114,7 @@ def run(ctl, out):
             request_ids.append(r['requestId']); restore_after_failure = 'DONE'
         except c.ProtocolError as e:
             restore_after_failure = 'FAILED: ' + str(e)
-            unknown = 'TIMEOUT_UNKNOWN' in str(e)
+            unknown = 'TIMEOUT_UNKNOWN' in str(e) or bool(getattr(ctl, 'state', {}).get('pending'))
             last = getattr(ctl, 'state', {}).get('last')
             if not unknown and last and last.get('command') == 'x7restore':
                 request_ids.append(last['requestId'])

@@ -55,6 +55,21 @@ class SmokeTests(unittest.TestCase):
         self.assertEqual(verdict['commandOutcome'], 'UNKNOWN_RECONCILE_REQUIRED')
         self.assertEqual(code, 2)
 
+    def test_unreadable_pending_response_does_not_send_restore(self):
+        ctl = Replay()
+        submit = ctl.submit
+        def fail_response(command, experiment, trial, timeout):
+            if trial == 'smoke-shot':
+                ctl.commands.append('x7shot')
+                ctl.state['pending'] = {'requestId': 'unresolved'}
+                raise ValueError('malformed response after publication')
+            return submit(command, experiment, trial, timeout)
+        ctl.submit = fail_response
+        verdict, code = self.replay(ctl)
+        self.assertEqual(ctl.commands, ['x7prepare', 'x7cam', 'x7shot'])
+        self.assertEqual(verdict['commandOutcome'], 'UNKNOWN_RECONCILE_REQUIRED')
+        self.assertEqual(code, 2)
+
     def test_unknown_restore_requires_reconciliation(self):
         verdict, code = self.replay(Replay(unknown_restore=True))
         self.assertEqual(verdict['commandOutcome'], 'UNKNOWN_RECONCILE_REQUIRED')
