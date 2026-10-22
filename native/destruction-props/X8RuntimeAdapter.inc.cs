@@ -111,6 +111,9 @@
             throw new Exception("x8_existing_native_owner");
         string id = S(a, "id", "");
         if (S(a, "verified", "0") != "1") throw new Exception("x8_candidate_audit_required");
+        // Never invent a player start from the source pivot; local operator
+        // must approve a real, clear firing position for each placement.
+        X8Required(a, "px"); X8Required(a, "py"); X8Required(a, "pz");
         Astra.X8.Slot slot = x8Registry.Begin(id);
         x8Owner = id;
         Dictionary<string, string> args = new Dictionary<string, string>(a);
@@ -164,8 +167,14 @@
         {
             X7Shot(a); // X7.3 exact projectile provenance and impact selection
             if (x7State == "Active") x8Registry.Active(id);
-            else if (x7State != "Armed" || x7Hidden)
+            else
+            {
+                // One controlled shot attempt per prepared placement. A miss or
+                // uncommitted explosion cannot be retried without restoring first,
+                // particularly while the #308 original-damage path is unresolved.
                 x8Registry.Restore(id, x7Hidden);
+                commandFailed = true; commandError = "x8_no_qualified_commit_restore_required";
+            }
             X8Receipt(id, "shot_end");
         }
         catch
