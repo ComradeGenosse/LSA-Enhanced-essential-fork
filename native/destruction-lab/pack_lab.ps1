@@ -126,6 +126,15 @@ $nested=@($check.Children | Where-Object Name -eq 'lsa_destruction_lab.rpf')
 if($nested.Count -ne 1){throw 'Packed map archive missing'}
 $entry=@($nested[0].AllEntries | Where-Object Name -eq 'lsa_destruction_lab.ymap')
 if($entry.Count -ne 1){throw 'Packed YMAP missing or ambiguous'}
+# An RSC7 byte stream that reopens with YmapFile.Load is not sufficient:
+# the nested RPF directory must index it as a resource entry (not a compressed
+# binary entry). GTA's streaming loader uses the archive entry type and flags.
+if($entry[0] -isnot [CodeWalker.GameFiles.RpfResourceFileEntry]){
+  throw 'Packed YMAP is not indexed as an RPF resource entry'
+}
+if($entry[0].Version -ne 2){
+  throw ("Packed YMAP resource version must be 2, found " + $entry[0].Version)
+}
 $packedMap=[CodeWalker.GameFiles.YmapFile]::new()
 $packedMap.Load($nested[0].ExtractFile($entry[0]),$entry[0])
 if(@($packedMap.AllEntities).Count -ne 2){throw 'Packed YMAP cannot reload two entities'}
