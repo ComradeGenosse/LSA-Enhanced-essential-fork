@@ -620,6 +620,9 @@ for label, old, new in P2_PATCHES:
         raise RuntimeError(f'P2 generation drift ({label}): expected one match, got {count}')
     s = s.replace(old, new, 1)
 
+from live_selector_patch import apply_live_selector
+s = apply_live_selector(s)
+
 assert 'const string Ver = "X7-0.1"' in s
 assert 'World.AddExplosion(' not in s.split('void X7Shot(')[1].split('bool X7FindOpening')[0]
 names=set(re.findall(r'"(lsa_x7a_[a-z0-9]+)"',s.split('AllowedModels =')[1].split('};')[0]))
