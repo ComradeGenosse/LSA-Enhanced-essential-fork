@@ -1,5 +1,14 @@
 # Agent guidance for this repository
 
+## Local CLI collaboration
+
+Read `tools/agent-coordinator/README.md` for the persistent Windows queue and
+JSON handoffs. Codex owns host execution/build/deployment/GitHub/GTA; Claude
+owns experiment design, coding assignments and independent review. Use separate
+registered worktrees. Queue ownership never overrides the GTA P2 controller.
+Bound handoff chains to two hops; preserve UNKNOWN outcomes for reconciliation.
+Never attach a CLI to an assumed Desktop/Cowork conversation or bypass approvals.
+
 For any question or change involving current architecture, implementation state, merge state, deployment state, or next work:
 
 1. Read `docs/ROADMAP.md`.

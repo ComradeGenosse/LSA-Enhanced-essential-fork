@@ -1,0 +1,17 @@
+name: Local agent coordinator (offline Windows)
+on:
+  pull_request:
+    paths:
+      - 'tools/agent-coordinator/**'
+      - '.github/workflows/local-agent-coordinator.yml'
+jobs:
+  queue:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Queue, recovery, locking and bounded process checks (no models or GTA)
+        run: python -m unittest discover -s tools/agent-coordinator -p test_coordinator.py -v

@@ -11,6 +11,12 @@ Status: **integrated offline with the X7.2c driver (integration PR on the X7 bra
 
 ## Ownership and commands
 
+Render preflight can use `tools/agent-coordinator/Test-GpuPowerLimit.ps1`.
+It reads saved Profile 1's power target and live NVIDIA telemetry without
+reapplying settings. If the required power cap already matches, do not click or
+reapply the preset routinely. This verifies only power; any required clock,
+voltage or fan configuration still needs its own evidence.
+
 Use **one Windows host controller** for the game directory. Claude submits command specifications/handoff files from Cowork; it must not acquire a separate Linux lock through the mount. Cross-VM filesystem locking has not been qualified. No direct `command.txt`, old X3/PowerShell sender, hot redeploy, independent desktop control or parallel installer is permitted for a P2 session. This is cooperative ownership, not a security boundary against arbitrary filesystem writers.
 
 `controller.lock` is an OS lock held through publication and completion. `controller.json` persists the named owner/session, random fence and unresolved intent after process death. Another session cannot take over by waiting for expiry. Same-owner recovery must reuse the same session. Never delete a lock file or ownership state to steal control. `release` archives ownership and requires no pending request; only release after the operator records world/filesystem restoration and a written handoff. The next named operator creates a new session/fence.
@@ -45,6 +51,11 @@ If no terminal receipt can be recovered, preserve `controller.json`, request/cla
 `journal.py` provides tested write-ahead, hash-fenced rename/recovery primitives: intent before mutation, applied receipt afterward, explicit undo and refusal of ambiguous states. It is **not wired into the historical installers**; they remain unsafe for live use. Adopt it only in a separately reviewed stopped-game installer, preserving that installer's process-absence gate and complete rollback manifest. No installer/deployment paths were touched by this work.
 
 ## Durable jobs and evidence
+
+For persistent Claude Code ↔ Codex CLI handoffs, use
+`tools/agent-coordinator/README.md`. The generic queue does not acquire GTA
+ownership or authorize live operations. Its GTA adapter remains this controller
+and the single named Windows operator; Claude reviews the correlated evidence.
 
 For an offline long-running command, use explicit argv:
 

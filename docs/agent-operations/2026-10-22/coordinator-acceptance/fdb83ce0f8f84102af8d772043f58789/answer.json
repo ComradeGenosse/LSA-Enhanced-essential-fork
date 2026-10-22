@@ -1,0 +1,7 @@
+{
+  "result": "Experiment: harmless offline handoff acceptance test. No tools, file reads, edits, game, or GUI were used. The task is a tiny arithmetic check: compute the sum of squares of 3, 4 and 5. Expected value is 9 + 16 + 25 = 50. Codex computes and shows the arithmetic, then hands the result back to Claude, which independently verifies it and finishes with a null handoff. Handoff to Codex issued with the exact instructions below.",
+  "handoff": {
+    "target": "codex",
+    "prompt": "Offline arithmetic check. Do not use tools, do not inspect files, do not edit files, and do not delegate further. Compute the sum of squares of 3, 4 and 5. Show the arithmetic explicitly: 3^2 = 9, 4^2 = 16, 5^2 = 25, then 9 + 16 + 25 = total. Then return a handoff to claude whose prompt contains (a) the full arithmetic shown above, (b) the final total, and (c) an explicit request for Claude to independently verify the result, with the final handoff set to null. Do not mark the experiment as verified yourself; verification is Claude's job."
+  }
+}
