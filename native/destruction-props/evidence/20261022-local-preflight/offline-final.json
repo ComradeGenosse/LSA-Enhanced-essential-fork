@@ -1,0 +1,39 @@
+[
+  {
+    "name": "generation",
+    "exitCode": 0
+  },
+  {
+    "name": "x8-tests",
+    "exitCode": 0
+  },
+  {
+    "name": "cleanup-test",
+    "exitCode": 0
+  },
+  {
+    "name": "x8-source",
+    "exitCode": 0
+  },
+  {
+    "name": "x7-source",
+    "exitCode": 0
+  },
+  {
+    "name": "x7-tests",
+    "exitCode": 0
+  },
+  {
+    "name": "smoke73",
+    "exitCode": 0
+  },
+  {
+    "name": "smoke72",
+    "exitCode": 0
+  },
+  {
+    "name": "deterministicAndLiveDriverIdentity",
+    "passed": true,
+    "sha256": "2af1f426ab3aec7dd29d5dd221fda23e225c82332c0c563a06e36830eda6bf27"
+  }
+]

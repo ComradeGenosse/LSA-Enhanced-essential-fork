@@ -204,6 +204,7 @@ public class WpsBreachLab : Script
             case "x8walk": X8OwnedCommand(verb, a); break;
             case "x8cam": X8OwnedCommand(verb, a); break;
             case "x8status": X8Status(); break;
+            case "x8audit": X8Audit(a); break;
             case "x7prepare": X7Prepare(a); break;
             case "x7shot": X7Shot(a); break;
             case "x7walk": X7Walk(a); break;
@@ -1401,6 +1402,7 @@ public class WpsBreachLab : Script
         if (x7State == "None" && !x7Hidden && !x7TimeSet) return;
         try { Game.TimeScale = 1f; } catch { }
         try { if (x7TimeSet) { Function.Call(Hash.SET_CLOCK_TIME, x7SavedH, x7SavedM, x7SavedS); x7TimeSet = false; } } catch { }
+        if (x8Owner != null) X8CaptureCleanup();
         try { CleanupAll(); }
         finally
         {
@@ -1576,7 +1578,7 @@ public class WpsBreachLab : Script
             // If any staged state remains, restore with the same owner before release.
             try { if (x7State != "None" || x7Hidden || x7TimeSet) X7Restore(); } catch { }
             bool clean = x7State == "None" && !x7Hidden && x7SecLabs.Count == 0 &&
-                owned.Count == 0 && debris.Count == 0;
+                owned.Count == 0 && debris.Count == 0 && X8CleanupAbsent();
             bool original = X8VerifyOriginal(id);
             try { x8Registry.FailedPreparation(id, original, clean); }
             catch { commandFailed = true; commandError = "x8_prepare_restore_pending"; }
@@ -1634,7 +1636,7 @@ public class WpsBreachLab : Script
             if (x7State != "None" || x7Hidden || x7TimeSet) X7Restore();
             bool original = X8VerifyOriginal(id);
             bool ownedRemoved = x7State == "None" && !x7Hidden && x7SecLabs.Count == 0 &&
-                owned.Count == 0 && debris.Count == 0;
+                owned.Count == 0 && debris.Count == 0 && X8CleanupAbsent();
             if (!original || !ownedRemoved)
             {
                 X8Receipt(id, "restore_unverified");
@@ -1663,6 +1665,98 @@ public class WpsBreachLab : Script
         else if (verb == "x8cam") X7Cam(a);
         else throw new Exception("x8_unknown_owned_command");
         X8Receipt(id, verb);
+    }
+    readonly List<Entity> x8CleanupEntities = new List<Entity>();
+    void X8CaptureCleanup()
+    {
+        foreach (Entity e in owned) if (e != null && !x8CleanupEntities.Contains(e)) x8CleanupEntities.Add(e);
+        foreach (int h in debris)
+        {
+            Entity e = Entity.FromHandle(h);
+            if (e != null && !x8CleanupEntities.Contains(e)) x8CleanupEntities.Add(e);
+        }
+    }
+    bool X8CleanupAbsent()
+    {
+        int remaining = 0;
+        foreach (Entity e in x8CleanupEntities) if (e.Exists())
+        {
+            remaining++;
+            Row("x8_cleanup_remaining", "handle", e.Handle, "hash", e.Model.Hash);
+        }
+        Row("x8_cleanup_verified", "tracked", x8CleanupEntities.Count, "remaining", remaining,
+            "passed", remaining == 0);
+        if (remaining == 0) x8CleanupEntities.Clear();
+        return remaining == 0;
+    }
+
+    // Bounded read-only audit of one registered placement; no discovery, staging or damage.
+    // Optional streaming moves only the player and is forbidden while a native lease exists.
+    void X8Audit(Dictionary<string, string> a)
+    {
+        X8RequireEnabled();
+        string id = S(a, "id", "");
+        Astra.X8.Placement site = x8Registry.Get(id).Site;
+        if (S(a, "stream", "0") == "1")
+        {
+            if (x8Registry.LeaseId != null) throw new Exception("x8_audit_stream_while_leased");
+            PrepareSite();
+            Game.Player.Character.Position = new Vector3((float)X8Required(a, "px"),
+                (float)X8Required(a, "py"), (float)X8Required(a, "pz"));
+            WaitCollision(Game.Player.Character);
+            for (int f = 0; f < 120; f++) Yield();
+        }
+        Vector3 pivot = new Vector3((float)site.X, (float)site.Y, (float)site.Z);
+        Prop target = null; int count = 0;
+        foreach (Prop p in World.GetNearbyProps(pivot, 12f))
+        {
+            if (p == null || !p.Exists() || owned.Contains(p)) continue;
+            Vector3 v = p.Position;
+            Row("x8_audit_neighbor", "id", id, "handle", p.Handle, "hash", p.Model.Hash,
+                "x", v.X, "y", v.Y, "z", v.Z, "heading", p.Heading, "visible", p.IsVisible);
+            if (p.Model.Hash == site.ModelHash && v.DistanceTo(pivot) <= .10f) { target = p; count++; }
+        }
+        if (count != 1 || target == null || !site.Matches(target.Position.X,target.Position.Y,target.Position.Z,target.Heading))
+            throw new Exception("x8_audit_source_ambiguous_or_missing");
+        Lab L = X4OriginalLab(target);
+        float rt = target.RightVector.Length(), fw = target.ForwardVector.Length(), up = target.UpVector.Length();
+        bool unit = Math.Abs(rt-1f) < .001f && Math.Abs(fw-1f) < .001f && Math.Abs(up-1f) < .001f;
+        int own = 0, foreign = 0;
+        float cu = (L.U0 + L.U1) / 2f;
+        foreach (float du in new float[]{-.7f,0f,.7f}) foreach(float dz in new float[]{.4f,1f,1.6f})
+        {
+            Vector3 a0=L.W(L.L(L.T0,cu+du,L.V0+dz)), b=L.W(L.L(L.T1,cu+du,L.V0+dz));
+            RaycastResult ray=World.Raycast(a0,b,(IntersectFlags)17,null);
+            int h=ray.HitEntity==null?0:ray.HitEntity.Handle;
+            if(ray.DidHit && h==target.Handle) own++;
+            else if(ray.DidHit) foreign++;
+            Row("x8_audit_witness", "id",id,"du",du,"dz",dz,"hit",ray.DidHit,"handle",h,
+                "hash",ray.HitEntity==null?0:ray.HitEntity.Model.Hash,"source",h==target.Handle);
+        }
+        int approachHits=0;
+        foreach(float du in new float[]{-.7f,0f,.7f}) foreach(float dz in new float[]{.5f,1f,1.6f})
+        foreach(int side in new int[]{-1,1})
+        {
+            Vector3 a0=L.W(L.L(side*2f,cu+du,L.V0+dz)), b=L.W(L.L(side*.8f,cu+du,L.V0+dz));
+            RaycastResult ray=World.Raycast(a0,b,(IntersectFlags)17,null);
+            if(ray.DidHit) approachHits++;
+            Row("x8_audit_approach", "id",id,"side",side,"du",du,"dz",dz,"hit",ray.DidHit,
+                "handle",ray.HitEntity==null?0:ray.HitEntity.Handle);
+        }
+        foreach(float t in new float[]{-4f,-2f,-.8f,.8f,2f})
+        {
+            Vector3 v=L.W(L.L(t,cu,L.V0));
+            RaycastResult r=World.Raycast(v+Vector3.WorldUp*2f,v-Vector3.WorldUp*2f,(IntersectFlags)1,null);
+            Row("x8_audit_ground", "id",id,"localT",t,"hit",r.DidHit,
+                "x",r.HitPosition.X,"y",r.HitPosition.Y,"z",r.HitPosition.Z);
+        }
+        Row("x8_audit", "id",id,"x",target.Position.X,"y",target.Position.Y,"z",target.Position.Z,
+            "heading",target.Heading,"updot",Vector3.Dot(target.UpVector,Vector3.WorldUp),
+            "unit",unit,"width",L.U1-L.U0,"height",L.V1-L.V0,"visible",target.IsVisible,
+            "originalBlocked",own,"foreign",foreign,"approachHits",approachHits,
+            "owned",owned.Count,"debris",debris.Count,"pools",PoolsRaw());
+        if(!unit || own!=9 || foreign!=0 || !target.IsVisible || approachHits!=0)
+            throw new Exception("x8_audit_collision_or_basis_refused");
     }
     void X8Status()
     {

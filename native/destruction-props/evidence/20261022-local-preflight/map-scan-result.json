@@ -1,0 +1,6 @@
+{
+  "maps": 21331,
+  "fenceRecords": 523,
+  "finalErrors": 0,
+  "initialFailure": "One-argument Ymap.Load rejected extracted resource bytes; corrected to Load(bytes, entry); initial errors retained in map-errors.txt"
+}

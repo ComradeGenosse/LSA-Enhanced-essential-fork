@@ -1,0 +1,1 @@
+PASS actual X8 cleanup: surviving root, surviving debris, unknown native state, verified deletion

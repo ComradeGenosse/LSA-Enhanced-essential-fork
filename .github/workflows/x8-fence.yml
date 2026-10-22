@@ -30,6 +30,7 @@ jobs:
       - name: Source integration and unchanged projectile authority
         run: |
           python native/destruction-props/test_x8_source.py
+          python native/destruction-props/test_x8_cleanup.py
           python native/fragment-x7/test_live_selector_source.py
       - name: Inherited offline matrix and P2 smoke tests
         run: |

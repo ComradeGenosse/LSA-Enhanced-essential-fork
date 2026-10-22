@@ -1,0 +1,2297 @@
+[
+    {
+        "path":  "x64i.rpf\\levels\\gta5\\props\\roadside\\v_fences.rpf\\prop_fnccorgm_02e.yft",
+        "sha256":  "A21A416776DA9DD348E5BD37AB31D9A6E13F3F935303F2B29340F9595F3AFB53",
+        "bytes":  237568
+    },
+    {
+        "path":  "x64i.rpf\\levels\\gta5\\props\\roadside\\v_fences.rpf\\v_fences.ytyp",
+        "sha256":  "C3867196FCA2C0F89814DD6511D7576FE459008B1F1D4B885B77A6A434256C78",
+        "bytes":  32768
+    },
+    {
+        "path":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "sha256":  "F0D2EDAE6DBBD226153E93AF621FCF4619AD6C5DB2F2DC96E5C780E1AF7ACF6A",
+        "bytes":  65536
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3980601269,
+        "x":  1022.58081,
+        "y":  -2112.41846,
+        "z":  35.7187271,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3810803205,
+        "x":  1014.143,
+        "y":  -2109.00415,
+        "z":  39.08895,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  4136461527,
+        "x":  1006.94653,
+        "y":  -2104.40039,
+        "z":  38.2780533,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  2229207420,
+        "x":  1004.1709,
+        "y":  -2101.90552,
+        "z":  35.1263428,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3567123605,
+        "x":  1026.741,
+        "y":  -2111.36084,
+        "z":  39.20979,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1161501201,
+        "x":  1024.72681,
+        "y":  -2111.57568,
+        "z":  32.00436,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3940745496,
+        "x":  1023.2746,
+        "y":  -2111.437,
+        "z":  38.5033531,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1923262137,
+        "x":  1029.11255,
+        "y":  -2111.66357,
+        "z":  31.6238823,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1923262137,
+        "x":  1027.27124,
+        "y":  -2111.50244,
+        "z":  31.6238823,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1457658556,
+        "x":  1022.35858,
+        "y":  -2119.21631,
+        "z":  34.31985,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3354248223,
+        "x":  1016.89911,
+        "y":  -2111.334,
+        "z":  29.9305878,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1159289407,
+        "x":  1017.58905,
+        "y":  -2109.93945,
+        "z":  29.026741,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1185366416,
+        "x":  1017.70313,
+        "y":  -2105.20483,
+        "z":  30.11713,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1185366416,
+        "x":  1016.39862,
+        "y":  -2116.02515,
+        "z":  29.9633484,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1165271193,
+        "x":  1020.67987,
+        "y":  -2104.00146,
+        "z":  30.32502,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1165271193,
+        "x":  1020.67987,
+        "y":  -2106.39355,
+        "z":  30.26535,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1098827230,
+        "x":  1015.94531,
+        "y":  -2111.8562,
+        "z":  29.6583176,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1207821893,
+        "x":  1015.85455,
+        "y":  -2112.54883,
+        "z":  29.55405,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1161501201,
+        "x":  1005.90509,
+        "y":  -2105.1145,
+        "z":  31.6860924,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  666561306,
+        "x":  1006.51544,
+        "y":  -2112.60083,
+        "z":  29.5586853,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1813879595,
+        "x":  1006.11676,
+        "y":  -2114.10083,
+        "z":  29.7061768,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1813879595,
+        "x":  1007.68127,
+        "y":  -2112.05151,
+        "z":  29.7079735,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3475350787,
+        "x":  1006.92053,
+        "y":  -2114.81177,
+        "z":  29.7176361,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  2623606431,
+        "x":  1007.20782,
+        "y":  -2115.78149,
+        "z":  29.5260048,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3520047072,
+        "x":  1005.86133,
+        "y":  -2111.709,
+        "z":  31.2717247,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3520047072,
+        "x":  1005.70093,
+        "y":  -2113.54248,
+        "z":  31.2717247,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1681607908,
+        "x":  1015.84546,
+        "y":  -2115.987,
+        "z":  29.5351448,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  17892537,
+        "x":  1006.71277,
+        "y":  -2106.75073,
+        "z":  29.5134621,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  2008938025,
+        "x":  1016.01575,
+        "y":  -2119.78467,
+        "z":  29.3814125,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "path":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "sha256":  "C71FDAE359527938E0D0C74E379CF24E70B884A70241FF18AA5546BCDEEC14EE",
+        "bytes":  49152
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  2879667204,
+        "x":  1058.40674,
+        "y":  -1777.45056,
+        "z":  35.0337753,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  3354248223,
+        "x":  1070.27112,
+        "y":  -1786.65149,
+        "z":  35.0256958,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  2400375398,
+        "x":  1068.38684,
+        "y":  -1780.71936,
+        "z":  35.00508,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1916672189,
+        "x":  1066.59949,
+        "y":  -1776.0061,
+        "z":  34.9992828,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1065.75757,
+        "y":  -1773.71619,
+        "z":  34.8510056,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  2775383834,
+        "x":  1062.44812,
+        "y":  -1772.07349,
+        "z":  34.76198,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1060.1344,
+        "y":  -1772.73291,
+        "z":  34.7261047,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1159289407,
+        "x":  1057.78821,
+        "y":  -1773.53125,
+        "z":  34.63195,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1057.83923,
+        "y":  -1774.39685,
+        "z":  34.6572876,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1054.76709,
+        "y":  -1776.10022,
+        "z":  34.6114731,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  4268659338,
+        "x":  1060.15527,
+        "y":  -1774.15808,
+        "z":  34.726326,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  236794343,
+        "x":  1064.02368,
+        "y":  -1773.9104,
+        "z":  34.8208847,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1681607908,
+        "x":  1061.49036,
+        "y":  -1772.28308,
+        "z":  34.7290726,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "path":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "sha256":  "CCEADDA07A38260DE26FE3CF8F8B42CFF7F5972CEC4E445EF633073E84F49639",
+        "bytes":  65536
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  2879667204,
+        "x":  1058.407,
+        "y":  -1777.451,
+        "z":  35.03378,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  3354248223,
+        "x":  1070.271,
+        "y":  -1786.651,
+        "z":  35.0257,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  2400375398,
+        "x":  1068.387,
+        "y":  -1780.719,
+        "z":  35.00508,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  1916672189,
+        "x":  1066.599,
+        "y":  -1776.006,
+        "z":  34.99928,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1065.758,
+        "y":  -1773.716,
+        "z":  34.85101,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  2775383834,
+        "x":  1062.448,
+        "y":  -1772.073,
+        "z":  34.76198,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1060.134,
+        "y":  -1772.733,
+        "z":  34.7261,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  1159289407,
+        "x":  1057.788,
+        "y":  -1773.531,
+        "z":  34.63195,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1057.839,
+        "y":  -1774.397,
+        "z":  34.65729,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1054.767,
+        "y":  -1776.1,
+        "z":  34.61147,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  4268659338,
+        "x":  1060.155,
+        "y":  -1774.158,
+        "z":  34.72633,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  236794343,
+        "x":  1064.024,
+        "y":  -1773.91,
+        "z":  34.82088,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+        "hash":  1681607908,
+        "x":  1061.49,
+        "y":  -1772.283,
+        "z":  34.72907,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "path":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "sha256":  "AAC17383F9981F3E653B35A4A36632457CCE4623421A668FFFF63AEA76F0C65D",
+        "bytes":  65536
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  3980601269,
+        "x":  1022.58081,
+        "y":  -2112.41846,
+        "z":  35.7187271,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  3810803205,
+        "x":  1014.143,
+        "y":  -2109.00415,
+        "z":  39.08895,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  4136461527,
+        "x":  1006.94653,
+        "y":  -2104.40039,
+        "z":  38.2780533,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  2229207420,
+        "x":  1004.1709,
+        "y":  -2101.90552,
+        "z":  35.1263428,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  3567123605,
+        "x":  1026.741,
+        "y":  -2111.36084,
+        "z":  39.20979,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1161501201,
+        "x":  1024.72681,
+        "y":  -2111.57568,
+        "z":  32.00436,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  3940745496,
+        "x":  1023.2746,
+        "y":  -2111.437,
+        "z":  38.5033531,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1923262137,
+        "x":  1029.11255,
+        "y":  -2111.66357,
+        "z":  31.6238823,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1923262137,
+        "x":  1027.27124,
+        "y":  -2111.50244,
+        "z":  31.6238823,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1457658556,
+        "x":  1022.35858,
+        "y":  -2119.21631,
+        "z":  34.31985,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  3354248223,
+        "x":  1016.89911,
+        "y":  -2111.334,
+        "z":  29.9305878,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1159289407,
+        "x":  1017.58905,
+        "y":  -2109.93945,
+        "z":  29.026741,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1185366416,
+        "x":  1017.70313,
+        "y":  -2105.20483,
+        "z":  30.11713,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1185366416,
+        "x":  1016.39862,
+        "y":  -2116.02515,
+        "z":  29.9633484,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1165271193,
+        "x":  1020.67987,
+        "y":  -2104.00146,
+        "z":  30.32502,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1165271193,
+        "x":  1020.67987,
+        "y":  -2106.39355,
+        "z":  30.26535,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1098827230,
+        "x":  1015.94531,
+        "y":  -2111.8562,
+        "z":  29.6583176,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1207821893,
+        "x":  1015.85455,
+        "y":  -2112.54883,
+        "z":  29.55405,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1161501201,
+        "x":  1005.90509,
+        "y":  -2105.1145,
+        "z":  31.6860924,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  666561306,
+        "x":  1006.51544,
+        "y":  -2112.60083,
+        "z":  29.5586853,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1813879595,
+        "x":  1006.11676,
+        "y":  -2114.10083,
+        "z":  29.7061768,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1813879595,
+        "x":  1007.68127,
+        "y":  -2112.05151,
+        "z":  29.7079735,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  3475350787,
+        "x":  1006.92053,
+        "y":  -2114.81177,
+        "z":  29.7176361,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  2623606431,
+        "x":  1007.20782,
+        "y":  -2115.78149,
+        "z":  29.5260048,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  3520047072,
+        "x":  1005.86133,
+        "y":  -2111.709,
+        "z":  31.2717247,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  3520047072,
+        "x":  1005.70093,
+        "y":  -2113.54248,
+        "z":  31.2717247,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  1681607908,
+        "x":  1015.84546,
+        "y":  -2115.987,
+        "z":  29.5351448,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  17892537,
+        "x":  1006.71277,
+        "y":  -2106.75073,
+        "z":  29.5134621,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+        "hash":  2008938025,
+        "x":  1016.01575,
+        "y":  -2119.78467,
+        "z":  29.3814125,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "path":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "sha256":  "281E93191AF3E8DB8FE3FD973C13AF7535F9370F126A354C0D6EE02D5D4C105C",
+        "bytes":  49152
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  2879667204,
+        "x":  1058.40674,
+        "y":  -1777.45056,
+        "z":  35.0337753,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  3354248223,
+        "x":  1070.27112,
+        "y":  -1786.65149,
+        "z":  35.0256958,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  2400375398,
+        "x":  1068.38684,
+        "y":  -1780.71936,
+        "z":  35.00508,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  1916672189,
+        "x":  1066.59949,
+        "y":  -1776.0061,
+        "z":  34.9992828,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1065.75757,
+        "y":  -1773.71619,
+        "z":  34.8510056,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  2775383834,
+        "x":  1062.44812,
+        "y":  -1772.07349,
+        "z":  34.76198,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1060.1344,
+        "y":  -1772.73291,
+        "z":  34.7261047,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  1159289407,
+        "x":  1057.78821,
+        "y":  -1773.53125,
+        "z":  34.63195,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1057.83923,
+        "y":  -1774.39685,
+        "z":  34.6572876,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1054.76709,
+        "y":  -1776.10022,
+        "z":  34.6114731,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  4268659338,
+        "x":  1060.15527,
+        "y":  -1774.15808,
+        "z":  34.726326,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  236794343,
+        "x":  1064.02368,
+        "y":  -1773.9104,
+        "z":  34.8208847,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+        "hash":  1681607908,
+        "x":  1061.49036,
+        "y":  -1772.28308,
+        "z":  34.7290726,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "path":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "sha256":  "07D488718665D8B0DAE7FCC6FFF92A190576936E6EF465A78D21EA88C55C0DF1",
+        "bytes":  65536
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  3980601269,
+        "x":  1022.58081,
+        "y":  -2112.41846,
+        "z":  35.7187271,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  3810803205,
+        "x":  1014.143,
+        "y":  -2109.00415,
+        "z":  39.08895,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  4136461527,
+        "x":  1006.94653,
+        "y":  -2104.40039,
+        "z":  38.2780533,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  2229207420,
+        "x":  1004.1709,
+        "y":  -2101.90552,
+        "z":  35.1263428,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  3567123605,
+        "x":  1026.741,
+        "y":  -2111.36084,
+        "z":  39.20979,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1161501201,
+        "x":  1024.72681,
+        "y":  -2111.57568,
+        "z":  32.00436,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  3940745496,
+        "x":  1023.2746,
+        "y":  -2111.437,
+        "z":  38.5033531,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1923262137,
+        "x":  1029.11255,
+        "y":  -2111.66357,
+        "z":  31.6238823,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1923262137,
+        "x":  1027.27124,
+        "y":  -2111.50244,
+        "z":  31.6238823,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1457658556,
+        "x":  1022.35858,
+        "y":  -2119.21631,
+        "z":  34.31985,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  3354248223,
+        "x":  1016.89911,
+        "y":  -2111.334,
+        "z":  29.9305878,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1159289407,
+        "x":  1017.58905,
+        "y":  -2109.93945,
+        "z":  29.026741,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1185366416,
+        "x":  1017.70313,
+        "y":  -2105.20483,
+        "z":  30.11713,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1185366416,
+        "x":  1016.39862,
+        "y":  -2116.02515,
+        "z":  29.9633484,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1165271193,
+        "x":  1020.67987,
+        "y":  -2104.00146,
+        "z":  30.32502,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1165271193,
+        "x":  1020.67987,
+        "y":  -2106.39355,
+        "z":  30.26535,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1098827230,
+        "x":  1015.94531,
+        "y":  -2111.8562,
+        "z":  29.6583176,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1207821893,
+        "x":  1015.85455,
+        "y":  -2112.54883,
+        "z":  29.55405,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1161501201,
+        "x":  1005.90509,
+        "y":  -2105.1145,
+        "z":  31.6860924,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  666561306,
+        "x":  1006.51544,
+        "y":  -2112.60083,
+        "z":  29.5586853,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1813879595,
+        "x":  1006.11676,
+        "y":  -2114.10083,
+        "z":  29.7061768,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1813879595,
+        "x":  1007.68127,
+        "y":  -2112.05151,
+        "z":  29.7079735,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  3475350787,
+        "x":  1006.92053,
+        "y":  -2114.81177,
+        "z":  29.7176361,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  2623606431,
+        "x":  1007.20782,
+        "y":  -2115.78149,
+        "z":  29.5260048,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  3520047072,
+        "x":  1005.86133,
+        "y":  -2111.709,
+        "z":  31.2717247,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  3520047072,
+        "x":  1005.70093,
+        "y":  -2113.54248,
+        "z":  31.2717247,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  1681607908,
+        "x":  1015.84546,
+        "y":  -2115.987,
+        "z":  29.5351448,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  17892537,
+        "x":  1006.71277,
+        "y":  -2106.75073,
+        "z":  29.5134621,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+        "hash":  2008938025,
+        "x":  1016.01575,
+        "y":  -2119.78467,
+        "z":  29.3814125,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "path":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "sha256":  "D6061450CD178ABF3487C3482C292A98766B41077EF3667A8283A9D8187185BE",
+        "bytes":  49152
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  2879667204,
+        "x":  1058.40674,
+        "y":  -1777.45056,
+        "z":  35.0337753,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  3354248223,
+        "x":  1070.27112,
+        "y":  -1786.65149,
+        "z":  35.0256958,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  2400375398,
+        "x":  1068.38684,
+        "y":  -1780.71936,
+        "z":  35.00508,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  1916672189,
+        "x":  1066.59949,
+        "y":  -1776.0061,
+        "z":  34.9992828,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1065.75757,
+        "y":  -1773.71619,
+        "z":  34.8510056,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  2775383834,
+        "x":  1062.44812,
+        "y":  -1772.07349,
+        "z":  34.76198,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1060.1344,
+        "y":  -1772.73291,
+        "z":  34.7261047,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  1159289407,
+        "x":  1057.78821,
+        "y":  -1773.53125,
+        "z":  34.63195,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1057.83923,
+        "y":  -1774.39685,
+        "z":  34.6572876,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1054.76709,
+        "y":  -1776.10022,
+        "z":  34.6114731,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  4268659338,
+        "x":  1060.15527,
+        "y":  -1774.15808,
+        "z":  34.726326,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  236794343,
+        "x":  1064.02368,
+        "y":  -1773.9104,
+        "z":  34.8208847,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+        "hash":  1681607908,
+        "x":  1061.49036,
+        "y":  -1772.28308,
+        "z":  34.7290726,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "path":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "sha256":  "22F15E9A2F3E367946A3253531586E15330698CE7D2CDD4675429D1416BF5367",
+        "bytes":  65536
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  3980601269,
+        "x":  1022.58081,
+        "y":  -2112.41846,
+        "z":  35.7187271,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  3810803205,
+        "x":  1014.143,
+        "y":  -2109.00415,
+        "z":  39.08895,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  4136461527,
+        "x":  1006.94653,
+        "y":  -2104.40039,
+        "z":  38.2780533,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  2229207420,
+        "x":  1004.1709,
+        "y":  -2101.90552,
+        "z":  35.1263428,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  3567123605,
+        "x":  1026.741,
+        "y":  -2111.36084,
+        "z":  39.20979,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1161501201,
+        "x":  1024.72681,
+        "y":  -2111.57568,
+        "z":  32.00436,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  3940745496,
+        "x":  1023.2746,
+        "y":  -2111.437,
+        "z":  38.5033531,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1923262137,
+        "x":  1029.11255,
+        "y":  -2111.66357,
+        "z":  31.6238823,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1923262137,
+        "x":  1027.27124,
+        "y":  -2111.50244,
+        "z":  31.6238823,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1457658556,
+        "x":  1022.35858,
+        "y":  -2119.21631,
+        "z":  34.31985,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  3354248223,
+        "x":  1016.89911,
+        "y":  -2111.334,
+        "z":  29.9305878,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1159289407,
+        "x":  1017.58905,
+        "y":  -2109.93945,
+        "z":  29.026741,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1185366416,
+        "x":  1017.70313,
+        "y":  -2105.20483,
+        "z":  30.11713,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1185366416,
+        "x":  1016.39862,
+        "y":  -2116.02515,
+        "z":  29.9633484,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1165271193,
+        "x":  1020.67987,
+        "y":  -2104.00146,
+        "z":  30.32502,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1165271193,
+        "x":  1020.67987,
+        "y":  -2106.39355,
+        "z":  30.26535,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1098827230,
+        "x":  1015.94531,
+        "y":  -2111.8562,
+        "z":  29.6583176,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1207821893,
+        "x":  1015.85455,
+        "y":  -2112.54883,
+        "z":  29.55405,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1161501201,
+        "x":  1005.90509,
+        "y":  -2105.1145,
+        "z":  31.6860924,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  666561306,
+        "x":  1006.51544,
+        "y":  -2112.60083,
+        "z":  29.5586853,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1813879595,
+        "x":  1006.11676,
+        "y":  -2114.10083,
+        "z":  29.7061768,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1813879595,
+        "x":  1007.68127,
+        "y":  -2112.05151,
+        "z":  29.7079735,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  3475350787,
+        "x":  1006.92053,
+        "y":  -2114.81177,
+        "z":  29.7176361,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  2623606431,
+        "x":  1007.20782,
+        "y":  -2115.78149,
+        "z":  29.5260048,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  3520047072,
+        "x":  1005.86133,
+        "y":  -2111.709,
+        "z":  31.2717247,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  3520047072,
+        "x":  1005.70093,
+        "y":  -2113.54248,
+        "z":  31.2717247,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  1681607908,
+        "x":  1015.84546,
+        "y":  -2115.987,
+        "z":  29.5351448,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  17892537,
+        "x":  1006.71277,
+        "y":  -2106.75073,
+        "z":  29.5134621,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+        "hash":  2008938025,
+        "x":  1016.01575,
+        "y":  -2119.78467,
+        "z":  29.3814125,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "path":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "sha256":  "B194504614209141428DDA01CB416949EF33509C52FA699A00D01B3451EFC1F4",
+        "bytes":  49152
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  2879667204,
+        "x":  1058.40674,
+        "y":  -1777.45056,
+        "z":  35.0337753,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  3354248223,
+        "x":  1070.27112,
+        "y":  -1786.65149,
+        "z":  35.0256958,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  2400375398,
+        "x":  1068.38684,
+        "y":  -1780.71936,
+        "z":  35.00508,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  1916672189,
+        "x":  1066.59949,
+        "y":  -1776.0061,
+        "z":  34.9992828,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1065.75757,
+        "y":  -1773.71619,
+        "z":  34.8510056,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  2775383834,
+        "x":  1062.44812,
+        "y":  -1772.07349,
+        "z":  34.76198,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1060.1344,
+        "y":  -1772.73291,
+        "z":  34.7261047,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  1159289407,
+        "x":  1057.78821,
+        "y":  -1773.53125,
+        "z":  34.63195,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1057.83923,
+        "y":  -1774.39685,
+        "z":  34.6572876,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1054.76709,
+        "y":  -1776.10022,
+        "z":  34.6114731,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  4268659338,
+        "x":  1060.15527,
+        "y":  -1774.15808,
+        "z":  34.726326,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  236794343,
+        "x":  1064.02368,
+        "y":  -1773.9104,
+        "z":  34.8208847,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+        "hash":  1681607908,
+        "x":  1061.49036,
+        "y":  -1772.28308,
+        "z":  34.7290726,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "path":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "sha256":  "F0D2EDAE6DBBD226153E93AF621FCF4619AD6C5DB2F2DC96E5C780E1AF7ACF6A",
+        "bytes":  65536
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3980601269,
+        "x":  1022.58081,
+        "y":  -2112.41846,
+        "z":  35.7187271,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3810803205,
+        "x":  1014.143,
+        "y":  -2109.00415,
+        "z":  39.08895,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  4136461527,
+        "x":  1006.94653,
+        "y":  -2104.40039,
+        "z":  38.2780533,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  2229207420,
+        "x":  1004.1709,
+        "y":  -2101.90552,
+        "z":  35.1263428,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3567123605,
+        "x":  1026.741,
+        "y":  -2111.36084,
+        "z":  39.20979,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1161501201,
+        "x":  1024.72681,
+        "y":  -2111.57568,
+        "z":  32.00436,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3940745496,
+        "x":  1023.2746,
+        "y":  -2111.437,
+        "z":  38.5033531,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1923262137,
+        "x":  1029.11255,
+        "y":  -2111.66357,
+        "z":  31.6238823,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1923262137,
+        "x":  1027.27124,
+        "y":  -2111.50244,
+        "z":  31.6238823,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1457658556,
+        "x":  1022.35858,
+        "y":  -2119.21631,
+        "z":  34.31985,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3354248223,
+        "x":  1016.89911,
+        "y":  -2111.334,
+        "z":  29.9305878,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1159289407,
+        "x":  1017.58905,
+        "y":  -2109.93945,
+        "z":  29.026741,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1185366416,
+        "x":  1017.70313,
+        "y":  -2105.20483,
+        "z":  30.11713,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1185366416,
+        "x":  1016.39862,
+        "y":  -2116.02515,
+        "z":  29.9633484,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1165271193,
+        "x":  1020.67987,
+        "y":  -2104.00146,
+        "z":  30.32502,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1165271193,
+        "x":  1020.67987,
+        "y":  -2106.39355,
+        "z":  30.26535,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1098827230,
+        "x":  1015.94531,
+        "y":  -2111.8562,
+        "z":  29.6583176,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1207821893,
+        "x":  1015.85455,
+        "y":  -2112.54883,
+        "z":  29.55405,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1161501201,
+        "x":  1005.90509,
+        "y":  -2105.1145,
+        "z":  31.6860924,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  666561306,
+        "x":  1006.51544,
+        "y":  -2112.60083,
+        "z":  29.5586853,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1813879595,
+        "x":  1006.11676,
+        "y":  -2114.10083,
+        "z":  29.7061768,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1813879595,
+        "x":  1007.68127,
+        "y":  -2112.05151,
+        "z":  29.7079735,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3475350787,
+        "x":  1006.92053,
+        "y":  -2114.81177,
+        "z":  29.7176361,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  2623606431,
+        "x":  1007.20782,
+        "y":  -2115.78149,
+        "z":  29.5260048,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3520047072,
+        "x":  1005.86133,
+        "y":  -2111.709,
+        "z":  31.2717247,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  3520047072,
+        "x":  1005.70093,
+        "y":  -2113.54248,
+        "z":  31.2717247,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  1681607908,
+        "x":  1015.84546,
+        "y":  -2115.987,
+        "z":  29.5351448,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  17892537,
+        "x":  1006.71277,
+        "y":  -2106.75073,
+        "z":  29.5134621,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "B",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+        "hash":  2008938025,
+        "x":  1016.01575,
+        "y":  -2119.78467,
+        "z":  29.3814125,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "path":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "sha256":  "C71FDAE359527938E0D0C74E379CF24E70B884A70241FF18AA5546BCDEEC14EE",
+        "bytes":  49152
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  2879667204,
+        "x":  1058.40674,
+        "y":  -1777.45056,
+        "z":  35.0337753,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  3354248223,
+        "x":  1070.27112,
+        "y":  -1786.65149,
+        "z":  35.0256958,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  2400375398,
+        "x":  1068.38684,
+        "y":  -1780.71936,
+        "z":  35.00508,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1916672189,
+        "x":  1066.59949,
+        "y":  -1776.0061,
+        "z":  34.9992828,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1065.75757,
+        "y":  -1773.71619,
+        "z":  34.8510056,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  2775383834,
+        "x":  1062.44812,
+        "y":  -1772.07349,
+        "z":  34.76198,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1060.1344,
+        "y":  -1772.73291,
+        "z":  34.7261047,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1159289407,
+        "x":  1057.78821,
+        "y":  -1773.53125,
+        "z":  34.63195,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1057.83923,
+        "y":  -1774.39685,
+        "z":  34.6572876,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1185366416,
+        "x":  1054.76709,
+        "y":  -1776.10022,
+        "z":  34.6114731,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  4268659338,
+        "x":  1060.15527,
+        "y":  -1774.15808,
+        "z":  34.726326,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  236794343,
+        "x":  1064.02368,
+        "y":  -1773.9104,
+        "z":  34.8208847,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    },
+    {
+        "site":  "A",
+        "map":  "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+        "hash":  1681607908,
+        "x":  1061.49036,
+        "y":  -1772.28308,
+        "z":  34.7290726,
+        "parent":  -1,
+        "lod":  "LODTYPES_DEPTH_ORPHANHD"
+    }
+]

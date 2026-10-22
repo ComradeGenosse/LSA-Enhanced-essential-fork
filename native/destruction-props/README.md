@@ -2,8 +2,11 @@
 
 **Base:** X7.3 draft PR #307 head `c232de1c3ea563f822e12ead5c6d18255273fdc7`.
 **Design reference:** #302. **Separate unresolved failure path:** #308.
-**Status:** cloud implementation; **no GTA or SHVDN validation**, no real placement
-data yet. Default-off and unmerged.
+**Status:** compiled against installed SHVDN; one local P2 preflight stopped on
+unresolved approach collision at A, **zero shots**. B's source/approach rays passed;
+neither fence has X8 fracture, traversal or post-fracture restoration acceptance.
+[Local results and failed evidence](evidence/20261022-local-preflight/RESULTS.md).
+Default-off, draft and unmerged.
 
 ## What is implemented
 
@@ -27,7 +30,8 @@ data yet. Default-off and unmerged.
   until it obtains the sole native lease. No concurrent two-armed guarantee.
 - Failed preparation requires reacquired visible 9/9 original and zero owned
   objects before releasing the lease. A successful restore likewise verifies
-  original *world collision* and owned cleanup. Unknown/partial outcomes remain
+  original *world collision* and owned cleanup, including actual absence of entity
+  references captured before inherited cleanup clears its lists. Unknown/partial outcomes remain
   `RestorePending` and block the other placement; no made-up recovery for #308.
 
 This is a **working adapter implementation**, not evidence of simultaneous
@@ -42,6 +46,7 @@ dotnet run --project native/fragment-x7/selection-tests/SelectionTests.csproj --
 python native/fragment-x7/build_x7.py
 git diff --exit-code -- native/fragment-x7/WpsBreachLabX7.3.cs
 python native/destruction-props/test_x8_source.py
+python native/destruction-props/test_x8_cleanup.py
 python native/fragment-x7/test_live_selector_source.py
 python -m unittest discover -s native/fragment-x7 -p 'test_*.py' -v
 ```
@@ -74,6 +79,7 @@ x8enable enable=1 approved=1
 x8register id=A rev=1 hash=1185366416 tx=<A_X> ty=<A_Y> tz=<A_Z> heading=<A_HEADING> scale=1 updot=1 verified=1
 x8register id=B rev=1 hash=1185366416 tx=<B_X> ty=<B_Y> tz=<B_Z> heading=<B_HEADING> scale=1 updot=1 verified=1
 x8status
+# Complete read-only x8audit and ground/approach qualification before preparing.
 x8prepare id=A verified=1 px=<A_PLAYER_X> py=<A_PLAYER_Y> pz=<A_PLAYER_Z> back=9 pu=1.5
 x8cam id=A t=-5.5 u=1.5 z=1.5 lu=0 lz=1.1
 x8shot id=A label=x8-a mode=script aimu=0 aimv=1.05

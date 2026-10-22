@@ -20,6 +20,7 @@ def apply_x8(source: str) -> str:
             case "x8walk": X8OwnedCommand(verb, a); break;
             case "x8cam": X8OwnedCommand(verb, a); break;
             case "x8status": X8Status(); break;
+            case "x8audit": X8Audit(a); break;
             case "x7prepare":'''),
         ("command admission", '''if (x7State != "None" && !verb.StartsWith("x7") && verb != "abort")''',
          '''if (x7State != "None" && !verb.StartsWith("x7") && !verb.StartsWith("x8") && verb != "abort")'''),
@@ -41,6 +42,8 @@ def apply_x8(source: str) -> str:
         for (int i = 0; i < x7ByPos.Length; i++)
         {
             Lab lab = x7ByPos[i];'''),
+        ("cleanup entity evidence", '        try { CleanupAll(); }\n        finally\n        {\n            if (x7Hidden)',
+         '        if (x8Owner != null) X8CaptureCleanup();\n        try { CleanupAll(); }\n        finally\n        {\n            if (x7Hidden)'),
         ("runtime adapter", '''    // ===================================================================== lab geometry''',
          (PACKAGE / "X8RuntimeAdapter.inc.cs").read_text(encoding="utf-8") +
          '''    // ===================================================================== lab geometry'''),
