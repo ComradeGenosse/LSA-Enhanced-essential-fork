@@ -12,12 +12,17 @@ def read(path): return path.read_text(encoding="utf-8")
 driver=read(p/"WpsBreachLabX7.3.cs")
 x6=read(p.parent/"fragment-x6"/"WpsBreachLabX6.3.cs")
 assert 'const string Ver = "X7-0.1"' in driver
-commit=driver.split('long X7Commit()')[1].split('void X7Prepare')[0]
-assert 'X7SetDormant(false)' in commit
+commit=driver.split('long X7Commit(Astra.X7.ImpactSectionSelector.Selection selected)')[1].split('void X7Prepare')[0]
+assert 'X7ActivateSelective()' in commit
+assert 'x7SelPos = new HashSet<int> { selected.FirstIndex, selected.SecondIndex }' in commit
+assert 'x7_section_preflight_failed' in commit
 assert 'CREATE_MODEL_HIDE_EXCLUDING_SCRIPT_OBJECTS' in commit
 assert not any(k in commit for k in ("Yield(","Row(","Request(","Wait("))
 shot=driver.split('void X7Shot(')[1].split('bool X7FindOpening')[0]
-assert 'X7Commit()' in shot and 'X7Mask(label,aimU,aimV)' in shot
+assert 'X7Commit(bestSelection)' in shot and 'X7Mask(label,aimU,aimV)' in shot
+assert 'ImpactSectionSelector.TryPredictAndSelect(' in shot
+assert 'readyCount == 1' in shot and 'beforeShotHandles.Contains(p.Handle)' in shot
+assert 'x7_live_impact_requires_five_sections_no_preselection' in shot
 assert 'for (int f = 0; f < 60; f++) Yield();' in shot
 assert 'x7_fallback_forbidden' in shot
 assert 'float shotPu = F(a, "pu", Math.Abs(aimU) < .05f ? x7Pu : aimU);' in shot
