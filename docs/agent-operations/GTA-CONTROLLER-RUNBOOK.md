@@ -46,6 +46,11 @@ If no terminal receipt can be recovered, preserve `controller.json`, request/cla
 
 ## Durable jobs and evidence
 
+For persistent Claude Code ↔ Codex CLI handoffs, use
+`tools/agent-coordinator/README.md`. The generic queue does not acquire GTA
+ownership or authorize live operations. Its GTA adapter remains this controller
+and the single named Windows operator; Claude reviews the correlated evidence.
+
 For an offline long-running command, use explicit argv:
 
 ```powershell

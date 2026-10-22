@@ -1,0 +1,12 @@
+[
+  "C:\\Users\\Chris.COMRADE\\AppData\\Local\\OpenAI\\Codex\\bin\\a96ca4c1eee0cf35\\codex.exe",
+  "exec",
+  "--sandbox",
+  "read-only",
+  "--json",
+  "--output-schema",
+  "C:\\Users\\Chris.COMRADE\\Documents\\Codex\\2026-10-22\\agent-queue\\runs\\5facfbfa1e24421188ed4c3abedb166b\\schema.json",
+  "-o",
+  "C:\\Users\\Chris.COMRADE\\Documents\\Codex\\2026-10-22\\agent-queue\\runs\\5facfbfa1e24421188ed4c3abedb166b\\answer.json",
+  "-"
+]

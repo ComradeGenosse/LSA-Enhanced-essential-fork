@@ -58,6 +58,8 @@
 **/enhanced/*/obj/
 
 # Local deployment packages, stages, receipts, and rollback data
+/work/
+**/__pycache__/
 /deployment/stock-hotfix3/
 /deployment/active-stage-*/
 /deployment/backups/
