@@ -1,0 +1,34 @@
+name: X8 destruction lab offline authoring
+on:
+  pull_request:
+    paths:
+      - 'native/destruction-lab/**'
+      - '.github/workflows/x8-destruction-lab.yml'
+  workflow_dispatch:
+
+jobs:
+  lab-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile generator and run offline unit tests
+        run: |
+          python -m py_compile native/destruction-lab/generate_lab.py
+          python -m unittest discover -s native/destruction-lab/tests -p 'test_*.py' -v
+      - name: Verify deterministic synthetic-only generation
+        run: |
+          python native/destruction-lab/generate_lab.py --fixture --output "$RUNNER_TEMP/lab-a"
+          python native/destruction-lab/generate_lab.py --fixture --output "$RUNNER_TEMP/lab-b"
+          diff -ru "$RUNNER_TEMP/lab-a" "$RUNNER_TEMP/lab-b"
+          test -f "$RUNNER_TEMP/lab-a/NOT_DEPLOYABLE.txt"
+      - name: Never generate a deployable map from an unaudited template
+        run: |
+          if python native/destruction-lab/generate_lab.py --site native/destruction-lab/site.template.json --output "$RUNNER_TEMP/invalid"; then
+            echo "ERROR: unaudited site unexpectedly passed" >&2
+            exit 1
+          fi
+          test ! -e "$RUNNER_TEMP/invalid/lsa_destruction_lab.ymap.xml"
