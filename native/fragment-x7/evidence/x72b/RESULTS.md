@@ -25,7 +25,8 @@ The fence is rebuilt as five separate native props (same visuals, size and colli
 | independent sections, uniform j1400, center | 1400 x5 | 5/5, frames 4,2,2,3,5 | n/a |
 | inverted profile, center | 1400,1800,1800,1800,1400 | 2/5 (the two OUTER strips) | none |
 | near-weak profile, U=+0.65 | 1800,1800,1800,1400,1400 | 2/5 (strips 3,4) | 0.9 m lane, player crossed at U=0.677, passed |
-| near-weak profile, center | 1800,1400,1400,1800,1800 | 2/5 (strips 1,2) | ~1.0 m lane, player crossed at 0.278, passed |
+| near-weak profile, center, strips 1,2 (v1) | 1800,1400,1400,1800,1800 | 2/5 (strips 1,2) | **failed traversal**: `no_clear_lane_0.9m` (a pre-existing static map obstacle blocks the left lane); no crossing |
+| near-weak profile, center, strips 2,3 (v2) | 1800,1800,1400,1400,1800 | 2/5 (strips 2,3) | ~1.0 m lane, player crossed at 0.278, passed |
 | near-weak profile, U=-0.65 | 1400,1400,1800,1800,1800 | 2/5 (strips 0,1) | blocked by a pre-existing static map obstacle at the site (not the fence); no lane test |
 | near-weak, U=+0.65 repeat | same | identical mask | identical: crossed at 0.678, passed |
 
@@ -53,3 +54,7 @@ Selecting the strength profile from the actual predicted impact position at comm
 ## Restoration
 
 GTA stopped. `ScriptHookVDotNet.ini` C9ECD8E2..., `dlclist.xml` C0C9D70C... match originals; x7d DLC, `scripts-x7`, DLSS add-on renames reversed (hash-verified); see `phase1-install-restored.json`, `phase2-install-restored.json`. DLSS add-ons were disabled by renaming to `.x72off` during runs instead of F6.
+
+## Erratum (found by Astra's PC review, ddca5fb8)
+
+An earlier version of the table above attributed the center crossing (U=0.278, passed) to the strips-1,2 profile. The raw logs (`phase2-shots.json`) show strips 1,2 did **not** produce a traversable lane (`no_clear_lane_0.9m`, static map obstacle) and the strips-2,3 profile did. Fracture localization (2/5 strips, the weak pair) was correct in both. Also, `x7cmd.py` could exit 0 on runtime errors; the corrected version exits 3 on any error/exception/refused row, and all X7.2b/X7.2c conclusions here are taken from the raw `trials.jsonl` rows (no error/exception rows are present in the x72b/x72c logs).
