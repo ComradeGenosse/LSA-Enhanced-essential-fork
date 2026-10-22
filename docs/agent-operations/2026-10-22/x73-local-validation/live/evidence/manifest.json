@@ -1,0 +1,60 @@
+{
+  "requestIds": [
+    "0820580b019f45b89df1bf5ac5027e27",
+    "26bde8cffaf94d3bb6d488c0309d8fab",
+    "f5715c9a079c4750b8d93b9159b22333",
+    "74c1a00d9c5c429eb2850b5294e04308"
+  ],
+  "files": [
+    {
+      "path": "requests/0820580b019f45b89df1bf5ac5027e27.json",
+      "sha256": "b9f2865cd0ec1316d05f2cafd4f72dd632b03448ef01534455fc7b2161d56990"
+    },
+    {
+      "path": "responses/0820580b019f45b89df1bf5ac5027e27.json",
+      "sha256": "8d9de7a53c35f000982cfaa93ecf21122ae14209dc5bc545c6bd876d5e90a99b"
+    },
+    {
+      "path": "20261022-190529-818b62/trials.jsonl",
+      "sha256": "99e0913e364cb2a92c9114f32543eb925d7f4a5d778425fc80e737ccb7a9812e"
+    },
+    {
+      "path": "requests/26bde8cffaf94d3bb6d488c0309d8fab.json",
+      "sha256": "39f6de5a9e971aa89c6213898618283f87d2e226b773803fcb26288264097fc4"
+    },
+    {
+      "path": "responses/26bde8cffaf94d3bb6d488c0309d8fab.json",
+      "sha256": "286aef824d32c7ab61bd7f22417e225eff1f8ea15dc0800ee869d2b6d17ffd96"
+    },
+    {
+      "path": "20261022-190533-c1b578/trials.jsonl",
+      "sha256": "794b343e5c6f4e1159d401a9c5628a8cf4a69a9250cbaedde4364750f1cae801"
+    },
+    {
+      "path": "requests/f5715c9a079c4750b8d93b9159b22333.json",
+      "sha256": "7d8a241990a43a1e505d8a1bb8f5b98555497c1258a34239da8d7a0b5c225dc7"
+    },
+    {
+      "path": "responses/f5715c9a079c4750b8d93b9159b22333.json",
+      "sha256": "0df1ca2433d20ed8bac21328d49d5da50aec7a77fc06e2cae4daa6fe598a0dac"
+    },
+    {
+      "path": "20261022-190534-db7fdf/trials.jsonl",
+      "sha256": "62043cec62cc5cd6c8952e0948b05c12ba48d608db752d8cde9b9b433e0c95b7"
+    },
+    {
+      "path": "requests/74c1a00d9c5c429eb2850b5294e04308.json",
+      "sha256": "fb18c060b41a7bb7b3f799f5986e993cce713880a787d8cc51e3e541056609dd"
+    },
+    {
+      "path": "responses/74c1a00d9c5c429eb2850b5294e04308.json",
+      "sha256": "d7b6271971fc3d62c2d7bde85ceeb52c8be5ace911bf28c70fb8a7cac5c07296"
+    },
+    {
+      "path": "20261022-190543-4c1519/trials.jsonl",
+      "sha256": "95ad54dfc0e0582dc918abfd8670a8d13f07ab5a1a6253b9abcbe0e8d1c8876e"
+    }
+  ],
+  "commandOutcome": "SEE_RESPONSES",
+  "gameplayOutcome": "NOT_ASSESSED"
+}

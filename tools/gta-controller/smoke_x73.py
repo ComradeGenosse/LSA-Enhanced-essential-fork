@@ -65,7 +65,7 @@ def analyze(rows_by_step, label=SHOT_LABEL):
         res and res.get('committed') and res.get('projectileSeen') and not res.get('late') and not res.get('fallbackUsed')
         and (res.get('framesCommitToExplosion') or 0) >= 1)
     checks['native_fracture_exactly_two_parts'] = bool(res and res.get('nativeParts') == 2)
-    checks['original_hidden_after_swap'] = bool(res and res.get('originalBlocked') == 0)
+    checks['original_hidden_after_swap'] = bool(res and res.get('committed') and res.get('originalBlocked') == 0)
     states = {r['pos']: r for r in shot if r.get('kind') == 'x7_secstate' and r.get('label') == label}
     five = sorted(states) == [0, 1, 2, 3, 4]
     checks['five_section_states_logged'] = five
