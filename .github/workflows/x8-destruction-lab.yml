@@ -25,6 +25,13 @@ jobs:
           python native/destruction-lab/generate_lab.py --fixture --output "$RUNNER_TEMP/lab-b"
           diff -ru "$RUNNER_TEMP/lab-a" "$RUNNER_TEMP/lab-b"
           test -f "$RUNNER_TEMP/lab-a/NOT_DEPLOYABLE.txt"
+      - name: Parse Windows packer PowerShell syntax without running CodeWalker
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile('native/destruction-lab/pack_lab.ps1', [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Out-Host; exit 1 }
       - name: Never generate a deployable map from an unaudited template
         run: |
           if python native/destruction-lab/generate_lab.py --site native/destruction-lab/site.template.json --output "$RUNNER_TEMP/invalid"; then
