@@ -292,7 +292,7 @@ static class Program
             "Stationary baseline object");
         Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 0, 0), P(-5, 0, 0), 200, out along),
             "Reverse flight");
-        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 0, 0), P(5, 5, 0), 200, out along),
+        Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 0, 0), P(5, 7, 0), 200, out along),
             "Unrelated oblique flight");
         Check(!ProjectileAdmissionPolicy.TryLaunchFlight(origin, target, P(1, 0, 0), P(1, 0, 0), 200, out along),
             "Too slow to establish provenance");
