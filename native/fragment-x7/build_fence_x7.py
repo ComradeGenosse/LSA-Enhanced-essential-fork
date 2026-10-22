@@ -8,7 +8,7 @@ import argparse, json, shutil, sys, xml.etree.ElementTree as ET
 from pathlib import Path
 # Blender's --python does not add the script directory to sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from spec import a_variants, b_variants, manifest, seam_z, W, H, SHEET_H
+from spec import a_variants, b_variants, c_variants, manifest, seam_z, W, H, SHEET_H
 
 HERE=Path(__file__).resolve().parent
 X6=HERE.parent/"fragment-x6"
@@ -48,6 +48,17 @@ def build_variant(v,pack,source_only=False):
     source=asserted(source,
       "g.strength=35;g.min_damage_force=5;g.damage_health=25;g.force_transmission_scale_up=.25;g.force_transmission_scale_down=.25",
       f"g.strength={v.strength};g.min_damage_force={v.min_damage_force};g.damage_health={v.health};g.force_transmission_scale_up={v.transmission};g.force_transmission_scale_down={v.transmission}")
+    if v.layout=="walk5":
+        # Five full-height, independently attached sheet strips. Two adjacent
+        # released strips make a 1.014 m-wide by 2.131 m-tall possible lane.
+        # Only RAGE's native fracture may release them, not scripts.
+        source=asserted(source,"CW,CH=W/6,SHEET_H/5","CW,CH=W/5,SHEET_H")
+        source=asserted(source,"for j in range(5):\n for i in range(6):",
+                        "for j in range(1):\n for i in range(5):")
+        source=asserted(source,"),4.5)", "),27.0)") # equal mass per square meter
+        source=asserted(source,"if j in (1,4):box","if j==0:box")
+        source=asserted(source,"'sheet_chunks':30,'groups':31,'sheet_chunk_mass_kg':4.5",
+                        "'sheet_chunks':5,'groups':6,'sheet_chunk_mass_kg':27.0")
     if v.layout=="torn36":
         source=asserted(source,"CW,CH=W/6,SHEET_H/5","CW,CH=W/9,SHEET_H/4")
         source=asserted(source,"for j in range(5):\n for i in range(6):",
@@ -94,7 +105,7 @@ def build_variant(v,pack,source_only=False):
 
 def main():
     ap=argparse.ArgumentParser()
-    ap.add_argument("--layout",choices=("grid6x5","torn36"),default="grid6x5")
+    ap.add_argument("--layout",choices=("grid6x5","torn36","walk5"),default="grid6x5")
     ap.add_argument("--session-a",help="analyze_x7.py summary.json from real GTA Session A")
     ap.add_argument("--dry-run",action="store_true")
     blender_args=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else None
@@ -106,8 +117,9 @@ def main():
         gate=report["session_a_gate"]
         if not gate["pass"]: ap.error("Session A gate is not passed; refuse torn asset export")
         tstar=gate["selected_tstar"]
-    models=a_variants() if args.layout=="grid6x5" else b_variants(tstar)
-    pack="lsa_x7a" if args.layout=="grid6x5" else "lsa_x7b"
+    models=(a_variants() if args.layout=="grid6x5" else
+            b_variants(tstar) if args.layout=="torn36" else c_variants())
+    pack={"grid6x5":"lsa_x7a","torn36":"lsa_x7b","walk5":"lsa_x7c"}[args.layout]
     if args.dry_run:
         hashes={v.name:build_variant(v,pack,source_only=True) for v in models}
         print(json.dumps({**manifest(args.layout,tstar),"authored_source_sha256":hashes},indent=2));return
