@@ -705,13 +705,16 @@ public class WpsBreachLab : Script
         Vector3 centre = T.W(T.L(0f, cuMid+aimU, T.V0+aimV));
         Vector3 aim = T.W(T.L(tFace, cuMid + miss + aimU, T.V0 + aimV));
         uint wh = (uint)WeaponHash.RPG;
-        PlacePlayerFacing(T, -x7Back, cuMid + x7Pu);
+        // Preserve the proven P0 setup; align off-centre shots with the target by default.
+        // A shot-level pu= override remains available for controlled comparisons.
+        float shotPu = F(a, "pu", Math.Abs(aimU) < .05f ? x7Pu : aimU);
+        PlacePlayerFacing(T, -x7Back, cuMid + shotPu);
         pl.Weapons.Give(WeaponHash.RPG, 4, true, true);
         Function.Call(Hash.REQUEST_WEAPON_ASSET, wh, 31, 0);
         long tw = clock.ElapsedMilliseconds; while (!Function.Call<bool>(Hash.HAS_WEAPON_ASSET_LOADED, wh) && clock.ElapsedMilliseconds - tw < 4000) Yield();
         for (int f = 0; f < 30; f++) Yield();
         List<X7Frame> trace = new List<X7Frame>(); List<double> frameMs = new List<double>(); List<int> frameNo = new List<int>();
-        Row("x7_shot_begin", "label", label, "model", x7Model, "aimU", aimU, "aimV", aimV, "postSide", "negative_u", "mode", mode, "predict", predict, "fallback", fallback, "baseHorizonMs", baseH, "frameK", frameK, "miss", miss, "back", x7Back, "pu", x7Pu, "aimX", aim.X, "aimY", aim.Y, "aimZ", aim.Z);
+        Row("x7_shot_begin", "label", label, "model", x7Model, "aimU", aimU, "aimV", aimV, "postSide", "negative_u", "mode", mode, "predict", predict, "fallback", fallback, "baseHorizonMs", baseH, "frameK", frameK, "miss", miss, "back", x7Back, "pu", shotPu, "aimX", aim.X, "aimY", aim.Y, "aimZ", aim.Z);
         // pre-shot frame baseline (no shape tests, nothing else running)
         long lastT = Stopwatch.GetTimestamp();
         for (int f = 0; f < 60; f++) { Yield(); long n = Stopwatch.GetTimestamp(); frameMs.Add((n - lastT) * 1000.0 / Stopwatch.Frequency); frameNo.Add(Game.FrameCount); lastT = n; }
@@ -781,7 +784,7 @@ public class WpsBreachLab : Script
             }
             else if (seen && !gone) { gone = true; goneFrame = gf; }
             // --- impact / explosion near the wall (flag stays true while the explosion is recent; only the first frame is used)
-            if (exFrame < 0 && (seen || mode == "manual" || mode == "none") && Function.Call<bool>(Hash.IS_EXPLOSION_IN_SPHERE, -1, centre.X, centre.Y, centre.Z, 6f))
+            if (exFrame < 0 && (seen || mode == "manual" || mode == "none") && Function.Call<bool>(Hash.IS_EXPLOSION_IN_SPHERE, -1, centre.X, centre.Y, centre.Z, 1.5f))
             {
                 exFrame = gf; exMs = nowMs;
                 if (!committed)
@@ -829,7 +832,7 @@ public class WpsBreachLab : Script
     void X7Mask(string label, float aimU, float aimV)
     {
         Lab T=x7Twin; float centreU=(T.U0+T.U1)/2f;
-        float pitch=.1f, uStart=T.U0+.06f, vStart=T.V0+.06f;
+        float pitch=.1f, uStart=T.U0+.06f, vStart=T.V0+.16f; // skip lower empty collision edge
         int nu=(int)Math.Floor((T.U1-uStart-.04f)/pitch)+1;
         int nv=(int)Math.Floor((T.V0+2.131f-vStart-.04f)/pitch)+1; // sheet only; exclude X6's 0.22 m empty top band
         StringBuilder mask=new StringBuilder(nu*nv);
@@ -848,7 +851,7 @@ public class WpsBreachLab : Script
         for(float u=T.U0+.10f; u<T.U1-.05f; u+=.1f)
         {
             sampleCount++;
-            if(Classify(T,u,T.V0+.075f)==1) bottom++;
+            if(Classify(T,u,T.V0+.175f)==1) bottom++;
             if(Classify(T,u,T.V0+2.131f-.075f)==1) top++;
             Yield();
         }
