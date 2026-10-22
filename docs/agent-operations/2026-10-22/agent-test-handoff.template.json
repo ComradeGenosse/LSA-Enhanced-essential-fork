@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "recordType": "EXAMPLE_ONLY_NOT_AN_ACTIVE_LEASE",
+  "state": "UNCLAIMED",
+  "updatedUtc": null,
+  "owners": {
+    "pcTestOperator": null,
+    "integrationPublisher": null,
+    "independentReviewer": null
+  },
+  "lease": {
+    "enforcedByHostController": false,
+    "fencingToken": null,
+    "controllerPid": null,
+    "controllerProcessStartUtc": null,
+    "expiresUtc": null
+  },
+  "candidate": {
+    "repoWindowsPath": null,
+    "repoCoworkMountPath": null,
+    "branch": null,
+    "commitSha": null,
+    "dirtyPaths": [],
+    "protectedOutputHashesManifest": null,
+    "packSha256": null,
+    "expectedDriverSha256": null
+  },
+  "runtime": {
+    "kind": "SHVDN",
+    "gamePid": null,
+    "gameProcessStartUtc": null,
+    "loadedUtc": null,
+    "loadedDriverSha256": null,
+    "heartbeatUtc": null,
+    "lastAdvancingFrame": null
+  },
+  "preflight": {
+    "afterburnerRunning": null,
+    "preset1Evidence": null,
+    "observedPowerCapWatts": null,
+    "currentLaunchRenderEvidence": null,
+    "originalBlockedWitnesses": null,
+    "dormantTwinBlockedWitnesses": null,
+    "baselineSettingsManifest": null
+  },
+  "trial": {
+    "experimentId": null,
+    "sessionId": null,
+    "trialId": null,
+    "requestIds": [],
+    "exactRunIds": [],
+    "evidenceManifest": null,
+    "commandOutcome": "NOT_STARTED",
+    "gameplayOutcome": "NOT_TESTED",
+    "worldRestorationOutcome": "NOT_CHECKED",
+    "filesystemRestorationOutcome": "NOT_CHECKED"
+  },
+  "nextAuthorizedAction": null,
+  "stopConditions": [
+    "Wrong or stale loaded runtime",
+    "Unmatched request or unresolved timeout",
+    "Runtime error or ownership conflict",
+    "Original collision is not exactly 9/9 before a shot",
+    "Unexpected installed-file hash or existence change"
+  ],
+  "rollbackManifest": null,
+  "rollbackReceipt": null,
+  "knownToolFailuresAndWorkingAlternatives": []
+}
