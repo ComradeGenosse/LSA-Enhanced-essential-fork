@@ -9,7 +9,7 @@ bridge = (package / "X8RuntimeAdapter.inc.cs").read_text(encoding="utf-8")
 catalog = (package / "X8Catalog.cs").read_text(encoding="utf-8")
 selector = (x7 / "selection" / "ImpactSectionSelector.cs").read_text(encoding="utf-8")
 assert "s = apply_x8(s)" in generator and "s = apply_live_selector(s)" in generator
-assert generator.index("s = apply_x8(s)") < generator.index("s = apply_live_selector(s)")
+assert generator.index("s = apply_live_selector(s)") < generator.index("s = apply_x8(s)")
 assert source.count(bridge) == 1, "generated adapter must match source byte-for-byte"
 catalog_body = catalog.replace("using System;\n", "", 1).replace("using System.Collections.Generic;\n", "", 1).lstrip()
 assert source.count(catalog_body) == 1, "pure X8 lifecycle must be embedded verbatim"
