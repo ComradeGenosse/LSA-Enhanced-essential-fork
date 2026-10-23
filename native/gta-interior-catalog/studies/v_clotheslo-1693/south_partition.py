@@ -43,7 +43,7 @@ PROTECTED_WEED = "prop_weeddead_nxg02"
 
 
 def git_blob_sha(data):
-    return hashlib.sha1(("blob %d\\0" % len(data)).encode() + data).hexdigest()
+    return hashlib.sha1(("blob %d" % len(data)).encode() + bytes([0]) + data).hexdigest()
 
 
 def load_reviewed():
