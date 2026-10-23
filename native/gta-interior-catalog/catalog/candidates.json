@@ -1,0 +1,538 @@
+{
+ "candidates": [
+  {
+   "assumptions": [
+    "offline/story availability",
+    "layer load precedence",
+    "exterior model belongs to the same building",
+    "YBN files matched only by name"
+   ],
+   "dlcs": [
+    "mpheist",
+    "mplowrider",
+    "patchday1ng",
+    "patchday2ng"
+   ],
+   "exit_portal_world_centers": [
+    [
+     1572.293,
+     2678.66,
+     45.734
+    ],
+    [
+     1572.279,
+     2678.67,
+     63.067
+    ],
+    [
+     1570.302,
+     2677.429,
+     63.416
+    ],
+    [
+     1568.032,
+     2677.94,
+     63.416
+    ],
+    [
+     1566.793,
+     2679.878,
+     63.416
+    ],
+    [
+     1567.286,
+     2682.158,
+     63.416
+    ],
+    [
+     1569.245,
+     2683.402,
+     63.416
+    ],
+    [
+     1571.504,
+     2682.897,
+     63.416
+    ],
+    [
+     1572.744,
+     2680.959,
+     63.416
+    ]
+   ],
+   "exit_portals": 9,
+   "exterior_models_within_45m": [
+    {
+     "archetype": "cs6_04_prisontower6",
+     "dist_xy": 0.02,
+     "position": [
+      1569.7596,
+      2680.4114,
+      56.007126
+     ],
+     "size_xyz": [
+      9.13,
+      9.14,
+      23.38
+     ]
+    }
+   ],
+   "interior": "v_guardtower",
+   "layers": [
+    "base",
+    "update-dlcpack"
+   ],
+   "next_investigation": "Resolve which YBN children cover the exterior shell around the exit portal(s) (polygon-level), then check wall ownership/LOD/NVE overrides; no destruction work implied.",
+   "placement_id": 680,
+   "position": [
+    1569.772,
+    2680.421,
+    44.58
+   ],
+   "rank": 1,
+   "reasons": [
+    "exit portal(s) to limbo/exterior: 9 (verified portal topology)",
+    "placed in base/patch layer (offline availability ASSUMED)",
+    "2 interior rooms",
+    "one large exterior model within 45 m: cs6_04_prisontower6",
+    "exterior model cs6_04_prisontower6 shares the MLO pivot (<=3 m): strong association (VERIFIED positions, same-building ASSUMED)",
+    "nearest large model footprint 9.1 m (modest)"
+   ],
+   "rooms": 2,
+   "score": 116.0,
+   "verified": [
+    "MLO archetype + rooms/portals from YTYP",
+    "world placement from YMAP",
+    "large model positions from YMAP + bounds from YTYP"
+   ],
+   "ybn_name_matches_assumed": [
+    "x64h.rpf\\levels\\gta5\\interiors\\v_int_71.rpf\\v_guardtower.ybn|.ybn"
+   ],
+   "ymaps": [
+    "cs6_04_interior_v_guardtower_milo__3.ymap",
+    "hei_cs6_04_interior_3_v_guardtower_milo_.ymap",
+    "lr_cs6_04_interior_3_v_guardtower_milo_.ymap"
+   ]
+  },
+  {
+   "assumptions": [
+    "offline/story availability",
+    "layer load precedence",
+    "exterior model belongs to the same building",
+    "YBN files matched only by name"
+   ],
+   "dlcs": [
+    "mpheist",
+    "patchday1ng",
+    "patchday2ng",
+    "patchday3ng"
+   ],
+   "exit_portal_world_centers": [
+    [
+     -545.857,
+     4967.225,
+     91.299
+    ],
+    [
+     -543.756,
+     4871.256,
+     91.197
+    ]
+   ],
+   "exit_portals": 2,
+   "exterior_models_within_45m": [
+    {
+     "archetype": "cs1_15c_retwalb003",
+     "dist_xy": 40.64,
+     "position": [
+      -505.83264,
+      4915.9033,
+      149.16827
+     ],
+     "size_xyz": [
+      18.21,
+      8.23,
+      9.82
+     ]
+    }
+   ],
+   "interior": "cs1_14brailway3",
+   "layers": [
+    "base",
+    "update-dlcpack"
+   ],
+   "next_investigation": "Resolve which YBN children cover the exterior shell around the exit portal(s) (polygon-level), then check wall ownership/LOD/NVE overrides; no destruction work implied.",
+   "placement_id": 107,
+   "position": [
+    -545.845,
+    4922.998,
+    91.581
+   ],
+   "rank": 2,
+   "reasons": [
+    "exit portal(s) to limbo/exterior: 2 (verified portal topology)",
+    "placed in base/patch layer (offline availability ASSUMED)",
+    "1 interior rooms",
+    "one large exterior model within 45 m: cs1_15c_retwalb003",
+    "nearest large model footprint 18.2 m (modest)"
+   ],
+   "rooms": 1,
+   "score": 99.0,
+   "verified": [
+    "MLO archetype + rooms/portals from YTYP",
+    "world placement from YMAP",
+    "large model positions from YMAP + bounds from YTYP"
+   ],
+   "ybn_name_matches_assumed": [
+    "x64q.rpf\\levels\\gta5\\_hills\\country_01\\cs1_railwyb.rpf\\cs1_14brailway3.ybn|.ybn"
+   ],
+   "ymaps": [
+    "cs1_railwyb_interior_cs1_14brailway3.ymap",
+    "hei_cs1_railwyb_interior_cs1_14brailway3.ymap"
+   ]
+  },
+  {
+   "assumptions": [
+    "offline/story availability",
+    "layer load precedence",
+    "exterior model belongs to the same building",
+    "YBN files matched only by name"
+   ],
+   "dlcs": [
+    "mpheist",
+    "patchday1ng",
+    "patchday2ng",
+    "patchday3ng"
+   ],
+   "exit_portal_world_centers": [
+    [
+     -323.123,
+     6078.318,
+     32.114
+    ],
+    [
+     -325.193,
+     6076.194,
+     31.598
+    ],
+    [
+     -328.789,
+     6081.289,
+     30.455
+    ]
+   ],
+   "exit_portals": 3,
+   "exterior_models_within_45m": [
+    {
+     "archetype": "cs1_06_tractor_alpha",
+     "dist_xy": 2.35,
+     "position": [
+      -325.51428,
+      6077.5854,
+      30.258698
+     ],
+     "size_xyz": [
+      27.18,
+      11.77,
+      6.89
+     ]
+    },
+    {
+     "archetype": "cs1_06_tractor",
+     "dist_xy": 9.84,
+     "position": [
+      -334.16345,
+      6086.1763,
+      33.714325
+     ],
+     "size_xyz": [
+      28.56,
+      29.08,
+      8.08
+     ]
+    },
+    {
+     "archetype": "cs1_06_market_bb",
+     "dist_xy": 27.61,
+     "position": [
+      -348.1214,
+      6061.2803,
+      41.827133
+     ],
+     "size_xyz": [
+      5.94,
+      11.0,
+      5.87
+     ]
+    }
+   ],
+   "interior": "v_gun2",
+   "layers": [
+    "base",
+    "update-dlcpack"
+   ],
+   "next_investigation": "Resolve which YBN children cover the exterior shell around the exit portal(s) (polygon-level), then check wall ownership/LOD/NVE overrides; no destruction work implied.",
+   "placement_id": 694,
+   "position": [
+    -327.171,
+    6079.257,
+    30.455
+   ],
+   "rank": 3,
+   "reasons": [
+    "exit portal(s) to limbo/exterior: 3 (verified portal topology)",
+    "placed in base/patch layer (offline availability ASSUMED)",
+    "1 interior rooms",
+    "3 large exterior models within 45 m",
+    "exterior model cs1_06_tractor_alpha shares the MLO pivot (<=3 m): strong association (VERIFIED positions, same-building ASSUMED)",
+    "nearest large model footprint 27.2 m (modest)"
+   ],
+   "rooms": 1,
+   "score": 97.0,
+   "verified": [
+    "MLO archetype + rooms/portals from YTYP",
+    "world placement from YMAP",
+    "large model positions from YMAP + bounds from YTYP"
+   ],
+   "ybn_name_matches_assumed": [
+    "x64h.rpf\\levels\\gta5\\interiors\\v_int_22.rpf\\v_gun2.ybn|.ybn"
+   ],
+   "ymaps": [
+    "cs1_06_interior_v_gun2_milo_.ymap",
+    "hei_cs1_06_interior_v_gun2_milo_.ymap"
+   ]
+  },
+  {
+   "assumptions": [
+    "offline/story availability",
+    "layer load precedence",
+    "exterior model belongs to the same building",
+    "YBN files matched only by name"
+   ],
+   "dlcs": [
+    "mpheist",
+    "patchday3ng"
+   ],
+   "exit_portal_world_centers": [
+    [
+     -1822.326,
+     788.237,
+     138.338
+    ],
+    [
+     -1819.468,
+     790.85,
+     138.935
+    ],
+    [
+     -1825.168,
+     785.633,
+     139.084
+    ],
+    [
+     -1822.301,
+     788.253,
+     139.882
+    ]
+   ],
+   "exit_portals": 4,
+   "exterior_models_within_45m": [
+    {
+     "archetype": "ch1_06c_petrol",
+     "dist_xy": 21.65,
+     "position": [
+      -1806.6664,
+      796.78436,
+      143.00656
+     ],
+     "size_xyz": [
+      80.87,
+      68.19,
+      23.64
+     ]
+    }
+   ],
+   "interior": "v_gasstation",
+   "layers": [
+    "base",
+    "update-dlc_patch",
+    "update-dlcpack"
+   ],
+   "next_investigation": "Resolve which YBN children cover the exterior shell around the exit portal(s) (polygon-level), then check wall ownership/LOD/NVE overrides; no destruction work implied.",
+   "placement_id": 662,
+   "position": [
+    -1827.537,
+    791.035,
+    137.244
+   ],
+   "rank": 4,
+   "reasons": [
+    "exit portal(s) to limbo/exterior: 4 (verified portal topology)",
+    "placed in base/patch layer (offline availability ASSUMED)",
+    "3 interior rooms",
+    "one large exterior model within 45 m: ch1_06c_petrol",
+    "nearest large model footprint 80.9 m (very large)"
+   ],
+   "rooms": 3,
+   "score": 90.0,
+   "verified": [
+    "MLO archetype + rooms/portals from YTYP",
+    "world placement from YMAP",
+    "large model positions from YMAP + bounds from YTYP"
+   ],
+   "ybn_name_matches_assumed": [
+    "x64h.rpf\\levels\\gta5\\interiors\\v_int_68.rpf\\v_gasstation.ybn|.ybn"
+   ],
+   "ymaps": [
+    "ch1_06c_interior_v_gasstation_milo_.ymap",
+    "hei_ch1_06c_interior_v_gasstation_milo_.ymap"
+   ]
+  },
+  {
+   "assumptions": [
+    "offline/story availability",
+    "layer load precedence",
+    "exterior model belongs to the same building",
+    "YBN files matched only by name"
+   ],
+   "dlcs": [
+    "mpheist",
+    "patchday2ng",
+    "patchday3ng"
+   ],
+   "exit_portal_world_centers": [
+    [
+     1687.111,
+     4820.61,
+     42.656
+    ],
+    [
+     1687.443,
+     4818.113,
+     42.656
+    ],
+    [
+     1690.846,
+     4815.898,
+     42.656
+    ],
+    [
+     1686.788,
+     4823.109,
+     42.656
+    ],
+    [
+     1686.17,
+     4827.747,
+     42.656
+    ],
+    [
+     1698.903,
+     4817.152,
+     42.184
+    ],
+    [
+     1696.77,
+     4825.134,
+     42.221
+    ]
+   ],
+   "exit_portals": 7,
+   "exterior_models_within_45m": [
+    {
+     "archetype": "cs2_01_clothshop_obja",
+     "dist_xy": 0.43,
+     "position": [
+      1693.249,
+      4824.047,
+      43.31407
+     ],
+     "size_xyz": [
+      18.23,
+      17.51,
+      5.51
+     ]
+    },
+    {
+     "archetype": "cs2_01_clothshop",
+     "dist_xy": 1.02,
+     "position": [
+      1692.782,
+      4822.917,
+      43.16986
+     ],
+     "size_xyz": [
+      19.08,
+      17.05,
+      6.46
+     ]
+    },
+    {
+     "archetype": "cs2_01_shop_dec2",
+     "dist_xy": 4.83,
+     "position": [
+      1697.828,
+      4825.728,
+      43.24651
+     ],
+     "size_xyz": [
+      27.09,
+      22.62,
+      5.38
+     ]
+    },
+    {
+     "archetype": "cs2_01_markets2_obj1b",
+     "dist_xy": 24.17,
+     "position": [
+      1692.423,
+      4847.819,
+      43.48275
+     ],
+     "size_xyz": [
+      20.19,
+      25.64,
+      5.59
+     ]
+    }
+   ],
+   "interior": "v_clotheslo",
+   "layers": [
+    "base",
+    "update-dlcpack"
+   ],
+   "next_investigation": "Resolve which YBN children cover the exterior shell around the exit portal(s) (polygon-level), then check wall ownership/LOD/NVE overrides; no destruction work implied.",
+   "placement_id": 631,
+   "position": [
+    1693.459,
+    4823.674,
+    40.884
+   ],
+   "rank": 5,
+   "reasons": [
+    "exit portal(s) to limbo/exterior: 7 (verified portal topology)",
+    "placed in base/patch layer (offline availability ASSUMED)",
+    "2 interior rooms",
+    "7 large exterior models within 45 m (cluttered)",
+    "exterior model cs2_01_clothshop_obja shares the MLO pivot (<=3 m): strong association (VERIFIED positions, same-building ASSUMED)",
+    "nearest large model footprint 18.2 m (modest)"
+   ],
+   "rooms": 2,
+   "score": 88.0,
+   "verified": [
+    "MLO archetype + rooms/portals from YTYP",
+    "world placement from YMAP",
+    "large model positions from YMAP + bounds from YTYP"
+   ],
+   "ybn_name_matches_assumed": [
+    "x64h.rpf\\levels\\gta5\\interiors\\v_int_51.rpf\\v_clotheslo.ybn|.ybn"
+   ],
+   "ymaps": [
+    "cs2_01_interior_v_clotheslo_milo_.ymap",
+    "hei_cs2_01_interior_v_clotheslo_milo_.ymap"
+   ]
+  }
+ ],
+ "disclaimer": "Ranking is a heuristic over verified metadata (YTYP/YMAP) plus labelled assumptions. An MLO, an exit portal or a nearby large model does NOT prove a wall is breachable or that collision is isolatable; every candidate still needs a collision (YBN) and ownership investigation before any destruction work.",
+ "schema_version": 1
+}
