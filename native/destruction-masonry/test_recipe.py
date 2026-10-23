@@ -29,7 +29,7 @@ class X9OfflineTests(unittest.TestCase):
         self.assertEqual(p["sections"][0]["localU0M"], -1.5)
         self.assertEqual(p["sections"][-1]["localU1M"], 1.5)
         self.assertTrue(all(s["nativeRoot"].startswith("REQUIRES") for s in p["sections"]))
-        self.assertEqual(sum(s["localU1M"]-s["localU0M"] for s in p["sections"]), 3.0)
+        self.assertAlmostEqual(sum(s["localU1M"]-s["localU0M"] for s in p["sections"]), 3.0, places=9)
 
     def test_deterministic_plan_and_evidence_hash(self):
         a = recipe.create_plan(self.fixture, fixture=True)

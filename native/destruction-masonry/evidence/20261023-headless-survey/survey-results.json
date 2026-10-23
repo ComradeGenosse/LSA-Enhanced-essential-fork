@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "kind": "X9_HEADLESS_ARCHIVE_SURVEY",
+  "provenance": {
+    "note": "Archive metadata only (read-only). Not GTA-native collision/ownership proof. No Rockstar/NVE bytes included.",
+    "tool": "CodeWalker.Core (CodeWalker30_dev48) loaded headlessly under .NET 8 in the Cowork Linux VM; see probe/",
+    "gtaRoot": "Steam GTA V Enhanced install, read-only mount",
+    "sha256": {
+      "GTA5_Enhanced.exe": "69da07ff67d05e9ded11289e597e8b8dc5855b0a429c085f37d148dc267cb2c5",
+      "x64i.rpf": "01dbfcf878f6e7ccecfe364ea52490809b37d691df36650174a9097d9fca49ed",
+      "x64f.rpf": "7322e6ac71b64abb7a487030dad1e9f4e5a6cf167ad6df7b6781db4b74b6c1cd"
+    },
+    "rpfArchivesScanned": 5507,
+    "ytypFilesScanned": 3044,
+    "ymapFilesScanned": "~10.4k non-LOD/occlusion/_long/milo ymaps (all of base, update.rpf, DLC and onigiri/NVE packs)",
+    "ymapFilesNotScanned": "names containing lod, occl, _long, milo (≈11k files; mostly light/LOD/long-range)",
+    "archetypeDumpFilter": "bbox height >= 1.2 m, 305,058 rows"
+  },
+  "wallbrick": {
+    "files": {
+      "ytyp": "x64i.rpf\\levels\\gta5\\props\\roadside\\v_fences_2.rpf\\v_fences_2.ytyp",
+      "yft": ["prop_wallbrick_01.yft (1834 B)", "prop_wallbrick_02.yft (2458 B)", "prop_wallbrick_03.yft (2681 B)"],
+      "ytd": ["prop_wallbrick_01.ytd", "prop_wallbrick_01+hi.ytd"]
+    },
+    "archetypes": [
+      {"name": "prop_wallbrick_01", "assetType": "FRAGMENT", "bbMinM": [-0.2066, -0.0908, -0.0739], "bbMaxM": [0.2067, 0.0908, 0.0739], "sizeM": [0.413, 0.182, 0.148], "lodDist": 20, "flags": 537001984},
+      {"name": "prop_wallbrick_02", "assetType": "FRAGMENT", "bbMinM": [-0.2066, -0.0916, -0.0739], "bbMaxM": [0.6200, 0.0908, 0.2218], "sizeM": [0.827, 0.182, 0.296], "lodDist": 20, "flags": 537001984},
+      {"name": "prop_wallbrick_03", "assetType": "FRAGMENT", "bbMinM": [-0.4238, -0.0908, -0.0739], "bbMaxM": [0.4027, 0.0917, 0.3697], "sizeM": [0.827, 0.183, 0.443], "lodDist": 20, "flags": 537001984}
+    ],
+    "worldPlacementsInScannedYmaps": 0,
+    "verdict": "REJECT",
+    "reason": "A single brick (0.41x0.18x0.15 m) and two small brick stacks (<=0.83x0.18x0.44 m). Required: >=1.8 m tall, 2.7-4.2 m wide. Never placed in any scanned ymap."
+  },
+  "storedConcreteFamily": [
+    {"name": "prop_barier_conc_01a", "assetType": "FRAGMENT", "sizeM": [2.184, 0.630, 0.906], "placements": 1587, "role": "negative control, too low"},
+    {"name": "prop_barier_conc_01b", "assetType": "DRAWABLE", "sizeM": [2.188, 0.630, 1.855], "placements": 139, "uniquePositions": 24, "solidBoundGeometryMaxZM": 0.877},
+    {"name": "prop_barier_conc_01c", "assetType": "DRAWABLE", "sizeM": [2.188, 0.630, 2.133], "placements": 24, "uniquePositions": 4, "solidBoundGeometryMaxZM": 0.879},
+    {"name": "prop_barier_conc_02b", "assetType": "DRAWABLE", "sizeM": [4.158, 0.630, 1.854], "placements": 487, "uniquePositions": 108, "solidBoundGeometryMaxZM": 0.914},
+    {"name": "prop_barier_conc_02c", "assetType": "DRAWABLE", "sizeM": [4.158, 0.630, 2.150], "placements": 50, "uniquePositions": 11, "solidBoundGeometryMaxZM": 0.917,
+     "collision": "BoundComposite of 10 children: one BoundGeometry ~0.92 m tall concrete base + nine thin (0.04-0.06 m) BoundBox slabs/posts forming the upper frame; embedded in the YDR.",
+     "verdict": "REJECT as masonry: only the lower ~0.9 m is solid concrete; the 2.15 m height is a thin-panel/post frame (visual+collision), not a full-height masonry mass."}
+  ],
+  "otherStockCandidatesReviewed": [
+    {"name": "prop_shuttering02", "sizeM": [0.477, 4.067, 2.166], "placements": 569, "verdict": "REJECT: formwork panel with posts/struts (11 composite children), not masonry"},
+    {"name": "prop_shuttering03", "sizeM": [0.477, 7.468, 2.166], "placements": 64, "verdict": "REJECT: same family, 7.5 m wide"},
+    {"name": "prop_const_fence0*", "sizeM": ["4-12", 0.2, 3.21], "verdict": "REJECT: plywood/metal hoarding, wrong material"},
+    {"name": "prop_fnccorgm_*", "verdict": "REJECT: corrugated metal fences"},
+    {"name": "prop_sec_barier_*", "sizeM": ["8-9.3", 0.55, 1.28], "verdict": "REJECT: too low"},
+    {"name": "cs2_09_ret_wall_01/03", "sizeM": [11.36, 0.67, 1.9], "verdict": "REJECT: map-owned retaining wall; 11 m, shares area YBN collision, not a prop"}
+  ],
+  "projectCustomPrecedent": {
+    "name": "lsa_x2_concrete",
+    "location": "onigiri/dlcpacks/lsa_destruct/dlc.rpf/x64/lsa_destruct.rpf (lsa_x2.ytyp + lsa_x2_concrete.yft, 6666 B)",
+    "assetType": "FRAGMENT",
+    "sizeM": [3.0, 0.2, 2.5],
+    "worldPlacements": 0,
+    "note": "User's own earlier X2 custom concrete-wall fragment. Not a genuine world wall; not used as a qualifying source."
+  },
+  "decision": {
+    "stockWallbrick": "NO-GO",
+    "stockConcreteBarrierFamily": "NO-GO",
+    "genuineStockFullHeightMasonryPropFound": false,
+    "easiestAlternative": "Author a new custom masonry wall archetype (3.0 x 0.25 x 2.0-2.2 m, 5 fragment roots) and stage it like X8's lab fence (lab YMAP in the lab DLC at a cleared lab site); do not hide/replace a stock world prop."
+  }
+}

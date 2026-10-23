@@ -1,0 +1,87 @@
+{
+  "dimensions": {
+    "heightM": 2.0,
+    "thicknessM": 0.25,
+    "widthM": 3.0
+  },
+  "generator": "x9-5-column-v1",
+  "maxOpeningWidthM": 1.2,
+  "mustProveLocally": [
+    "3D section seams and visual match",
+    "five independent YFT/GEN9 native roots and collision; bounds/LOD",
+    "distinct masonry model from X8's fence recipe; no fallback to fence",
+    "source model hide and zero remaining world collision",
+    "actual impact selection and RPG native separation",
+    "physical player passage and 9/9 world restoration",
+    "owned cleanup and stopped-game filesystem rollback"
+  ],
+  "operatorGateAttestations": {
+    "genuineWorldSourceAtTwoSites": false,
+    "installedModelAndCodeWalkerReload": false,
+    "lodAndOcclusionIsolated": false,
+    "neighborHideScopeIsolated": false,
+    "noForeignOrResidualYbnCollision": false,
+    "sourceBoundsAndPivotMeasured": false,
+    "sourceCollisionNineOfNine": false,
+    "walkAndFiringLanesClear": false
+  },
+  "planSha256": "05ec2eed53f287e0a18d58f867fe31c4cda548d233789906240a030b90e37dc8",
+  "schema": 1,
+  "sectionRootCount": 5,
+  "sections": [
+    {
+      "localU0M": -1.5,
+      "localU1M": -0.9,
+      "localV0M": 0.0,
+      "localV1M": 2.0,
+      "nativeRoot": "REQUIRES_LOCAL_AUTHORED_MASONRY_FRAGMENT",
+      "physicalIndex": 0,
+      "sourceArt": "NOT_INCLUDED",
+      "thicknessM": 0.25
+    },
+    {
+      "localU0M": -0.9,
+      "localU1M": -0.3,
+      "localV0M": 0.0,
+      "localV1M": 2.0,
+      "nativeRoot": "REQUIRES_LOCAL_AUTHORED_MASONRY_FRAGMENT",
+      "physicalIndex": 1,
+      "sourceArt": "NOT_INCLUDED",
+      "thicknessM": 0.25
+    },
+    {
+      "localU0M": -0.3,
+      "localU1M": 0.3,
+      "localV0M": 0.0,
+      "localV1M": 2.0,
+      "nativeRoot": "REQUIRES_LOCAL_AUTHORED_MASONRY_FRAGMENT",
+      "physicalIndex": 2,
+      "sourceArt": "NOT_INCLUDED",
+      "thicknessM": 0.25
+    },
+    {
+      "localU0M": 0.3,
+      "localU1M": 0.9,
+      "localV0M": 0.0,
+      "localV1M": 2.0,
+      "nativeRoot": "REQUIRES_LOCAL_AUTHORED_MASONRY_FRAGMENT",
+      "physicalIndex": 3,
+      "sourceArt": "NOT_INCLUDED",
+      "thicknessM": 0.25
+    },
+    {
+      "localU0M": 0.9,
+      "localU1M": 1.5,
+      "localV0M": 0.0,
+      "localV1M": 2.0,
+      "nativeRoot": "REQUIRES_LOCAL_AUTHORED_MASONRY_FRAGMENT",
+      "physicalIndex": 4,
+      "sourceArt": "NOT_INCLUDED",
+      "thicknessM": 0.25
+    }
+  ],
+  "selectedPairMapping": "REUSE_X7_0_TO_4_PHYSICAL_INDEX_ONLY",
+  "sourceEvidence": "SYNTHETIC_ONLY",
+  "sourceModel": "prop_wallbrick_01",
+  "status": "OFFLINE_FIXTURE_NOT_DEPLOYABLE"
+}
