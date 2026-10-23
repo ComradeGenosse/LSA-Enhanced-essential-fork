@@ -1,0 +1,14 @@
+{
+  "requestId": "283372d2571c4745829b0123f21b065e",
+  "fence": "f70ea213a0384822aeb43c8c153d3cc6",
+  "sessionId": "lab-acceptance-20261023",
+  "experimentId": "X8",
+  "trialId": "startup-stream",
+  "command": "labstream x=-1255 y=-3350 z=13.049618",
+  "expected": {
+    "pid": 29600,
+    "loadedUtc": "2026-10-23T13:14:58.1483506Z",
+    "scriptSha256": "ac8965587884aca973ca4462bc28255e971f84947eac5bf35c364d1d15821ab3"
+  },
+  "expiresUnix": 1792761399.9060729
+}

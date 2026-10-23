@@ -1,0 +1,19 @@
+{
+  "phase": "INSTALLED",
+  "rows": [
+    {
+      "relative": "onigiri/common/data/dlclist.xml",
+      "before": "a1d3045f825594fb82a114fc0ec230d3a85f799624b2bd989e9554651de1dec2",
+      "backup": "0.bak",
+      "installed": "d1c4ce1eb1f90509672a121f108a08ab64ed43c91c64644e48565284f373f019",
+      "state": "APPLIED"
+    },
+    {
+      "relative": "onigiri/dlcpacks/lsa_destruction_lab/dlc.rpf",
+      "before": null,
+      "backup": "1.bak",
+      "installed": "9010cc5f599d2168992d7ff5d5401d0fa9d94cac9f1b51c6c6866876888d0927",
+      "state": "APPLIED"
+    }
+  ]
+}

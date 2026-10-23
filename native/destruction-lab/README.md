@@ -11,6 +11,21 @@ user ended testing. Zero preparations and zero RPG shots. GTA is stopped, origin
 files/addons are hash-restored, and P2 is released. Cloud diagnosis continues in
 [the preserved handoff](evidence/20261022-local/RESULTS.md).
 
+## Latest Windows resume — October 23
+
+[Actual resume results](evidence/20261023-resume/RESULTS.md): cloud resource-entry
+validation passes and the lab DLC is natively present, but the lab IPL is inactive
+and both source objects are absent. The NVE reference IPL is active. Two bounded
+metadata/source candidates did not resolve this; their unproven implementation
+edits were reverted and preserved as evidence. Zero preparations and zero RPGs.
+GTA stopped, original hashes restored, P2 released. Lab/X8 acceptance remains blocked.
+
+The optional P2 `labstream x=... y=... z=...` diagnostic records IPL/DLC/model
+state and closest-source/collision results. It never requests an IPL/model,
+spawns, hides or damages objects. `hold` optionally permits up to 15 seconds of
+observation. Use it only without a native X8 lease, with the same approved runtime
+identity and P2 command path.
+
 ## Why this exists
 
 The October 22 X8 preflight stopped with 3/18 ambiguous approach-collision

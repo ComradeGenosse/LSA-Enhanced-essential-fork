@@ -1,3 +1,28 @@
+    // Read-only streaming diagnosis: no IPL/model requests, spawning or damage.
+    void LabStream(Dictionary<string, string> a)
+    {
+        if (x7State != "None" || x8Registry.LeaseId != null)
+            throw new Exception("stream_check_requires_no_native_lease");
+        foreach(string name in new string[]{"lsa_destruction_lab","ap_sm"})
+            Row("lab_ipl","name",name,"active",Function.Call<bool>(Hash.IS_IPL_ACTIVE,name));
+        foreach(string name in new string[]{"lsa_destruction_lab","NVE_props_addon","lsa_fence_x7d"})
+            Row("lab_dlc","name",name,"present",Function.Call<bool>(Hash.IS_DLC_PRESENT,Game.GenerateHash(name)));
+        foreach(string name in new string[]{"prop_fnccorgm_02e","lsa_x7d_secp_j1400"})
+        {
+            Model m=new Model(name);
+            Row("lab_model","name",name,"valid",m.IsValid,"inCdImage",m.IsInCdImage,"loaded",m.IsLoaded);
+        }
+        PrepareSite();
+        Vector3 pivot=new Vector3(F(a,"x",0),F(a,"y",0),F(a,"z",0));
+        Game.Player.Character.Position=pivot+new Vector3(0,-8,1.5f);
+        WaitCollision(Game.Player.Character);
+        for(int f=0;f<120;f++) Yield();
+        int h=Function.Call<int>(Hash.GET_CLOSEST_OBJECT_OF_TYPE,pivot.X,pivot.Y,pivot.Z,2f,1185366416,false,false,false);
+        RaycastResult r=World.Raycast(pivot+new Vector3(1.2f,-2,1),pivot+new Vector3(1.2f,2,1),(IntersectFlags)17,null);
+        Row("lab_source","closestHandle",h,"rayHit",r.DidHit,"rayHandle",r.HitEntity==null?0:r.HitEntity.Handle);
+        int hold=(int)F(a,"hold",0); if(hold>0) Hold("lab_stream_observation",Math.Min(hold,15));
+    }
+
     // Site selection only: no spawning, hiding, damage, or selector changes.
     void LabSurvey(Dictionary<string, string> a)
     {

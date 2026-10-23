@@ -1,0 +1,14 @@
+{
+  "requestId": "e71cb68b1898402a8d808691e50f343e",
+  "fence": "f70ea213a0384822aeb43c8c153d3cc6",
+  "sessionId": "lab-acceptance-20261023",
+  "experimentId": "X8",
+  "trialId": "qualify-A",
+  "command": "x8audit id=A stream=1 px=-1255 py=-3358 pz=14.5",
+  "expected": {
+    "pid": 66332,
+    "loadedUtc": "2026-10-23T12:52:45.3380756Z",
+    "scriptSha256": "5ad91373ad99fbd6b1d0b7757951c1e05a7ae20c50ea03729818145248815803"
+  },
+  "expiresUnix": 1792760085.2943125
+}

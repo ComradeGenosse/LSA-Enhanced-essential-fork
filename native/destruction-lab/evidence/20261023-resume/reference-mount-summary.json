@@ -1,0 +1,11 @@
+{
+  "deviceName": "dlc_NVE_props_addon",
+  "type": "EXTRACONTENT_LEVEL_PACK",
+  "isLevelPack": "true",
+  "groups": [
+    "GROUP_EARLY_ON",
+    "GROUP_UPDATE_STREAMING"
+  ],
+  "nativeReferenceIpl": "ap_sm",
+  "nativeReferenceActive": true
+}

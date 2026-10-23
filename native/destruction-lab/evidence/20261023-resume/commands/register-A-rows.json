@@ -1,0 +1,63 @@
+[
+  {
+    "t": 37885,
+    "frame": 6802,
+    "kind": "header",
+    "requestId": "faae8543210344bdb9f99e7105675468",
+    "sessionId": "lab-acceptance-20261023",
+    "experimentId": "X8",
+    "trialId": "register-A",
+    "script": "WpsBreachLabX7.3.cs",
+    "version": "X7-0.1",
+    "scriptSha256": "5ad91373ad99fbd6b1d0b7757951c1e05a7ae20c50ea03729818145248815803",
+    "shvdnApi": "3.9.0.0",
+    "gameBuild": "2.0.1158.16",
+    "loadedUtc": "2026-10-23T12:52:45.3380756Z",
+    "pid": 66332,
+    "autoLoadScripts": "AutoLoadScripts=true",
+    "pools": {
+      "props": 312,
+      "propCap": 2300,
+      "colliders": 3,
+      "colliderCap": 228,
+      "peds": 53,
+      "pedCap": 256,
+      "vehicles": 106,
+      "vehicleCap": 300,
+      "projectiles": 0,
+      "pickups": 1
+    },
+    "commands": [
+      "x8register id=A rev=1 hash=1185366416 tx=-1255 ty=-3350 tz=13.049618 heading=0 scale=1 updot=1 verified=1"
+    ]
+  },
+  {
+    "t": 37894,
+    "frame": 6802,
+    "kind": "x8_registered",
+    "requestId": "faae8543210344bdb9f99e7105675468",
+    "sessionId": "lab-acceptance-20261023",
+    "experimentId": "X8",
+    "trialId": "register-A",
+    "id": "A",
+    "revision": 1,
+    "hash": 1185366416,
+    "pivotX": -1255,
+    "pivotY": -3350,
+    "pivotZ": 13.05,
+    "heading": 0,
+    "registered": 1,
+    "syntheticCoordinatesNotIncluded": true
+  },
+  {
+    "t": 37894,
+    "frame": 6802,
+    "kind": "done",
+    "requestId": "faae8543210344bdb9f99e7105675468",
+    "sessionId": "lab-acceptance-20261023",
+    "experimentId": "X8",
+    "trialId": "register-A",
+    "runId": "20261023-125323-83f2f4",
+    "commandFailed": false
+  }
+]
