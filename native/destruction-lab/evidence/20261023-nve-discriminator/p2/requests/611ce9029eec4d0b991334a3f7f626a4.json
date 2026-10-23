@@ -1,0 +1,14 @@
+{
+  "requestId": "611ce9029eec4d0b991334a3f7f626a4",
+  "fence": "434c6469caca4f678ef526f5a5241275",
+  "sessionId": "lab-nve-20261023",
+  "experimentId": "X8",
+  "trialId": "short-enable",
+  "command": "x8enable enable=1 approved=1",
+  "expected": {
+    "pid": 63376,
+    "loadedUtc": "2026-10-23T14:37:29.3763020Z",
+    "scriptSha256": "3be67a10df11f75d02c95d1b01ecdc8ae5a7b7183b0829621140aac5e371e1a2"
+  },
+  "expiresUnix": 1792766379.9005728
+}

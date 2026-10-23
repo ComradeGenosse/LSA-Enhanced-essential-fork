@@ -1,0 +1,14 @@
+{
+  "requestId": "67721a2f13644ac19e5657da6228a937",
+  "fence": "434c6469caca4f678ef526f5a5241275",
+  "sessionId": "lab-nve-20261023",
+  "experimentId": "X8",
+  "trialId": "short-register-a",
+  "command": "x8register id=A rev=1 hash=1185366416 tx=-1255 ty=-3350 tz=13.049618 heading=0 scale=1 updot=1 verified=1",
+  "expected": {
+    "pid": 63376,
+    "loadedUtc": "2026-10-23T14:37:29.3763020Z",
+    "scriptSha256": "3be67a10df11f75d02c95d1b01ecdc8ae5a7b7183b0829621140aac5e371e1a2"
+  },
+  "expiresUnix": 1792766380.8985536
+}

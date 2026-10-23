@@ -1,0 +1,14 @@
+{
+  "requestId": "cbaae08bca274fd8959b3d2d99131cd2",
+  "fence": "434c6469caca4f678ef526f5a5241275",
+  "sessionId": "lab-nve-20261023",
+  "experimentId": "X8",
+  "trialId": "stop-status",
+  "command": "x8status",
+  "expected": {
+    "pid": 64584,
+    "loadedUtc": "2026-10-23T14:41:44.7221476Z",
+    "scriptSha256": "3be67a10df11f75d02c95d1b01ecdc8ae5a7b7183b0829621140aac5e371e1a2"
+  },
+  "expiresUnix": 1792766810.317526
+}

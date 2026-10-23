@@ -1,0 +1,14 @@
+{
+  "requestId": "acaf918065d74fcdbe91881ca4599484",
+  "fence": "434c6469caca4f678ef526f5a5241275",
+  "sessionId": "lab-nve-20261023",
+  "experimentId": "X8",
+  "trialId": "a-walk",
+  "command": "x8walk id=A hold=3",
+  "expected": {
+    "pid": 64584,
+    "loadedUtc": "2026-10-23T14:41:44.7221476Z",
+    "scriptSha256": "3be67a10df11f75d02c95d1b01ecdc8ae5a7b7183b0829621140aac5e371e1a2"
+  },
+  "expiresUnix": 1792766708.3482018
+}

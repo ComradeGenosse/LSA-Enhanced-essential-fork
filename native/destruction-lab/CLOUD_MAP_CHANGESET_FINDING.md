@@ -2,6 +2,8 @@
 
 **Latest Windows result:** [SP candidate tested and failed](evidence/20261023-story-map/RESULTS.md). Both genuine sources remain absent after the candidate and one explicit IPL request. A same-installation custom-YMAP control has exact native matches. Zero preparations/shots; original hashes restored; P2 released. This hypothesis is not a confirmed root cause. Original V3 remains the default.
 
+**Later decisive result:** [The same binary streams through NVE](evidence/20261023-nve-discriminator/RESULTS.md), qualifying both fences. This isolates the standalone delivery/registration path; YMAP geometry/bounds are not the sufficient cause. A passed one real native fracture/traversal and original 9/9 restore, but cleanup verification failed and stopped B. Original NVE/game hashes restored, P2 released.
+
 ## Specific defect candidate
 
 The observed symptoms are: GTA/Onigiri discovers and opens `lsa_destruction_lab/dlc.rpf`, and CodeWalker validates the nested YMAP/YMF, **but neither authored world fence appears**. The live diagnostic `IS_IPL_ACTIVE=false` is not by itself decisive for an unscripted YMAP. The failure is the absence of actual map entities/collision.

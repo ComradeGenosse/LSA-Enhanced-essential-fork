@@ -1,0 +1,61 @@
+{
+  "rawResourceSha256": "53026f7d12d5556c4e1d744a43e00ddc1b5cf386dd65dcc9a9578e740b3881a5",
+  "payloadSha256": "22d66daf0c4f4f96ec0735c60513e535c9ed10f682eae37617fdfe5788524626",
+  "originalNveLeafEntries": 161,
+  "unaffectedNveEntriesPreserved": 160,
+  "originalManifestSemanticsPreserved": true,
+  "nveControlRequest": "0c0041e00ffc40f3806e46746cdeec6b",
+  "ARequest": "050b9d24c0894d7e9a531b030fca37ab",
+  "BRequest": "6392efee1dbd4a2b8b32c0543b98462c",
+  "sameBinaryStreamsThroughNve": true,
+  "establishedFailureStage": "standalone DLC / inner archive registration or lookup",
+  "specificStandaloneField": "NOT_ISOLATED",
+  "shortIdentityCandidate": "FAILED_REVERTED",
+  "codewalkerBounds": {
+    "before": {
+      "entitiesExtentsMin": {
+        "X": -1258,
+        "Y": -3353,
+        "Z": 10.0496178
+      },
+      "entitiesExtentsMax": {
+        "X": -1222,
+        "Y": -3347,
+        "Z": 16.0496178
+      },
+      "streamingExtentsMin": {
+        "X": -1368,
+        "Y": -3463,
+        "Z": -99.95038
+      },
+      "streamingExtentsMax": {
+        "X": -1112,
+        "Y": -3237,
+        "Z": 126.049622
+      }
+    },
+    "after": {
+      "entitiesExtentsMin": {
+        "X": -1255.06714,
+        "Y": -3350.09961,
+        "Z": 12.945
+      },
+      "entitiesExtentsMax": {
+        "X": -1224.90039,
+        "Y": -3347.53125,
+        "Z": 15.28045
+      },
+      "streamingExtentsMin": {
+        "X": -1355.06714,
+        "Y": -3450.09961,
+        "Z": -87.05499
+      },
+      "streamingExtentsMax": {
+        "X": -1124.90039,
+        "Y": -3247.53125,
+        "Z": 115.280457
+      }
+    }
+  },
+  "originalBoundsContainCalculatedBounds": true
+}

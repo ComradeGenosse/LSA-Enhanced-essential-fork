@@ -5,11 +5,16 @@ DLC reload validated locally. Live qualification results are recorded in
 `evidence/20261022-local/RESULTS.md`. Based on draft X8 PR #309;
 X7.3/X8 physics, selector and P2 protocol are unchanged.
 
-**Live result: map streaming NOT established.** V1/V2 audits could not find the
-authored source fences. V3 packaging was installed but not qualified before the
-user ended testing. Zero preparations and zero RPG shots. GTA is stopped, original
-files/addons are hash-restored, and P2 is released. Cloud diagnosis continues in
-[the preserved handoff](evidence/20261022-local/RESULTS.md).
+**Latest live result:** The exact lab YMAP **does stream through NVE's working
+map archive**, with both genuine fences qualified. Standalone DLC registration
+remains defective. One real RPG at A passed automatic two-section native
+fracture and physical traversal; original collision restored 9/9, but cleanup
+verification failed and correctly blocked B. GTA stopped, all original files
+including NVE restored by hash, P2 released. [Actual results and evidence](evidence/20261023-nve-discriminator/RESULTS.md).
+
+No permanent NVE change or asset redistribution. The reversible NVE-backed
+package is a local diagnostic/acceptance route, not a claimed standalone fix.
+No selector/physics change; #308 separate; no X9.
 
 ## Latest SP candidate test - October 23
 

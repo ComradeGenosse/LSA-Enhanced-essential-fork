@@ -1,0 +1,23 @@
+{
+  "checks": {
+    "armed_original_9_of_9_twin_0": true,
+    "real_projectile_committed_before_explosion": true,
+    "native_fracture_exactly_two_parts": true,
+    "original_hidden_after_swap": true,
+    "five_section_states_logged": true,
+    "selected_positions_are_2_3": true,
+    "protected_sections_intact": true,
+    "final_probe_open_only_at_selected": false,
+    "no_frame_over_50ms": true,
+    "player_traversed_opening": true
+  },
+  "gameplayOutcome": "PARTIAL_PASS_FULL_X8_BLOCKED_BY_CLEANUP",
+  "worldRestoration": "PASS_9_OF_9",
+  "x8CleanupVerified": false,
+  "x8CleanupRemaining": 3,
+  "overallX8": "FAIL_CLEANUP_GATE",
+  "shots": 1,
+  "BShot": "NOT_RUN_STOPPED_AFTER_A_CLEANUP_FAILURE",
+  "normalShotProbeInstrumentation": "OFF: x7_probe matrix not recorded; smoke-specific matrix oracle is not applicable",
+  "measuredFractureSelectionTraversal": "PASS"
+}

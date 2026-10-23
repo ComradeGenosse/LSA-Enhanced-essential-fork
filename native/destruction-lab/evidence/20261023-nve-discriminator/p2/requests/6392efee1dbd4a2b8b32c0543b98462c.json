@@ -1,0 +1,14 @@
+{
+  "requestId": "6392efee1dbd4a2b8b32c0543b98462c",
+  "fence": "434c6469caca4f678ef526f5a5241275",
+  "sessionId": "lab-nve-20261023",
+  "experimentId": "X8",
+  "trialId": "nve-lab-b",
+  "command": "x8audit id=B stream=1 px=-1225 py=-3354 pz=14.05",
+  "expected": {
+    "pid": 52188,
+    "loadedUtc": "2026-10-23T14:31:36.7130437Z",
+    "scriptSha256": "3be67a10df11f75d02c95d1b01ecdc8ae5a7b7183b0829621140aac5e371e1a2"
+  },
+  "expiresUnix": 1792766067.7994614
+}
