@@ -1,3 +1,20 @@
+    // Explicit operator diagnostic; activates only the authored map, never script props.
+    void LabIpl(Dictionary<string, string> a)
+    {
+        if (x7State != "None" || x8Registry.LeaseId != null)
+            throw new Exception("ipl_check_requires_no_native_lease");
+        string action = S(a, "action", "");
+        if (S(a, "approved", "0") != "1" || (action != "request" && action != "remove"))
+            throw new Exception("ipl_check_explicit_approval_required");
+        const string name = "lsa_destruction_lab";
+        bool before = Function.Call<bool>(Hash.IS_IPL_ACTIVE, name);
+        if (action == "request") Function.Call(Hash.REQUEST_IPL, name);
+        else Function.Call(Hash.REMOVE_IPL, name);
+        for (int f = 0; f < 120; f++) Yield();
+        Row("lab_ipl_action", "name", name, "action", action, "before", before,
+            "after", Function.Call<bool>(Hash.IS_IPL_ACTIVE, name), "scriptPropsCreated", 0);
+    }
+
     // Read-only streaming diagnosis: no IPL/model requests, spawning or damage.
     void LabStream(Dictionary<string, string> a)
     {

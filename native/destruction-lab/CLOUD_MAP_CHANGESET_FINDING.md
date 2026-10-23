@@ -1,6 +1,6 @@
 # Cloud investigation: missing single-player map changeset (2026-10-23)
 
-**Status:** Strong, evidence-backed *candidate root cause*, not yet confirmed by GTA. Original lab V3 stays the default; no local installation or new RPG test.
+**Latest Windows result:** [SP candidate tested and failed](evidence/20261023-story-map/RESULTS.md). Both genuine sources remain absent after the candidate and one explicit IPL request. A same-installation custom-YMAP control has exact native matches. Zero preparations/shots; original hashes restored; P2 released. This hypothesis is not a confirmed root cause. Original V3 remains the default.
 
 ## Specific defect candidate
 

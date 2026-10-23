@@ -1,0 +1,14 @@
+{
+  "requestId": "80d272e16ebd40d98b61ba0d4ab0199d",
+  "fence": "f8c0d32361b14446b0771f5f621ba831",
+  "sessionId": "lab-story-sp-20261023",
+  "experimentId": "X8",
+  "trialId": "nve-custom-survey",
+  "command": "labsurvey x=-690.1661 y=-2360.03223 z=14.5",
+  "expected": {
+    "pid": 49792,
+    "loadedUtc": "2026-10-23T13:56:11.9911349Z",
+    "scriptSha256": "ac8965587884aca973ca4462bc28255e971f84947eac5bf35c364d1d15821ab3"
+  },
+  "expiresUnix": 1792764045.663063
+}

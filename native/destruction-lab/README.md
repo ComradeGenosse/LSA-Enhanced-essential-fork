@@ -11,6 +11,21 @@ user ended testing. Zero preparations and zero RPG shots. GTA is stopped, origin
 files/addons are hash-restored, and P2 is released. Cloud diagnosis continues in
 [the preserved handoff](evidence/20261022-local/RESULTS.md).
 
+## Latest SP candidate test - October 23
+
+[Full results and raw P2 evidence](evidence/20261023-story-map/RESULTS.md):
+`-StoryModeMapCandidate` passes CodeWalker and all eleven lab tests, but both
+real fences remain absent in player-streamed audits. One explicit P2 IPL request
+did not produce sources. Exact native matches from NVE's custom `rocks.ymap`
+establish a working same-loader control; comparison did not isolate a grounded
+fix. Zero preparations and RPGs. GTA stopped, originals/addons hash-restored,
+P2 released. X8 acceptance is still blocked; no physics/selector change.
+
+Optional lab-only `labipl action=request|remove approved=1` is an explicit
+loading discriminator, fixed to the authored lab and refused with a live native
+lease. It creates no script props. Remove only a request issued by the current
+session before cleanup. This is not an accepted map-loading fix.
+
 ## Latest Windows resume — October 23
 
 [Actual resume results](evidence/20261023-resume/RESULTS.md): cloud resource-entry

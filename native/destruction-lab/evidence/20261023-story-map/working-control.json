@@ -1,0 +1,18 @@
+{
+  "archive": "NVE_props_addon/dlc.rpf/x64/city_props.rpf",
+  "map": "rocks.ymap",
+  "matchingNativeModel": 2580877897,
+  "positions": [
+    [
+      1604.46838,
+      1016.63953,
+      78.16719
+    ],
+    [
+      1606.52039,
+      1019.31573,
+      78.3482742
+    ]
+  ],
+  "requestId": "7649225e970a40fe8fca36f7e6d5d5a4"
+}
