@@ -1,0 +1,73 @@
+{
+  "requestIds": [
+    "18500e6b0147420e917a32b436157268",
+    "dd9344afcb234796a9f92b922eea3f0e",
+    "83b6e0272d0c4826b409fdac569a7ae9",
+    "930d9eb9563d47339db804626545e625",
+    "1c94137d193b4b188341c75057d843a0"
+  ],
+  "files": [
+    {
+      "path": "requests/18500e6b0147420e917a32b436157268.json",
+      "sha256": "b58738b5962a811a834e65ff61b25889d3e6129f4b01ca6c3c4381dc6809537e"
+    },
+    {
+      "path": "responses/18500e6b0147420e917a32b436157268.json",
+      "sha256": "e22cbe2f241b15e3f197323be68bcf03c186aca09d2c14025767cf967cf57377"
+    },
+    {
+      "path": "20261022-202401-267dcb/trials.jsonl",
+      "sha256": "560a9373b27ea515b85063c3003e178e2b68715dfffb0b119e194b7c1e0caca9"
+    },
+    {
+      "path": "requests/dd9344afcb234796a9f92b922eea3f0e.json",
+      "sha256": "856127898b8009bcd80cfeb09e654d4347a934f7fb74a2db5598bdd3cfc1a30c"
+    },
+    {
+      "path": "responses/dd9344afcb234796a9f92b922eea3f0e.json",
+      "sha256": "bff7e8c23933c27a54044069d7629ff3d66a8e76b111f32f9e2916141266e1ee"
+    },
+    {
+      "path": "20261022-202405-7f43bd/trials.jsonl",
+      "sha256": "29b72fbff84db035a4f6976b98aa91e0c517db9e1593807a709563e5930128b7"
+    },
+    {
+      "path": "requests/83b6e0272d0c4826b409fdac569a7ae9.json",
+      "sha256": "905d3e35b029372ce5142f7d0d5ac74c746a44c5411767060770c9e63dc753a1"
+    },
+    {
+      "path": "responses/83b6e0272d0c4826b409fdac569a7ae9.json",
+      "sha256": "f98e90cfb3ab9d8a434f02c4078c3d18267cd2830d7c77e5f8caaa1b755013a3"
+    },
+    {
+      "path": "20261022-202406-165688/trials.jsonl",
+      "sha256": "8112d5d6fe4e25a238c18998e54b8c6c9edafb5b79d38ddaa43ae5373f05efdc"
+    },
+    {
+      "path": "requests/930d9eb9563d47339db804626545e625.json",
+      "sha256": "69a8dcff4a9c9ffb0d4483be01bd6b420885d960cdccbfc6595d408886fc2f6b"
+    },
+    {
+      "path": "responses/930d9eb9563d47339db804626545e625.json",
+      "sha256": "a232b3b522a70a87a690bfbf646bfa2cd4a418bdbc7100e1ccf629be83e896c7"
+    },
+    {
+      "path": "20261022-202411-f11243/trials.jsonl",
+      "sha256": "0d7a326ea9a6470f18d53c3dd4b95fe22e100351f837ab71880d33680882cf2f"
+    },
+    {
+      "path": "requests/1c94137d193b4b188341c75057d843a0.json",
+      "sha256": "c61f32f13a607fafaba5ca55cfa063e5a5cff440967ffba6c33a0a812ee4ad5f"
+    },
+    {
+      "path": "responses/1c94137d193b4b188341c75057d843a0.json",
+      "sha256": "9162258d55bcd5cf364d11b1f204a0fcdb5ee80ee1333d552651a4aee0ce1bf5"
+    },
+    {
+      "path": "20261022-202419-e9255f/trials.jsonl",
+      "sha256": "f1c49adf1737ce2518300d36aff35c2b2325997d706f13471b86332065175302"
+    }
+  ],
+  "commandOutcome": "SEE_RESPONSES",
+  "gameplayOutcome": "NOT_ASSESSED"
+}

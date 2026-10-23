@@ -1,0 +1,24 @@
+test_frozen_order (test_analysis.ClassificationContract) ... ok
+test_iou (test_analysis.ClassificationContract) ... ok
+test_missing_mask_keeps_failed_swap_and_restore (test_analysis.ClassificationContract) ... ok
+test_multiple_walks_preserve_outside_footprint_failure (test_analysis.ClassificationContract) ... ok
+test_no_evidence_means_no_tstar (test_analysis.ClassificationContract) ... ok
+test_split_commands_keep_pre_result_timing_and_later_restore (test_analysis.ClassificationContract) ... ok
+test_walk5_mask_not_misclassified_as_original_session_a (test_analysis.ClassificationContract) ... ok
+test_matrix (test_spec.FrozenMatrix) ... ok
+test_sec1_independent_sections (test_spec.FrozenMatrix) ... ok
+test_shared_edges (test_spec.FrozenMatrix) ... ok
+test_torn (test_spec.FrozenMatrix) ... ok
+test_walk5_is_isolated_and_player_sized (test_spec.FrozenMatrix) ... ok
+test_frozen_success_failure_differ_at_new_acceptance_boundary (test_x73_diagnostics.DiagnosticSourceTests) ... ok
+test_only_bounded_memory_in_gameplay_loop (test_x73_diagnostics.DiagnosticSourceTests) ... ok
+test_rejection_reasons_cover_selector_guards (test_x73_diagnostics.DiagnosticSourceTests) ... ok
+PASS X7.3 live policy guards (not a GTA compilation/gameplay proof)
+COMPARE: identical aim and 60ms shot timing; X7.2c tracked and fractured 2, X7.3 recorded no accepted sample
+LIMIT: historical X7.3 rejection cause remains unobservable; a newly instrumented shot is required
+test_selector_remains_the_only_authority (test_x73_diagnostics.DiagnosticSourceTests) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.013s
+
+OK
