@@ -19,6 +19,12 @@ jobs:
         run: |
           python -m py_compile native/destruction-lab/generate_lab.py native/destruction-lab/build_runtime.py native/destruction-lab/install_lab.py
           python native/destruction-lab/build_runtime.py "$RUNNER_TEMP/lab-runtime"
+          grep -q 'case "x8labsetup": LabEnvSetup(a); break;' "$RUNNER_TEMP/lab-runtime/WpsBreachLabX7.3.cs"
+          grep -q 'case "x8labrestore": LabEnvRestore(); break;' "$RUNNER_TEMP/lab-runtime/WpsBreachLabX7.3.cs"
+          grep -q 'LabEnvTick();' "$RUNNER_TEMP/lab-runtime/WpsBreachLabX7.3.cs"
+          grep -q 'LabEnvAbort();' "$RUNNER_TEMP/lab-runtime/WpsBreachLabX7.3.cs"
+          python native/destruction-lab/build_runtime.py "$RUNNER_TEMP/lab-runtime-again"
+          cmp "$RUNNER_TEMP/lab-runtime/WpsBreachLabX7.3.cs" "$RUNNER_TEMP/lab-runtime-again/WpsBreachLabX7.3.cs"
           git diff --exit-code -- native/fragment-x7/WpsBreachLabX7.3.cs
           python -m unittest discover -s native/destruction-lab/tests -p 'test_*.py' -v
       - name: Verify deterministic synthetic-only generation
