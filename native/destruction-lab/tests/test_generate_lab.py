@@ -122,6 +122,19 @@ class DestructionLabTests(unittest.TestCase):
         self.assertIn("filesToEnable", packer)
         self.assertNotIn("<fileType>MAP_DATA</fileType>", packer)
 
+    def test_opt_in_story_mode_map_registration_candidate(self):
+        # The baseline packaging must remain untouched unless explicitly opted in.
+        packer = (Path(__file__).resolve().parents[1] / "pack_lab.ps1").read_text(encoding="utf-8")
+        self.assertIn("[switch]$StoryModeMapCandidate", packer)
+        self.assertIn("if($StoryModeMapCandidate){", packer)
+        self.assertIn("<NameHash>GROUP_MAP_SP</NameHash>", packer)
+        self.assertIn("<mapChangeSetData>", packer)
+        self.assertIn("<associatedMap>MO_JIM_L11</associatedMap>", packer)
+        self.assertIn("LSA_DESTRUCTION_LAB_MAP_SP", packer)
+        self.assertIn("mapRegistrationVariant=", packer)
+        self.assertIn("V3_BASELINE", packer)
+        self.assertIn("GROUP_MAP_SP_EXPERIMENT", packer)
+
     def test_no_output_for_missing_site(self):
         with self.assertRaises(ValueError):
             lab.create_plan({"x": 1, "y": 2, "z": 3, "heading": 0})
