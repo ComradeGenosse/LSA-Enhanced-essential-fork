@@ -47,4 +47,7 @@ python -m pip install numpy==2.2.6 scipy==1.15.3
 python -m unittest discover -s native/gta-interior-catalog/studies/v_clotheslo-1693 -p 'test_*.py' -v
 ```
 
-The actual private-geometry replay has not been performed in this continuation.
+The #321 continuation originally did not run private geometry. The local Windows
+continuation has now done so; see [REPLAY-AND-ALTERNATIVES.md](REPLAY-AND-ALTERNATIVES.md)
+and `replay-results.json` for the actual replay, corrected authorization,
+profile-specific glazed alternative and remaining deployment blockers.

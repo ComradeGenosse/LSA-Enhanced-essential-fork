@@ -1,0 +1,18 @@
+{
+  "reviewedRawSha256": "6825722e87abf39489f04ec8e8a48726f00fc085e30445a1c6d16b4d4ecc05cb",
+  "freshRawSha256": "bb61a32812c65d63b868b04e8eca4fa1de61ca73b551df24d12d09ace3bfc767",
+  "reviewedRecords": 4702,
+  "freshRecords": 4702,
+  "nonRunRecordsIdentical": true,
+  "reviewedContentDigest": "b1a3b562d3967b389d0d8e60ddfdb368d7380e918b89166306e816818ca78aa4",
+  "freshContentDigest": "b1a3b562d3967b389d0d8e60ddfdb368d7380e918b89166306e816818ca78aa4",
+  "assetHashesIdentical": true,
+  "hashedResources": 91,
+  "errors": [],
+  "collisionScan": {
+    "kind": "collision_scan",
+    "parsed": 15570,
+    "hits": 9,
+    "errors": 0
+  }
+}
