@@ -1,0 +1,340 @@
+## FILES by name (ydr/yft/ydd/ybn with candidate basename)
+FILE	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_03.rpf\sp1_03_wall_01_o.ydr	259286
+FILE	x64o.rpf\levels\gta5\_hills\cityhills_02\ch2_04.rpf\ch2_04_wall10.ydr	862795
+## YTYP archetypes
+ARCH	sp1_03_wall_01_o	update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sanpedro_metadata_001_strm.ytyp	type=Archetype	assetType=ASSET_TYPE_DRAWABLE	assetName=sp1_03_wall_01_o	txd=sp1_03_details	drawDict=0	phys=0	bbMin=X:-50.711685 Y:-72.61397 Z:-5.513126	bbMax=X:50.711716 Y:72.61393 Z:5.513124	bsC=X:1.5258789E-05 Y:-1.5258789E-05 Z:-9.536743E-07	bsR=88.74039	lodDist=148	flags=8192	special=0	hdTexDist=138.12
+ARCH	sp1_03_wall_01_o	update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sanpedro_metadata_001_strm.ytyp	type=Archetype	assetType=ASSET_TYPE_DRAWABLE	assetName=sp1_03_wall_01_o	txd=sp1_03_details	drawDict=0	phys=0	bbMin=X:-50.711685 Y:-72.61397 Z:-5.513126	bbMax=X:50.711716 Y:72.61393 Z:5.513124	bsC=X:1.5258789E-05 Y:-1.5258789E-05 Z:-9.536743E-07	bsR=88.74039	lodDist=148	flags=8192	special=0	hdTexDist=138.12
+ARCH	sp1_03_wall_01_o	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sanpedro_metadata_001_strm.ytyp	type=Archetype	assetType=ASSET_TYPE_DRAWABLE	assetName=sp1_03_wall_01_o	txd=sp1_03_details	drawDict=0	phys=0	bbMin=X:-50.711685 Y:-72.61397 Z:-5.513126	bbMax=X:50.711716 Y:72.61393 Z:5.513124	bsC=X:1.5258789E-05 Y:-1.5258789E-05 Z:-9.536743E-07	bsR=88.74039	lodDist=148	flags=8192	special=0	hdTexDist=138.12
+ARCH	ch2_04_wall10	x64o.rpf\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\cityhills_02_metadata_008_strm.ytyp	type=Archetype	assetType=ASSET_TYPE_DRAWABLE	assetName=ch2_04_wall10	txd=ch2_04_details	drawDict=0	phys=0	bbMin=X:-36.013824 Y:-13.107454 Z:-1.558937	bbMax=X:36.013786 Y:13.107453 Z:1.558924	bsC=X:-1.9073486E-05 Y:0 Z:-6.556511E-06	bsR=38.35661	lodDist=100	flags=0	special=0	hdTexDist=50
+## YMAP placements
+PLACE	ch2_04_wall10	onigiri\dlcpacks\nve_lights\dlc.rpf\x64\lights_meta_sp.rpf\ch2_04_strm_1.ymap	idx=104	pos=X:512.0173 Y:276.2346 Z:103.5854	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572874	guid=4182670629	lodLevel=LODTYPES_DEPTH_HD	parentIdx=395	numChildren=0	lodDist=100	childLodDist=0	priority=PRI_REQUIRED	ymapParent=ch2_04	ymapFlags=0	ymapContent=65	entExt=X:366.0568 Y:224.6629 Z:92.20655..X:735.9348 Y:595.8319 Z:169.7525	strExt=X:240.687 Y:98.20557 Z:-44.84156..X:806.9104 Y:706.2462 Z:293.0896
+PLACE	sp1_03_wall_01_o	onigiri\dlcpacks\nve_lights\dlc.rpf\x64\lights_meta.rpf\sp1_03_strm_0.ymap	idx=5	pos=X:-604.0833 Y:-1653.91 Z:22.46471	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572866	guid=1154234174	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	numChildren=0	lodDist=148	childLodDist=0	priority=PRI_REQUIRED	ymapParent=sp1_03	ymapFlags=0	ymapContent=65	entExt=X:-660.6184 Y:-1732.522 Z:13.19446..X:-397.7065 Y:-1580.111 Z:58.58115	strExt=X:-757.2156 Y:-1804.276 Z:-125.5353..X:-311.8899 Y:-1441.276 Z:176.5168
+PLACE	ch2_04_wall10	update\update.rpf\dlc_patch\mpapartment\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04_strm_1.ymap	idx=104	pos=X:512.01733 Y:276.2346 Z:103.58545	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572874	guid=4182670629	lodLevel=LODTYPES_DEPTH_HD	parentIdx=385	numChildren=0	lodDist=100	childLodDist=0	priority=PRI_REQUIRED	ymapParent=apa_ch2_04	ymapFlags=0	ymapContent=65	entExt=X:366.05682 Y:224.66286 Z:92.20655..X:735.93475 Y:595.83203 Z:169.75253	strExt=X:240.68695 Y:98.20557 Z:-44.84156..X:806.9104 Y:706.2462 Z:293.0896
+PLACE	ch2_04_wall10	update\x64\dlcpacks\mpapartment\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04_strm_1.ymap	idx=104	pos=X:512.01733 Y:276.2346 Z:103.58545	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572874	guid=4182670629	lodLevel=LODTYPES_DEPTH_HD	parentIdx=395	numChildren=0	lodDist=100	childLodDist=0	priority=PRI_REQUIRED	ymapParent=apa_ch2_04	ymapFlags=0	ymapContent=65	entExt=X:366.05682 Y:224.66286 Z:92.20655..X:735.93475 Y:595.83203 Z:169.75253	strExt=X:240.68695 Y:98.20557 Z:-44.84156..X:806.9104 Y:706.2462 Z:293.0896
+PLACE	ch2_04_wall10	update\x64\dlcpacks\mpheist\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\hei_ch2_04_strm_1.ymap	idx=104	pos=X:512.01733 Y:276.2346 Z:103.58545	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572874	guid=4182670629	lodLevel=LODTYPES_DEPTH_HD	parentIdx=395	numChildren=0	lodDist=100	childLodDist=0	priority=PRI_REQUIRED	ymapParent=hei_ch2_04	ymapFlags=0	ymapContent=65	entExt=X:366.05682 Y:224.66286 Z:92.20655..X:735.93475 Y:595.83203 Z:169.75253	strExt=X:240.68695 Y:98.20557 Z:-44.84156..X:806.9104 Y:706.2462 Z:293.0896
+PLACE	sp1_03_wall_01_o	update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap	idx=5	pos=X:-604.08325 Y:-1653.9095 Z:22.464706	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572866	guid=1154234174	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	numChildren=0	lodDist=148	childLodDist=0	priority=PRI_REQUIRED	ymapParent=sp1_03	ymapFlags=0	ymapContent=65	entExt=X:-660.6184 Y:-1732.5223 Z:13.194458..X:-397.70654 Y:-1580.1107 Z:58.581146	strExt=X:-757.21564 Y:-1804.2756 Z:-125.53529..X:-311.88992 Y:-1441.276 Z:176.51682
+PLACE	sp1_03_wall_01_o	update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap	idx=5	pos=X:-604.08325 Y:-1653.9095 Z:22.464706	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572866	guid=1154234174	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	numChildren=0	lodDist=148	childLodDist=0	priority=PRI_REQUIRED	ymapParent=sp1_03	ymapFlags=0	ymapContent=65	entExt=X:-660.6184 Y:-1732.5223 Z:13.194458..X:-397.70654 Y:-1580.1107 Z:58.581146	strExt=X:-757.21564 Y:-1804.2756 Z:-125.53529..X:-311.88992 Y:-1454.9446 Z:170.4647
+PLACE	sp1_03_wall_01_o	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap	idx=5	pos=X:-604.08325 Y:-1653.9095 Z:22.464706	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572866	guid=1154234174	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	numChildren=0	lodDist=148	childLodDist=0	priority=PRI_REQUIRED	ymapParent=sp1_03	ymapFlags=0	ymapContent=65	entExt=X:-660.6184 Y:-1732.5223 Z:13.194458..X:-397.70654 Y:-1580.1107 Z:58.581146	strExt=X:-757.21564 Y:-1804.2756 Z:-125.53529..X:-311.88992 Y:-1454.9446 Z:170.4647
+PLACE	ch2_04_wall10	x64o.rpf\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\ch2_04_strm_1.ymap	idx=104	pos=X:512.01733 Y:276.2346 Z:103.58545	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572874	guid=4182670629	lodLevel=LODTYPES_DEPTH_HD	parentIdx=395	numChildren=0	lodDist=100	childLodDist=0	priority=PRI_REQUIRED	ymapParent=ch2_04	ymapFlags=0	ymapContent=65	entExt=X:366.05682 Y:224.66286 Z:92.20655..X:735.93475 Y:595.83203 Z:169.75253	strExt=X:240.68695 Y:98.20557 Z:-44.84156..X:806.9104 Y:706.2462 Z:293.0896
+## YMAP hit count: 9
+## CHAIN ch2_04_wall10 onigiri\dlcpacks\nve_lights\dlc.rpf\x64\lights_meta_sp.rpf\ch2_04_strm_1.ymap idx=104
+PARENT	x64o.rpf\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\ch2_04.ymap	idx=395	arch=3091872848	pos=X:512.0173 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=400	childLodDist=100	parentIdx=32
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.0173 Y:276.2346 Z:103.5854	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=100	arch=ch2_04_wall10dcal	pos=X:511.1881 Y:276.3499 Z:103.6004	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+## CHAIN sp1_03_wall_01_o onigiri\dlcpacks\nve_lights\dlc.rpf\x64\lights_meta.rpf\sp1_03_strm_0.ymap idx=5
+NO PARENT (parentIdx=-1)
+NEIGHBOURS within 15m in same ymap:
+NB	idx=7	arch=sp1_03_build_001_d	pos=X:-600.0795 Y:-1668.104 Z:21.17719	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=11	arch=sp1_03_cloth_placeholder	pos=X:-599.3208 Y:-1645.332 Z:26.85545	rotQ=X:0 Y:0 Z:0.91311 W:-0.407713	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=25	arch=sp1_03__hd_fizzing_053	pos=X:-598.3101 Y:-1653.693 Z:26.76564	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=sp1_03__hd_fizzing_0675	pos=X:-594.4756 Y:-1655.255 Z:19.69432	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=43	arch=sp1_03_grunglas_45	pos=X:-598.8092 Y:-1662.709 Z:18.84018	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=44	arch=sp1_03_grunglas_42	pos=X:-595.3311 Y:-1656.454 Z:18.7849	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=sp1_03_build_001wd	pos=X:-599.3374 Y:-1653.691 Z:25.25807	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=93	arch=prop_watercrate_01	pos=X:-595.6793 Y:-1655.542 Z:18.85504	rotQ=X:-0.05645798 Y:0.02179099 Z:0.1747539 W:0.9827506	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=94	arch=prop_barrel_01a	pos=X:-594.8882 Y:-1656.135 Z:19.28864	rotQ=X:-0.05227498 Y:0.03403299 Z:-0.000165 W:0.9980527	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=95	arch=prop_barrel_01a	pos=X:-596.3647 Y:-1656.299 Z:19.19382	rotQ=X:-0.02034899 Y:0.00096 Z:-0.02390499 W:0.9995067	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=97	arch=prop_rub_planks_01	pos=X:-594.2024 Y:-1656.146 Z:19.34836	rotQ=X:0.2305911 Y:-0.003639 Z:0.126582 W:0.9647754	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572899
+NB	idx=98	arch=prop_pallet_02a	pos=X:-589.469 Y:-1655.093 Z:19.42416	rotQ=X:-0.3494672 Y:0.4767433 Z:-0.4243752 W:0.685926	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=99	arch=prop_rub_carpart_05	pos=X:-589.9275 Y:-1656.142 Z:18.47818	rotQ=X:-0.02707902 Y:-0.02987602 Z:-0.00081 W:0.9991864	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=102	arch=prop_barrel_01a	pos=X:-601.8215 Y:-1667.97 Z:19.07974	rotQ=X:-0.05963602 Y:-0.03697801 Z:0.3292291 W:0.9416392	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=103	arch=prop_barrel_01a	pos=X:-601.6032 Y:-1667.408 Z:19.14676	rotQ=X:-0.05561301 Y:-0.04127501 Z:0.3811441 W:0.921918	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=106	arch=prop_watercrate_01	pos=X:-602.7853 Y:-1668.354 Z:18.67706	rotQ=X:-0.04360799 Y:-0.03534599 Z:-0.4226889 W:0.9045347	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=149	arch=prop_wall_light_01a	pos=X:-594.9047 Y:-1652.78 Z:22.17285	rotQ=X:0 Y:0 Z:0.258819 W:0.9659258	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=170	arch=prop_rub_boxpile_02	pos=X:-596.8448 Y:-1661.984 Z:18.91742	rotQ=X:-0.009995 Y:-0.01621199 Z:-0.4621108 W:0.8866177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=176	arch=prop_rub_boxpile_02	pos=X:-606.5241 Y:-1666.26 Z:19.22577	rotQ=X:-0.05326701 Y:0.03507301 Z:0.132469 W:0.9891332	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=199	arch=prop_rub_monitor	pos=X:-596.678 Y:-1666.328 Z:18.73642	rotQ=X:-0.025067 Y:-0.022452 Z:0.003565 W:0.9994273	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=262	arch=prop_oiltub_02	pos=X:-599.5186 Y:-1658.283 Z:19.08398	rotQ=X:-0.04610299 Y:-0.07702499 Z:0.07922498 W:0.9928067	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=263	arch=prop_rub_cage01a	pos=X:-599.9095 Y:-1659.663 Z:18.99023	rotQ=X:-0.05547401 Y:-0.07219503 Z:0.004071 W:0.9958383	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=265	arch=prop_rub_litter_07	pos=X:-596.6929 Y:-1666.319 Z:18.51672	rotQ=X:-0.01175 Y:-0.016546 Z:-0.000194 W:0.9997941	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=266	arch=prop_rub_litter_07	pos=X:-594.426 Y:-1656.605 Z:18.79739	rotQ=X:-0.05142798 Y:-0.07129198 Z:0.9761766 W:0.1983729	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=270	arch=prop_rub_litter_07	pos=X:-599.15 Y:-1658.791 Z:18.96606	rotQ=X:-0.02729699 Y:-0.05619198 Z:-0.001537 W:0.9980456	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=317	arch=prop_weeddry_nxg01	pos=X:-590.3591 Y:-1652.806 Z:18.73941	rotQ=X:-0.004617 Y:0.008035 Z:-0.4982018 W:0.8670116	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=319	arch=prop_weeds_nxg08b	pos=X:-604.6688 Y:-1665.87 Z:18.89777	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=323	arch=prop_weeds_nxg07b	pos=X:-595.1472 Y:-1656.8 Z:18.62299	rotQ=X:0.036788 Y:-0.023437 Z:0.8425889 W:-0.5367879	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN ch2_04_wall10 update\update.rpf\dlc_patch\mpapartment\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04_strm_1.ymap idx=104
+PARENT	update\update.rpf\dlc_patch\mpapartment\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04.ymap	idx=385	arch=3091872848	pos=X:512.0173 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=400	childLodDist=100	parentIdx=28
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+PARENT	update\x64\dlcpacks\mpapartment\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04.ymap	idx=385	arch=ch2_04_emissive_doors_lod	pos=X:803.79614 Y:541.7883 Z:127.97101	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=420	childLodDist=75	parentIdx=30
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=100	arch=ch2_04_wall10dcal	pos=X:511.18808 Y:276.34988 Z:103.60045	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+## CHAIN ch2_04_wall10 update\x64\dlcpacks\mpapartment\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04_strm_1.ymap idx=104
+PARENT	update\update.rpf\dlc_patch\mpapartment\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04.ymap	idx=395	arch=ch2_04_land08_lod	pos=X:637.2965 Y:294.11328 Z:110.26849	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=250	parentIdx=2
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+PARENT	update\x64\dlcpacks\mpapartment\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04.ymap	idx=395	arch=3091872848	pos=X:512.0173 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=400	childLodDist=100	parentIdx=32
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=100	arch=ch2_04_wall10dcal	pos=X:511.18808 Y:276.34988 Z:103.60045	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+## CHAIN ch2_04_wall10 update\x64\dlcpacks\mpheist\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\hei_ch2_04_strm_1.ymap idx=104
+PARENT	update\x64\dlcpacks\mpheist\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\hei_ch2_04.ymap	idx=395	arch=3091872848	pos=X:512.0173 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=400	childLodDist=100	parentIdx=32
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=100	arch=ch2_04_wall10dcal	pos=X:511.18808 Y:276.34988 Z:103.60045	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+## CHAIN sp1_03_wall_01_o update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap idx=5
+NO PARENT (parentIdx=-1)
+NEIGHBOURS within 15m in same ymap:
+NB	idx=7	arch=sp1_03_build_001_d	pos=X:-600.07947 Y:-1668.104 Z:21.177185	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=11	arch=sp1_03_cloth_placeholder	pos=X:-599.3208 Y:-1645.3324 Z:26.855453	rotQ=X:0 Y:0 Z:0.91311014 W:-0.40771303	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=25	arch=sp1_03__hd_fizzing_053	pos=X:-598.31006 Y:-1653.6932 Z:26.76564	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=sp1_03__hd_fizzing_0675	pos=X:-594.4756 Y:-1655.2548 Z:19.69432	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=43	arch=sp1_03_grunglas_45	pos=X:-598.8092 Y:-1662.7091 Z:18.84018	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=44	arch=sp1_03_grunglas_42	pos=X:-595.33105 Y:-1656.4537 Z:18.784897	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=sp1_03_build_001wd	pos=X:-599.3374 Y:-1653.691 Z:25.258072	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=93	arch=prop_watercrate_01	pos=X:-595.67926 Y:-1655.5415 Z:18.855042	rotQ=X:-0.05645798 Y:0.021790994 Z:0.17475395 W:0.9827506	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=94	arch=prop_barrel_01a	pos=X:-594.88824 Y:-1656.1348 Z:19.288635	rotQ=X:-0.052274983 Y:0.03403299 Z:-0.00016499993 W:0.9980526	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=95	arch=prop_barrel_01a	pos=X:-596.3647 Y:-1656.299 Z:19.193817	rotQ=X:-0.020348992 Y:0.00095999974 Z:-0.02390499 W:0.99950665	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=97	arch=prop_rub_planks_01	pos=X:-594.2024 Y:-1656.1459 Z:19.348358	rotQ=X:0.2305911 Y:-0.0036390023 Z:0.12658204 W:0.9647754	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572899
+NB	idx=98	arch=prop_pallet_02a	pos=X:-589.469 Y:-1655.0927 Z:19.424164	rotQ=X:-0.3494672 Y:0.47674325 Z:-0.42437518 W:0.685926	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=99	arch=prop_rub_carpart_05	pos=X:-589.9275 Y:-1656.1425 Z:18.47818	rotQ=X:-0.027079016 Y:-0.029876018 Z:-0.0008100005 W:0.9991864	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=102	arch=prop_barrel_01a	pos=X:-601.82153 Y:-1667.9698 Z:19.079742	rotQ=X:-0.05963602 Y:-0.036978006 Z:0.3292291 W:0.94163924	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=103	arch=prop_barrel_01a	pos=X:-601.6032 Y:-1667.4076 Z:19.146759	rotQ=X:-0.05561301 Y:-0.04127501 Z:0.3811441 W:0.921918	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=106	arch=prop_watercrate_01	pos=X:-602.78534 Y:-1668.354 Z:18.677063	rotQ=X:-0.04360799 Y:-0.035345994 Z:-0.4226889 W:0.9045347	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=149	arch=prop_wall_light_01a	pos=X:-594.90466 Y:-1652.7798 Z:22.172852	rotQ=X:0 Y:0 Z:0.25881898 W:0.9659258	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=170	arch=prop_rub_boxpile_02	pos=X:-596.84485 Y:-1661.9843 Z:18.91742	rotQ=X:-0.009994998 Y:-0.016211994 Z:-0.46211088 W:0.88661766	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=176	arch=prop_rub_boxpile_02	pos=X:-606.5241 Y:-1666.26 Z:19.225769	rotQ=X:-0.05326701 Y:0.03507301 Z:0.13246903 W:0.9891332	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=199	arch=prop_rub_monitor	pos=X:-596.678 Y:-1666.328 Z:18.73642	rotQ=X:-0.025067003 Y:-0.022452004 Z:0.0035650006 W:0.99942726	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=262	arch=prop_oiltub_02	pos=X:-599.5186 Y:-1658.283 Z:19.083984	rotQ=X:-0.046102993 Y:-0.07702499 Z:0.07922498 W:0.9928067	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=263	arch=prop_rub_cage01a	pos=X:-599.9095 Y:-1659.6626 Z:18.990234	rotQ=X:-0.055474013 Y:-0.072195016 Z:0.004071001 W:0.99583834	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=265	arch=prop_rub_litter_07	pos=X:-596.6929 Y:-1666.3186 Z:18.516724	rotQ=X:-0.011750001 Y:-0.016546002 Z:-0.00019400004 W:0.99979407	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=266	arch=prop_rub_litter_07	pos=X:-594.426 Y:-1656.6051 Z:18.797394	rotQ=X:-0.051427983 Y:-0.071291976 Z:0.9761766 W:0.19837292	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=270	arch=prop_rub_litter_07	pos=X:-599.15 Y:-1658.7913 Z:18.966064	rotQ=X:-0.027296992 Y:-0.05619198 Z:-0.0015369995 W:0.99804556	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=317	arch=prop_weeddry_nxg01	pos=X:-590.35913 Y:-1652.8059 Z:18.73941	rotQ=X:-0.0046169977 Y:0.008034997 Z:-0.49820173 W:0.8670116	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=319	arch=prop_weeds_nxg08b	pos=X:-604.6688 Y:-1665.8702 Z:18.897766	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=323	arch=prop_weeds_nxg07b	pos=X:-595.14716 Y:-1656.7998 Z:18.622986	rotQ=X:0.036787998 Y:-0.023436997 Z:0.8425889 W:-0.5367879	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN sp1_03_wall_01_o update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap idx=5
+NO PARENT (parentIdx=-1)
+NEIGHBOURS within 15m in same ymap:
+NB	idx=7	arch=sp1_03_build_001_d	pos=X:-600.07947 Y:-1668.104 Z:21.177185	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=11	arch=sp1_03_cloth_placeholder	pos=X:-599.3208 Y:-1645.3324 Z:26.855453	rotQ=X:0 Y:0 Z:0.91311014 W:-0.40771303	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=25	arch=sp1_03__hd_fizzing_053	pos=X:-598.31006 Y:-1653.6932 Z:26.76564	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=sp1_03__hd_fizzing_0675	pos=X:-594.4756 Y:-1655.2548 Z:19.69432	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=43	arch=sp1_03_grunglas_45	pos=X:-598.8092 Y:-1662.7091 Z:18.84018	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=44	arch=sp1_03_grunglas_42	pos=X:-595.33105 Y:-1656.4537 Z:18.784897	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=sp1_03_build_001wd	pos=X:-599.3374 Y:-1653.691 Z:25.258072	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=93	arch=prop_watercrate_01	pos=X:-595.67926 Y:-1655.5415 Z:18.855042	rotQ=X:-0.05645798 Y:0.021790994 Z:0.17475395 W:0.9827506	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=94	arch=prop_barrel_01a	pos=X:-594.88824 Y:-1656.1348 Z:19.288635	rotQ=X:-0.052274983 Y:0.03403299 Z:-0.00016499993 W:0.9980526	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=95	arch=prop_barrel_01a	pos=X:-596.3647 Y:-1656.299 Z:19.193817	rotQ=X:-0.020348992 Y:0.00095999974 Z:-0.02390499 W:0.99950665	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=97	arch=prop_rub_planks_01	pos=X:-594.2024 Y:-1656.1459 Z:19.348358	rotQ=X:0.2305911 Y:-0.0036390023 Z:0.12658204 W:0.9647754	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572899
+NB	idx=98	arch=prop_pallet_02a	pos=X:-589.469 Y:-1655.0927 Z:19.424164	rotQ=X:-0.3494672 Y:0.47674325 Z:-0.42437518 W:0.685926	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=99	arch=prop_rub_carpart_05	pos=X:-589.9275 Y:-1656.1425 Z:18.47818	rotQ=X:-0.027079016 Y:-0.029876018 Z:-0.0008100005 W:0.9991864	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=102	arch=prop_barrel_01a	pos=X:-601.82153 Y:-1667.9698 Z:19.079742	rotQ=X:-0.05963602 Y:-0.036978006 Z:0.3292291 W:0.94163924	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=103	arch=prop_barrel_01a	pos=X:-601.6032 Y:-1667.4076 Z:19.146759	rotQ=X:-0.05561301 Y:-0.04127501 Z:0.3811441 W:0.921918	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=106	arch=prop_watercrate_01	pos=X:-602.78534 Y:-1668.354 Z:18.677063	rotQ=X:-0.04360799 Y:-0.035345994 Z:-0.4226889 W:0.9045347	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=149	arch=prop_wall_light_01a	pos=X:-594.90466 Y:-1652.7798 Z:22.172852	rotQ=X:0 Y:0 Z:0.25881898 W:0.9659258	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=170	arch=prop_rub_boxpile_02	pos=X:-596.84485 Y:-1661.9843 Z:18.91742	rotQ=X:-0.009994998 Y:-0.016211994 Z:-0.46211088 W:0.88661766	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=176	arch=prop_rub_boxpile_02	pos=X:-606.5241 Y:-1666.26 Z:19.225769	rotQ=X:-0.05326701 Y:0.03507301 Z:0.13246903 W:0.9891332	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=199	arch=prop_rub_monitor	pos=X:-596.678 Y:-1666.328 Z:18.73642	rotQ=X:-0.025067003 Y:-0.022452004 Z:0.0035650006 W:0.99942726	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=262	arch=prop_oiltub_02	pos=X:-599.5186 Y:-1658.283 Z:19.083984	rotQ=X:-0.046102993 Y:-0.07702499 Z:0.07922498 W:0.9928067	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=263	arch=prop_rub_cage01a	pos=X:-599.9095 Y:-1659.6626 Z:18.990234	rotQ=X:-0.055474013 Y:-0.072195016 Z:0.004071001 W:0.99583834	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=265	arch=prop_rub_litter_07	pos=X:-596.6929 Y:-1666.3186 Z:18.516724	rotQ=X:-0.011750001 Y:-0.016546002 Z:-0.00019400004 W:0.99979407	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=266	arch=prop_rub_litter_07	pos=X:-594.426 Y:-1656.6051 Z:18.797394	rotQ=X:-0.051427983 Y:-0.071291976 Z:0.9761766 W:0.19837292	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=270	arch=prop_rub_litter_07	pos=X:-599.15 Y:-1658.7913 Z:18.966064	rotQ=X:-0.027296992 Y:-0.05619198 Z:-0.0015369995 W:0.99804556	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=317	arch=prop_weeddry_nxg01	pos=X:-590.35913 Y:-1652.8059 Z:18.73941	rotQ=X:-0.0046169977 Y:0.008034997 Z:-0.49820173 W:0.8670116	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=319	arch=prop_weeds_nxg08b	pos=X:-604.6688 Y:-1665.8702 Z:18.897766	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=323	arch=prop_weeds_nxg07b	pos=X:-595.14716 Y:-1656.7998 Z:18.622986	rotQ=X:0.036787998 Y:-0.023436997 Z:0.8425889 W:-0.5367879	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN sp1_03_wall_01_o x64m.rpf\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap idx=5
+NO PARENT (parentIdx=-1)
+NEIGHBOURS within 15m in same ymap:
+NB	idx=7	arch=sp1_03_build_001_d	pos=X:-600.07947 Y:-1668.104 Z:21.177185	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=11	arch=sp1_03_cloth_placeholder	pos=X:-599.3208 Y:-1645.3324 Z:26.855453	rotQ=X:0 Y:0 Z:0.91311014 W:-0.40771303	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=25	arch=sp1_03__hd_fizzing_053	pos=X:-598.31006 Y:-1653.6932 Z:26.76564	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=sp1_03__hd_fizzing_0675	pos=X:-594.4756 Y:-1655.2548 Z:19.69432	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=43	arch=sp1_03_grunglas_45	pos=X:-598.8092 Y:-1662.7091 Z:18.84018	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=44	arch=sp1_03_grunglas_42	pos=X:-595.33105 Y:-1656.4537 Z:18.784897	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=sp1_03_build_001wd	pos=X:-599.3374 Y:-1653.691 Z:25.258072	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=93	arch=prop_watercrate_01	pos=X:-595.67926 Y:-1655.5415 Z:18.855042	rotQ=X:-0.05645798 Y:0.021790994 Z:0.17475395 W:0.9827506	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=94	arch=prop_barrel_01a	pos=X:-594.88824 Y:-1656.1348 Z:19.288635	rotQ=X:-0.052274983 Y:0.03403299 Z:-0.00016499993 W:0.9980526	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=95	arch=prop_barrel_01a	pos=X:-596.3647 Y:-1656.299 Z:19.193817	rotQ=X:-0.020348992 Y:0.00095999974 Z:-0.02390499 W:0.99950665	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=97	arch=prop_rub_planks_01	pos=X:-594.2024 Y:-1656.1459 Z:19.348358	rotQ=X:0.2305911 Y:-0.0036390023 Z:0.12658204 W:0.9647754	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572899
+NB	idx=98	arch=prop_pallet_02a	pos=X:-589.469 Y:-1655.0927 Z:19.424164	rotQ=X:-0.3494672 Y:0.47674325 Z:-0.42437518 W:0.685926	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=99	arch=prop_rub_carpart_05	pos=X:-589.9275 Y:-1656.1425 Z:18.47818	rotQ=X:-0.027079016 Y:-0.029876018 Z:-0.0008100005 W:0.9991864	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=102	arch=prop_barrel_01a	pos=X:-601.82153 Y:-1667.9698 Z:19.079742	rotQ=X:-0.05963602 Y:-0.036978006 Z:0.3292291 W:0.94163924	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=103	arch=prop_barrel_01a	pos=X:-601.6032 Y:-1667.4076 Z:19.146759	rotQ=X:-0.05561301 Y:-0.04127501 Z:0.3811441 W:0.921918	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=106	arch=prop_watercrate_01	pos=X:-602.78534 Y:-1668.354 Z:18.677063	rotQ=X:-0.04360799 Y:-0.035345994 Z:-0.4226889 W:0.9045347	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=149	arch=prop_wall_light_01a	pos=X:-594.90466 Y:-1652.7798 Z:22.172852	rotQ=X:0 Y:0 Z:0.25881898 W:0.9659258	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=170	arch=prop_rub_boxpile_02	pos=X:-596.84485 Y:-1661.9843 Z:18.91742	rotQ=X:-0.009994998 Y:-0.016211994 Z:-0.46211088 W:0.88661766	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=176	arch=prop_rub_boxpile_02	pos=X:-606.5241 Y:-1666.26 Z:19.225769	rotQ=X:-0.05326701 Y:0.03507301 Z:0.13246903 W:0.9891332	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=199	arch=prop_rub_monitor	pos=X:-596.678 Y:-1666.328 Z:18.73642	rotQ=X:-0.025067003 Y:-0.022452004 Z:0.0035650006 W:0.99942726	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=262	arch=prop_oiltub_02	pos=X:-599.5186 Y:-1658.283 Z:19.083984	rotQ=X:-0.046102993 Y:-0.07702499 Z:0.07922498 W:0.9928067	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=263	arch=prop_rub_cage01a	pos=X:-599.9095 Y:-1659.6626 Z:18.990234	rotQ=X:-0.055474013 Y:-0.072195016 Z:0.004071001 W:0.99583834	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=265	arch=prop_rub_litter_07	pos=X:-596.6929 Y:-1666.3186 Z:18.516724	rotQ=X:-0.011750001 Y:-0.016546002 Z:-0.00019400004 W:0.99979407	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=266	arch=prop_rub_litter_07	pos=X:-594.426 Y:-1656.6051 Z:18.797394	rotQ=X:-0.051427983 Y:-0.071291976 Z:0.9761766 W:0.19837292	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=270	arch=prop_rub_litter_07	pos=X:-599.15 Y:-1658.7913 Z:18.966064	rotQ=X:-0.027296992 Y:-0.05619198 Z:-0.0015369995 W:0.99804556	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=317	arch=prop_weeddry_nxg01	pos=X:-590.35913 Y:-1652.8059 Z:18.73941	rotQ=X:-0.0046169977 Y:0.008034997 Z:-0.49820173 W:0.8670116	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=319	arch=prop_weeds_nxg08b	pos=X:-604.6688 Y:-1665.8702 Z:18.897766	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=323	arch=prop_weeds_nxg07b	pos=X:-595.14716 Y:-1656.7998 Z:18.622986	rotQ=X:0.036787998 Y:-0.023436997 Z:0.8425889 W:-0.5367879	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN ch2_04_wall10 x64o.rpf\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\ch2_04_strm_1.ymap idx=104
+PARENT	x64o.rpf\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\ch2_04.ymap	idx=395	arch=3091872848	pos=X:512.0173 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=400	childLodDist=100	parentIdx=32
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=100	arch=ch2_04_wall10dcal	pos=X:511.18808 Y:276.34988 Z:103.60045	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+## INSPECT sp1_03_wall_01_o
+YDR	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_03.rpf\sp1_03_wall_01_o.ydr	size=259286
+rpf dir has 228 entries: ybn=8 ydr=200 ytd=15
+loaded=True bbmin=X:-133.24701 Y:-51.452026 Z:-5.847942 bbmax=X:-31.823608 Y:93.77588 Z:5.178308 bc=X:-82.53531 Y:21.161926 Z:-0.334817 r=88.740395 LodDist H/M/L/VL=9998/9998/9998/9998
+modelPtrs H/M/L/VL = True/False/False/False embeddedBound=NONE
+  GEOM m0 g0 verts=60 tris=30 stride=36 shader=4035389908 aabb=X:-9.786133 Y:-65.83154 Z:-3.4916992 W:-9.786133..X:29.916016 Y:17.524902 Z:3.515625 W:29.916016
+  GEOM m0 g1 verts=14 tris=12 stride=36 shader=4035389908 aabb=X:35.898926 Y:-2.9316406 Z:-3.6044922 W:35.898926..X:37.791504 Y:0.3413086 Z:-1.809082 W:37.791504
+  GEOM m0 g2 verts=1968 tris=1514 stride=36 shader=4035389908 aabb=X:-50.711914 Y:-72.61426 Z:-5.5131836 W:-50.711914..X:50.711914 Y:72.61377 Z:5.5131836 W:50.711914
+totals verts=2042 idx=4668 models=1
+VERTEX AABB min=(-50.711914,-72.61426,-5.5131836) max=(50.711914,72.61377,5.5131836) size=(101.42383,145.22803,11.026367)
+occupied 2m XY cells=89 of bbox cells=3723
+connected XY components (2m cells, 8-neigh) = 37
+  comp cells=4 verts=140 extentX=[42,50] extentY=[28,30]
+  comp cells=8 verts=134 extentX=[-12,0] extentY=[-44,-36]
+  comp cells=5 verts=114 extentX=[34,40] extentY=[-4,2]
+  comp cells=3 verts=76 extentX=[-28,-24] extentY=[-24,-20]
+  comp cells=2 verts=72 extentX=[-2,0] extentY=[16,20]
+  comp cells=4 verts=72 extentX=[18,24] extentY=[-62,-56]
+  comp cells=3 verts=72 extentX=[10,16] extentY=[-56,-52]
+  comp cells=4 verts=64 extentX=[28,34] extentY=[-70,-64]
+  comp cells=2 verts=64 extentX=[4,8] extentY=[-50,-48]
+  comp cells=4 verts=60 extentX=[-20,-16] extentY=[-32,-28]
+  comp cells=3 verts=58 extentX=[14,20] extentY=[6,8]
+  comp cells=3 verts=56 extentX=[8,12] extentY=[10,14]
+Z histogram (1m bins: vertCount): -6:18 -5:175 -4:142 -3:133 -2:51 -1:249 0:71 1:164 2:282 3:415 4:259 5:83
+WORLD AABB (pos+verts) min=X:-654.79517 Y:-1726.5238 Z:16.951523 max=X:-553.37134 Y:-1581.2958 Z:27.97789 pos=X:-604.08325 Y:-1653.9095 Z:22.464706
+YBN candidates (same rpf / same area folder / name prefix sp1_03): 67
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_03.rpf\hi@sp1_03_4.ybn	type=BoundComposite	box=X:-630.2943 Y:-1756.9762 Z:16.795145..X:-509.89795 Y:-1665.7635 Z:28.15745
+  composite children=1
+  CHILD 0 BoundBVH box=X:-630.2944 Y:-1756.9761 Z:16.795145..X:-509.89792 Y:-1665.7635 Z:28.15745 size=(120.396454,91.212524,11.362305) verts=3612 polys=4108 mats=14 matIdx=0
+  children overlapping wall AABB: 1
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_03.rpf\hi@sp1_03_5.ybn	type=BoundComposite	box=X:-656.3752 Y:-1681.1992 Z:16.735367..X:-518.92816 Y:-1581.0723 Z:44.533756
+  composite children=2
+  CHILD 0 BoundBVH box=X:-574.89734 Y:-1675.9167 Z:18.1072..X:-543.8722 Y:-1648.0594 Z:23.544321 size=(31.025146,27.8573,5.4371204) verts=2768 polys=4854 mats=1 matIdx=0
+  CHILD 1 BoundBVH box=X:-656.3752 Y:-1681.1991 Z:16.735367..X:-518.92816 Y:-1581.0723 Z:44.533756 size=(137.44702,100.12683,27.79839) verts=7111 polys=2729 mats=23 matIdx=0
+  children overlapping wall AABB: 2
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_03.rpf\ma@sp1_03_0.ybn	type=BoundComposite	box=X:-654.2834 Y:-1768.4779 Z:15.758251..X:-404.83893 Y:-1581.5192 Z:26.16209
+  composite children=1
+  CHILD 0 BoundBVH box=X:-654.28345 Y:-1768.4779 Z:15.75825..X:-404.83893 Y:-1581.5192 Z:26.16209 size=(249.44452,186.95874,10.40384) verts=2362 polys=3114 mats=156 matIdx=0
+  children overlapping wall AABB: 1
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_03.rpf\sp1_03_0.ybn	type=BoundComposite	box=X:-656.375 Y:-1769.3677 Z:12.592411..X:-397.70154 Y:-1580.0626 Z:59.19299
+  composite children=11
+  CHILD 0 BoundBVH box=X:-656.37506 Y:-1711.0367 Z:22.40206..X:-540.0659 Y:-1612.7883 Z:28.859674 size=(116.30914,98.24841,6.457615) verts=104 polys=130 mats=5 matIdx=0
+  CHILD 1 BoundBVH box=X:-654.86554 Y:-1769.3677 Z:12.592415..X:-398.6715 Y:-1581.2312 Z:59.19299 size=(256.19403,188.13647,46.600574) verts=6825 polys=3168 mats=37 matIdx=0
+  CHILD 3 BoundBVH box=X:-654.8187 Y:-1753.0818 Z:15.699697..X:-513.74554 Y:-1581.3291 Z:58.45339 size=(141.07318,171.75269,42.753693) verts=4839 polys=3411 mats=26 matIdx=0
+  CHILD 5 BoundBVH box=X:-655.5479 Y:-1752.6416 Z:16.7927..X:-521.2504 Y:-1580.0626 Z:32.869213 size=(134.29749,172.57898,16.076513) verts=1549 polys=2820 mats=57 matIdx=0
+  CHILD 6 BoundBVH box=X:-553.4594 Y:-1757.1166 Z:24.181372..X:-509.8062 Y:-1718.3394 Z:26.41577 size=(43.6532,38.77722,2.234398) verts=8 polys=2 mats=1 matIdx=0
+  CHILD 7 BoundBVH box=X:-631.7853 Y:-1664.5619 Z:24.398897..X:-583.7007 Y:-1581.0723 Z:27.743036 size=(48.084595,83.489624,3.344139) verts=88 polys=22 mats=3 matIdx=0
+  CHILD 8 BoundBVH box=X:-594.25165 Y:-1712.8395 Z:17.644579..X:-446.43152 Y:-1695.737 Z:20.854422 size=(147.82013,17.102417,3.2098427) verts=20 polys=5 mats=3 matIdx=0
+  CHILD 9 BoundBVH box=X:-623.6843 Y:-1633.536 Z:18.976578..X:-580.3192 Y:-1629.2094 Z:41.02417 size=(43.365112,4.32666,22.047592) verts=20 polys=16 mats=14 matIdx=0
+  children overlapping wall AABB: 8
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_04.rpf\ma@sp1_04_0.ybn	type=BoundComposite	box=X:-745.1343 Y:-1881.904 Z:22.529053..X:-625.8799 Y:-1625.9639 Z:29.316708
+  composite children=1
+  CHILD 0 BoundBVH box=X:-745.1343 Y:-1881.904 Z:22.529053..X:-625.8799 Y:-1625.9639 Z:29.316708 size=(119.254395,255.94019,6.787655) verts=509 polys=382 mats=29 matIdx=0
+  children overlapping wall AABB: 1
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_04.rpf\sp1_04_0.ybn	type=BoundComposite	box=X:-745.1476 Y:-1881.904 Z:22.38764..X:-620.3367 Y:-1625.9062 Z:44.983517
+  composite children=8
+  CHILD 6 BoundBVH box=X:-745.1476 Y:-1881.904 Z:22.38764..X:-620.3367 Y:-1625.9062 Z:30.295374 size=(124.81091,255.9978,7.907734) verts=795 polys=1364 mats=53 matIdx=0
+  children overlapping wall AABB: 1
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_05.rpf\ma@sp1_05_0.ybn	type=BoundComposite	box=X:-668.5408 Y:-1818.8578 Z:20.375538..X:-519.5039 Y:-1676.0079 Z:24.529041
+  composite children=1
+  CHILD 0 BoundBVH box=X:-668.5407 Y:-1818.8577 Z:20.37554..X:-519.5039 Y:-1676.0079 Z:24.529041 size=(149.0368,142.84973,4.1535015) verts=681 polys=615 mats=103 matIdx=0
+  children overlapping wall AABB: 1
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_05.rpf\sp1_05_0.ybn	type=BoundComposite	box=X:-668.7982 Y:-1820.6771 Z:18.97219..X:-518.53577 Y:-1675.8856 Z:52.228653
+  composite children=4
+  CHILD 1 BoundBVH box=X:-668.7983 Y:-1820.6771 Z:20.320616..X:-518.53577 Y:-1675.8856 Z:29.587717 size=(150.26251,144.7915,9.267101) verts=1326 polys=2166 mats=87 matIdx=0
+  children overlapping wall AABB: 1
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_12.rpf\hi@sp1_12_1.ybn	type=BoundComposite	box=X:-687.8185 Y:-1752.38 Z:0.15362549..X:-315.29285 Y:-1338.5359 Z:25.004139
+  composite children=2
+  children overlapping wall AABB: 0
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_12.rpf\ma@sp1_12_0.ybn	type=BoundComposite	box=X:-887.36084 Y:-2210.388 Z:0.11359024..X:87.03058 Y:-1473.5339 Z:26.481552
+  composite children=1
+  CHILD 0 BoundBVH box=X:-887.36084 Y:-2210.388 Z:0.1135894..X:87.03059 Y:-1473.5339 Z:26.481552 size=(974.3914,736.854,26.367962) verts=1980 polys=1295 mats=86 matIdx=0
+  children overlapping wall AABB: 1
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_12.rpf\sp1_12_4.ybn	type=BoundComposite	box=X:-683.37225 Y:-1800.317 Z:-1.9582119..X:-281.34833 Y:-1338.4542 Z:41.745983
+  composite children=7
+  CHILD 0 BoundBVH box=X:-676.36774 Y:-1799.556 Z:-0.75313556..X:-336.06903 Y:-1572.762 Z:41.745983 size=(340.2987,226.79407,42.49912) verts=3169 polys=4827 mats=10 matIdx=0
+  CHILD 3 BoundBVH box=X:-680.0932 Y:-1644.8345 Z:-0.75311935..X:-467.8525 Y:-1514.6996 Z:25.906298 size=(212.24069,130.13489,26.659416) verts=2733 polys=4850 mats=94 matIdx=0
+  children overlapping wall AABB: 2
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_rd.rpf\hi@sp1_rd_11.ybn	type=BoundComposite	box=X:-671.41724 Y:-1808.8837 Z:16.610806..X:-432.10742 Y:-1591.0631 Z:52.299557
+  composite children=3
+  CHILD 0 BoundBVH box=X:-662.3184 Y:-1761.1548 Z:16.952684..X:-444.77826 Y:-1625.7539 Z:32.413807 size=(217.54016,135.40088,15.4611225) verts=5884 polys=4455 mats=21 matIdx=0
+  CHILD 1 BoundBVH box=X:-671.4173 Y:-1808.8837 Z:16.610806..X:-432.10742 Y:-1591.0631 Z:52.299557 size=(239.30988,217.82056,35.68875) verts=6034 polys=4452 mats=24 matIdx=0
+  CHILD 2 BoundBVH box=X:-642.94525 Y:-1768.1072 Z:17.129833..X:-475.29 Y:-1672.0005 Z:36.36295 size=(167.65524,96.10669,19.233116) verts=293 polys=264 mats=3 matIdx=0
+  children overlapping wall AABB: 3
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_rd.rpf\hi@sp1_rd_12.ybn	type=BoundComposite	box=X:-677.8871 Y:-1590.3048 Z:6.87504..X:-540.6209 Y:-1363.0638 Z:30.015413
+  composite children=2
+  CHILD 0 BoundBVH box=X:-637.0017 Y:-1582.0338 Z:6.8750386..X:-540.6209 Y:-1363.0638 Z:30.015413 size=(96.3808,218.96997,23.140375) verts=2864 polys=4807 mats=5 matIdx=0
+  CHILD 1 BoundBVH box=X:-677.88715 Y:-1590.3049 Z:16.839985..X:-623.0775 Y:-1558.201 Z:27.99925 size=(54.80963,32.10388,11.1592655) verts=265 polys=342 mats=2 matIdx=0
+  children overlapping wall AABB: 2
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_rd.rpf\ma@sp1_rd_3.ybn	type=BoundComposite	box=X:-614.70276 Y:-1847.0864 Z:17.499182..X:-246.86609 Y:-1693.208 Z:28.530268
+  composite children=2
+  CHILD 0 BoundBVH box=X:-614.70276 Y:-1847.0865 Z:17.554724..X:-246.86609 Y:-1693.208 Z:28.530268 size=(367.83667,153.87854,10.975544) verts=3316 polys=4850 mats=64 matIdx=0
+  CHILD 1 BoundBVH box=X:-612.5094 Y:-1845.66 Z:17.499182..X:-331.66663 Y:-1701.8475 Z:23.04928 size=(280.84277,143.8125,5.5500984) verts=2819 polys=3802 mats=68 matIdx=0
+  children overlapping wall AABB: 2
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_rd.rpf\ma@sp1_rd_4.ybn	type=BoundComposite	box=X:-971.2877 Y:-1847.0428 Z:9.118803..X:-608.1366 Y:-1436.9697 Z:28.502094
+  composite children=4
+  CHILD 0 BoundBVH box=X:-807.2641 Y:-1821.334 Z:12.695967..X:-608.1366 Y:-1554.841 Z:26.661005 size=(199.1275,266.49304,13.965038) verts=3255 polys=4851 mats=60 matIdx=0
+  CHILD 1 BoundBVH box=X:-776.965 Y:-1765.718 Z:9.118804..X:-639.6368 Y:-1436.9697 Z:28.363443 size=(137.32825,328.7483,19.24464) verts=3262 polys=4854 mats=58 matIdx=0
+  CHILD 2 BoundBVH box=X:-958.81665 Y:-1847.0428 Z:9.2747965..X:-615.2895 Y:-1440.5394 Z:28.502094 size=(343.52716,406.50342,19.227299) verts=3431 polys=4851 mats=64 matIdx=0
+  CHILD 3 BoundBVH box=X:-971.2877 Y:-1835.2767 Z:17.161747..X:-611.59033 Y:-1684.4159 Z:23.231445 size=(359.6974,150.86084,6.0696983) verts=708 polys=905 mats=43 matIdx=0
+  children overlapping wall AABB: 4
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_rd.rpf\sp1_rd_5.ybn	type=BoundComposite	box=X:-950.07666 Y:-1807.6002 Z:7.11137..X:-605.6988 Y:-1436.9612 Z:47.824654
+  composite children=10
+  CHILD 0 BoundBVH box=X:-899.74445 Y:-1805.6227 Z:12.721586..X:-618.00995 Y:-1451.945 Z:47.824654 size=(281.7345,353.67773,35.103065) verts=628 polys=588 mats=12 matIdx=0
+  CHILD 1 BoundBVH box=X:-898.84204 Y:-1801.7919 Z:15.497245..X:-617.5832 Y:-1452.046 Z:47.723156 size=(281.25885,349.74585,32.22591) verts=969 polys=481 mats=17 matIdx=0
+  CHILD 2 BoundBVH box=X:-780.3682 Y:-1805.7017 Z:13.525614..X:-605.6988 Y:-1617.4457 Z:28.907612 size=(174.66943,188.25598,15.381998) verts=2819 polys=4842 mats=83 matIdx=0
+  CHILD 5 BoundBVH box=X:-780.07776 Y:-1624.0146 Z:9.118804..X:-636.46075 Y:-1436.9612 Z:24.749125 size=(143.617,187.05347,15.630321) verts=1916 polys=3247 mats=96 matIdx=0
+  CHILD 7 BoundBVH box=X:-899.04663 Y:-1801.1495 Z:15.905056..X:-621.8734 Y:-1658.3341 Z:47.709522 size=(277.17322,142.81543,31.804466) verts=246 polys=67 mats=6 matIdx=0
+  CHILD 8 BoundBVH box=X:-819.5565 Y:-1802.913 Z:7.111372..X:-621.7376 Y:-1542.7157 Z:44.95286 size=(197.81891,260.19727,37.84149) verts=39 polys=24 mats=4 matIdx=0
+  children overlapping wall AABB: 6
+YBN	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_rd.rpf\sp1_rd_7.ybn	type=BoundComposite	box=X:-627.8767 Y:-1805.6913 Z:4.518463..X:-281.3562 Y:-1363.0348 Z:52.22865
+  composite children=10
+  CHILD 0 BoundBVH box=X:-624.2575 Y:-1803.412 Z:4.5184627..X:-281.98605 Y:-1363.0348 Z:46.589855 size=(342.27145,440.3772,42.071392) verts=2079 polys=704 mats=32 matIdx=0
+  CHILD 1 BoundBVH box=X:-627.8767 Y:-1805.6912 Z:17.499178..X:-374.5816 Y:-1686.153 Z:23.577665 size=(253.2951,119.53821,6.0784874) verts=1878 polys=3110 mats=94 matIdx=0
+  CHILD 2 BoundBVH box=X:-623.0132 Y:-1803.0253 Z:7.3678813..X:-286.70816 Y:-1363.197 Z:52.22865 size=(336.30502,439.82825,44.860767) verts=4424 polys=4224 mats=29 matIdx=0
+  CHILD 3 BoundBVH box=X:-623.6394 Y:-1802.7948 Z:8.706033..X:-287.24554 Y:-1547.5505 Z:44.407677 size=(336.39386,255.24426,35.701645) verts=112 polys=31 mats=3 matIdx=0
+  CHILD 4 BoundBVH box=X:-609.19604 Y:-1803.5111 Z:6.861485..X:-281.3562 Y:-1545.1299 Z:28.505981 size=(327.83984,258.38123,21.644497) verts=38 polys=19 mats=4 matIdx=0
+  CHILD 7 BoundBVH box=X:-575.5192 Y:-1760.9729 Z:16.685675..X:-403.029 Y:-1609.8177 Z:20.489922 size=(172.49023,151.15515,3.804247) verts=36 polys=9 mats=2 matIdx=0
+  CHILD 8 BoundBVH box=X:-568.2959 Y:-1760.4669 Z:17.498936..X:-477.2284 Y:-1639.7025 Z:22.950071 size=(91.067505,120.764404,5.4511356) verts=24 polys=12 mats=1 matIdx=0
+  CHILD 9 BoundBVH box=X:-569.8857 Y:-1760.0208 Z:17.520796..X:-475.31952 Y:-1640.6338 Z:20.012367 size=(94.56616,119.38696,2.4915714) verts=12 polys=3 mats=1 matIdx=0
+  children overlapping wall AABB: 8
+YBN parsed=67 overlapping=17
+## INSPECT ch2_04_wall10
+YDR	x64o.rpf\levels\gta5\_hills\cityhills_02\ch2_04.rpf\ch2_04_wall10.ydr	size=862795
+rpf dir has 266 entries: ybn=48 ydr=148 ytd=54
+loaded=True bbmin=X:-36.013824 Y:-13.107452 Z:-1.558937 bbmax=X:36.013794 Y:13.107452 Z:1.558922 bc=X:-1.5E-05 Y:0 Z:-8E-06 r=38.356617 LodDist H/M/L/VL=9998/9998/9998/9998
+modelPtrs H/M/L/VL = True/False/False/False embeddedBound=NONE
+  GEOM m0 g0 verts=4 tris=2 stride=52 shader=954007775 aabb=X:-10.638672 Y:2.8427734 Z:-1.5449219 W:-10.638672..X:-8.030762 Y:4.602051 Z:-1.543457 W:-8.030762
+  GEOM m0 g1 verts=386 tris=302 stride=52 shader=419906089 aabb=X:-36.01367 Y:-13.107422 Z:-1.559082 W:-36.01367..X:36.01367 Y:13.107422 Z:1.559082 W:36.01367
+totals verts=390 idx=912 models=1
+VERTEX AABB min=(-36.01367,-13.107422,-1.559082) max=(36.01367,13.107422,1.559082) size=(72.02734,26.214844,3.118164)
+occupied 2m XY cells=19 of bbox cells=518
+connected XY components (2m cells, 8-neigh) = 13
+  comp cells=5 verts=129 extentX=[-14,-6] extentY=[2,6]
+  comp cells=1 verts=45 extentX=[18,20] extentY=[-8,-6]
+  comp cells=1 verts=44 extentX=[24,26] extentY=[-10,-8]
+  comp cells=1 verts=42 extentX=[-26,-24] extentY=[8,10]
+  comp cells=2 verts=25 extentX=[34,38] extentY=[-14,-12]
+  comp cells=2 verts=25 extentX=[-38,-34] extentY=[12,14]
+  comp cells=1 verts=14 extentX=[-4,-2] extentY=[0,2]
+  comp cells=1 verts=13 extentX=[12,14] extentY=[-6,-4]
+  comp cells=1 verts=12 extentX=[2,4] extentY=[-2,0]
+  comp cells=1 verts=12 extentX=[8,10] extentY=[-4,-2]
+  comp cells=1 verts=11 extentX=[-20,-18] extentY=[6,8]
+  comp cells=1 verts=9 extentX=[-32,-30] extentY=[10,12]
+Z histogram (1m bins: vertCount): -2:43 -1:53 0:175 1:119
+WORLD AABB (pos+verts) min=X:476.00366 Y:263.12717 Z:102.02637 max=X:548.031 Y:289.342 Z:105.14453 pos=X:512.01733 Y:276.2346 Z:103.58545
+YBN candidates (same rpf / same area folder / name prefix ch2_04): 512
+YBN	x64o.rpf\levels\gta5\_hills\cityhills_02\ch2_04.rpf\ch2_04_18.ybn	type=BoundComposite	box=X:457.9489 Y:218.78247 Z:91.190414..X:690.28076 Y:417.9023 Z:167.84592
+  composite children=9
+  CHILD 1 BoundBVH box=X:457.9489 Y:275.1067 Z:102.014946..X:576.3244 Y:417.9023 Z:167.84592 size=(118.37549,142.79562,65.83097) verts=1647 polys=2908 mats=6 matIdx=0
+  CHILD 2 BoundBVH box=X:464.57858 Y:260.57904 Z:101.70907..X:580.0197 Y:396.30957 Z:150.75124 size=(115.44113,135.73053,49.042168) verts=1231 polys=1957 mats=8 matIdx=0
+  CHILD 5 BoundBVH box=X:459.03036 Y:229.09265 Z:91.19041..X:687.16724 Y:411.1498 Z:156.72304 size=(228.13687,182.05716,65.53263) verts=3271 polys=4823 mats=15 matIdx=0
+  CHILD 6 BoundBVH box=X:464.57858 Y:267.5961 Z:100.9074..X:684.274 Y:409.3472 Z:153.91164 size=(219.6954,141.7511,53.004234) verts=220 polys=62 mats=3 matIdx=0
+  CHILD 8 BoundBVH box=X:459.5133 Y:233.60185 Z:101.07614..X:686.56134 Y:412.63333 Z:163.63562 size=(227.04803,179.03148,62.55948) verts=450 polys=225 mats=3 matIdx=0
+  children overlapping wall AABB: 5
+YBN	x64o.rpf\levels\gta5\_hills\cityhills_02\ch2_04.rpf\hi@ch2_04_21.ybn	type=BoundComposite	box=X:463.33862 Y:218.68887 Z:90.37854..X:689.5764 Y:388.49246 Z:150.9432
+  composite children=4
+  CHILD 0 BoundBVH box=X:463.3386 Y:218.68886 Z:90.37854..X:689.5764 Y:380.65244 Z:150.9432 size=(226.23782,161.96358,60.564667) verts=4610 polys=4682 mats=16 matIdx=0
+  CHILD 1 BoundBVH box=X:465.61 Y:234.01987 Z:94.65821..X:684.2089 Y:388.49246 Z:145.7941 size=(218.59894,154.4726,51.135887) verts=3381 polys=4817 mats=6 matIdx=0
+  children overlapping wall AABB: 2
+YBN	x64o.rpf\levels\gta5\_hills\cityhills_02\ch2_roadsb.rpf\ch2_roadsb_0.ybn	type=BoundComposite	box=X:283.87238 Y:272.36575 Z:101.85669..X:801.9126 Y:608.15845 Z:153.55212
+  composite children=3
+  CHILD 0 BoundBVH box=X:537.8858 Y:272.36578 Z:101.94635..X:801.9126 Y:368.62228 Z:128.12857 size=(264.0268,96.2565,26.18222) verts=1936 polys=3564 mats=4 matIdx=0
+  children overlapping wall AABB: 1
+YBN parsed=512 overlapping=3
+done
