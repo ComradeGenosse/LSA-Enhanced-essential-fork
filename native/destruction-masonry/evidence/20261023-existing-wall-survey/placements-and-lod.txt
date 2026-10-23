@@ -1,0 +1,474 @@
+## FILES by name (ydr/yft/ydd/ybn with candidate basename)
+FILE	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sp1_03.rpf\sp1_03_wall_01_o.ydr	259286
+FILE	x64o.rpf\levels\gta5\_hills\cityhills_02\ch2_04.rpf\ch2_04_wall10.ydr	862795
+FILE	x64u.rpf\levels\gta5\_hills\country_06\cs6_03.rpf\cs6_03_05gasmc01.ydr	220969
+## YTYP archetypes
+ARCH	sp1_03_wall_01_o	update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sanpedro_metadata_001_strm.ytyp	type=Archetype	assetType=ASSET_TYPE_DRAWABLE	assetName=sp1_03_wall_01_o	txd=sp1_03_details	drawDict=0	phys=0	bbMin=X:-50.711685 Y:-72.61397 Z:-5.513126	bbMax=X:50.711716 Y:72.61393 Z:5.513124	bsC=X:1.5258789E-05 Y:-1.5258789E-05 Z:-9.536743E-07	bsR=88.74039	lodDist=148	flags=8192	special=0	hdTexDist=138.12
+ARCH	cs6_03_05gasmc01	update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\country_06_metadata_004_strm.ytyp	type=Archetype	assetType=ASSET_TYPE_DRAWABLE	assetName=cs6_03_05gasmc01	txd=cs6_03_extra	drawDict=0	phys=0	bbMin=X:-25.72791 Y:-12.696575 Z:-1.754736	bbMax=X:25.727983 Y:12.696454 Z:1.754736	bsC=X:3.8146973E-05 Y:-6.1035156E-05 Z:0	bsR=28.74383	lodDist=81	flags=0	special=0	hdTexDist=40
+ARCH	sp1_03_wall_01_o	update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sanpedro_metadata_001_strm.ytyp	type=Archetype	assetType=ASSET_TYPE_DRAWABLE	assetName=sp1_03_wall_01_o	txd=sp1_03_details	drawDict=0	phys=0	bbMin=X:-50.711685 Y:-72.61397 Z:-5.513126	bbMax=X:50.711716 Y:72.61393 Z:5.513124	bsC=X:1.5258789E-05 Y:-1.5258789E-05 Z:-9.536743E-07	bsR=88.74039	lodDist=148	flags=8192	special=0	hdTexDist=138.12
+ARCH	cs6_03_05gasmc01	update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\country_06_metadata_004_strm.ytyp	type=Archetype	assetType=ASSET_TYPE_DRAWABLE	assetName=cs6_03_05gasmc01	txd=cs6_03_extra	drawDict=0	phys=0	bbMin=X:-25.72791 Y:-12.696575 Z:-1.754736	bbMax=X:25.727983 Y:12.696454 Z:1.754736	bsC=X:3.8146973E-05 Y:-6.1035156E-05 Z:0	bsR=28.74383	lodDist=81	flags=0	special=0	hdTexDist=40
+ARCH	sp1_03_wall_01_o	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sanpedro_metadata_001_strm.ytyp	type=Archetype	assetType=ASSET_TYPE_DRAWABLE	assetName=sp1_03_wall_01_o	txd=sp1_03_details	drawDict=0	phys=0	bbMin=X:-50.711685 Y:-72.61397 Z:-5.513126	bbMax=X:50.711716 Y:72.61393 Z:5.513124	bsC=X:1.5258789E-05 Y:-1.5258789E-05 Z:-9.536743E-07	bsR=88.74039	lodDist=148	flags=8192	special=0	hdTexDist=138.12
+ARCH	ch2_04_wall10	x64o.rpf\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\cityhills_02_metadata_008_strm.ytyp	type=Archetype	assetType=ASSET_TYPE_DRAWABLE	assetName=ch2_04_wall10	txd=ch2_04_details	drawDict=0	phys=0	bbMin=X:-36.013824 Y:-13.107454 Z:-1.558937	bbMax=X:36.013786 Y:13.107453 Z:1.558924	bsC=X:-1.9073486E-05 Y:0 Z:-6.556511E-06	bsR=38.35661	lodDist=100	flags=0	special=0	hdTexDist=50
+ARCH	cs6_03_05gasmc01	x64u.rpf\levels\gta5\_hills\country_06\country_06_metadata.rpf\country_06_metadata_004_strm.ytyp	type=Archetype	assetType=ASSET_TYPE_DRAWABLE	assetName=cs6_03_05gasmc01	txd=cs6_03_extra	drawDict=0	phys=0	bbMin=X:-25.72791 Y:-12.696575 Z:-1.754736	bbMax=X:25.727983 Y:12.696454 Z:1.754736	bsC=X:3.8146973E-05 Y:-6.1035156E-05 Z:0	bsR=28.74383	lodDist=81	flags=0	special=0	hdTexDist=40
+## YMAP placements
+PLACE	ch2_04_wall10	onigiri\dlcpacks\nve_lights\dlc.rpf\x64\lights_meta_sp.rpf\ch2_04_strm_1.ymap	idx=104	pos=X:512.0173 Y:276.2346 Z:103.5854	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572874	guid=4182670629	lodLevel=LODTYPES_DEPTH_HD	parentIdx=395	numChildren=0	lodDist=100	childLodDist=0	priority=PRI_REQUIRED	ymapParent=ch2_04	ymapFlags=0	ymapContent=65	entExt=X:366.0568 Y:224.6629 Z:92.20655..X:735.9348 Y:595.8319 Z:169.7525	strExt=X:240.687 Y:98.20557 Z:-44.84156..X:806.9104 Y:706.2462 Z:293.0896
+PLACE	sp1_03_wall_01_o	onigiri\dlcpacks\nve_lights\dlc.rpf\x64\lights_meta.rpf\sp1_03_strm_0.ymap	idx=5	pos=X:-604.0833 Y:-1653.91 Z:22.46471	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572866	guid=1154234174	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	numChildren=0	lodDist=148	childLodDist=0	priority=PRI_REQUIRED	ymapParent=sp1_03	ymapFlags=0	ymapContent=65	entExt=X:-660.6184 Y:-1732.522 Z:13.19446..X:-397.7065 Y:-1580.111 Z:58.58115	strExt=X:-757.2156 Y:-1804.276 Z:-125.5353..X:-311.8899 Y:-1441.276 Z:176.5168
+PLACE	ch2_04_wall10	update\update.rpf\dlc_patch\mpapartment\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04_strm_1.ymap	idx=104	pos=X:512.01733 Y:276.2346 Z:103.58545	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572874	guid=4182670629	lodLevel=LODTYPES_DEPTH_HD	parentIdx=385	numChildren=0	lodDist=100	childLodDist=0	priority=PRI_REQUIRED	ymapParent=apa_ch2_04	ymapFlags=0	ymapContent=65	entExt=X:366.05682 Y:224.66286 Z:92.20655..X:735.93475 Y:595.83203 Z:169.75253	strExt=X:240.68695 Y:98.20557 Z:-44.84156..X:806.9104 Y:706.2462 Z:293.0896
+PLACE	ch2_04_wall10	update\x64\dlcpacks\mpapartment\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04_strm_1.ymap	idx=104	pos=X:512.01733 Y:276.2346 Z:103.58545	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572874	guid=4182670629	lodLevel=LODTYPES_DEPTH_HD	parentIdx=395	numChildren=0	lodDist=100	childLodDist=0	priority=PRI_REQUIRED	ymapParent=apa_ch2_04	ymapFlags=0	ymapContent=65	entExt=X:366.05682 Y:224.66286 Z:92.20655..X:735.93475 Y:595.83203 Z:169.75253	strExt=X:240.68695 Y:98.20557 Z:-44.84156..X:806.9104 Y:706.2462 Z:293.0896
+PLACE	ch2_04_wall10	update\x64\dlcpacks\mpheist\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\hei_ch2_04_strm_1.ymap	idx=104	pos=X:512.01733 Y:276.2346 Z:103.58545	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572874	guid=4182670629	lodLevel=LODTYPES_DEPTH_HD	parentIdx=395	numChildren=0	lodDist=100	childLodDist=0	priority=PRI_REQUIRED	ymapParent=hei_ch2_04	ymapFlags=0	ymapContent=65	entExt=X:366.05682 Y:224.66286 Z:92.20655..X:735.93475 Y:595.83203 Z:169.75253	strExt=X:240.68695 Y:98.20557 Z:-44.84156..X:806.9104 Y:706.2462 Z:293.0896
+PLACE	cs6_03_05gasmc01	update\x64\dlcpacks\mpheist\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\hei_cs6_03_strm_1.ymap	idx=10	pos=X:1042.8273 Y:2660.618 Z:40.099934	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572872	guid=3918164669	lodLevel=LODTYPES_DEPTH_HD	parentIdx=163	numChildren=0	lodDist=81	childLodDist=0	priority=PRI_REQUIRED	ymapParent=hei_cs6_03	ymapFlags=0	ymapContent=65	entExt=X:959.2719 Y:2622.4365 Z:36.31785..X:1128.7201 Y:2739.7341 Z:46.65934	strExt=X:825.0917 Y:2508.0415 Z:-111.10153..X:1250.6692 Y:2875.028 Z:188.89847
+PLACE	cs6_03_05gasmc01	update\x64\dlcpacks\mplowrider\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\lr_cs6_03_strm_1.ymap	idx=10	pos=X:1042.8273 Y:2660.618 Z:40.099934	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572872	guid=3918164669	lodLevel=LODTYPES_DEPTH_HD	parentIdx=163	numChildren=0	lodDist=81	childLodDist=0	priority=PRI_REQUIRED	ymapParent=lr_cs6_03	ymapFlags=0	ymapContent=65	entExt=X:959.2719 Y:2622.4365 Z:36.31785..X:1128.7201 Y:2739.7341 Z:46.65934	strExt=X:825.0917 Y:2508.0415 Z:-111.10153..X:1250.6692 Y:2875.028 Z:188.89847
+PLACE	sp1_03_wall_01_o	update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap	idx=5	pos=X:-604.08325 Y:-1653.9095 Z:22.464706	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572866	guid=1154234174	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	numChildren=0	lodDist=148	childLodDist=0	priority=PRI_REQUIRED	ymapParent=sp1_03	ymapFlags=0	ymapContent=65	entExt=X:-660.6184 Y:-1732.5223 Z:13.194458..X:-397.70654 Y:-1580.1107 Z:58.581146	strExt=X:-757.21564 Y:-1804.2756 Z:-125.53529..X:-311.88992 Y:-1441.276 Z:176.51682
+PLACE	cs6_03_05gasmc01	update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03_strm_1.ymap	idx=10	pos=X:1042.8273 Y:2660.618 Z:40.099934	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572872	guid=3918164669	lodLevel=LODTYPES_DEPTH_HD	parentIdx=163	numChildren=0	lodDist=81	childLodDist=0	priority=PRI_REQUIRED	ymapParent=cs6_03	ymapFlags=0	ymapContent=65	entExt=X:959.2719 Y:2622.4365 Z:36.31785..X:1128.7201 Y:2739.7341 Z:46.65934	strExt=X:825.0917 Y:2508.0415 Z:-111.10153..X:1250.6692 Y:2875.028 Z:188.89847
+PLACE	sp1_03_wall_01_o	update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap	idx=5	pos=X:-604.08325 Y:-1653.9095 Z:22.464706	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572866	guid=1154234174	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	numChildren=0	lodDist=148	childLodDist=0	priority=PRI_REQUIRED	ymapParent=sp1_03	ymapFlags=0	ymapContent=65	entExt=X:-660.6184 Y:-1732.5223 Z:13.194458..X:-397.70654 Y:-1580.1107 Z:58.581146	strExt=X:-757.21564 Y:-1804.2756 Z:-125.53529..X:-311.88992 Y:-1454.9446 Z:170.4647
+PLACE	cs6_03_05gasmc01	update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03_strm_1.ymap	idx=10	pos=X:1042.8273 Y:2660.618 Z:40.099934	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572872	guid=3918164669	lodLevel=LODTYPES_DEPTH_HD	parentIdx=163	numChildren=0	lodDist=81	childLodDist=0	priority=PRI_REQUIRED	ymapParent=cs6_03	ymapFlags=0	ymapContent=65	entExt=X:959.2719 Y:2622.4365 Z:36.31785..X:1128.7201 Y:2739.7341 Z:46.65934	strExt=X:825.0917 Y:2508.0415 Z:-111.10153..X:1250.6692 Y:2875.028 Z:188.89847
+PLACE	sp1_03_wall_01_o	x64m.rpf\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap	idx=5	pos=X:-604.08325 Y:-1653.9095 Z:22.464706	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572866	guid=1154234174	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	numChildren=0	lodDist=148	childLodDist=0	priority=PRI_REQUIRED	ymapParent=sp1_03	ymapFlags=0	ymapContent=65	entExt=X:-660.6184 Y:-1732.5223 Z:13.194458..X:-397.70654 Y:-1580.1107 Z:58.581146	strExt=X:-757.21564 Y:-1804.2756 Z:-125.53529..X:-311.88992 Y:-1454.9446 Z:170.4647
+PLACE	ch2_04_wall10	x64o.rpf\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\ch2_04_strm_1.ymap	idx=104	pos=X:512.01733 Y:276.2346 Z:103.58545	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572874	guid=4182670629	lodLevel=LODTYPES_DEPTH_HD	parentIdx=395	numChildren=0	lodDist=100	childLodDist=0	priority=PRI_REQUIRED	ymapParent=ch2_04	ymapFlags=0	ymapContent=65	entExt=X:366.05682 Y:224.66286 Z:92.20655..X:735.93475 Y:595.83203 Z:169.75253	strExt=X:240.68695 Y:98.20557 Z:-44.84156..X:806.9104 Y:706.2462 Z:293.0896
+PLACE	cs6_03_05gasmc01	x64u.rpf\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03_strm_1.ymap	idx=10	pos=X:1042.8273 Y:2660.618 Z:40.099934	rotQ=X:0 Y:0 Z:0 W:1	scaleXY=1	scaleZ=1	flags=1572872	guid=3918164669	lodLevel=LODTYPES_DEPTH_HD	parentIdx=163	numChildren=0	lodDist=81	childLodDist=0	priority=PRI_REQUIRED	ymapParent=cs6_03	ymapFlags=0	ymapContent=65	entExt=X:959.2719 Y:2622.4365 Z:36.31785..X:1128.7201 Y:2739.7341 Z:46.65934	strExt=X:825.0917 Y:2508.0415 Z:-111.10153..X:1250.6692 Y:2875.028 Z:188.89847
+## YMAP hit count: 14
+## CHAIN ch2_04_wall10 onigiri\dlcpacks\nve_lights\dlc.rpf\x64\lights_meta_sp.rpf\ch2_04_strm_1.ymap idx=104
+PARENT	x64o.rpf\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\ch2_04.ymap	idx=395	arch=3091872848	pos=X:512.0173 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=400	childLodDist=100	parentIdx=32
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.0173 Y:276.2346 Z:103.5854	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=100	arch=ch2_04_wall10dcal	pos=X:511.1881 Y:276.3499 Z:103.6004	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+## CHAIN sp1_03_wall_01_o onigiri\dlcpacks\nve_lights\dlc.rpf\x64\lights_meta.rpf\sp1_03_strm_0.ymap idx=5
+NO PARENT (parentIdx=-1)
+NEIGHBOURS within 15m in same ymap:
+NB	idx=7	arch=sp1_03_build_001_d	pos=X:-600.0795 Y:-1668.104 Z:21.17719	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=11	arch=sp1_03_cloth_placeholder	pos=X:-599.3208 Y:-1645.332 Z:26.85545	rotQ=X:0 Y:0 Z:0.91311 W:-0.407713	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=25	arch=sp1_03__hd_fizzing_053	pos=X:-598.3101 Y:-1653.693 Z:26.76564	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=sp1_03__hd_fizzing_0675	pos=X:-594.4756 Y:-1655.255 Z:19.69432	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=43	arch=sp1_03_grunglas_45	pos=X:-598.8092 Y:-1662.709 Z:18.84018	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=44	arch=sp1_03_grunglas_42	pos=X:-595.3311 Y:-1656.454 Z:18.7849	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=sp1_03_build_001wd	pos=X:-599.3374 Y:-1653.691 Z:25.25807	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=93	arch=prop_watercrate_01	pos=X:-595.6793 Y:-1655.542 Z:18.85504	rotQ=X:-0.05645798 Y:0.02179099 Z:0.1747539 W:0.9827506	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=94	arch=prop_barrel_01a	pos=X:-594.8882 Y:-1656.135 Z:19.28864	rotQ=X:-0.05227498 Y:0.03403299 Z:-0.000165 W:0.9980527	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=95	arch=prop_barrel_01a	pos=X:-596.3647 Y:-1656.299 Z:19.19382	rotQ=X:-0.02034899 Y:0.00096 Z:-0.02390499 W:0.9995067	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=97	arch=prop_rub_planks_01	pos=X:-594.2024 Y:-1656.146 Z:19.34836	rotQ=X:0.2305911 Y:-0.003639 Z:0.126582 W:0.9647754	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572899
+NB	idx=98	arch=prop_pallet_02a	pos=X:-589.469 Y:-1655.093 Z:19.42416	rotQ=X:-0.3494672 Y:0.4767433 Z:-0.4243752 W:0.685926	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=99	arch=prop_rub_carpart_05	pos=X:-589.9275 Y:-1656.142 Z:18.47818	rotQ=X:-0.02707902 Y:-0.02987602 Z:-0.00081 W:0.9991864	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=102	arch=prop_barrel_01a	pos=X:-601.8215 Y:-1667.97 Z:19.07974	rotQ=X:-0.05963602 Y:-0.03697801 Z:0.3292291 W:0.9416392	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=103	arch=prop_barrel_01a	pos=X:-601.6032 Y:-1667.408 Z:19.14676	rotQ=X:-0.05561301 Y:-0.04127501 Z:0.3811441 W:0.921918	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=106	arch=prop_watercrate_01	pos=X:-602.7853 Y:-1668.354 Z:18.67706	rotQ=X:-0.04360799 Y:-0.03534599 Z:-0.4226889 W:0.9045347	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=149	arch=prop_wall_light_01a	pos=X:-594.9047 Y:-1652.78 Z:22.17285	rotQ=X:0 Y:0 Z:0.258819 W:0.9659258	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=170	arch=prop_rub_boxpile_02	pos=X:-596.8448 Y:-1661.984 Z:18.91742	rotQ=X:-0.009995 Y:-0.01621199 Z:-0.4621108 W:0.8866177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=176	arch=prop_rub_boxpile_02	pos=X:-606.5241 Y:-1666.26 Z:19.22577	rotQ=X:-0.05326701 Y:0.03507301 Z:0.132469 W:0.9891332	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=199	arch=prop_rub_monitor	pos=X:-596.678 Y:-1666.328 Z:18.73642	rotQ=X:-0.025067 Y:-0.022452 Z:0.003565 W:0.9994273	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=262	arch=prop_oiltub_02	pos=X:-599.5186 Y:-1658.283 Z:19.08398	rotQ=X:-0.04610299 Y:-0.07702499 Z:0.07922498 W:0.9928067	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=263	arch=prop_rub_cage01a	pos=X:-599.9095 Y:-1659.663 Z:18.99023	rotQ=X:-0.05547401 Y:-0.07219503 Z:0.004071 W:0.9958383	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=265	arch=prop_rub_litter_07	pos=X:-596.6929 Y:-1666.319 Z:18.51672	rotQ=X:-0.01175 Y:-0.016546 Z:-0.000194 W:0.9997941	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=266	arch=prop_rub_litter_07	pos=X:-594.426 Y:-1656.605 Z:18.79739	rotQ=X:-0.05142798 Y:-0.07129198 Z:0.9761766 W:0.1983729	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=270	arch=prop_rub_litter_07	pos=X:-599.15 Y:-1658.791 Z:18.96606	rotQ=X:-0.02729699 Y:-0.05619198 Z:-0.001537 W:0.9980456	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=317	arch=prop_weeddry_nxg01	pos=X:-590.3591 Y:-1652.806 Z:18.73941	rotQ=X:-0.004617 Y:0.008035 Z:-0.4982018 W:0.8670116	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=319	arch=prop_weeds_nxg08b	pos=X:-604.6688 Y:-1665.87 Z:18.89777	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=323	arch=prop_weeds_nxg07b	pos=X:-595.1472 Y:-1656.8 Z:18.62299	rotQ=X:0.036788 Y:-0.023437 Z:0.8425889 W:-0.5367879	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN ch2_04_wall10 update\update.rpf\dlc_patch\mpapartment\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04_strm_1.ymap idx=104
+PARENT	update\update.rpf\dlc_patch\mpapartment\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04.ymap	idx=385	arch=3091872848	pos=X:512.0173 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=400	childLodDist=100	parentIdx=28
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+PARENT	update\x64\dlcpacks\mpapartment\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04.ymap	idx=385	arch=ch2_04_emissive_doors_lod	pos=X:803.79614 Y:541.7883 Z:127.97101	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=420	childLodDist=75	parentIdx=30
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=100	arch=ch2_04_wall10dcal	pos=X:511.18808 Y:276.34988 Z:103.60045	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+## CHAIN ch2_04_wall10 update\x64\dlcpacks\mpapartment\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04_strm_1.ymap idx=104
+PARENT	update\update.rpf\dlc_patch\mpapartment\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04.ymap	idx=395	arch=ch2_04_land08_lod	pos=X:637.2965 Y:294.11328 Z:110.26849	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=250	parentIdx=2
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+PARENT	update\x64\dlcpacks\mpapartment\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\apa_ch2_04.ymap	idx=395	arch=3091872848	pos=X:512.0173 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=400	childLodDist=100	parentIdx=32
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=100	arch=ch2_04_wall10dcal	pos=X:511.18808 Y:276.34988 Z:103.60045	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+## CHAIN ch2_04_wall10 update\x64\dlcpacks\mpheist\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\hei_ch2_04_strm_1.ymap idx=104
+PARENT	update\x64\dlcpacks\mpheist\dlc.rpf\x64\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\hei_ch2_04.ymap	idx=395	arch=3091872848	pos=X:512.0173 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=400	childLodDist=100	parentIdx=32
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=100	arch=ch2_04_wall10dcal	pos=X:511.18808 Y:276.34988 Z:103.60045	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+## CHAIN cs6_03_05gasmc01 update\x64\dlcpacks\mpheist\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\hei_cs6_03_strm_1.ymap idx=10
+PARENT	update\x64\dlcpacks\mpheist\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\hei_cs6_03.ymap	idx=163	arch=cs6_03_05gasmc01_lod	pos=X:1042.8253 Y:2660.6191 Z:40.037056	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=60	parentIdx=1
+SIBLING	idx=10	arch=cs6_03_05gasmc01	pos=X:1042.8273 Y:2660.618 Z:40.099934	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=1	arch=cs6_03_gasmc_d04	pos=X:1043.4222 Y:2658.2488 Z:40.683414	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=2	arch=cs6_03_gasmc_d02	pos=X:1043.4264 Y:2663.6306 Z:40.913105	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=3	arch=cs6_03_gasmc708	pos=X:1039.6144 Y:2659.4236 Z:41.2047	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=4	arch=cs6_03_gasmc_d05	pos=X:1042.8478 Y:2658.5989 Z:40.452183	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=5	arch=cs6_03_02gasmc03	pos=X:1042.9252 Y:2666.5137 Z:38.309612	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=164	flags=1572872
+NB	idx=6	arch=cs6_03_gasmc600	pos=X:1043.6871 Y:2664.2742 Z:42.070164	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=165	flags=1572872
+NB	idx=7	arch=cs6_03_ch6_05_officedetails001	pos=X:1043.4406 Y:2657.9026 Z:41.415447	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=167	flags=1572872
+NB	idx=8	arch=cs6_03_gasmc805	pos=X:1044.3483 Y:2662.1462 Z:41.289417	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=9	arch=cs6_03_02gasmc_d06	pos=X:1042.7787 Y:2667.2166 Z:38.629078	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=cs6_03_decal_04	pos=X:1042.5115 Y:2668.0083 Z:39.77015	rotQ=X:0 Y:0 Z:0.40721384 W:0.9133328	lodLevel=LODTYPES_DEPTH_HD	parentIdx=127	flags=1572872
+NB	idx=27	arch=cs6_03_gasmc600_emi	pos=X:1043.6871 Y:2664.2742 Z:42.070164	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=144	flags=1572872
+NB	idx=29	arch=cs6_03_gasmc600_beam	pos=X:1039.5411 Y:2671.2478 Z:40.691807	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=31	arch=prop_arm_wrestle_01	pos=X:1051.6752 Y:2663.61 Z:39.026268	rotQ=X:0 Y:0 Z:0.8269713 W:-0.5622442	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=53	arch=prop_barrel_01a	pos=X:1032.9504 Y:2654.3062 Z:38.995182	rotQ=X:-2.600001E-05 Y:8.3000035E-05 Z:0.99986035 W:0.016712006	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=54	arch=prop_car_battery_01	pos=X:1039.0518 Y:2654.847 Z:39.525703	rotQ=X:0 Y:0 Z:0.98757035 W:-0.15717806	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=57	arch=prop_car_battery_01	pos=X:1040.1101 Y:2654.802 Z:39.525703	rotQ=X:0 Y:0 Z:0.99818057 W:0.060297035	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=prop_bollard_02a	pos=X:1048.5791 Y:2663.5203 Z:38.475487	rotQ=X:0 Y:0 Z:0.013345001 W:0.99991095	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=60	arch=prop_bollard_02a	pos=X:1047.1145 Y:2663.5593 Z:38.475487	rotQ=X:0 Y:0 Z:0.7164808 W:0.6976068	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=61	arch=prop_bollard_02a	pos=X:1045.5911 Y:2675.0554 Z:38.505417	rotQ=X:0 Y:0 Z:0.02692901 W:0.99963737	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=62	arch=prop_bollard_02a	pos=X:1045.5383 Y:2674.0667 Z:38.505417	rotQ=X:0 Y:0 Z:-0.6878091 W:0.72589177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=63	arch=prop_barrel_03d	pos=X:1050.2887 Y:2661.6453 Z:38.999172	rotQ=X:-0.0014209998 Y:-0.0024399995 Z:0.45450288 W:0.89074075	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=64	arch=prop_barrel_03a	pos=X:1033.1447 Y:2657.6345 Z:38.99518	rotQ=X:0.00011600005 Y:0.0002610001 Z:0.9136013 W:-0.40661117	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=65	arch=prop_barrel_03d	pos=X:1033.9553 Y:2654.322 Z:38.995155	rotQ=X:1.3999995E-05 Y:-2.299999E-05 Z:0.44715482 W:0.89445657	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=66	arch=prop_oilcan_01a	pos=X:1037.9297 Y:2654.9363 Z:40.491493	rotQ=X:0 Y:0 Z:0.7258924 W:0.6878084	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=67	arch=prop_oilcan_01a	pos=X:1038.5234 Y:2654.8616 Z:40.491493	rotQ=X:0 Y:0 Z:0.80639684 W:0.5913749	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=71	arch=prop_vend_water_01	pos=X:1048.6326 Y:2661.8738 Z:38.543808	rotQ=X:0 Y:0 Z:0.999911 W:-0.013346001	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=72	arch=prop_phonebox_01b	pos=X:1051.0497 Y:2661.3877 Z:38.52392	rotQ=X:0 Y:0 Z:0.99998325 W:0.005805002	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=74	arch=prop_carcreeper	pos=X:1046.0647 Y:2651.1023 Z:38.55317	rotQ=X:0 Y:0 Z:0.54155284 W:0.8406667	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=76	arch=prop_compressor_01	pos=X:1053.3262 Y:2655.6672 Z:38.55091	rotQ=X:0.0020509998 Y:0.0018019998 Z:0.7522169 W:0.65891	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=77	arch=prop_bollard_02a	pos=X:1045.5383 Y:2667.6467 Z:38.505417	rotQ=X:0 Y:0 Z:-0.6878091 W:0.72589177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=78	arch=prop_bollard_02a	pos=X:1045.5911 Y:2668.6355 Z:38.505417	rotQ=X:0 Y:0 Z:0.02692901 W:0.99963737	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=79	arch=prop_bollard_02a	pos=X:1032.6377 Y:2668.5417 Z:38.49527	rotQ=X:0 Y:0 Z:0.7258924 W:0.6878084	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=80	arch=prop_bollard_02a	pos=X:1032.5845 Y:2667.5544 Z:38.49527	rotQ=X:0 Y:0 Z:0.99963737 W:-0.02692901	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=82	arch=prop_elecbox_22	pos=X:1052.666 Y:2656.382 Z:39.84326	rotQ=X:0 Y:0 Z:0.7071068 W:-0.70710677	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=83	arch=prop_fire_driser_4b	pos=X:1052.5269 Y:2659.5605 Z:39.429405	rotQ=X:0 Y:0 Z:0.7071068 W:-0.70710677	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=84	arch=prop_news_disp_01a	pos=X:1037.0084 Y:2664.3137 Z:38.550728	rotQ=X:0 Y:0 Z:0.9999304 W:0.011808004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=85	arch=prop_news_disp_06a	pos=X:1036.2538 Y:2664.298 Z:38.550842	rotQ=X:0 Y:0 Z:0.99995625 W:-0.009354002	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=86	arch=prop_vintage_pump	pos=X:1035.4424 Y:2667.904 Z:38.70319	rotQ=X:1.9E-05 Y:6E-06 Z:-0.000166 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=88	arch=prop_vintage_pump	pos=X:1043.2194 Y:2674.4456 Z:38.703392	rotQ=X:0.00017599997 Y:-0.00021599994 Z:0.00084999984 W:0.9999996	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=89	arch=prop_vintage_pump	pos=X:1043.2196 Y:2667.9138 Z:38.703453	rotQ=X:0.00024699984 Y:-0.00026299988 Z:0.0009159995 W:0.9999995	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=90	arch=prop_tyre_rack_01	pos=X:1040.707 Y:2664.128 Z:38.97391	rotQ=X:0.00015599994 Y:-1.3999996E-05 Z:-0.0038509984 W:0.99999255	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=92	arch=prop_bin_05a	pos=X:1045.6656 Y:2661.9348 Z:38.553192	rotQ=X:-0.00013700008 Y:-0.0017750011 Z:0.00011000006 W:0.9999984	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=96	arch=prop_fnclink_03a	pos=X:1031.3448 Y:2651.1658 Z:38.550743	rotQ=X:0 Y:0 Z:0.99999166 W:0.0040839985	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=100	arch=prop_flattruck_01d	pos=X:1033.4263 Y:2658.7615 Z:38.550766	rotQ=X:0 Y:0 Z:-0.22940597 W:0.97333086	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=103	arch=prop_roofpipe_06	pos=X:1049.4309 Y:2656.614 Z:42.08571	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=104	arch=prop_roofvent_011a	pos=X:1047.3281 Y:2659.8352 Z:42.108063	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=247	arch=prop_fnclink_03b	pos=X:1031.3448 Y:2651.1658 Z:38.550743	rotQ=X:0 Y:0 Z:0.70421356 W:0.7099883	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=250	arch=prop_radio_01	pos=X:1048.842 Y:2661.8982 Z:40.232628	rotQ=X:0.00011799995 Y:0.00032299984 Z:0.95128465 W:-0.30831388	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=285	arch=prop_weeddry_nxg02	pos=X:1046.6339 Y:2648.3445 Z:38.58915	rotQ=X:0.00059300003 Y:0.035145003 Z:0.9993751 W:-0.0037170004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=287	arch=prop_weeddry_nxg02	pos=X:1035.706 Y:2648.3962 Z:38.58915	rotQ=X:0.00059300003 Y:0.035145003 Z:0.9993751 W:-0.0037170004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=288	arch=prop_weeddead_nxg02	pos=X:1034.3011 Y:2660.6335 Z:38.507378	rotQ=X:-0.024839008 Y:0.024869006 Z:0.69775015 W:0.7154783	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=289	arch=prop_vend_snak_01	pos=X:1047.571 Y:2661.902 Z:39.470436	rotQ=X:0 Y:0 Z:0.9999975 W:0.0022670012	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN cs6_03_05gasmc01 update\x64\dlcpacks\mplowrider\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\lr_cs6_03_strm_1.ymap idx=10
+PARENT	update\x64\dlcpacks\mplowrider\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\lr_cs6_03.ymap	idx=163	arch=cs6_03_05gasmc01_lod	pos=X:1042.8253 Y:2660.6191 Z:40.037056	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=60	parentIdx=1
+SIBLING	idx=10	arch=cs6_03_05gasmc01	pos=X:1042.8273 Y:2660.618 Z:40.099934	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=1	arch=cs6_03_gasmc_d04	pos=X:1043.4222 Y:2658.2488 Z:40.683414	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=2	arch=cs6_03_gasmc_d02	pos=X:1043.4264 Y:2663.6306 Z:40.913105	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=3	arch=cs6_03_gasmc708	pos=X:1039.6144 Y:2659.4236 Z:41.2047	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=4	arch=cs6_03_gasmc_d05	pos=X:1042.8478 Y:2658.5989 Z:40.452183	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=5	arch=cs6_03_02gasmc03	pos=X:1042.9252 Y:2666.5137 Z:38.309612	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=164	flags=1572872
+NB	idx=6	arch=cs6_03_gasmc600	pos=X:1043.6871 Y:2664.2742 Z:42.070164	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=165	flags=1572872
+NB	idx=7	arch=cs6_03_ch6_05_officedetails001	pos=X:1043.4406 Y:2657.9026 Z:41.415447	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=167	flags=1572872
+NB	idx=8	arch=cs6_03_gasmc805	pos=X:1044.3483 Y:2662.1462 Z:41.289417	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=9	arch=cs6_03_02gasmc_d06	pos=X:1042.7787 Y:2667.2166 Z:38.629078	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=cs6_03_decal_04	pos=X:1042.5115 Y:2668.0083 Z:39.77015	rotQ=X:0 Y:0 Z:0.40721384 W:0.9133328	lodLevel=LODTYPES_DEPTH_HD	parentIdx=127	flags=1572872
+NB	idx=27	arch=cs6_03_gasmc600_emi	pos=X:1043.6871 Y:2664.2742 Z:42.070164	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=144	flags=1572872
+NB	idx=29	arch=cs6_03_gasmc600_beam	pos=X:1039.5411 Y:2671.2478 Z:40.691807	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=31	arch=prop_arm_wrestle_01	pos=X:1051.6752 Y:2663.61 Z:39.026268	rotQ=X:0 Y:0 Z:0.8269713 W:-0.5622442	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=53	arch=prop_barrel_01a	pos=X:1032.9504 Y:2654.3062 Z:38.995182	rotQ=X:-2.600001E-05 Y:8.3000035E-05 Z:0.99986035 W:0.016712006	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=54	arch=prop_car_battery_01	pos=X:1039.0518 Y:2654.847 Z:39.525703	rotQ=X:0 Y:0 Z:0.98757035 W:-0.15717806	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=57	arch=prop_car_battery_01	pos=X:1040.1101 Y:2654.802 Z:39.525703	rotQ=X:0 Y:0 Z:0.99818057 W:0.060297035	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=prop_bollard_02a	pos=X:1048.5791 Y:2663.5203 Z:38.475487	rotQ=X:0 Y:0 Z:0.013345001 W:0.99991095	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=60	arch=prop_bollard_02a	pos=X:1047.1145 Y:2663.5593 Z:38.475487	rotQ=X:0 Y:0 Z:0.7164808 W:0.6976068	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=61	arch=prop_bollard_02a	pos=X:1045.5911 Y:2675.0554 Z:38.505417	rotQ=X:0 Y:0 Z:0.02692901 W:0.99963737	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=62	arch=prop_bollard_02a	pos=X:1045.5383 Y:2674.0667 Z:38.505417	rotQ=X:0 Y:0 Z:-0.6878091 W:0.72589177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=63	arch=prop_barrel_03d	pos=X:1050.2887 Y:2661.6453 Z:38.999172	rotQ=X:-0.0014209998 Y:-0.0024399995 Z:0.45450288 W:0.89074075	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=64	arch=prop_barrel_03a	pos=X:1033.1447 Y:2657.6345 Z:38.99518	rotQ=X:0.00011600005 Y:0.0002610001 Z:0.9136013 W:-0.40661117	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=65	arch=prop_barrel_03d	pos=X:1033.9553 Y:2654.322 Z:38.995155	rotQ=X:1.3999995E-05 Y:-2.299999E-05 Z:0.44715482 W:0.89445657	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=66	arch=prop_oilcan_01a	pos=X:1037.9297 Y:2654.9363 Z:40.491493	rotQ=X:0 Y:0 Z:0.7258924 W:0.6878084	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=67	arch=prop_oilcan_01a	pos=X:1038.5234 Y:2654.8616 Z:40.491493	rotQ=X:0 Y:0 Z:0.80639684 W:0.5913749	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=71	arch=prop_vend_water_01	pos=X:1048.6326 Y:2661.8738 Z:38.543808	rotQ=X:0 Y:0 Z:0.999911 W:-0.013346001	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=72	arch=prop_phonebox_01b	pos=X:1051.0497 Y:2661.3877 Z:38.52392	rotQ=X:0 Y:0 Z:0.99998325 W:0.005805002	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=74	arch=prop_carcreeper	pos=X:1046.0647 Y:2651.1023 Z:38.55317	rotQ=X:0 Y:0 Z:0.54155284 W:0.8406667	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=76	arch=prop_compressor_01	pos=X:1053.3262 Y:2655.6672 Z:38.55091	rotQ=X:0.0020509998 Y:0.0018019998 Z:0.7522169 W:0.65891	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=77	arch=prop_bollard_02a	pos=X:1045.5383 Y:2667.6467 Z:38.505417	rotQ=X:0 Y:0 Z:-0.6878091 W:0.72589177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=78	arch=prop_bollard_02a	pos=X:1045.5911 Y:2668.6355 Z:38.505417	rotQ=X:0 Y:0 Z:0.02692901 W:0.99963737	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=79	arch=prop_bollard_02a	pos=X:1032.6377 Y:2668.5417 Z:38.49527	rotQ=X:0 Y:0 Z:0.7258924 W:0.6878084	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=80	arch=prop_bollard_02a	pos=X:1032.5845 Y:2667.5544 Z:38.49527	rotQ=X:0 Y:0 Z:0.99963737 W:-0.02692901	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=82	arch=prop_elecbox_22	pos=X:1052.666 Y:2656.382 Z:39.84326	rotQ=X:0 Y:0 Z:0.7071068 W:-0.70710677	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=83	arch=prop_fire_driser_4b	pos=X:1052.5269 Y:2659.5605 Z:39.429405	rotQ=X:0 Y:0 Z:0.7071068 W:-0.70710677	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=84	arch=prop_news_disp_01a	pos=X:1037.0084 Y:2664.3137 Z:38.550728	rotQ=X:0 Y:0 Z:0.9999304 W:0.011808004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=85	arch=prop_news_disp_06a	pos=X:1036.2538 Y:2664.298 Z:38.550842	rotQ=X:0 Y:0 Z:0.99995625 W:-0.009354002	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=86	arch=prop_vintage_pump	pos=X:1035.4424 Y:2667.904 Z:38.70319	rotQ=X:1.9E-05 Y:6E-06 Z:-0.000166 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=88	arch=prop_vintage_pump	pos=X:1043.2194 Y:2674.4456 Z:38.703392	rotQ=X:0.00017599997 Y:-0.00021599994 Z:0.00084999984 W:0.9999996	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=89	arch=prop_vintage_pump	pos=X:1043.2196 Y:2667.9138 Z:38.703453	rotQ=X:0.00024699984 Y:-0.00026299988 Z:0.0009159995 W:0.9999995	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=90	arch=prop_tyre_rack_01	pos=X:1040.707 Y:2664.128 Z:38.97391	rotQ=X:0.00015599994 Y:-1.3999996E-05 Z:-0.0038509984 W:0.99999255	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=92	arch=prop_bin_05a	pos=X:1045.6656 Y:2661.9348 Z:38.553192	rotQ=X:-0.00013700008 Y:-0.0017750011 Z:0.00011000006 W:0.9999984	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=96	arch=prop_fnclink_03a	pos=X:1031.3448 Y:2651.1658 Z:38.550743	rotQ=X:0 Y:0 Z:0.99999166 W:0.0040839985	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=100	arch=prop_flattruck_01d	pos=X:1033.4263 Y:2658.7615 Z:38.550766	rotQ=X:0 Y:0 Z:-0.22940597 W:0.97333086	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=103	arch=prop_roofpipe_06	pos=X:1049.4309 Y:2656.614 Z:42.08571	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=104	arch=prop_roofvent_011a	pos=X:1047.3281 Y:2659.8352 Z:42.108063	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=247	arch=prop_fnclink_03b	pos=X:1031.3448 Y:2651.1658 Z:38.550743	rotQ=X:0 Y:0 Z:0.70421356 W:0.7099883	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=250	arch=prop_radio_01	pos=X:1048.842 Y:2661.8982 Z:40.232628	rotQ=X:0.00011799995 Y:0.00032299984 Z:0.95128465 W:-0.30831388	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=285	arch=prop_weeddry_nxg02	pos=X:1046.6339 Y:2648.3445 Z:38.58915	rotQ=X:0.00059300003 Y:0.035145003 Z:0.9993751 W:-0.0037170004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=287	arch=prop_weeddry_nxg02	pos=X:1035.706 Y:2648.3962 Z:38.58915	rotQ=X:0.00059300003 Y:0.035145003 Z:0.9993751 W:-0.0037170004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=288	arch=prop_weeddead_nxg02	pos=X:1034.3011 Y:2660.6335 Z:38.507378	rotQ=X:-0.024839008 Y:0.024869006 Z:0.69775015 W:0.7154783	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=289	arch=prop_vend_snak_01	pos=X:1047.571 Y:2661.902 Z:39.470436	rotQ=X:0 Y:0 Z:0.9999975 W:0.0022670012	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN sp1_03_wall_01_o update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap idx=5
+NO PARENT (parentIdx=-1)
+NEIGHBOURS within 15m in same ymap:
+NB	idx=7	arch=sp1_03_build_001_d	pos=X:-600.07947 Y:-1668.104 Z:21.177185	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=11	arch=sp1_03_cloth_placeholder	pos=X:-599.3208 Y:-1645.3324 Z:26.855453	rotQ=X:0 Y:0 Z:0.91311014 W:-0.40771303	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=25	arch=sp1_03__hd_fizzing_053	pos=X:-598.31006 Y:-1653.6932 Z:26.76564	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=sp1_03__hd_fizzing_0675	pos=X:-594.4756 Y:-1655.2548 Z:19.69432	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=43	arch=sp1_03_grunglas_45	pos=X:-598.8092 Y:-1662.7091 Z:18.84018	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=44	arch=sp1_03_grunglas_42	pos=X:-595.33105 Y:-1656.4537 Z:18.784897	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=sp1_03_build_001wd	pos=X:-599.3374 Y:-1653.691 Z:25.258072	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=93	arch=prop_watercrate_01	pos=X:-595.67926 Y:-1655.5415 Z:18.855042	rotQ=X:-0.05645798 Y:0.021790994 Z:0.17475395 W:0.9827506	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=94	arch=prop_barrel_01a	pos=X:-594.88824 Y:-1656.1348 Z:19.288635	rotQ=X:-0.052274983 Y:0.03403299 Z:-0.00016499993 W:0.9980526	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=95	arch=prop_barrel_01a	pos=X:-596.3647 Y:-1656.299 Z:19.193817	rotQ=X:-0.020348992 Y:0.00095999974 Z:-0.02390499 W:0.99950665	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=97	arch=prop_rub_planks_01	pos=X:-594.2024 Y:-1656.1459 Z:19.348358	rotQ=X:0.2305911 Y:-0.0036390023 Z:0.12658204 W:0.9647754	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572899
+NB	idx=98	arch=prop_pallet_02a	pos=X:-589.469 Y:-1655.0927 Z:19.424164	rotQ=X:-0.3494672 Y:0.47674325 Z:-0.42437518 W:0.685926	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=99	arch=prop_rub_carpart_05	pos=X:-589.9275 Y:-1656.1425 Z:18.47818	rotQ=X:-0.027079016 Y:-0.029876018 Z:-0.0008100005 W:0.9991864	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=102	arch=prop_barrel_01a	pos=X:-601.82153 Y:-1667.9698 Z:19.079742	rotQ=X:-0.05963602 Y:-0.036978006 Z:0.3292291 W:0.94163924	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=103	arch=prop_barrel_01a	pos=X:-601.6032 Y:-1667.4076 Z:19.146759	rotQ=X:-0.05561301 Y:-0.04127501 Z:0.3811441 W:0.921918	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=106	arch=prop_watercrate_01	pos=X:-602.78534 Y:-1668.354 Z:18.677063	rotQ=X:-0.04360799 Y:-0.035345994 Z:-0.4226889 W:0.9045347	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=149	arch=prop_wall_light_01a	pos=X:-594.90466 Y:-1652.7798 Z:22.172852	rotQ=X:0 Y:0 Z:0.25881898 W:0.9659258	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=170	arch=prop_rub_boxpile_02	pos=X:-596.84485 Y:-1661.9843 Z:18.91742	rotQ=X:-0.009994998 Y:-0.016211994 Z:-0.46211088 W:0.88661766	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=176	arch=prop_rub_boxpile_02	pos=X:-606.5241 Y:-1666.26 Z:19.225769	rotQ=X:-0.05326701 Y:0.03507301 Z:0.13246903 W:0.9891332	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=199	arch=prop_rub_monitor	pos=X:-596.678 Y:-1666.328 Z:18.73642	rotQ=X:-0.025067003 Y:-0.022452004 Z:0.0035650006 W:0.99942726	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=262	arch=prop_oiltub_02	pos=X:-599.5186 Y:-1658.283 Z:19.083984	rotQ=X:-0.046102993 Y:-0.07702499 Z:0.07922498 W:0.9928067	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=263	arch=prop_rub_cage01a	pos=X:-599.9095 Y:-1659.6626 Z:18.990234	rotQ=X:-0.055474013 Y:-0.072195016 Z:0.004071001 W:0.99583834	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=265	arch=prop_rub_litter_07	pos=X:-596.6929 Y:-1666.3186 Z:18.516724	rotQ=X:-0.011750001 Y:-0.016546002 Z:-0.00019400004 W:0.99979407	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=266	arch=prop_rub_litter_07	pos=X:-594.426 Y:-1656.6051 Z:18.797394	rotQ=X:-0.051427983 Y:-0.071291976 Z:0.9761766 W:0.19837292	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=270	arch=prop_rub_litter_07	pos=X:-599.15 Y:-1658.7913 Z:18.966064	rotQ=X:-0.027296992 Y:-0.05619198 Z:-0.0015369995 W:0.99804556	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=317	arch=prop_weeddry_nxg01	pos=X:-590.35913 Y:-1652.8059 Z:18.73941	rotQ=X:-0.0046169977 Y:0.008034997 Z:-0.49820173 W:0.8670116	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=319	arch=prop_weeds_nxg08b	pos=X:-604.6688 Y:-1665.8702 Z:18.897766	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=323	arch=prop_weeds_nxg07b	pos=X:-595.14716 Y:-1656.7998 Z:18.622986	rotQ=X:0.036787998 Y:-0.023436997 Z:0.8425889 W:-0.5367879	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN cs6_03_05gasmc01 update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03_strm_1.ymap idx=10
+PARENT	update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03.ymap	idx=163	arch=cs6_03_05gasmc01_lod	pos=X:1042.8253 Y:2660.6191 Z:40.037056	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=60	parentIdx=1
+SIBLING	idx=10	arch=cs6_03_05gasmc01	pos=X:1042.8273 Y:2660.618 Z:40.099934	lodLevel=LODTYPES_DEPTH_HD
+PARENT	update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03.ymap	idx=163	arch=cs6_03_05gasmc01_lod	pos=X:1042.8253 Y:2660.6191 Z:40.037056	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=60	parentIdx=1
+SIBLING	idx=10	arch=cs6_03_05gasmc01	pos=X:1042.8273 Y:2660.618 Z:40.099934	lodLevel=LODTYPES_DEPTH_HD
+PARENT	x64u.rpf\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03.ymap	idx=163	arch=cs6_03_05gasmc01_lod	pos=X:1042.8253 Y:2660.6191 Z:40.037056	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=60	parentIdx=1
+SIBLING	idx=10	arch=cs6_03_05gasmc01	pos=X:1042.8273 Y:2660.618 Z:40.099934	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=1	arch=cs6_03_gasmc_d04	pos=X:1043.4222 Y:2658.2488 Z:40.683414	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=2	arch=cs6_03_gasmc_d02	pos=X:1043.4264 Y:2663.6306 Z:40.913105	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=3	arch=cs6_03_gasmc708	pos=X:1039.6144 Y:2659.4236 Z:41.2047	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=4	arch=cs6_03_gasmc_d05	pos=X:1042.8478 Y:2658.5989 Z:40.452183	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=5	arch=cs6_03_02gasmc03	pos=X:1042.9252 Y:2666.5137 Z:38.309612	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=164	flags=1572872
+NB	idx=6	arch=cs6_03_gasmc600	pos=X:1043.6871 Y:2664.2742 Z:42.070164	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=165	flags=1572872
+NB	idx=7	arch=cs6_03_ch6_05_officedetails001	pos=X:1043.4406 Y:2657.9026 Z:41.415447	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=167	flags=1572872
+NB	idx=8	arch=cs6_03_gasmc805	pos=X:1044.3483 Y:2662.1462 Z:41.289417	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=9	arch=cs6_03_02gasmc_d06	pos=X:1042.7787 Y:2667.2166 Z:38.629078	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=cs6_03_decal_04	pos=X:1042.5115 Y:2668.0083 Z:39.77015	rotQ=X:0 Y:0 Z:0.40721384 W:0.9133328	lodLevel=LODTYPES_DEPTH_HD	parentIdx=127	flags=1572872
+NB	idx=27	arch=cs6_03_gasmc600_emi	pos=X:1043.6871 Y:2664.2742 Z:42.070164	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=144	flags=1572872
+NB	idx=29	arch=cs6_03_gasmc600_beam	pos=X:1039.5411 Y:2671.2478 Z:40.691807	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=31	arch=prop_arm_wrestle_01	pos=X:1051.6752 Y:2663.61 Z:39.026268	rotQ=X:0 Y:0 Z:0.8269713 W:-0.5622442	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=53	arch=prop_barrel_01a	pos=X:1032.9504 Y:2654.3062 Z:38.995182	rotQ=X:-2.600001E-05 Y:8.3000035E-05 Z:0.99986035 W:0.016712006	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=54	arch=prop_car_battery_01	pos=X:1039.0518 Y:2654.847 Z:39.525703	rotQ=X:0 Y:0 Z:0.98757035 W:-0.15717806	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=57	arch=prop_car_battery_01	pos=X:1040.1101 Y:2654.802 Z:39.525703	rotQ=X:0 Y:0 Z:0.99818057 W:0.060297035	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=prop_bollard_02a	pos=X:1048.5791 Y:2663.5203 Z:38.475487	rotQ=X:0 Y:0 Z:0.013345001 W:0.99991095	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=60	arch=prop_bollard_02a	pos=X:1047.1145 Y:2663.5593 Z:38.475487	rotQ=X:0 Y:0 Z:0.7164808 W:0.6976068	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=61	arch=prop_bollard_02a	pos=X:1045.5911 Y:2675.0554 Z:38.505417	rotQ=X:0 Y:0 Z:0.02692901 W:0.99963737	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=62	arch=prop_bollard_02a	pos=X:1045.5383 Y:2674.0667 Z:38.505417	rotQ=X:0 Y:0 Z:-0.6878091 W:0.72589177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=63	arch=prop_barrel_03d	pos=X:1050.2887 Y:2661.6453 Z:38.999172	rotQ=X:-0.0014209998 Y:-0.0024399995 Z:0.45450288 W:0.89074075	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=64	arch=prop_barrel_03a	pos=X:1033.1447 Y:2657.6345 Z:38.99518	rotQ=X:0.00011600005 Y:0.0002610001 Z:0.9136013 W:-0.40661117	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=65	arch=prop_barrel_03d	pos=X:1033.9553 Y:2654.322 Z:38.995155	rotQ=X:1.3999995E-05 Y:-2.299999E-05 Z:0.44715482 W:0.89445657	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=66	arch=prop_oilcan_01a	pos=X:1037.9297 Y:2654.9363 Z:40.491493	rotQ=X:0 Y:0 Z:0.7258924 W:0.6878084	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=67	arch=prop_oilcan_01a	pos=X:1038.5234 Y:2654.8616 Z:40.491493	rotQ=X:0 Y:0 Z:0.80639684 W:0.5913749	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=71	arch=prop_vend_water_01	pos=X:1048.6326 Y:2661.8738 Z:38.543808	rotQ=X:0 Y:0 Z:0.999911 W:-0.013346001	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=72	arch=prop_phonebox_01b	pos=X:1051.0497 Y:2661.3877 Z:38.52392	rotQ=X:0 Y:0 Z:0.99998325 W:0.005805002	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=74	arch=prop_carcreeper	pos=X:1046.0647 Y:2651.1023 Z:38.55317	rotQ=X:0 Y:0 Z:0.54155284 W:0.8406667	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=76	arch=prop_compressor_01	pos=X:1053.3262 Y:2655.6672 Z:38.55091	rotQ=X:0.0020509998 Y:0.0018019998 Z:0.7522169 W:0.65891	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=77	arch=prop_bollard_02a	pos=X:1045.5383 Y:2667.6467 Z:38.505417	rotQ=X:0 Y:0 Z:-0.6878091 W:0.72589177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=78	arch=prop_bollard_02a	pos=X:1045.5911 Y:2668.6355 Z:38.505417	rotQ=X:0 Y:0 Z:0.02692901 W:0.99963737	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=79	arch=prop_bollard_02a	pos=X:1032.6377 Y:2668.5417 Z:38.49527	rotQ=X:0 Y:0 Z:0.7258924 W:0.6878084	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=80	arch=prop_bollard_02a	pos=X:1032.5845 Y:2667.5544 Z:38.49527	rotQ=X:0 Y:0 Z:0.99963737 W:-0.02692901	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=82	arch=prop_elecbox_22	pos=X:1052.666 Y:2656.382 Z:39.84326	rotQ=X:0 Y:0 Z:0.7071068 W:-0.70710677	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=83	arch=prop_fire_driser_4b	pos=X:1052.5269 Y:2659.5605 Z:39.429405	rotQ=X:0 Y:0 Z:0.7071068 W:-0.70710677	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=84	arch=prop_news_disp_01a	pos=X:1037.0084 Y:2664.3137 Z:38.550728	rotQ=X:0 Y:0 Z:0.9999304 W:0.011808004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=85	arch=prop_news_disp_06a	pos=X:1036.2538 Y:2664.298 Z:38.550842	rotQ=X:0 Y:0 Z:0.99995625 W:-0.009354002	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=86	arch=prop_vintage_pump	pos=X:1035.4424 Y:2667.904 Z:38.70319	rotQ=X:1.9E-05 Y:6E-06 Z:-0.000166 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=88	arch=prop_vintage_pump	pos=X:1043.2194 Y:2674.4456 Z:38.703392	rotQ=X:0.00017599997 Y:-0.00021599994 Z:0.00084999984 W:0.9999996	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=89	arch=prop_vintage_pump	pos=X:1043.2196 Y:2667.9138 Z:38.703453	rotQ=X:0.00024699984 Y:-0.00026299988 Z:0.0009159995 W:0.9999995	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=90	arch=prop_tyre_rack_01	pos=X:1040.707 Y:2664.128 Z:38.97391	rotQ=X:0.00015599994 Y:-1.3999996E-05 Z:-0.0038509984 W:0.99999255	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=92	arch=prop_bin_05a	pos=X:1045.6656 Y:2661.9348 Z:38.553192	rotQ=X:-0.00013700008 Y:-0.0017750011 Z:0.00011000006 W:0.9999984	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=96	arch=prop_fnclink_03a	pos=X:1031.3448 Y:2651.1658 Z:38.550743	rotQ=X:0 Y:0 Z:0.99999166 W:0.0040839985	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=100	arch=prop_flattruck_01d	pos=X:1033.4263 Y:2658.7615 Z:38.550766	rotQ=X:0 Y:0 Z:-0.22940597 W:0.97333086	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=103	arch=prop_roofpipe_06	pos=X:1049.4309 Y:2656.614 Z:42.08571	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=104	arch=prop_roofvent_011a	pos=X:1047.3281 Y:2659.8352 Z:42.108063	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=247	arch=prop_fnclink_03b	pos=X:1031.3448 Y:2651.1658 Z:38.550743	rotQ=X:0 Y:0 Z:0.70421356 W:0.7099883	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=250	arch=prop_radio_01	pos=X:1048.842 Y:2661.8982 Z:40.232628	rotQ=X:0.00011799995 Y:0.00032299984 Z:0.95128465 W:-0.30831388	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=285	arch=prop_weeddry_nxg02	pos=X:1046.6339 Y:2648.3445 Z:38.58915	rotQ=X:0.00059300003 Y:0.035145003 Z:0.9993751 W:-0.0037170004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=287	arch=prop_weeddry_nxg02	pos=X:1035.706 Y:2648.3962 Z:38.58915	rotQ=X:0.00059300003 Y:0.035145003 Z:0.9993751 W:-0.0037170004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=288	arch=prop_weeddead_nxg02	pos=X:1034.3011 Y:2660.6335 Z:38.507378	rotQ=X:-0.024839008 Y:0.024869006 Z:0.69775015 W:0.7154783	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=289	arch=prop_vend_snak_01	pos=X:1047.571 Y:2661.902 Z:39.470436	rotQ=X:0 Y:0 Z:0.9999975 W:0.0022670012	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN sp1_03_wall_01_o update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap idx=5
+NO PARENT (parentIdx=-1)
+NEIGHBOURS within 15m in same ymap:
+NB	idx=7	arch=sp1_03_build_001_d	pos=X:-600.07947 Y:-1668.104 Z:21.177185	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=11	arch=sp1_03_cloth_placeholder	pos=X:-599.3208 Y:-1645.3324 Z:26.855453	rotQ=X:0 Y:0 Z:0.91311014 W:-0.40771303	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=25	arch=sp1_03__hd_fizzing_053	pos=X:-598.31006 Y:-1653.6932 Z:26.76564	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=sp1_03__hd_fizzing_0675	pos=X:-594.4756 Y:-1655.2548 Z:19.69432	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=43	arch=sp1_03_grunglas_45	pos=X:-598.8092 Y:-1662.7091 Z:18.84018	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=44	arch=sp1_03_grunglas_42	pos=X:-595.33105 Y:-1656.4537 Z:18.784897	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=sp1_03_build_001wd	pos=X:-599.3374 Y:-1653.691 Z:25.258072	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=93	arch=prop_watercrate_01	pos=X:-595.67926 Y:-1655.5415 Z:18.855042	rotQ=X:-0.05645798 Y:0.021790994 Z:0.17475395 W:0.9827506	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=94	arch=prop_barrel_01a	pos=X:-594.88824 Y:-1656.1348 Z:19.288635	rotQ=X:-0.052274983 Y:0.03403299 Z:-0.00016499993 W:0.9980526	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=95	arch=prop_barrel_01a	pos=X:-596.3647 Y:-1656.299 Z:19.193817	rotQ=X:-0.020348992 Y:0.00095999974 Z:-0.02390499 W:0.99950665	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=97	arch=prop_rub_planks_01	pos=X:-594.2024 Y:-1656.1459 Z:19.348358	rotQ=X:0.2305911 Y:-0.0036390023 Z:0.12658204 W:0.9647754	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572899
+NB	idx=98	arch=prop_pallet_02a	pos=X:-589.469 Y:-1655.0927 Z:19.424164	rotQ=X:-0.3494672 Y:0.47674325 Z:-0.42437518 W:0.685926	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=99	arch=prop_rub_carpart_05	pos=X:-589.9275 Y:-1656.1425 Z:18.47818	rotQ=X:-0.027079016 Y:-0.029876018 Z:-0.0008100005 W:0.9991864	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=102	arch=prop_barrel_01a	pos=X:-601.82153 Y:-1667.9698 Z:19.079742	rotQ=X:-0.05963602 Y:-0.036978006 Z:0.3292291 W:0.94163924	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=103	arch=prop_barrel_01a	pos=X:-601.6032 Y:-1667.4076 Z:19.146759	rotQ=X:-0.05561301 Y:-0.04127501 Z:0.3811441 W:0.921918	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=106	arch=prop_watercrate_01	pos=X:-602.78534 Y:-1668.354 Z:18.677063	rotQ=X:-0.04360799 Y:-0.035345994 Z:-0.4226889 W:0.9045347	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=149	arch=prop_wall_light_01a	pos=X:-594.90466 Y:-1652.7798 Z:22.172852	rotQ=X:0 Y:0 Z:0.25881898 W:0.9659258	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=170	arch=prop_rub_boxpile_02	pos=X:-596.84485 Y:-1661.9843 Z:18.91742	rotQ=X:-0.009994998 Y:-0.016211994 Z:-0.46211088 W:0.88661766	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=176	arch=prop_rub_boxpile_02	pos=X:-606.5241 Y:-1666.26 Z:19.225769	rotQ=X:-0.05326701 Y:0.03507301 Z:0.13246903 W:0.9891332	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=199	arch=prop_rub_monitor	pos=X:-596.678 Y:-1666.328 Z:18.73642	rotQ=X:-0.025067003 Y:-0.022452004 Z:0.0035650006 W:0.99942726	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=262	arch=prop_oiltub_02	pos=X:-599.5186 Y:-1658.283 Z:19.083984	rotQ=X:-0.046102993 Y:-0.07702499 Z:0.07922498 W:0.9928067	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=263	arch=prop_rub_cage01a	pos=X:-599.9095 Y:-1659.6626 Z:18.990234	rotQ=X:-0.055474013 Y:-0.072195016 Z:0.004071001 W:0.99583834	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=265	arch=prop_rub_litter_07	pos=X:-596.6929 Y:-1666.3186 Z:18.516724	rotQ=X:-0.011750001 Y:-0.016546002 Z:-0.00019400004 W:0.99979407	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=266	arch=prop_rub_litter_07	pos=X:-594.426 Y:-1656.6051 Z:18.797394	rotQ=X:-0.051427983 Y:-0.071291976 Z:0.9761766 W:0.19837292	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=270	arch=prop_rub_litter_07	pos=X:-599.15 Y:-1658.7913 Z:18.966064	rotQ=X:-0.027296992 Y:-0.05619198 Z:-0.0015369995 W:0.99804556	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=317	arch=prop_weeddry_nxg01	pos=X:-590.35913 Y:-1652.8059 Z:18.73941	rotQ=X:-0.0046169977 Y:0.008034997 Z:-0.49820173 W:0.8670116	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=319	arch=prop_weeds_nxg08b	pos=X:-604.6688 Y:-1665.8702 Z:18.897766	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=323	arch=prop_weeds_nxg07b	pos=X:-595.14716 Y:-1656.7998 Z:18.622986	rotQ=X:0.036787998 Y:-0.023436997 Z:0.8425889 W:-0.5367879	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN cs6_03_05gasmc01 update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03_strm_1.ymap idx=10
+PARENT	update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03.ymap	idx=163	arch=cs6_03_05gasmc01_lod	pos=X:1042.8253 Y:2660.6191 Z:40.037056	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=60	parentIdx=1
+SIBLING	idx=10	arch=cs6_03_05gasmc01	pos=X:1042.8273 Y:2660.618 Z:40.099934	lodLevel=LODTYPES_DEPTH_HD
+PARENT	update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03.ymap	idx=163	arch=cs6_03_05gasmc01_lod	pos=X:1042.8253 Y:2660.6191 Z:40.037056	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=60	parentIdx=1
+SIBLING	idx=10	arch=cs6_03_05gasmc01	pos=X:1042.8273 Y:2660.618 Z:40.099934	lodLevel=LODTYPES_DEPTH_HD
+PARENT	x64u.rpf\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03.ymap	idx=163	arch=cs6_03_05gasmc01_lod	pos=X:1042.8253 Y:2660.6191 Z:40.037056	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=60	parentIdx=1
+SIBLING	idx=10	arch=cs6_03_05gasmc01	pos=X:1042.8273 Y:2660.618 Z:40.099934	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=1	arch=cs6_03_gasmc_d04	pos=X:1043.4222 Y:2658.2488 Z:40.683414	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=2	arch=cs6_03_gasmc_d02	pos=X:1043.4264 Y:2663.6306 Z:40.913105	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=3	arch=cs6_03_gasmc708	pos=X:1039.6144 Y:2659.4236 Z:41.2047	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=4	arch=cs6_03_gasmc_d05	pos=X:1042.8478 Y:2658.5989 Z:40.452183	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=5	arch=cs6_03_02gasmc03	pos=X:1042.9252 Y:2666.5137 Z:38.309612	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=164	flags=1572872
+NB	idx=6	arch=cs6_03_gasmc600	pos=X:1043.6871 Y:2664.2742 Z:42.070164	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=165	flags=1572872
+NB	idx=7	arch=cs6_03_ch6_05_officedetails001	pos=X:1043.4406 Y:2657.9026 Z:41.415447	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=167	flags=1572872
+NB	idx=8	arch=cs6_03_gasmc805	pos=X:1044.3483 Y:2662.1462 Z:41.289417	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=9	arch=cs6_03_02gasmc_d06	pos=X:1042.7787 Y:2667.2166 Z:38.629078	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=cs6_03_decal_04	pos=X:1042.5115 Y:2668.0083 Z:39.77015	rotQ=X:0 Y:0 Z:0.40721384 W:0.9133328	lodLevel=LODTYPES_DEPTH_HD	parentIdx=127	flags=1572872
+NB	idx=27	arch=cs6_03_gasmc600_emi	pos=X:1043.6871 Y:2664.2742 Z:42.070164	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=144	flags=1572872
+NB	idx=29	arch=cs6_03_gasmc600_beam	pos=X:1039.5411 Y:2671.2478 Z:40.691807	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=31	arch=prop_arm_wrestle_01	pos=X:1051.6752 Y:2663.61 Z:39.026268	rotQ=X:0 Y:0 Z:0.8269713 W:-0.5622442	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=53	arch=prop_barrel_01a	pos=X:1032.9504 Y:2654.3062 Z:38.995182	rotQ=X:-2.600001E-05 Y:8.3000035E-05 Z:0.99986035 W:0.016712006	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=54	arch=prop_car_battery_01	pos=X:1039.0518 Y:2654.847 Z:39.525703	rotQ=X:0 Y:0 Z:0.98757035 W:-0.15717806	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=57	arch=prop_car_battery_01	pos=X:1040.1101 Y:2654.802 Z:39.525703	rotQ=X:0 Y:0 Z:0.99818057 W:0.060297035	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=prop_bollard_02a	pos=X:1048.5791 Y:2663.5203 Z:38.475487	rotQ=X:0 Y:0 Z:0.013345001 W:0.99991095	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=60	arch=prop_bollard_02a	pos=X:1047.1145 Y:2663.5593 Z:38.475487	rotQ=X:0 Y:0 Z:0.7164808 W:0.6976068	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=61	arch=prop_bollard_02a	pos=X:1045.5911 Y:2675.0554 Z:38.505417	rotQ=X:0 Y:0 Z:0.02692901 W:0.99963737	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=62	arch=prop_bollard_02a	pos=X:1045.5383 Y:2674.0667 Z:38.505417	rotQ=X:0 Y:0 Z:-0.6878091 W:0.72589177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=63	arch=prop_barrel_03d	pos=X:1050.2887 Y:2661.6453 Z:38.999172	rotQ=X:-0.0014209998 Y:-0.0024399995 Z:0.45450288 W:0.89074075	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=64	arch=prop_barrel_03a	pos=X:1033.1447 Y:2657.6345 Z:38.99518	rotQ=X:0.00011600005 Y:0.0002610001 Z:0.9136013 W:-0.40661117	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=65	arch=prop_barrel_03d	pos=X:1033.9553 Y:2654.322 Z:38.995155	rotQ=X:1.3999995E-05 Y:-2.299999E-05 Z:0.44715482 W:0.89445657	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=66	arch=prop_oilcan_01a	pos=X:1037.9297 Y:2654.9363 Z:40.491493	rotQ=X:0 Y:0 Z:0.7258924 W:0.6878084	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=67	arch=prop_oilcan_01a	pos=X:1038.5234 Y:2654.8616 Z:40.491493	rotQ=X:0 Y:0 Z:0.80639684 W:0.5913749	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=71	arch=prop_vend_water_01	pos=X:1048.6326 Y:2661.8738 Z:38.543808	rotQ=X:0 Y:0 Z:0.999911 W:-0.013346001	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=72	arch=prop_phonebox_01b	pos=X:1051.0497 Y:2661.3877 Z:38.52392	rotQ=X:0 Y:0 Z:0.99998325 W:0.005805002	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=74	arch=prop_carcreeper	pos=X:1046.0647 Y:2651.1023 Z:38.55317	rotQ=X:0 Y:0 Z:0.54155284 W:0.8406667	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=76	arch=prop_compressor_01	pos=X:1053.3262 Y:2655.6672 Z:38.55091	rotQ=X:0.0020509998 Y:0.0018019998 Z:0.7522169 W:0.65891	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=77	arch=prop_bollard_02a	pos=X:1045.5383 Y:2667.6467 Z:38.505417	rotQ=X:0 Y:0 Z:-0.6878091 W:0.72589177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=78	arch=prop_bollard_02a	pos=X:1045.5911 Y:2668.6355 Z:38.505417	rotQ=X:0 Y:0 Z:0.02692901 W:0.99963737	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=79	arch=prop_bollard_02a	pos=X:1032.6377 Y:2668.5417 Z:38.49527	rotQ=X:0 Y:0 Z:0.7258924 W:0.6878084	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=80	arch=prop_bollard_02a	pos=X:1032.5845 Y:2667.5544 Z:38.49527	rotQ=X:0 Y:0 Z:0.99963737 W:-0.02692901	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=82	arch=prop_elecbox_22	pos=X:1052.666 Y:2656.382 Z:39.84326	rotQ=X:0 Y:0 Z:0.7071068 W:-0.70710677	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=83	arch=prop_fire_driser_4b	pos=X:1052.5269 Y:2659.5605 Z:39.429405	rotQ=X:0 Y:0 Z:0.7071068 W:-0.70710677	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=84	arch=prop_news_disp_01a	pos=X:1037.0084 Y:2664.3137 Z:38.550728	rotQ=X:0 Y:0 Z:0.9999304 W:0.011808004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=85	arch=prop_news_disp_06a	pos=X:1036.2538 Y:2664.298 Z:38.550842	rotQ=X:0 Y:0 Z:0.99995625 W:-0.009354002	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=86	arch=prop_vintage_pump	pos=X:1035.4424 Y:2667.904 Z:38.70319	rotQ=X:1.9E-05 Y:6E-06 Z:-0.000166 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=88	arch=prop_vintage_pump	pos=X:1043.2194 Y:2674.4456 Z:38.703392	rotQ=X:0.00017599997 Y:-0.00021599994 Z:0.00084999984 W:0.9999996	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=89	arch=prop_vintage_pump	pos=X:1043.2196 Y:2667.9138 Z:38.703453	rotQ=X:0.00024699984 Y:-0.00026299988 Z:0.0009159995 W:0.9999995	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=90	arch=prop_tyre_rack_01	pos=X:1040.707 Y:2664.128 Z:38.97391	rotQ=X:0.00015599994 Y:-1.3999996E-05 Z:-0.0038509984 W:0.99999255	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=92	arch=prop_bin_05a	pos=X:1045.6656 Y:2661.9348 Z:38.553192	rotQ=X:-0.00013700008 Y:-0.0017750011 Z:0.00011000006 W:0.9999984	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=96	arch=prop_fnclink_03a	pos=X:1031.3448 Y:2651.1658 Z:38.550743	rotQ=X:0 Y:0 Z:0.99999166 W:0.0040839985	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=100	arch=prop_flattruck_01d	pos=X:1033.4263 Y:2658.7615 Z:38.550766	rotQ=X:0 Y:0 Z:-0.22940597 W:0.97333086	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=103	arch=prop_roofpipe_06	pos=X:1049.4309 Y:2656.614 Z:42.08571	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=104	arch=prop_roofvent_011a	pos=X:1047.3281 Y:2659.8352 Z:42.108063	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=247	arch=prop_fnclink_03b	pos=X:1031.3448 Y:2651.1658 Z:38.550743	rotQ=X:0 Y:0 Z:0.70421356 W:0.7099883	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=250	arch=prop_radio_01	pos=X:1048.842 Y:2661.8982 Z:40.232628	rotQ=X:0.00011799995 Y:0.00032299984 Z:0.95128465 W:-0.30831388	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=285	arch=prop_weeddry_nxg02	pos=X:1046.6339 Y:2648.3445 Z:38.58915	rotQ=X:0.00059300003 Y:0.035145003 Z:0.9993751 W:-0.0037170004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=287	arch=prop_weeddry_nxg02	pos=X:1035.706 Y:2648.3962 Z:38.58915	rotQ=X:0.00059300003 Y:0.035145003 Z:0.9993751 W:-0.0037170004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=288	arch=prop_weeddead_nxg02	pos=X:1034.3011 Y:2660.6335 Z:38.507378	rotQ=X:-0.024839008 Y:0.024869006 Z:0.69775015 W:0.7154783	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=289	arch=prop_vend_snak_01	pos=X:1047.571 Y:2661.902 Z:39.470436	rotQ=X:0 Y:0 Z:0.9999975 W:0.0022670012	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN sp1_03_wall_01_o x64m.rpf\levels\gta5\_cityw\sanpedro_01\sanpedro_metadata.rpf\sp1_03_strm_0.ymap idx=5
+NO PARENT (parentIdx=-1)
+NEIGHBOURS within 15m in same ymap:
+NB	idx=7	arch=sp1_03_build_001_d	pos=X:-600.07947 Y:-1668.104 Z:21.177185	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=11	arch=sp1_03_cloth_placeholder	pos=X:-599.3208 Y:-1645.3324 Z:26.855453	rotQ=X:0 Y:0 Z:0.91311014 W:-0.40771303	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=25	arch=sp1_03__hd_fizzing_053	pos=X:-598.31006 Y:-1653.6932 Z:26.76564	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=sp1_03__hd_fizzing_0675	pos=X:-594.4756 Y:-1655.2548 Z:19.69432	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=43	arch=sp1_03_grunglas_45	pos=X:-598.8092 Y:-1662.7091 Z:18.84018	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=44	arch=sp1_03_grunglas_42	pos=X:-595.33105 Y:-1656.4537 Z:18.784897	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=sp1_03_build_001wd	pos=X:-599.3374 Y:-1653.691 Z:25.258072	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=93	arch=prop_watercrate_01	pos=X:-595.67926 Y:-1655.5415 Z:18.855042	rotQ=X:-0.05645798 Y:0.021790994 Z:0.17475395 W:0.9827506	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=94	arch=prop_barrel_01a	pos=X:-594.88824 Y:-1656.1348 Z:19.288635	rotQ=X:-0.052274983 Y:0.03403299 Z:-0.00016499993 W:0.9980526	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=95	arch=prop_barrel_01a	pos=X:-596.3647 Y:-1656.299 Z:19.193817	rotQ=X:-0.020348992 Y:0.00095999974 Z:-0.02390499 W:0.99950665	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=97	arch=prop_rub_planks_01	pos=X:-594.2024 Y:-1656.1459 Z:19.348358	rotQ=X:0.2305911 Y:-0.0036390023 Z:0.12658204 W:0.9647754	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572899
+NB	idx=98	arch=prop_pallet_02a	pos=X:-589.469 Y:-1655.0927 Z:19.424164	rotQ=X:-0.3494672 Y:0.47674325 Z:-0.42437518 W:0.685926	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=99	arch=prop_rub_carpart_05	pos=X:-589.9275 Y:-1656.1425 Z:18.47818	rotQ=X:-0.027079016 Y:-0.029876018 Z:-0.0008100005 W:0.9991864	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=102	arch=prop_barrel_01a	pos=X:-601.82153 Y:-1667.9698 Z:19.079742	rotQ=X:-0.05963602 Y:-0.036978006 Z:0.3292291 W:0.94163924	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=103	arch=prop_barrel_01a	pos=X:-601.6032 Y:-1667.4076 Z:19.146759	rotQ=X:-0.05561301 Y:-0.04127501 Z:0.3811441 W:0.921918	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=106	arch=prop_watercrate_01	pos=X:-602.78534 Y:-1668.354 Z:18.677063	rotQ=X:-0.04360799 Y:-0.035345994 Z:-0.4226889 W:0.9045347	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=149	arch=prop_wall_light_01a	pos=X:-594.90466 Y:-1652.7798 Z:22.172852	rotQ=X:0 Y:0 Z:0.25881898 W:0.9659258	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=170	arch=prop_rub_boxpile_02	pos=X:-596.84485 Y:-1661.9843 Z:18.91742	rotQ=X:-0.009994998 Y:-0.016211994 Z:-0.46211088 W:0.88661766	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=176	arch=prop_rub_boxpile_02	pos=X:-606.5241 Y:-1666.26 Z:19.225769	rotQ=X:-0.05326701 Y:0.03507301 Z:0.13246903 W:0.9891332	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=199	arch=prop_rub_monitor	pos=X:-596.678 Y:-1666.328 Z:18.73642	rotQ=X:-0.025067003 Y:-0.022452004 Z:0.0035650006 W:0.99942726	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=262	arch=prop_oiltub_02	pos=X:-599.5186 Y:-1658.283 Z:19.083984	rotQ=X:-0.046102993 Y:-0.07702499 Z:0.07922498 W:0.9928067	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=263	arch=prop_rub_cage01a	pos=X:-599.9095 Y:-1659.6626 Z:18.990234	rotQ=X:-0.055474013 Y:-0.072195016 Z:0.004071001 W:0.99583834	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=265	arch=prop_rub_litter_07	pos=X:-596.6929 Y:-1666.3186 Z:18.516724	rotQ=X:-0.011750001 Y:-0.016546002 Z:-0.00019400004 W:0.99979407	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=266	arch=prop_rub_litter_07	pos=X:-594.426 Y:-1656.6051 Z:18.797394	rotQ=X:-0.051427983 Y:-0.071291976 Z:0.9761766 W:0.19837292	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=270	arch=prop_rub_litter_07	pos=X:-599.15 Y:-1658.7913 Z:18.966064	rotQ=X:-0.027296992 Y:-0.05619198 Z:-0.0015369995 W:0.99804556	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=317	arch=prop_weeddry_nxg01	pos=X:-590.35913 Y:-1652.8059 Z:18.73941	rotQ=X:-0.0046169977 Y:0.008034997 Z:-0.49820173 W:0.8670116	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=319	arch=prop_weeds_nxg08b	pos=X:-604.6688 Y:-1665.8702 Z:18.897766	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=323	arch=prop_weeds_nxg07b	pos=X:-595.14716 Y:-1656.7998 Z:18.622986	rotQ=X:0.036787998 Y:-0.023436997 Z:0.8425889 W:-0.5367879	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+## CHAIN ch2_04_wall10 x64o.rpf\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\ch2_04_strm_1.ymap idx=104
+PARENT	x64o.rpf\levels\gta5\_hills\cityhills_02\cityhills_02_metadata.rpf\ch2_04.ymap	idx=395	arch=3091872848	pos=X:512.0173 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=400	childLodDist=100	parentIdx=32
+SIBLING	idx=104	arch=ch2_04_wall10	pos=X:512.01733 Y:276.2346 Z:103.58545	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=100	arch=ch2_04_wall10dcal	pos=X:511.18808 Y:276.34988 Z:103.60045	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+## CHAIN cs6_03_05gasmc01 x64u.rpf\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03_strm_1.ymap idx=10
+PARENT	update\x64\dlcpacks\patchday1ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03.ymap	idx=163	arch=cs6_03_05gasmc01_lod	pos=X:1042.8253 Y:2660.6191 Z:40.037056	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=60	parentIdx=1
+SIBLING	idx=10	arch=cs6_03_05gasmc01	pos=X:1042.8273 Y:2660.618 Z:40.099934	lodLevel=LODTYPES_DEPTH_HD
+PARENT	update\x64\dlcpacks\patchday2ng\dlc.rpf\x64\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03.ymap	idx=163	arch=cs6_03_05gasmc01_lod	pos=X:1042.8253 Y:2660.6191 Z:40.037056	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=60	parentIdx=1
+SIBLING	idx=10	arch=cs6_03_05gasmc01	pos=X:1042.8273 Y:2660.618 Z:40.099934	lodLevel=LODTYPES_DEPTH_HD
+PARENT	x64u.rpf\levels\gta5\_hills\country_06\country_06_metadata.rpf\cs6_03.ymap	idx=163	arch=cs6_03_05gasmc01_lod	pos=X:1042.8253 Y:2660.6191 Z:40.037056	lodLevel=LODTYPES_DEPTH_LOD	numChildren=1	lodDist=500	childLodDist=60	parentIdx=1
+SIBLING	idx=10	arch=cs6_03_05gasmc01	pos=X:1042.8273 Y:2660.618 Z:40.099934	lodLevel=LODTYPES_DEPTH_HD
+NEIGHBOURS within 15m in same ymap:
+NB	idx=1	arch=cs6_03_gasmc_d04	pos=X:1043.4222 Y:2658.2488 Z:40.683414	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=2	arch=cs6_03_gasmc_d02	pos=X:1043.4264 Y:2663.6306 Z:40.913105	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=3	arch=cs6_03_gasmc708	pos=X:1039.6144 Y:2659.4236 Z:41.2047	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=4	arch=cs6_03_gasmc_d05	pos=X:1042.8478 Y:2658.5989 Z:40.452183	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=5	arch=cs6_03_02gasmc03	pos=X:1042.9252 Y:2666.5137 Z:38.309612	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=164	flags=1572872
+NB	idx=6	arch=cs6_03_gasmc600	pos=X:1043.6871 Y:2664.2742 Z:42.070164	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=165	flags=1572872
+NB	idx=7	arch=cs6_03_ch6_05_officedetails001	pos=X:1043.4406 Y:2657.9026 Z:41.415447	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=167	flags=1572872
+NB	idx=8	arch=cs6_03_gasmc805	pos=X:1044.3483 Y:2662.1462 Z:41.289417	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=9	arch=cs6_03_02gasmc_d06	pos=X:1042.7787 Y:2667.2166 Z:38.629078	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=26	arch=cs6_03_decal_04	pos=X:1042.5115 Y:2668.0083 Z:39.77015	rotQ=X:0 Y:0 Z:0.40721384 W:0.9133328	lodLevel=LODTYPES_DEPTH_HD	parentIdx=127	flags=1572872
+NB	idx=27	arch=cs6_03_gasmc600_emi	pos=X:1043.6871 Y:2664.2742 Z:42.070164	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_HD	parentIdx=144	flags=1572872
+NB	idx=29	arch=cs6_03_gasmc600_beam	pos=X:1039.5411 Y:2671.2478 Z:40.691807	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=31	arch=prop_arm_wrestle_01	pos=X:1051.6752 Y:2663.61 Z:39.026268	rotQ=X:0 Y:0 Z:0.8269713 W:-0.5622442	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=53	arch=prop_barrel_01a	pos=X:1032.9504 Y:2654.3062 Z:38.995182	rotQ=X:-2.600001E-05 Y:8.3000035E-05 Z:0.99986035 W:0.016712006	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=54	arch=prop_car_battery_01	pos=X:1039.0518 Y:2654.847 Z:39.525703	rotQ=X:0 Y:0 Z:0.98757035 W:-0.15717806	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=57	arch=prop_car_battery_01	pos=X:1040.1101 Y:2654.802 Z:39.525703	rotQ=X:0 Y:0 Z:0.99818057 W:0.060297035	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=59	arch=prop_bollard_02a	pos=X:1048.5791 Y:2663.5203 Z:38.475487	rotQ=X:0 Y:0 Z:0.013345001 W:0.99991095	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=60	arch=prop_bollard_02a	pos=X:1047.1145 Y:2663.5593 Z:38.475487	rotQ=X:0 Y:0 Z:0.7164808 W:0.6976068	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=61	arch=prop_bollard_02a	pos=X:1045.5911 Y:2675.0554 Z:38.505417	rotQ=X:0 Y:0 Z:0.02692901 W:0.99963737	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=62	arch=prop_bollard_02a	pos=X:1045.5383 Y:2674.0667 Z:38.505417	rotQ=X:0 Y:0 Z:-0.6878091 W:0.72589177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=63	arch=prop_barrel_03d	pos=X:1050.2887 Y:2661.6453 Z:38.999172	rotQ=X:-0.0014209998 Y:-0.0024399995 Z:0.45450288 W:0.89074075	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=64	arch=prop_barrel_03a	pos=X:1033.1447 Y:2657.6345 Z:38.99518	rotQ=X:0.00011600005 Y:0.0002610001 Z:0.9136013 W:-0.40661117	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=65	arch=prop_barrel_03d	pos=X:1033.9553 Y:2654.322 Z:38.995155	rotQ=X:1.3999995E-05 Y:-2.299999E-05 Z:0.44715482 W:0.89445657	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=66	arch=prop_oilcan_01a	pos=X:1037.9297 Y:2654.9363 Z:40.491493	rotQ=X:0 Y:0 Z:0.7258924 W:0.6878084	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=67	arch=prop_oilcan_01a	pos=X:1038.5234 Y:2654.8616 Z:40.491493	rotQ=X:0 Y:0 Z:0.80639684 W:0.5913749	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=71	arch=prop_vend_water_01	pos=X:1048.6326 Y:2661.8738 Z:38.543808	rotQ=X:0 Y:0 Z:0.999911 W:-0.013346001	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572867
+NB	idx=72	arch=prop_phonebox_01b	pos=X:1051.0497 Y:2661.3877 Z:38.52392	rotQ=X:0 Y:0 Z:0.99998325 W:0.005805002	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=74	arch=prop_carcreeper	pos=X:1046.0647 Y:2651.1023 Z:38.55317	rotQ=X:0 Y:0 Z:0.54155284 W:0.8406667	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=76	arch=prop_compressor_01	pos=X:1053.3262 Y:2655.6672 Z:38.55091	rotQ=X:0.0020509998 Y:0.0018019998 Z:0.7522169 W:0.65891	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=77	arch=prop_bollard_02a	pos=X:1045.5383 Y:2667.6467 Z:38.505417	rotQ=X:0 Y:0 Z:-0.6878091 W:0.72589177	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=78	arch=prop_bollard_02a	pos=X:1045.5911 Y:2668.6355 Z:38.505417	rotQ=X:0 Y:0 Z:0.02692901 W:0.99963737	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=79	arch=prop_bollard_02a	pos=X:1032.6377 Y:2668.5417 Z:38.49527	rotQ=X:0 Y:0 Z:0.7258924 W:0.6878084	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=80	arch=prop_bollard_02a	pos=X:1032.5845 Y:2667.5544 Z:38.49527	rotQ=X:0 Y:0 Z:0.99963737 W:-0.02692901	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=82	arch=prop_elecbox_22	pos=X:1052.666 Y:2656.382 Z:39.84326	rotQ=X:0 Y:0 Z:0.7071068 W:-0.70710677	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=83	arch=prop_fire_driser_4b	pos=X:1052.5269 Y:2659.5605 Z:39.429405	rotQ=X:0 Y:0 Z:0.7071068 W:-0.70710677	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=84	arch=prop_news_disp_01a	pos=X:1037.0084 Y:2664.3137 Z:38.550728	rotQ=X:0 Y:0 Z:0.9999304 W:0.011808004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=85	arch=prop_news_disp_06a	pos=X:1036.2538 Y:2664.298 Z:38.550842	rotQ=X:0 Y:0 Z:0.99995625 W:-0.009354002	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=86	arch=prop_vintage_pump	pos=X:1035.4424 Y:2667.904 Z:38.70319	rotQ=X:1.9E-05 Y:6E-06 Z:-0.000166 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=88	arch=prop_vintage_pump	pos=X:1043.2194 Y:2674.4456 Z:38.703392	rotQ=X:0.00017599997 Y:-0.00021599994 Z:0.00084999984 W:0.9999996	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=89	arch=prop_vintage_pump	pos=X:1043.2196 Y:2667.9138 Z:38.703453	rotQ=X:0.00024699984 Y:-0.00026299988 Z:0.0009159995 W:0.9999995	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=90	arch=prop_tyre_rack_01	pos=X:1040.707 Y:2664.128 Z:38.97391	rotQ=X:0.00015599994 Y:-1.3999996E-05 Z:-0.0038509984 W:0.99999255	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=92	arch=prop_bin_05a	pos=X:1045.6656 Y:2661.9348 Z:38.553192	rotQ=X:-0.00013700008 Y:-0.0017750011 Z:0.00011000006 W:0.9999984	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=96	arch=prop_fnclink_03a	pos=X:1031.3448 Y:2651.1658 Z:38.550743	rotQ=X:0 Y:0 Z:0.99999166 W:0.0040839985	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=100	arch=prop_flattruck_01d	pos=X:1033.4263 Y:2658.7615 Z:38.550766	rotQ=X:0 Y:0 Z:-0.22940597 W:0.97333086	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=103	arch=prop_roofpipe_06	pos=X:1049.4309 Y:2656.614 Z:42.08571	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=104	arch=prop_roofvent_011a	pos=X:1047.3281 Y:2659.8352 Z:42.108063	rotQ=X:0 Y:0 Z:0 W:1	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572866
+NB	idx=247	arch=prop_fnclink_03b	pos=X:1031.3448 Y:2651.1658 Z:38.550743	rotQ=X:0 Y:0 Z:0.70421356 W:0.7099883	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=250	arch=prop_radio_01	pos=X:1048.842 Y:2661.8982 Z:40.232628	rotQ=X:0.00011799995 Y:0.00032299984 Z:0.95128465 W:-0.30831388	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=285	arch=prop_weeddry_nxg02	pos=X:1046.6339 Y:2648.3445 Z:38.58915	rotQ=X:0.00059300003 Y:0.035145003 Z:0.9993751 W:-0.0037170004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=287	arch=prop_weeddry_nxg02	pos=X:1035.706 Y:2648.3962 Z:38.58915	rotQ=X:0.00059300003 Y:0.035145003 Z:0.9993751 W:-0.0037170004	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=288	arch=prop_weeddead_nxg02	pos=X:1034.3011 Y:2660.6335 Z:38.507378	rotQ=X:-0.024839008 Y:0.024869006 Z:0.69775015 W:0.7154783	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+NB	idx=289	arch=prop_vend_snak_01	pos=X:1047.571 Y:2661.902 Z:39.470436	rotQ=X:0 Y:0 Z:0.9999975 W:0.0022670012	lodLevel=LODTYPES_DEPTH_ORPHANHD	parentIdx=-1	flags=1572864
+done
