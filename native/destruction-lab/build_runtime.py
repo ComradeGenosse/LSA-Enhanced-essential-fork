@@ -13,6 +13,8 @@ source = source.replace(anchor, '            case "labsurvey": LabSurvey(a); bre
 anchor = '    // ===================================================================== lab geometry'
 assert source.count(anchor) == 1
 source = source.replace(anchor, (HERE / 'Survey.inc.cs').read_text() + '\n' + anchor)
+from environment_patch import apply_environment
+source = apply_environment(source)
 dest = Path(sys.argv[1])
 dest.mkdir(parents=True, exist_ok=True)
 (dest / 'WpsBreachLabX7.3.cs').write_bytes(source.encode('utf-8'))
