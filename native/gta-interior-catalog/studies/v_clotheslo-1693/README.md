@@ -35,3 +35,16 @@ The analysis transforms every primary MLO entity with its own inverse raw rotati
 Archive variants/resolutions are reported separately. Their union is a coverage query, not a simulated active game scene. Entity sets are recorded by the reader but not claimed active by the geometry analysis. This limitation cannot change the NO-GO: the shared shell/world collision owners alone already preclude a simple isolated replacement.
 
 Do not commit `focused.jsonl`, resource exports, the CodeWalker DLLs, textures, game keys or other proprietary payloads. The final `provenance.json` records their hashes/identities without distributing them.
+
+## Offline cut continuation
+
+See [CUT-PLAN.md](CUT-PLAN.md) for the implemented partition oracle, exact scope,
+instance-specific clone/rebind plan and deployment blockers. Run the public
+synthetic/preservation suite with:
+
+```sh
+python -m pip install numpy==2.2.6 scipy==1.15.3
+python -m unittest discover -s native/gta-interior-catalog/studies/v_clotheslo-1693 -p 'test_*.py' -v
+```
+
+The actual private-geometry replay has not been performed in this continuation.
