@@ -1,0 +1,45 @@
+# Operating lessons from recent PRs — evidence audit (2026-10-23)
+
+**Scope:** Reviewed PRs #265–#272, #282 and the complete recent X7→X8/operator chain #297–#311. This is an **audit of portable operating practices**, not an assertion that those PRs are merged, deployed or all live-tested. Read live PR status and current source before reuse.
+
+## What actually improved the workflow
+
+| Evidence | What worked / failure learned | Reusable rule |
+| --- | --- | --- |
+| [#297](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/297) | Old sender could accept mismatched replies or runtime exceptions; designed durable fenced controller, exact receipts, UNKNOWN reconciliation | One owner, correlation IDs, never interpret a timeout as "didn't happen" |
+| [#298](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/298) | Integrated P2, but one GTA run still failed despite command completion; 6/9 original collision. Python 3.10 did not parse certain .NET timestamps; Afterburner preset invocation canceled | Distinguish tool/protocol success from real effects, restore witnesses and telemetry; verify actual active power, not preset click |
+| [#299](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/299) | Durable Windows Claude↔Codex handoff queue passed actual three-hop test; still not a GTA ownership lock; ended child process may survive | Separate worktrees, structured handoffs, bounded hops, no assumed Desktop↔CLI continuity, reconciled UNKNOWN, named PC operator |
+| [#300](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/300) | Timing failure was a tiny TTC/horizon gap; existing supported argument fixed bounded X7.2c without changing physics; 9/9 and rollback passed | Root-cause evidence before hot-path changes; prefer existing controls and one accepted trial |
+| [#301](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/301) | Center section choice and physical walkability can diverge because of *foreign* obstruction | Grade correct selection/fracture separately from environment and walking; never bias selector to make the demonstration pass |
+| [#303](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/303) – [#305](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/305) | Repeated "no eligible RPG" failures had absent rejected-candidate identity; adding bounded read-only rejection samples exposed baseline exclusion pattern; restore failed even with perfect file hashes | Preserve failed evidence; add only diagnostic data that distinguishes hypotheses; separate game-world vs disk rollback |
+| [#306](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/306) – [#307](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/307) | Two-frame trajectory provenance recovered legitimate RPG with reused baseline handle; native two-section fracture/traversal and 9/9 accepted once; distinct exposed-original failure remains open | Handle identity/provenance must be verified; do not generalize one happy-path PASS to failure-path recovery |
+| [#309](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/309) | X8 A source existed but approach rays saw ambiguous collision; zero shots fired | Preflight real geometry/ground/approaches *before* destructive test; unknown collisions stop the test |
+| [#310](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/310) | Many "valid archive but no YMAP" revisions failed. The **exact same lab YMAP** worked in NVE's known-good loader, proving standalone registration/lookup was the difference; no specific fix yet | One controlled same-binary positive/negative comparison beats repeated speculative metadata edits |
+| [#310 evidence `e2505be4` and `dcb708d`](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/dcb708d/native/destruction-lab/evidence/20261023-cleanup-validation/RESULTS.md) | X8 falsely failed because it tracked *all* nearby debris handles, including a projectile and an object seen at fence B. Fixed verifier distinguished positively owned roots/debris from unverified ambient. Two genuine RPGs, both 1m traversals, both 9/9 restorations and zero verified remnants passed | Never equate "new nearby handle" with "ours"; preserve unverified entities and log them separately. Stale PR #310 description still said cleanup FAIL after the PASS evidence push |
+| [#311](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/311) | Opt-in lab environment flags are reversible only to varying degrees; dispatch/police settings lack verified prior-value getters, and population suppression is per-frame global when enabled | Do not silently enable cheats, claim exact restoration of unknown state, or change test conditions without opt-in |
+| [#265](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/265), [#266](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/266) | Source coverage and reason-coded correlation repaired invisible LSA faults | Use existing structured/sanitized telemetry and identifiers instead of ad-hoc screenshots or new dashboards |
+| [#270](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/270), [#272](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/272), [#282](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/282) | Capability inventories and one-ZIP offline analysis help distinguish disabled, unavailable, not exercised and proven; missing optional log roots should not downgrade unrelated health | Treat instrumentation coverage and capability readiness separately from successful world/feature execution; hash-check artifacts and protect privacy |
+
+## Specific operator/tool improvements worth retaining
+
+1. **P2 fenced command protocol** (experimental branch): write one request at a time, retain session/fence/request IDs, expected PID/loaded UTC/SHA, same-owner reconcile on ambiguous result, collect exact run folders. This is the biggest improvement over GUI/legacy file senders.
+2. **Automated walk/traverse and collision oracle** from X7/X8: `TASK_GO_STRAIGHT_TO_COORD`-based actual player passage instead of blindly holding W, plus original source 9/9 and neighbor evidence.
+3. **Read-only GPU power check**: `Test-GpuPowerLimit.ps1` reads saved Afterburner Profile1 cap and current NVIDIA power telemetry, without clicking a preset. It **only** verifies power.
+4. **Reversible DLSS isolation**: stopped-game rename of `renodx-dlss.addon64` and `renodx-dlss-hotkey.addon64` with exact hashes/absence restoration, proven in X8. Do not generalize to other assets.
+5. **Exact-build smoke and deterministic source generation**: detect changed generated driver/selector after refactors; CI before GTA. An actual loaded script hash and runtime session is stronger than code compiled on a different branch.
+6. **Small diagnostic discriminators**: same binary through a known-working archive (`#310`), verified ownership before deletion (`#310`), baseline projectile handle corroborated over multiple frames (`#306`).
+7. **Result hygiene**: failed trials immutable, approval budget counts actual shots, performance >50ms check uses observed frame window, clean file rollback reported separately from in-world restoration.
+8. **Small reviews with bounded effort**: a dedicated reviewer can catch source/evidence mismatches, but silence or timeout from another agent is UNKNOWN; do not waste requests or infer a review completed.
+
+## Still missing / should not be papered over
+
+- Standalone X8 DLC registration remains unresolved. The NVE-backed two-fence test proved the *authoring* and fracture pipeline but is not a standalone loader fix.
+- A successful restored original does not validate the distinct failure path where an exposed original was damaged before any swap (tracked separately from X8).
+- Directly tracking GUI/Afterburner *full preset* settings has not been implemented; a power-cap reading is narrower.
+- Stacked unmerged experimental branches do not transmit policy to `main` or future independently based PRs. A newly merged root policy solves **discovery**, not actual agent compliance or retroactive branch synchronization.
+- An existing PR title/body or historical runbook may report a superseded failure. Always compare against latest successful evidence and edit active summaries when results change.
+- The Claude↔Codex queue is not a security boundary and cannot grant permission to take over a GUI, bypass approval or run an installer.
+
+## Source and adoption
+
+The policies distilled here are implemented in [OPERATING-STANDARD.md](OPERATING-STANDARD.md) and [GTA-PC-PLAYBOOK.md](GTA-PC-PLAYBOOK.md); root `AGENTS.md` and `CLAUDE.md` direct agents there. GitHub's PR template requests evidence and current-runtime claims; the light docs/PowerShell checks do **not** validate actual PC behavior. Avoid reintroducing the entire experimental X7/X8 branch merely to carry these rules into `main`.
