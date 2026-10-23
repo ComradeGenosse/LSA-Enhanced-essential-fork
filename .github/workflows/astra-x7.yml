@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - 'native/fragment-x7/**'
+      - 'native/destruction-props/**'
       - 'tools/gta-controller/**'
       - '.github/workflows/astra-x7.yml'
       - 'docs/next-gen-gameplay/astra-001/16-X7*'
@@ -29,6 +30,10 @@ jobs:
         run: |
           python -m unittest discover -s tools/gta-controller -p 'test_smoke_x73.py' -v
           python -m unittest discover -s tools/gta-controller -p 'test_smoke_x72c.py' -v
+      - name: X8 owned-entity cleanup regression (compiled C#, no GTA)
+        run: |
+          python native/destruction-props/test_x8_source.py
+          python native/destruction-props/test_x8_cleanup.py
       - name: Generator source and live integration guards
         run: |
           python native/fragment-x7/test_live_selector_source.py
