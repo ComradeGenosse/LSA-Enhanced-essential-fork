@@ -47,7 +47,7 @@ class X9OfflineTests(unittest.TestCase):
         qualified["localQualification"]["gates"] = {g: True for g in recipe.GATES}
         result = recipe.create_plan(qualified)
         self.assertEqual(result["status"], "OPERATOR_ATTESTED_PLAN_NOT_DEPLOYABLE")
-        self.assertIn("source collision", " ".join(result["mustProveLocally"]))
+        self.assertIn("world collision", " ".join(result["mustProveLocally"]))
         qualified["localQualification"]["gates"]["noResidualYbnCollision"] = False
         self.assertRejected(qualified)
 
@@ -69,7 +69,7 @@ class X9OfflineTests(unittest.TestCase):
 
     def test_exact_evidence_bool_gates(self):
         for mutation in [
-            lambda d: d["localQualification"]["gates"].pop("modelAssetReload", None),
+            lambda d: d["localQualification"]["gates"].pop("installedModelAndCodeWalkerReload", None),
             lambda d: d["localQualification"]["gates"].update({"extra": True}),
             lambda d: d["localQualification"]["gates"].update({"installedModelAndCodeWalkerReload": 1}),
             lambda d: d["localQualification"].update({"evidenceId": "bad id"}),
