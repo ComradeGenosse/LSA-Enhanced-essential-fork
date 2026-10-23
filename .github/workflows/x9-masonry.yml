@@ -1,0 +1,39 @@
+name: X9 masonry offline source and candidate gates
+on:
+  pull_request:
+    paths:
+      - 'native/destruction-masonry/**'
+      - '.github/workflows/x9-masonry.yml'
+  workflow_dispatch:
+
+jobs:
+  masonry-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate source and immutable X8 base
+        run: |
+          python -m py_compile native/destruction-masonry/recipe.py native/destruction-masonry/build_runtime.py
+          python -m unittest discover -s native/destruction-masonry -p 'test_*.py' -v
+          python native/destruction-masonry/recipe.py --fixture --output "$RUNNER_TEMP/x9-plan-a"
+          python native/destruction-masonry/recipe.py --fixture --output "$RUNNER_TEMP/x9-plan-b"
+          diff -ru "$RUNNER_TEMP/x9-plan-a" "$RUNNER_TEMP/x9-plan-b"
+          test -f "$RUNNER_TEMP/x9-plan-a/NOT_DEPLOYABLE.txt"
+          if python native/destruction-masonry/recipe.py --proposal native/destruction-masonry/proposal.template.json --output "$RUNNER_TEMP/refused"; then
+            echo "ERROR: unaudited candidate accepted" >&2
+            exit 1
+          fi
+          test ! -e "$RUNNER_TEMP/refused/masonry-plan.json"
+          python native/destruction-masonry/build_runtime.py "$RUNNER_TEMP/x9-driver-a"
+          python native/destruction-masonry/build_runtime.py "$RUNNER_TEMP/x9-driver-b"
+          diff -ru "$RUNNER_TEMP/x9-driver-a" "$RUNNER_TEMP/x9-driver-b"
+          git diff --exit-code -- native/fragment-x7/WpsBreachLabX7.3.cs
+          grep -q 'case "x9survey": X9Survey(a); break;' "$RUNNER_TEMP/x9-driver-a/WpsBreachLabX7.3.cs"
+          grep -q 'case "x8shot":' "$RUNNER_TEMP/x9-driver-a/WpsBreachLabX7.3.cs"
+          grep -q 'READ_ONLY_UNQUALIFIED' "$RUNNER_TEMP/x9-driver-a/WpsBreachLabX7.3.cs"
+      - name: Existing X8 pure catalog regressions
+        run: dotnet run --project native/destruction-props/tests/X8Tests.csproj --configuration Release

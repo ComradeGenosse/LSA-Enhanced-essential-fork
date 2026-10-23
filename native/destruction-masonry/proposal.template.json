@@ -1,0 +1,23 @@
+{
+  "_comment": "LOCAL UNTRACKED COPY ONLY. Never invent dimensions, witnesses or evidence. This committed template must be rejected.",
+  "schema": 1,
+  "sourceModel": "prop_wallbrick_01",
+  "dimensions": {
+    "widthM": null,
+    "heightM": null,
+    "thicknessM": null
+  },
+  "localQualification": {
+    "evidenceId": "",
+    "gates": {
+      "installedModelAndCodeWalkerReload": false,
+      "genuineWorldSourceAtTwoSites": false,
+      "sourceBoundsAndPivotMeasured": false,
+      "sourceCollisionNineOfNine": false,
+      "noForeignOrResidualYbnCollision": false,
+      "lodAndOcclusionIsolated": false,
+      "walkAndFiringLanesClear": false,
+      "neighborHideScopeIsolated": false
+    }
+  }
+}
