@@ -1,0 +1,35 @@
+name: X9 interior catalog offline gates
+on:
+  pull_request:
+    paths:
+      - 'native/gta-interior-catalog/**'
+      - '.github/workflows/x9-interior-catalog.yml'
+  workflow_dispatch:
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile, unit-test and validate committed catalog
+        working-directory: native/gta-interior-catalog
+        run: |
+          python -m py_compile interior_catalog.py collect_provenance.py
+          python -W error::ResourceWarning -m unittest discover -s tests -v
+          python interior_catalog.py validate --out catalog
+          python - <<'PY'
+          import json
+          c = json.load(open('catalog/candidates.json'))
+          assert 1 <= len(c['candidates']) <= 5, 'candidate count'
+          assert 'NOT prove' in c['disclaimer']
+          cov = json.load(open('catalog/coverage.json'))
+          assert cov['provenance']['gameExeSha256'], 'missing provenance'
+          print('catalog counts:', cov['counts'])
+          PY
+      - name: No proprietary asset files committed
+        run: |
+          if git ls-files native/gta-interior-catalog | grep -Ei '\.(rpf|ydr|yft|ydd|ybn|ytd|dll|exe|dds)$'; then echo "asset files found"; exit 1; fi

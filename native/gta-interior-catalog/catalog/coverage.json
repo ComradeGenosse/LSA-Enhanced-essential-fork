@@ -1,0 +1,1179 @@
+{
+ "asset_presence_by_name": {
+  "entities_with_model_file": 70054,
+  "entities_without_model_file": 160
+ },
+ "counts": {
+  "entity_sets": 2276,
+  "exit_portals": 2195,
+  "instance_records": 1752,
+  "interior_entities": 70214,
+  "interiors_unique": 392,
+  "interiors_without_placement": 10,
+  "nearby_structure_rows": 6191,
+  "placements_conflict": 1,
+  "placements_unique": 806,
+  "placements_with_exit_portal": 745,
+  "portals": 3561,
+  "rooms": 2216,
+  "variants_differing_interiors": 42,
+  "variants_ytyp_defs": 570,
+  "ymaps_scanned": 21331
+ },
+ "limitations": [
+  "Metadata only: no collision (YBN polygon) ownership, no mesh geometry, no runtime/GTA verification.",
+  "Layer precedence (base < update < DLC < NVE) is an ASSUMPTION; variants are all listed, none is proven active.",
+  "Story-mode/offline accessibility is a heuristic (layer/DLC/name patterns), not verified; exit portals prove room topology only, not a physical doorway or reachable street.",
+  "Exterior structures are large non-prop models near an instance (bounds from YTYP); association with the interior's building is a guess.",
+  "Large-model scan keeps only HD-style entities with footprint >= 6 m and height >= 2.5 m and drops names matching vegetation/road/prop patterns; smaller walls are not indexed.",
+  "Entity names unresolved by CodeWalker's hash index appear as numeric hashes.",
+  "YMAP files whose strings/entities CodeWalker could not parse are logged in the raw run logs and are not in the catalog."
+ ],
+ "name_resolution": {
+  "interior_entities_resolved": 70114,
+  "interior_entities_total": 70214,
+  "interiors_resolved": 391
+ },
+ "placements_by_layer_combo": {
+  "base": 239,
+  "base,update-dlc_patch,update-dlcpack": 116,
+  "base,update-dlc_patch,update-dlcpack,onigiri-nve": 1,
+  "base,update-dlcpack": 122,
+  "update-dlc_patch": 4,
+  "update-dlc_patch,update-dlcpack": 41,
+  "update-dlcpack": 283
+ },
+ "provenance": {
+  "archiveCount": 199,
+  "archives": [
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "common.rpf",
+    "size": 19351552
+   },
+   {
+    "mtimeUtc": "2026-10-06T22:42:46Z",
+    "path": "onigiri\\dlcpacks\\forest_n\\dlc.rpf",
+    "size": 25811968
+   },
+   {
+    "mtimeUtc": "2025-04-04T16:44:50Z",
+    "path": "onigiri\\dlcpacks\\forest_s\\dlc.rpf",
+    "size": 39506944
+   },
+   {
+    "mtimeUtc": "2025-05-24T18:35:24Z",
+    "path": "onigiri\\dlcpacks\\LARoadsEnhanced\\dlc.rpf",
+    "size": 1946473984
+   },
+   {
+    "mtimeUtc": "2026-10-21T11:21:14Z",
+    "path": "onigiri\\dlcpacks\\lsa_destruct\\dlc.rpf",
+    "size": 10240
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:20Z",
+    "path": "onigiri\\dlcpacks\\NVE\\dlc.rpf",
+    "size": 175235584
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:21Z",
+    "path": "onigiri\\dlcpacks\\NVE_2\\dlc.rpf",
+    "size": 189830656
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:22Z",
+    "path": "onigiri\\dlcpacks\\NVE_3\\dlc.rpf",
+    "size": 535996928
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:24Z",
+    "path": "onigiri\\dlcpacks\\NVE_interiors\\dlc.rpf",
+    "size": 841273344
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:24Z",
+    "path": "onigiri\\dlcpacks\\NVE_lights\\dlc.rpf",
+    "size": 40085504
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:25Z",
+    "path": "onigiri\\dlcpacks\\NVE_patches\\dlc.rpf",
+    "size": 74765312
+   },
+   {
+    "mtimeUtc": "2026-10-23T15:25:12Z",
+    "path": "onigiri\\dlcpacks\\NVE_props_addon\\dlc.rpf",
+    "size": 44497920
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:26Z",
+    "path": "onigiri\\dlcpacks\\NVE_props_replace\\dlc.rpf",
+    "size": 407033856
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:33Z",
+    "path": "onigiri\\dlcpacks\\NVE_roads\\dlc.rpf",
+    "size": 2765131776
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:33Z",
+    "path": "onigiri\\dlcpacks\\NVE_update\\dlc.rpf",
+    "size": 111279104
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:34Z",
+    "path": "onigiri\\dlcpacks\\NVE_vegetation\\dlc.rpf",
+    "size": 430188544
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:38Z",
+    "path": "onigiri\\dlcpacks\\NVE_vehicles\\dlc.rpf",
+    "size": 937184768
+   },
+   {
+    "mtimeUtc": "2025-03-30T00:11:16Z",
+    "path": "onigiri\\dlcpacks\\vegetation_reflection\\dlc.rpf",
+    "size": 19876864
+   },
+   {
+    "mtimeUtc": "2025-03-29T22:07:42Z",
+    "path": "onigiri\\dlcpacks\\vegetation_reflection_cayo\\dlc.rpf",
+    "size": 7736832
+   },
+   {
+    "mtimeUtc": "2025-04-04T16:44:42Z",
+    "path": "onigiri\\dlcpacks\\vremastered\\dlc.rpf",
+    "size": 53812736
+   },
+   {
+    "mtimeUtc": "2026-09-26T13:32:38Z",
+    "path": "onigiri\\platform\\levels\\gta5\\cloudhats\\v_clouds.rpf",
+    "size": 39436288
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\update.rpf",
+    "size": 3122239488
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\update2.rpf",
+    "size": 656195584
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2023_01\\dlc.rpf",
+    "size": 726145024
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2023_01_g9ec\\dlc.rpf",
+    "size": 43253760
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2023_02\\dlc.rpf",
+    "size": 1254557696
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2023_02_g9ec\\dlc.rpf",
+    "size": 50159616
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2024_01\\dlc.rpf",
+    "size": 962050048
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2024_01_g9ec\\dlc.rpf",
+    "size": 27115520
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2024_02\\dlc.rpf",
+    "size": 878538752
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2024_02_G9EC\\dlc.rpf",
+    "size": 18855936
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2025_01\\dlc.rpf",
+    "size": 1103048704
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2025_01_G9EC\\dlc.rpf",
+    "size": 22784000
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2025_02\\dlc.rpf",
+    "size": 1128505344
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2025_02_g9ec\\dlc.rpf",
+    "size": 17782784
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2026_01\\dlc.rpf",
+    "size": 643246080
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mp2026_01_G9EC\\dlc.rpf",
+    "size": 28653568
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpairraces\\dlc.rpf",
+    "size": 67823616
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpapartment\\dlc.rpf",
+    "size": 520589312
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpassault\\dlc.rpf",
+    "size": 289947648
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpbattle\\dlc.rpf",
+    "size": 1625075712
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpbattle\\dlc1.rpf",
+    "size": 1153142784
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf",
+    "size": 1541324800
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpchristmas2017\\dlc.rpf",
+    "size": 1944444928
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpchristmas2018\\dlc.rpf",
+    "size": 2900039680
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpchristmas2\\dlc.rpf",
+    "size": 59267072
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpchristmas3\\dlc.rpf",
+    "size": 1410299904
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpchristmas3_g9ec\\dlc.rpf",
+    "size": 65601536
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpexecutive\\dlc.rpf",
+    "size": 611624960
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpg9ec\\dlc.rpf",
+    "size": 164663296
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpgunrunning\\dlc.rpf",
+    "size": 1715116032
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mphalloween\\dlc.rpf",
+    "size": 94490624
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpheist3\\dlc.rpf",
+    "size": 1607426048
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpheist4\\dlc.rpf",
+    "size": 2027569152
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpheist4\\dlc1.rpf",
+    "size": 2039289856
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpheist4\\dlc2.rpf",
+    "size": 1310058496
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpheist\\dlc.rpf",
+    "size": 2438424576
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpimportexport\\dlc.rpf",
+    "size": 803790848
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpjanuary2016\\dlc.rpf",
+    "size": 149553152
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mplowrider2\\dlc.rpf",
+    "size": 323579904
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf",
+    "size": 863016960
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpluxe2\\dlc.rpf",
+    "size": 262643712
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpluxe\\dlc.rpf",
+    "size": 183494656
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mppatchesng\\dlc.rpf",
+    "size": 482383872
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpreplay\\dlc.rpf",
+    "size": 226906112
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpsecurity\\dlc.rpf",
+    "size": 1546426368
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpsecurity\\dlc1.rpf",
+    "size": 1061971968
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpsmuggler\\dlc.rpf",
+    "size": 930809856
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpspecialraces\\dlc.rpf",
+    "size": 73021440
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpstunt\\dlc.rpf",
+    "size": 328601600
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpsum2\\dlc.rpf",
+    "size": 1196195840
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpSum2_G9EC\\dlc.rpf",
+    "size": 39528448
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpsum\\dlc.rpf",
+    "size": 909754368
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mptuner\\dlc.rpf",
+    "size": 1430607872
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mptuner\\dlc1.rpf",
+    "size": 938035200
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpvalentines2\\dlc.rpf",
+    "size": 25157632
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpvinewood\\dlc.rpf",
+    "size": 1542258688
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\mpxmas_604490\\dlc.rpf",
+    "size": 46075904
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patch2023_01\\dlc.rpf",
+    "size": 138958848
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patch2023_01_g9ec\\dlc.rpf",
+    "size": 2015232
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patch2023_02\\dlc.rpf",
+    "size": 12337152
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patch2024_01\\dlc.rpf",
+    "size": 339249152
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patch2024_01_g9ec\\dlc.rpf",
+    "size": 14557184
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patch2024_02\\dlc.rpf",
+    "size": 239439872
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patch2025_01\\dlc.rpf",
+    "size": 584841216
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patch2025_02\\dlc.rpf",
+    "size": 330504192
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patch2025_02_g9ec\\dlc.rpf",
+    "size": 49786880
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patch2026_01\\dlc.rpf",
+    "size": 226430976
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday10ng\\dlc.rpf",
+    "size": 91332608
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday11ng\\dlc.rpf",
+    "size": 9971712
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday12ng\\dlc.rpf",
+    "size": 155611136
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday13ng\\dlc.rpf",
+    "size": 144959488
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday14ng\\dlc.rpf",
+    "size": 92295168
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday15ng\\dlc.rpf",
+    "size": 47585280
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday16ng\\dlc.rpf",
+    "size": 12095488
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday17ng\\dlc.rpf",
+    "size": 59971584
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday18ng\\dlc.rpf",
+    "size": 4421632
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday19ng\\dlc.rpf",
+    "size": 766709760
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday1ng\\dlc.rpf",
+    "size": 418295808
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday20ng\\dlc.rpf",
+    "size": 457187328
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday21ng\\dlc.rpf",
+    "size": 1121652736
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday22ng\\dlc.rpf",
+    "size": 694579200
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday23ng\\dlc.rpf",
+    "size": 90945536
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday24ng\\dlc.rpf",
+    "size": 392112128
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday25ng\\dlc.rpf",
+    "size": 95232000
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday26ng\\dlc.rpf",
+    "size": 530845696
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday27g9ecng\\dlc.rpf",
+    "size": 34981888
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday27ng\\dlc.rpf",
+    "size": 317534208
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday28g9ecng\\dlc.rpf",
+    "size": 3880960
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday28ng\\dlc.rpf",
+    "size": 177139712
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday2bng\\dlc.rpf",
+    "size": 24428544
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf",
+    "size": 738998272
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday3ng\\dlc.rpf",
+    "size": 1684379648
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday4ng\\dlc.rpf",
+    "size": 301434880
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday5ng\\dlc.rpf",
+    "size": 8056832
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday6ng\\dlc.rpf",
+    "size": 31911936
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday7ng\\dlc.rpf",
+    "size": 42227712
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday8ng\\dlc.rpf",
+    "size": 364943360
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchday9ng\\dlc.rpf",
+    "size": 160800768
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "update\\x64\\dlcpacks\\patchdayg9ecng\\dlc.rpf",
+    "size": 772112384
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\audio_rel.rpf",
+    "size": 3196928
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\occlusion.rpf",
+    "size": 710656
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\ANIMALS.rpf",
+    "size": 661504
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\ANIMALS_FAR.rpf",
+    "size": 22233088
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\ANIMALS_NEAR.rpf",
+    "size": 64845824
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\CUTSCENE_MASTERED_ONLY.rpf",
+    "size": 668479488
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\DLC_GTAO.rpf",
+    "size": 2998272
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\INTERACTIVE_MUSIC.rpf",
+    "size": 1302747136
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\ONESHOT_AMBIENCE.rpf",
+    "size": 69648384
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\PAIN.rpf",
+    "size": 42629120
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\POLICE_SCANNER.rpf",
+    "size": 68509696
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\PROLOGUE.rpf",
+    "size": 20891648
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_01_CLASS_ROCK.rpf",
+    "size": 201703424
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_02_POP.rpf",
+    "size": 208388096
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_03_HIPHOP_NEW.rpf",
+    "size": 152463360
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_04_PUNK.rpf",
+    "size": 60669952
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_05_TALK_01.rpf",
+    "size": 61075456
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_06_COUNTRY.rpf",
+    "size": 71409664
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_07_DANCE_01.rpf",
+    "size": 55183360
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_08_MEXICAN.rpf",
+    "size": 53006336
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_09_HIPHOP_OLD.rpf",
+    "size": 153858048
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_11_TALK_02.rpf",
+    "size": 54034432
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_12_REGGAE.rpf",
+    "size": 103510016
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_13_JAZZ.rpf",
+    "size": 163555328
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_14_DANCE_02.rpf",
+    "size": 97224704
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_15_MOTOWN.rpf",
+    "size": 95492096
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_16_SILVERLAKE.rpf",
+    "size": 197795840
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_17_FUNK.rpf",
+    "size": 116545536
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_18_90S_ROCK.rpf",
+    "size": 88092672
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_ADVERTS.rpf",
+    "size": 95027200
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RADIO_NEWS.rpf",
+    "size": 85831680
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\RESIDENT.rpf",
+    "size": 112785408
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\S_FULL_AMB_F.rpf",
+    "size": 199186432
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\S_FULL_AMB_M.rpf",
+    "size": 307007488
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\S_FULL_GAN.rpf",
+    "size": 127801344
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\S_FULL_SER.rpf",
+    "size": 240799744
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\S_MINI_AMB.rpf",
+    "size": 286803968
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\S_MINI_GAN.rpf",
+    "size": 347924480
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\S_MINI_SER.rpf",
+    "size": 215773184
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\S_MISC.rpf",
+    "size": 341921792
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\SCRIPT.rpf",
+    "size": 237871104
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\SS_AC.rpf",
+    "size": 288010240
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\SS_DE.rpf",
+    "size": 100837376
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\SS_FF.rpf",
+    "size": 497778688
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\SS_GM.rpf",
+    "size": 265234432
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\SS_NP.rpf",
+    "size": 144775168
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\SS_QR.rpf",
+    "size": 125306880
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\SS_ST.rpf",
+    "size": 178001920
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\SS_UZ.rpf",
+    "size": 4855808
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\STREAMED_AMBIENCE.rpf",
+    "size": 29767680
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\STREAMED_VEHICLES.rpf",
+    "size": 43388928
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\STREAMED_VEHICLES_GRANULAR.rpf",
+    "size": 207796224
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\STREAMED_VEHICLES_GRANULAR_NPC.rpf",
+    "size": 42283008
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\STREAMED_VEHICLES_LOW_LATENCY.rpf",
+    "size": 569344
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\STREAMS.rpf",
+    "size": 422133760
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64\\audio\\sfx\\WEAPONS_PLAYER.rpf",
+    "size": 3883008
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64a.rpf",
+    "size": 101433344
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64b.rpf",
+    "size": 205651968
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64c.rpf",
+    "size": 1845954560
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64d.rpf",
+    "size": 1794203648
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64e.rpf",
+    "size": 2067353600
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64f.rpf",
+    "size": 834557952
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64g.rpf",
+    "size": 2276556800
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64h.rpf",
+    "size": 1214193664
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64i.rpf",
+    "size": 1384208384
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64j.rpf",
+    "size": 1678678016
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64k.rpf",
+    "size": 1899888640
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64l.rpf",
+    "size": 2050156544
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64m.rpf",
+    "size": 1461764096
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64n.rpf",
+    "size": 1444841472
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64o.rpf",
+    "size": 1533937664
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64p.rpf",
+    "size": 1301690368
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64q.rpf",
+    "size": 2482229248
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64r.rpf",
+    "size": 1534547968
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64s.rpf",
+    "size": 1471709184
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64t.rpf",
+    "size": 1644965888
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64u.rpf",
+    "size": 1173688320
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64v.rpf",
+    "size": 1940961280
+   },
+   {
+    "mtimeUtc": "2026-09-20T19:24:12Z",
+    "path": "x64w.rpf",
+    "size": 863301632
+   }
+  ],
+  "codewalkerBuild": "CodeWalker30_dev48",
+  "codewalkerCoreSha256": "f08e8fb273c8c080d438508685b3b158db6b531a856d03be2514c46bf2e1b03a",
+  "collectedUtc": "2026-10-23T18:54:47Z",
+  "dotnetVersion": "unknown",
+  "extractorLogErrorLines": 0,
+  "extractorSourceSha256": {
+   "Extractor.cs": "35dbda6c1e6c713d8fd46561e554ac4e266de27aa5b46557367e94e853e3360f",
+   "extractor.csproj": "8a50fd71a7e38a77dc3ec0261a4c592c370ad6d80e61507afcb9bc134112afd8"
+  },
+  "extractorVersion": "1",
+  "gameExe": "GTA5_Enhanced.exe",
+  "gameExeSha256": "69da07ff67d05e9ded11289e597e8b8dc5855b0a429c085f37d148dc267cb2c5",
+  "gameExeSize": 55819384,
+  "note": "Archives are identified by relative path, size and mtime only. No archive contents are stored.",
+  "rawFiles": [
+   {
+    "bytes": 40801475,
+    "lines": 161888,
+    "name": "archetypes-0.tsv",
+    "sha256": "c7ac5fb0b870da10471c695629b4f8ef6631a387bdf4b7a1dd863234e742d200"
+   },
+   {
+    "bytes": 47141804,
+    "lines": 186372,
+    "name": "archetypes-1.tsv",
+    "sha256": "d4fc67d3fcd2f877805859988287ff40436901b1cdc894b24ae19b01f9402539"
+   },
+   {
+    "bytes": 4824663,
+    "lines": 41510,
+    "name": "ents-0.tsv",
+    "sha256": "15db0ffb633233e9fb58aa643a1e802dcda08db2c8a21a7bb650ecea014a16ef"
+   },
+   {
+    "bytes": 4698303,
+    "lines": 40394,
+    "name": "ents-1.tsv",
+    "sha256": "7c41c1ee637ed4bb96fb1760867230260d87bc50d8015741bcee4e6d6345c164"
+   },
+   {
+    "bytes": 5037462,
+    "lines": 43137,
+    "name": "ents-2.tsv",
+    "sha256": "d0ab22aa24b38a525d1fa865a4d1a60cbacc1ac375393137309ac36ffcfda981"
+   },
+   {
+    "bytes": 4911611,
+    "lines": 42059,
+    "name": "ents-3.tsv",
+    "sha256": "90e4844b78a5379eb2d35a242db9e9e52bc4aee6daea4a8f75c9180a00caee90"
+   },
+   {
+    "bytes": 30339892,
+    "lines": 212164,
+    "name": "files.tsv",
+    "sha256": "ad961560a8568a93ea2fee237d99243bedfdf70ddc8c68b9c45e352dcef3e5b1"
+   },
+   {
+    "bytes": 353862,
+    "lines": 440,
+    "name": "mlo-inst-0.jsonl",
+    "sha256": "6f3c79fccdfe185e5d71828ec52d790bc9d0c6b66c2c9bf0535dfe35d5ccaf31"
+   },
+   {
+    "bytes": 347827,
+    "lines": 431,
+    "name": "mlo-inst-1.jsonl",
+    "sha256": "a70e3ce5298ec54ee7f41cbfef88072e85fb085f1a43c31d7b57c8897c1dd849"
+   },
+   {
+    "bytes": 341914,
+    "lines": 423,
+    "name": "mlo-inst-2.jsonl",
+    "sha256": "902091c58ce61bfd311628d1856010a81fa8d2f1c05d4f9662087a72e77dd4f7"
+   },
+   {
+    "bytes": 368979,
+    "lines": 458,
+    "name": "mlo-inst-3.jsonl",
+    "sha256": "2bd1638b460672fb5bf56c8d04786530a42157a493bbe197794b2a55be2a3277"
+   },
+   {
+    "bytes": 10619850,
+    "lines": 296,
+    "name": "mlo-ytyp-0.jsonl",
+    "sha256": "888b223f3cc352fb0eaaa2b0c3a175013d942a470a9b57b8ea15669c7e7c7a9e"
+   },
+   {
+    "bytes": 9137351,
+    "lines": 274,
+    "name": "mlo-ytyp-1.jsonl",
+    "sha256": "07fcf2ba94faaff425411efc119a4f1cb9329b84aed7de9ba61215d7e66c15ee"
+   },
+   {
+    "bytes": 889550,
+    "lines": 5333,
+    "name": "ymaps-0.tsv",
+    "sha256": "af90936dfba41022b8d6a1734ceecc653ee2a3b7d8dbd9a1f36589c7c180ef31"
+   },
+   {
+    "bytes": 888520,
+    "lines": 5333,
+    "name": "ymaps-1.tsv",
+    "sha256": "5b4235fe7748fdf8f14d3ad694f76fb683f5632de87ce85801f6e6d3412ecf90"
+   },
+   {
+    "bytes": 889655,
+    "lines": 5333,
+    "name": "ymaps-2.tsv",
+    "sha256": "1a069bc90dc7ac99c62cbe2291eb4e46316b8523842319a93aeafc63c8311e2d"
+   },
+   {
+    "bytes": 890399,
+    "lines": 5332,
+    "name": "ymaps-3.tsv",
+    "sha256": "be257bc367e15afb54209fdb94386230a7adad3447178e2c4c721b478b8d21b6"
+   }
+  ],
+  "tool": "gta-interior-catalog"
+ },
+ "schema_version": 1,
+ "transform_validation": {
+  "convention": "stored YMAP rotation (x,y,z,w) applied as-is",
+  "entities_checked": 117930,
+  "entities_inside_ymap_extents": 117791,
+  "entities_outside_extents": 139,
+  "tolerance_m": 3
+ },
+ "variants_by_layer": {
+  "base": 228,
+  "onigiri-nve": 16,
+  "update-dlc_patch": 5,
+  "update-dlcpack": 321
+ }
+}

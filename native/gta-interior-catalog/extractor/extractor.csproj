@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>disable</Nullable>
+    <AssemblyName>extractor</AssemblyName>
+    <CodeWalkerDir Condition="'$(CodeWalkerDir)'==''">../cw</CodeWalkerDir>
+    <NoWarn>$(NoWarn);CS8632;NU1701</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="CodeWalker.Core"><HintPath>$(CodeWalkerDir)/CodeWalker.Core.dll</HintPath></Reference>
+    <Reference Include="SharpDX"><HintPath>$(CodeWalkerDir)/SharpDX.dll</HintPath></Reference>
+    <Reference Include="SharpDX.Mathematics"><HintPath>$(CodeWalkerDir)/SharpDX.Mathematics.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>
