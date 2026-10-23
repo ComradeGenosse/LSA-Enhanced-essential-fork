@@ -1,0 +1,30 @@
+name: Agent operating procedures (static)
+on:
+  pull_request:
+    paths:
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'docs/agent-operations/**'
+      - 'tools/operator-preflight/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+      - '.github/workflows/agent-operating-procedures.yml'
+  workflow_dispatch:
+
+jobs:
+  docs-and-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify agent entry points and read-only preflight contract
+        run: python -m unittest discover -s tools/operator-preflight -p 'test_*.py' -v
+      - name: Parse GPU preflight PowerShell without running or changing hardware
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile('tools/operator-preflight/Test-GpuPowerLimit.ps1', [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Out-Host; exit 1 }
