@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 import numpy as np
 from cut_verifier import (LOW, HIGH, area, split_triangle, split_box, volume,
-                          partition, verify)
+                          partition, verify, cuttable_owner)
 
 
 class CutTests(unittest.TestCase):
@@ -65,6 +65,17 @@ class CutTests(unittest.TestCase):
     def test_bad_input(self):
         for typ, pts in [('Sphere', [[0, 0, 0]]), ('Triangle', [[float('nan'), 0, 0]]*3)]:
             with self.assertRaises(ValueError): partition({'type': typ, 'points': pts}, True)
+
+    def test_missing_authorized_identity(self):
+        # The public oracle must fail closed too, not just run_private's adapter.
+        with self.assertRaisesRegex(ValueError, 'missing authorized'):
+            verify([], {}, {'missing-reviewed-wall'})
+
+    def test_intersection_does_not_authorize_vegetation(self):
+        self.assertFalse(cuttable_owner({'name': 'prop_weeddead_nxg02'}))
+        self.assertFalse(cuttable_owner({'name': 'v_51_clothing02'}))
+        self.assertFalse(cuttable_owner({'name': 'v_clotheslo', 'child': 'root/0'}))
+        self.assertTrue(cuttable_owner({'name': 'v_clotheslo', 'child': 'root/1'}))
 
     def test_reviewed_evidence_coverage(self):
         e = json.loads(Path(__file__).with_name('evidence.json').read_text())

@@ -13,6 +13,18 @@ from scipy.spatial import ConvexHull, QhullError
 
 LOW = np.array([-7.8, -3., .18])
 HIGH = np.array([-7.1, -1.5, 2.48])
+# Intersecting vegetation is evidence of an obstacle, not permission to cut it.
+# These are the reviewed structural/visual wall dependencies from #320.
+CUTTABLE_NAMES = frozenset({
+    'cs2_01_clothshop', 'cs2_01_shop_dec2', 'cs2_01_clothshop_lod', '1814693341',
+    'v_51_v_clotheslo', 'v_51_main_det', 'v_51_main_ovl', 'v_51_v_shadowmap',
+    'v_51_ducttapeshad', 'v_51_reflectproxy', 'cs2_01_5', 'hi@cs2_01_8', 'v_clotheslo',
+})
+
+
+def cuttable_owner(group):
+    return (group['name'] in CUTTABLE_NAMES and
+            not (group['name'] == 'v_clotheslo' and group.get('child') == 'root/0'))
 
 
 def planes():
@@ -131,7 +143,14 @@ def verify(source, candidate, allowed):
     """
     if len({r['key'] for r in source}) != len(source):
         raise ValueError('duplicate source identity')
+    if not set(allowed) <= {r['key'] for r in source}:
+        raise ValueError('missing authorized source identity')
     expected = {r['key']: partition(r, r['key'] in allowed) for r in source}
+    return verify_partition(expected, candidate)
+
+
+def verify_partition(expected, candidate):
+    """Compare full partition inventories, including source metadata digests."""
     if digest(expected) != digest(candidate):
         raise ValueError('candidate differs from authorized cut/remainder (or inventory)')
     return True
@@ -141,7 +160,7 @@ def identity(t):
     return {k: v for k, v in t.items() if k not in ('points', 'local', 'id', 'ids', 'clippedSurfaceArea')}
 
 
-def run_private():
+def run_private(audit=False):
     import os
     import geometry as g
     evidence = json.loads(Path(__file__).with_name('evidence.json').read_text())
@@ -152,7 +171,7 @@ def run_private():
     # Evidence-derived full identity allowlist; never a model-name-only wildcard.
     allowed = set()
     for group in evidence['cutPrism']['actualSurfaceIntersections']:
-        if group['name'].startswith('v_51_clothing') or (group['name'] == 'v_clotheslo' and group.get('child') == 'root/0'):
+        if not cuttable_owner(group):
             continue
         for pid in group['ids']:
             allowed.add(digest({'owner': identity(group), 'id': pid}))
@@ -173,6 +192,58 @@ def run_private():
         raise ValueError('missing authorized owners')
     candidate = {r['key']: partition(r, r['key'] in allowed) for r in records}
     verify(records, candidate, allowed)
+    if audit:
+        # Exercise the same strict comparator on actual private partitions.
+        import copy
+        challenges = {}
+        targets = {typ: next(r['key'] for r in records if r['type'] == typ and r['key'] in allowed)
+                   for typ in ('Triangle', 'Box')}
+        targets['protected'] = next(r['key'] for r in records
+                                    if candidate[r['key']]['protectedIntersection'] > 0)
+        for label, key in targets.items():
+            bad = dict(candidate)
+            bad[key] = copy.deepcopy(candidate[key])
+            bad[key]['remainder'][0][0][0] += .01
+            try:
+                verify_partition(candidate, bad)
+            except ValueError:
+                challenges[label+'RemainderMutationRejected'] = True
+            else:
+                raise ValueError('real preservation mutation accepted')
+        for label in ('missing', 'extra', 'metadata'):
+            bad = dict(candidate)
+            key = targets['Triangle']
+            if label == 'missing':
+                del bad[key]
+            elif label == 'extra':
+                bad['unexpected'] = candidate[key]
+            else:
+                bad[key] = {**candidate[key], 'source': 'changed material/owner digest'}
+            try:
+                verify_partition(candidate, bad)
+            except ValueError:
+                challenges[label+'MutationRejected'] = True
+            else:
+                raise ValueError('real inventory/metadata mutation accepted')
+        groups = {}
+        for r in records:
+            v = candidate[r['key']]
+            owner = r['owner']
+            key = (owner['file'], owner['name'], owner.get('child'), r['type'])
+            group = groups.setdefault(key, {'file': key[0], 'name': key[1], 'child': key[2],
+                                           'type': key[3], 'records': 0, 'cutRecords': 0,
+                                           'openingMeasure': 0., 'preservedMeasure': 0.,
+                                           'protectedIntersection': 0.})
+            group['records'] += 1
+            group['cutRecords'] += int(v['openingMeasure'] > 0)
+            for field in ('openingMeasure', 'preservedMeasure', 'protectedIntersection'):
+                group[field] += v[field]
+        print(json.dumps({'partitionVerified': True, 'deployment': 'BLOCKED',
+                          'rawSha256': evidence['privateRawSha256'],
+                          'recordCount': len(records), 'authorizedCount': len(allowed),
+                          'candidateDigest': digest(candidate), 'mutationChecks': challenges,
+                          'groups': list(groups.values())}, indent=2))
+        return
     # Never publish vertices or convex halfspaces.
     summary = {k: {a: b for a, b in v.items() if a not in ('opening', 'remainder')}
                for k, v in candidate.items()}
@@ -181,4 +252,8 @@ def run_private():
 
 
 if __name__ == '__main__':
-    run_private()
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--audit', action='store_true',
+                        help='compact per-owner measures and real-candidate mutation checks')
+    run_private(parser.parse_args().audit)

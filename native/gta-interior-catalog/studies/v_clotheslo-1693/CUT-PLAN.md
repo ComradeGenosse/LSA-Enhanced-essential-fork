@@ -1,5 +1,9 @@
 # Exact section offline partition / isolation handoff
 
+Continuation: [REPLAY-AND-ALTERNATIVES.md](REPLAY-AND-ALTERNATIVES.md) records the
+completed Windows private replay, authorization fix and alternative glazed
+section. The NOT RUN statements below describe the original #321 Linux run.
+
 Operator/publisher: Codex, 2026-10-23. Stacked on #320 head
 `a01014219d9fb7f2c93e5ced1b8932f89f01e812` (itself on #319/#318).
 Scope: repository Python, tests, CI and this plan only. No installed assets,

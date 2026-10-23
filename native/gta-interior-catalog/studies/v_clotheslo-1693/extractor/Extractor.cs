@@ -9,6 +9,7 @@ using SharpDX;
 // Read-only focused v_clotheslo geometry reader. Never saves any game resource.
 class P
 {
+    static readonly HashSet<string> setModels = new();
     static JsonSerializerOptions opt = new() { IncludeFields = true, NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals }; static StreamWriter output; static float[] V(Vector3 v) => new[] { v.X, v.Y, v.Z }; static float[] Q(Vector4 v) => new[] { v.X, v.Y, v.Z, v.W };
     static float[] Q(Quaternion v) => new[] { v.X, v.Y, v.Z, v.W }; static void W(object o) => output.WriteLine(JsonSerializer.Serialize(o, opt));
     static object D(CEntityDef d) => new { name = d.archetypeName.ToString(), hash = d.archetypeName.Hash, pos = V(d.position), rot = Q(d.rotation), d.scaleXY, d.scaleZ, d.parentIndex, d.numChildren, lod = d.lodLevel.ToString(), d.lodDist, d.childLodDist, d.flags, d.guid };
@@ -17,7 +18,7 @@ class P
     {
         if (b == null)
             return;
-        if (!file.EndsWith("v_clotheslo.ybn") && (b.BoxMax.X < 1680 || b.BoxMin.X > 1706 || b.BoxMax.Y < 4810 || b.BoxMin.Y > 4840 || b.BoxMax.Z < 40 || b.BoxMin.Z > 49))
+        if (!file.EndsWith("v_clotheslo.ybn") && !setModels.Contains(Path.GetFileNameWithoutExtension(file.Replace('\\', '/'))) && (b.BoxMax.X < 1680 || b.BoxMin.X > 1706 || b.BoxMax.Y < 4810 || b.BoxMin.Y > 4840 || b.BoxMax.Z < 40 || b.BoxMin.Z > 49))
             return;
         W(new
         {
@@ -155,6 +156,10 @@ class P
                     });
                     if (a is MloArchetype ma)
                     {
+                        if (Environment.GetEnvironmentVariable("X9_ENTITY_SETS") == "1" && d.name.ToString() == "v_clotheslo")
+                            foreach (var set in ma.entitySets ?? Array.Empty<MCMloEntitySet>())
+                                foreach (var en in set.Entities ?? Array.Empty<MCEntityDef>())
+                                    setModels.Add(en.Data.archetypeName.ToString());
                         W(new
                         {
                             kind = "mlo",
@@ -180,7 +185,7 @@ class P
         foreach (var e in all)
         {
             var n = Path.GetFileNameWithoutExtension(e.Name).ToLowerInvariant();
-            bool mesh = e.Name.EndsWith(".ydr") && (meshNames.Contains(n) || meshHashes.Contains(JenkHash.GenHash(n)) || n.StartsWith("v_51_") || n.Contains("cs2_01") && n.Contains("cloth"));
+            bool mesh = (e.Name.EndsWith(".yft") && setModels.Contains(n)) || e.Name.EndsWith(".ydr") && (setModels.Contains(n) || meshNames.Contains(n) || meshHashes.Contains(JenkHash.GenHash(n)) || n.StartsWith("v_51_") || n.Contains("cs2_01") && n.Contains("cloth"));
             bool col = false;
             if (!mesh && !col)
                 continue;
@@ -199,10 +204,20 @@ class P
                     Bound(m.GetFile<YbnFile>(e).Bounds, e.Path, "root");
                     continue;
                 }
-                var reader = new ResourceDataReader((RpfResourceFileEntry)e, bytes);
-                if (((RpfResourceFileEntry)e).Version == 165)
-                    reader.IsGen9 = false;
-                var dr = reader.ReadBlock<Drawable>();
+                DrawableBase dr;
+                if (e.Name.EndsWith(".yft"))
+                {
+                    var fragment = m.GetFile<YftFile>(e).Fragment;
+                    dr = fragment.Drawable;
+                    Bound(fragment.PhysicsLODGroup?.PhysicsLOD1?.Bound, e.Path, "fragment");
+                }
+                else
+                {
+                    var reader = new ResourceDataReader((RpfResourceFileEntry)e, bytes);
+                    if (((RpfResourceFileEntry)e).Version == 165)
+                        reader.IsGen9 = false;
+                    dr = reader.ReadBlock<Drawable>();
+                }
                 W(new
                 {
                     kind = "drawable",
@@ -214,7 +229,8 @@ class P
                     dr.LodDistLow,
                     dr.LodDistVlow
                 });
-                Bound(dr.Bound, e.Path, "embedded");
+                if (dr is Drawable drawable)
+                    Bound(drawable.Bound, e.Path, "embedded");
                 int mi = 0;
                 foreach (var model in dr.AllModels ?? Array.Empty<DrawableModel>())
                 {
