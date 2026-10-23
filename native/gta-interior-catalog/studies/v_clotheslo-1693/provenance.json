@@ -1,0 +1,1055 @@
+{
+  "utc": "2026-10-23T19:31:22.928772+00:00",
+  "basePr": 319,
+  "baseSha": "6a906c77b071b9ee552c17616b2f89b2ad33a3f9",
+  "operator": "Codex",
+  "publisher": "Codex",
+  "runtime": ".NET 8 on Windows; net48 CodeWalker.Core 30_dev48",
+  "archiveInventoryCount": 199,
+  "archivePathSizeMtimeBeforeAfterEqual": true,
+  "archiveInventoryDigest": "b9395ba56f8a91eb2172888f8f9bab80ff3672eb76428d2b2a9ba8cbf7b354e8",
+  "archiveInventories": [
+    {
+      "path": "common.rpf",
+      "size": 19351552,
+      "mtime_ns": 1789932252568434600
+    },
+    {
+      "path": "onigiri\\dlcpacks\\forest_n\\dlc.rpf",
+      "size": 25811968,
+      "mtime_ns": 1791326566607008600
+    },
+    {
+      "path": "onigiri\\dlcpacks\\forest_s\\dlc.rpf",
+      "size": 39506944,
+      "mtime_ns": 1743785090000000000
+    },
+    {
+      "path": "onigiri\\dlcpacks\\LARoadsEnhanced\\dlc.rpf",
+      "size": 1946473984,
+      "mtime_ns": 1748111724000000000
+    },
+    {
+      "path": "onigiri\\dlcpacks\\lsa_destruct\\dlc.rpf",
+      "size": 10240,
+      "mtime_ns": 1792581674395964500
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE\\dlc.rpf",
+      "size": 175235584,
+      "mtime_ns": 1790429540810642100
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE_2\\dlc.rpf",
+      "size": 189830656,
+      "mtime_ns": 1790429541213987100
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE_3\\dlc.rpf",
+      "size": 535996928,
+      "mtime_ns": 1790429542383681300
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE_interiors\\dlc.rpf",
+      "size": 841273344,
+      "mtime_ns": 1790429544799099600
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE_lights\\dlc.rpf",
+      "size": 40085504,
+      "mtime_ns": 1790429544937678900
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE_patches\\dlc.rpf",
+      "size": 74765312,
+      "mtime_ns": 1790429545181465000
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE_props_addon\\dlc.rpf",
+      "size": 44497920,
+      "mtime_ns": 1792769112314453400
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE_props_replace\\dlc.rpf",
+      "size": 407033856,
+      "mtime_ns": 1790429546581648800
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE_roads\\dlc.rpf",
+      "size": 2765131776,
+      "mtime_ns": 1790429553622930100
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE_update\\dlc.rpf",
+      "size": 111279104,
+      "mtime_ns": 1790429553942619400
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE_vegetation\\dlc.rpf",
+      "size": 430188544,
+      "mtime_ns": 1790429554984217900
+    },
+    {
+      "path": "onigiri\\dlcpacks\\NVE_vehicles\\dlc.rpf",
+      "size": 937184768,
+      "mtime_ns": 1790429558044071000
+    },
+    {
+      "path": "onigiri\\dlcpacks\\vegetation_reflection\\dlc.rpf",
+      "size": 19876864,
+      "mtime_ns": 1743293476000000000
+    },
+    {
+      "path": "onigiri\\dlcpacks\\vegetation_reflection_cayo\\dlc.rpf",
+      "size": 7736832,
+      "mtime_ns": 1743286062000000000
+    },
+    {
+      "path": "onigiri\\dlcpacks\\vremastered\\dlc.rpf",
+      "size": 53812736,
+      "mtime_ns": 1743785082000000000
+    },
+    {
+      "path": "onigiri\\platform\\levels\\gta5\\cloudhats\\v_clouds.rpf",
+      "size": 39436288,
+      "mtime_ns": 1790429558140226200
+    },
+    {
+      "path": "update\\update.rpf",
+      "size": 3122239488,
+      "mtime_ns": 1789932252879154900
+    },
+    {
+      "path": "update\\update2.rpf",
+      "size": 656195584,
+      "mtime_ns": 1789932252879154900
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2023_01\\dlc.rpf",
+      "size": 726145024,
+      "mtime_ns": 1789932252603994300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2023_01_g9ec\\dlc.rpf",
+      "size": 43253760,
+      "mtime_ns": 1789932252603994300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2023_02\\dlc.rpf",
+      "size": 1254557696,
+      "mtime_ns": 1789932252603994300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2023_02_g9ec\\dlc.rpf",
+      "size": 50159616,
+      "mtime_ns": 1789932252603994300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2024_01\\dlc.rpf",
+      "size": 962050048,
+      "mtime_ns": 1789932252603994300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2024_01_g9ec\\dlc.rpf",
+      "size": 27115520,
+      "mtime_ns": 1789932252603994300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2024_02\\dlc.rpf",
+      "size": 878538752,
+      "mtime_ns": 1789932252603994300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2024_02_G9EC\\dlc.rpf",
+      "size": 18855936,
+      "mtime_ns": 1789932252608376500
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2025_01\\dlc.rpf",
+      "size": 1103048704,
+      "mtime_ns": 1789932252608376500
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2025_01_G9EC\\dlc.rpf",
+      "size": 22784000,
+      "mtime_ns": 1789932252608376500
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2025_02\\dlc.rpf",
+      "size": 1128505344,
+      "mtime_ns": 1789932252608376500
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2025_02_g9ec\\dlc.rpf",
+      "size": 17782784,
+      "mtime_ns": 1789932252610380000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2026_01\\dlc.rpf",
+      "size": 643246080,
+      "mtime_ns": 1789932252610380000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mp2026_01_G9EC\\dlc.rpf",
+      "size": 28653568,
+      "mtime_ns": 1789932252610380000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpairraces\\dlc.rpf",
+      "size": 67823616,
+      "mtime_ns": 1789932252611529900
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpapartment\\dlc.rpf",
+      "size": 520589312,
+      "mtime_ns": 1789932252611529900
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpassault\\dlc.rpf",
+      "size": 289947648,
+      "mtime_ns": 1789932252612322000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpbattle\\dlc.rpf",
+      "size": 1625075712,
+      "mtime_ns": 1789932252614415100
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpbattle\\dlc1.rpf",
+      "size": 1153142784,
+      "mtime_ns": 1789932252614913900
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf",
+      "size": 1541324800,
+      "mtime_ns": 1789932252615395000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpchristmas2\\dlc.rpf",
+      "size": 59267072,
+      "mtime_ns": 1789932252619645100
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpchristmas2017\\dlc.rpf",
+      "size": 1944444928,
+      "mtime_ns": 1789932252615395000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpchristmas2018\\dlc.rpf",
+      "size": 2900039680,
+      "mtime_ns": 1789932252619645100
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpchristmas3\\dlc.rpf",
+      "size": 1410299904,
+      "mtime_ns": 1789932252621110500
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpchristmas3_g9ec\\dlc.rpf",
+      "size": 65601536,
+      "mtime_ns": 1789932252622116800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpexecutive\\dlc.rpf",
+      "size": 611624960,
+      "mtime_ns": 1789932252622116800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpg9ec\\dlc.rpf",
+      "size": 164663296,
+      "mtime_ns": 1789932252622116800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpgunrunning\\dlc.rpf",
+      "size": 1715116032,
+      "mtime_ns": 1789932252623113800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mphalloween\\dlc.rpf",
+      "size": 94490624,
+      "mtime_ns": 1789932252625041300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpheist\\dlc.rpf",
+      "size": 2438424576,
+      "mtime_ns": 1789932252712449000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpheist3\\dlc.rpf",
+      "size": 1607426048,
+      "mtime_ns": 1789932252625041300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpheist4\\dlc.rpf",
+      "size": 2027569152,
+      "mtime_ns": 1789932252632284100
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpheist4\\dlc1.rpf",
+      "size": 2039289856,
+      "mtime_ns": 1789932252673212300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpheist4\\dlc2.rpf",
+      "size": 1310058496,
+      "mtime_ns": 1789932252704066200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpimportexport\\dlc.rpf",
+      "size": 803790848,
+      "mtime_ns": 1789932252712449000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpjanuary2016\\dlc.rpf",
+      "size": 149553152,
+      "mtime_ns": 1789932252712449000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf",
+      "size": 863016960,
+      "mtime_ns": 1789932252720590200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mplowrider2\\dlc.rpf",
+      "size": 323579904,
+      "mtime_ns": 1789932252712449000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpluxe\\dlc.rpf",
+      "size": 183494656,
+      "mtime_ns": 1789932252726954800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpluxe2\\dlc.rpf",
+      "size": 262643712,
+      "mtime_ns": 1789932252722446900
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mppatchesng\\dlc.rpf",
+      "size": 482383872,
+      "mtime_ns": 1789932252728811000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpreplay\\dlc.rpf",
+      "size": 226906112,
+      "mtime_ns": 1789932252731548800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpsecurity\\dlc.rpf",
+      "size": 1546426368,
+      "mtime_ns": 1789932252740654200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpsecurity\\dlc1.rpf",
+      "size": 1061971968,
+      "mtime_ns": 1789932252762286200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpsmuggler\\dlc.rpf",
+      "size": 930809856,
+      "mtime_ns": 1789932252770612800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpspecialraces\\dlc.rpf",
+      "size": 73021440,
+      "mtime_ns": 1789932252770612800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpstunt\\dlc.rpf",
+      "size": 328601600,
+      "mtime_ns": 1789932252770612800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpsum\\dlc.rpf",
+      "size": 909754368,
+      "mtime_ns": 1789932252778853200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpsum2\\dlc.rpf",
+      "size": 1196195840,
+      "mtime_ns": 1789932252778463000
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpSum2_G9EC\\dlc.rpf",
+      "size": 39528448,
+      "mtime_ns": 1789932252778853200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mptuner\\dlc.rpf",
+      "size": 1430607872,
+      "mtime_ns": 1789932252778853200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mptuner\\dlc1.rpf",
+      "size": 938035200,
+      "mtime_ns": 1789932252788506600
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpvalentines2\\dlc.rpf",
+      "size": 25157632,
+      "mtime_ns": 1789932252788506600
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpvinewood\\dlc.rpf",
+      "size": 1542258688,
+      "mtime_ns": 1789932252795431300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\mpxmas_604490\\dlc.rpf",
+      "size": 46075904,
+      "mtime_ns": 1789932252803746300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patch2023_01\\dlc.rpf",
+      "size": 138958848,
+      "mtime_ns": 1789932252803746300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patch2023_01_g9ec\\dlc.rpf",
+      "size": 2015232,
+      "mtime_ns": 1789932252803746300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patch2023_02\\dlc.rpf",
+      "size": 12337152,
+      "mtime_ns": 1789932252803746300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patch2024_01\\dlc.rpf",
+      "size": 339249152,
+      "mtime_ns": 1789932252803746300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patch2024_01_g9ec\\dlc.rpf",
+      "size": 14557184,
+      "mtime_ns": 1789932252803746300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patch2024_02\\dlc.rpf",
+      "size": 239439872,
+      "mtime_ns": 1789932252803746300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patch2025_01\\dlc.rpf",
+      "size": 584841216,
+      "mtime_ns": 1789932252816385200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patch2025_02\\dlc.rpf",
+      "size": 330504192,
+      "mtime_ns": 1789932252820516300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patch2025_02_g9ec\\dlc.rpf",
+      "size": 49786880,
+      "mtime_ns": 1789932252820516300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patch2026_01\\dlc.rpf",
+      "size": 226430976,
+      "mtime_ns": 1789932252823502400
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday10ng\\dlc.rpf",
+      "size": 91332608,
+      "mtime_ns": 1789932252825505300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday11ng\\dlc.rpf",
+      "size": 9971712,
+      "mtime_ns": 1789932252825505300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday12ng\\dlc.rpf",
+      "size": 155611136,
+      "mtime_ns": 1789932252828949800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday13ng\\dlc.rpf",
+      "size": 144959488,
+      "mtime_ns": 1789932252828949800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday14ng\\dlc.rpf",
+      "size": 92295168,
+      "mtime_ns": 1789932252828949800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday15ng\\dlc.rpf",
+      "size": 47585280,
+      "mtime_ns": 1789932252828949800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday16ng\\dlc.rpf",
+      "size": 12095488,
+      "mtime_ns": 1789932252828949800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday17ng\\dlc.rpf",
+      "size": 59971584,
+      "mtime_ns": 1789932252828949800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday18ng\\dlc.rpf",
+      "size": 4421632,
+      "mtime_ns": 1789932252828949800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday19ng\\dlc.rpf",
+      "size": 766709760,
+      "mtime_ns": 1789932252837493800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday1ng\\dlc.rpf",
+      "size": 418295808,
+      "mtime_ns": 1789932252837493800
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday20ng\\dlc.rpf",
+      "size": 457187328,
+      "mtime_ns": 1789932252844706300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday21ng\\dlc.rpf",
+      "size": 1121652736,
+      "mtime_ns": 1789932252849201600
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday22ng\\dlc.rpf",
+      "size": 694579200,
+      "mtime_ns": 1789932252851059900
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday23ng\\dlc.rpf",
+      "size": 90945536,
+      "mtime_ns": 1789932252851059900
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday24ng\\dlc.rpf",
+      "size": 392112128,
+      "mtime_ns": 1789932252853395300
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday25ng\\dlc.rpf",
+      "size": 95232000,
+      "mtime_ns": 1789932252853835100
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday26ng\\dlc.rpf",
+      "size": 530845696,
+      "mtime_ns": 1789932252853835100
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday27g9ecng\\dlc.rpf",
+      "size": 34981888,
+      "mtime_ns": 1789932252853835100
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday27ng\\dlc.rpf",
+      "size": 317534208,
+      "mtime_ns": 1789932252857341200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday28g9ecng\\dlc.rpf",
+      "size": 3880960,
+      "mtime_ns": 1789932252857341200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday28ng\\dlc.rpf",
+      "size": 177139712,
+      "mtime_ns": 1789932252857341200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday2bng\\dlc.rpf",
+      "size": 24428544,
+      "mtime_ns": 1789932252857341200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf",
+      "size": 738998272,
+      "mtime_ns": 1789932252857341200
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday3ng\\dlc.rpf",
+      "size": 1684379648,
+      "mtime_ns": 1789932252862246400
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday4ng\\dlc.rpf",
+      "size": 301434880,
+      "mtime_ns": 1789932252862246400
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday5ng\\dlc.rpf",
+      "size": 8056832,
+      "mtime_ns": 1789932252862246400
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday6ng\\dlc.rpf",
+      "size": 31911936,
+      "mtime_ns": 1789932252862246400
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday7ng\\dlc.rpf",
+      "size": 42227712,
+      "mtime_ns": 1789932252862246400
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday8ng\\dlc.rpf",
+      "size": 364943360,
+      "mtime_ns": 1789932252862246400
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchday9ng\\dlc.rpf",
+      "size": 160800768,
+      "mtime_ns": 1789932252869819700
+    },
+    {
+      "path": "update\\x64\\dlcpacks\\patchdayg9ecng\\dlc.rpf",
+      "size": 772112384,
+      "mtime_ns": 1789932252870757700
+    },
+    {
+      "path": "x64\\audio\\audio_rel.rpf",
+      "size": 3196928,
+      "mtime_ns": 1789932252586589800
+    },
+    {
+      "path": "x64\\audio\\occlusion.rpf",
+      "size": 710656,
+      "mtime_ns": 1789932252586589800
+    },
+    {
+      "path": "x64\\audio\\sfx\\ANIMALS.rpf",
+      "size": 661504,
+      "mtime_ns": 1789932252586589800
+    },
+    {
+      "path": "x64\\audio\\sfx\\ANIMALS_FAR.rpf",
+      "size": 22233088,
+      "mtime_ns": 1789932252586589800
+    },
+    {
+      "path": "x64\\audio\\sfx\\ANIMALS_NEAR.rpf",
+      "size": 64845824,
+      "mtime_ns": 1789932252586589800
+    },
+    {
+      "path": "x64\\audio\\sfx\\CUTSCENE_MASTERED_ONLY.rpf",
+      "size": 668479488,
+      "mtime_ns": 1789932252587982600
+    },
+    {
+      "path": "x64\\audio\\sfx\\DLC_GTAO.rpf",
+      "size": 2998272,
+      "mtime_ns": 1789932252587982600
+    },
+    {
+      "path": "x64\\audio\\sfx\\INTERACTIVE_MUSIC.rpf",
+      "size": 1302747136,
+      "mtime_ns": 1789932252587982600
+    },
+    {
+      "path": "x64\\audio\\sfx\\ONESHOT_AMBIENCE.rpf",
+      "size": 69648384,
+      "mtime_ns": 1789932252588986600
+    },
+    {
+      "path": "x64\\audio\\sfx\\PAIN.rpf",
+      "size": 42629120,
+      "mtime_ns": 1789932252588986600
+    },
+    {
+      "path": "x64\\audio\\sfx\\POLICE_SCANNER.rpf",
+      "size": 68509696,
+      "mtime_ns": 1789932252588986600
+    },
+    {
+      "path": "x64\\audio\\sfx\\PROLOGUE.rpf",
+      "size": 20891648,
+      "mtime_ns": 1789932252588986600
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_01_CLASS_ROCK.rpf",
+      "size": 201703424,
+      "mtime_ns": 1789932252588986600
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_02_POP.rpf",
+      "size": 208388096,
+      "mtime_ns": 1789932252589921500
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_03_HIPHOP_NEW.rpf",
+      "size": 152463360,
+      "mtime_ns": 1789932252589921500
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_04_PUNK.rpf",
+      "size": 60669952,
+      "mtime_ns": 1789932252589921500
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_05_TALK_01.rpf",
+      "size": 61075456,
+      "mtime_ns": 1789932252589921500
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_06_COUNTRY.rpf",
+      "size": 71409664,
+      "mtime_ns": 1789932252589921500
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_07_DANCE_01.rpf",
+      "size": 55183360,
+      "mtime_ns": 1789932252589921500
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_08_MEXICAN.rpf",
+      "size": 53006336,
+      "mtime_ns": 1789932252589921500
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_09_HIPHOP_OLD.rpf",
+      "size": 153858048,
+      "mtime_ns": 1789932252589921500
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_11_TALK_02.rpf",
+      "size": 54034432,
+      "mtime_ns": 1789932252591808800
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_12_REGGAE.rpf",
+      "size": 103510016,
+      "mtime_ns": 1789932252594771100
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_13_JAZZ.rpf",
+      "size": 163555328,
+      "mtime_ns": 1789932252594771100
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_14_DANCE_02.rpf",
+      "size": 97224704,
+      "mtime_ns": 1789932252594771100
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_15_MOTOWN.rpf",
+      "size": 95492096,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_16_SILVERLAKE.rpf",
+      "size": 197795840,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_17_FUNK.rpf",
+      "size": 116545536,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_18_90S_ROCK.rpf",
+      "size": 88092672,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_ADVERTS.rpf",
+      "size": 95027200,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\RADIO_NEWS.rpf",
+      "size": 85831680,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\RESIDENT.rpf",
+      "size": 112785408,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\S_FULL_AMB_F.rpf",
+      "size": 199186432,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\S_FULL_AMB_M.rpf",
+      "size": 307007488,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\S_FULL_GAN.rpf",
+      "size": 127801344,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\S_FULL_SER.rpf",
+      "size": 240799744,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\S_MINI_AMB.rpf",
+      "size": 286803968,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\S_MINI_GAN.rpf",
+      "size": 347924480,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\S_MINI_SER.rpf",
+      "size": 215773184,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\S_MISC.rpf",
+      "size": 341921792,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\SCRIPT.rpf",
+      "size": 237871104,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\SS_AC.rpf",
+      "size": 288010240,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\SS_DE.rpf",
+      "size": 100837376,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\SS_FF.rpf",
+      "size": 497778688,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\SS_GM.rpf",
+      "size": 265234432,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\SS_NP.rpf",
+      "size": 144775168,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\SS_QR.rpf",
+      "size": 125306880,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\SS_ST.rpf",
+      "size": 178001920,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\SS_UZ.rpf",
+      "size": 4855808,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\STREAMED_AMBIENCE.rpf",
+      "size": 29767680,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\STREAMED_VEHICLES.rpf",
+      "size": 43388928,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\STREAMED_VEHICLES_GRANULAR.rpf",
+      "size": 207796224,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\STREAMED_VEHICLES_GRANULAR_NPC.rpf",
+      "size": 42283008,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\STREAMED_VEHICLES_LOW_LATENCY.rpf",
+      "size": 569344,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\STREAMS.rpf",
+      "size": 422133760,
+      "mtime_ns": 1789932252596172600
+    },
+    {
+      "path": "x64\\audio\\sfx\\WEAPONS_PLAYER.rpf",
+      "size": 3883008,
+      "mtime_ns": 1789932252603091600
+    },
+    {
+      "path": "x64a.rpf",
+      "size": 101433344,
+      "mtime_ns": 1789932252568434600
+    },
+    {
+      "path": "x64b.rpf",
+      "size": 205651968,
+      "mtime_ns": 1789932252568434600
+    },
+    {
+      "path": "x64c.rpf",
+      "size": 1845954560,
+      "mtime_ns": 1789932252568434600
+    },
+    {
+      "path": "x64d.rpf",
+      "size": 1794203648,
+      "mtime_ns": 1789932252568434600
+    },
+    {
+      "path": "x64e.rpf",
+      "size": 2067353600,
+      "mtime_ns": 1789932252568434600
+    },
+    {
+      "path": "x64f.rpf",
+      "size": 834557952,
+      "mtime_ns": 1789932252568434600
+    },
+    {
+      "path": "x64g.rpf",
+      "size": 2276556800,
+      "mtime_ns": 1789932252568434600
+    },
+    {
+      "path": "x64h.rpf",
+      "size": 1214193664,
+      "mtime_ns": 1789932252568434600
+    },
+    {
+      "path": "x64i.rpf",
+      "size": 1384208384,
+      "mtime_ns": 1789932252568434600
+    },
+    {
+      "path": "x64j.rpf",
+      "size": 1678678016,
+      "mtime_ns": 1789932252577327100
+    },
+    {
+      "path": "x64k.rpf",
+      "size": 1899888640,
+      "mtime_ns": 1789932252577327100
+    },
+    {
+      "path": "x64l.rpf",
+      "size": 2050156544,
+      "mtime_ns": 1789932252578216800
+    },
+    {
+      "path": "x64m.rpf",
+      "size": 1461764096,
+      "mtime_ns": 1789932252578216800
+    },
+    {
+      "path": "x64n.rpf",
+      "size": 1444841472,
+      "mtime_ns": 1789932252578216800
+    },
+    {
+      "path": "x64o.rpf",
+      "size": 1533937664,
+      "mtime_ns": 1789932252578216800
+    },
+    {
+      "path": "x64p.rpf",
+      "size": 1301690368,
+      "mtime_ns": 1789932252578216800
+    },
+    {
+      "path": "x64q.rpf",
+      "size": 2482229248,
+      "mtime_ns": 1789932252579593900
+    },
+    {
+      "path": "x64r.rpf",
+      "size": 1534547968,
+      "mtime_ns": 1789932252579593900
+    },
+    {
+      "path": "x64s.rpf",
+      "size": 1471709184,
+      "mtime_ns": 1789932252579593900
+    },
+    {
+      "path": "x64t.rpf",
+      "size": 1644965888,
+      "mtime_ns": 1789932252580494600
+    },
+    {
+      "path": "x64u.rpf",
+      "size": 1173688320,
+      "mtime_ns": 1789932252580494600
+    },
+    {
+      "path": "x64v.rpf",
+      "size": 1940961280,
+      "mtime_ns": 1789932252580494600
+    },
+    {
+      "path": "x64w.rpf",
+      "size": 863301632,
+      "mtime_ns": 1789932252580494600
+    }
+  ],
+  "files": {
+    "CodeWalker.Core.dll": {
+      "size": 4572672,
+      "sha256": "f08e8fb273c8c080d438508685b3b158db6b531a856d03be2514c46bf2e1b03a"
+    },
+    "GTA5_Enhanced.exe": {
+      "size": 55819384,
+      "sha256": "69da07ff67d05e9ded11289e597e8b8dc5855b0a429c085f37d148dc267cb2c5"
+    },
+    "reader-source": {
+      "size": 15063,
+      "sha256": "45c0fecc989df7c254784b676a25f35a3faf6cf6d8c1db30a6de0db24604f985"
+    },
+    "reader-binary": {
+      "size": 57856,
+      "sha256": "add8c8eadfd18a4990a968a18b9decbb91d94a306598511902a224096a43bd07"
+    },
+    "private-raw": {
+      "size": 31412681,
+      "sha256": "6825722e87abf39489f04ec8e8a48726f00fc085e30445a1c6d16b4d4ecc05cb"
+    },
+    "evidence.json": {
+      "size": 450449,
+      "sha256": "321e02e6c6a95d4e090ed7b9ab12b1abe5a158f870fdd674f754e1ff3af114d0"
+    }
+  },
+  "boundaries": {
+    "gameLaunch": false,
+    "controllerRequests": 0,
+    "rpgTests": 0,
+    "assetWrites": 0,
+    "deployment": false,
+    "merge": false
+  },
+  "validation": {
+    "readerBuild": "PASS, NU1900 warning: vulnerability feed unreachable",
+    "extraction": "PASS, 15570 YBNs parsed / 9 retained / zero errors",
+    "geometryTests": "PASS, four tests"
+  },
+  "limits": [
+    "Archive stat equality is not a full-content rehash of all game archives.",
+    "Resource hashes are of bytes returned by CodeWalker RpfManager.GetFileData, not whole-container hashes.",
+    "Private raw arrays are not distributed.",
+    "Initial exploratory reader attempts failed until shader-conversion metadata was supplied; final run succeeded."
+  ],
+  "executedReaderSourceSha256": "d47974a7589101b06f83d34b90ff0fd9f9e0d8d45aee7cd120c1f672c3d9288d",
+  "sourceFormatting": "Extractor.cs formatted with dotnet format whitespace after extraction; no semantic edits."
+}
