@@ -1,6 +1,6 @@
     // X8 lab environment: opt-in only, Story Mode/P2 only. No X7 fracture edits.
     // Density multipliers are THIS_FRAME: Interval=0 while active; revert to 200 when off.
-    bool labEnvActive, labEnvInRadius, labEnvHadRpg, labEnvAmmoChanged, labEnvRpgGiven;
+    bool labEnvActive, labEnvInRadius, labEnvHadRpg, labEnvAmmoChanged, labEnvRpgGiven;\n    bool labEnvPoliceTouched, labEnvDispatchTouched;
     bool labEnvSavedInvincible;
     int labEnvSavedWanted, labEnvSavedMaxWanted, labEnvPedHandle, labEnvPedModel;
     int labEnvSavedRpgAmmo, labEnvFrame, labEnvErrorCount;
@@ -55,6 +55,8 @@
         labEnvFrame = 0;
         labEnvRpgGiven = false;
         labEnvAmmoChanged = false;
+        labEnvPoliceTouched = false;
+        labEnvDispatchTouched = false;
         labEnvErrorCount = 0;
         labEnvLastError = "none";
         // Mark active before first mutation, so partial setup can still be undone.
@@ -65,7 +67,9 @@
             Game.Player.IsInvincible = true;
             Function.Call(Hash.SET_MAX_WANTED_LEVEL, 0);
             Game.Player.WantedLevel = 0;
+            labEnvPoliceTouched = true;
             Function.Call(Hash.SET_POLICE_IGNORE_PLAYER, Game.Player.Handle, true);
+            labEnvDispatchTouched = true;
             Function.Call(Hash.SET_DISPATCH_COPS_FOR_PLAYER, Game.Player.Handle, false);
             ped.Health = ped.MaxHealth;
             ped.Armor = Game.Player.MaxArmor;
@@ -177,8 +181,10 @@
             restore(() => { Game.Player.WantedLevel = labEnvSavedWanted; });
             // These two flags have no trustworthy prior-state getter:
             // restore conventional Story Mode defaults, disclose uncertainty.
-            restore(() => { Function.Call(Hash.SET_POLICE_IGNORE_PLAYER, Game.Player.Handle, false); });
-            restore(() => { Function.Call(Hash.SET_DISPATCH_COPS_FOR_PLAYER, Game.Player.Handle, true); });
+            if (labEnvPoliceTouched)
+                restore(() => { Function.Call(Hash.SET_POLICE_IGNORE_PLAYER, Game.Player.Handle, false); });
+            if (labEnvDispatchTouched)
+                restore(() => { Function.Call(Hash.SET_DISPATCH_COPS_FOR_PLAYER, Game.Player.Handle, true); });
             if (labEnvRpgGiven)
                 restore(() => { Function.Call(Hash.REMOVE_WEAPON_FROM_PED, labEnvPedHandle, labEnvRpgHash); });
             else if (labEnvAmmoChanged)
