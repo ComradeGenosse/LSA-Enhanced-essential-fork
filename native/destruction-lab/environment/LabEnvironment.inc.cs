@@ -27,12 +27,14 @@
             Math.Abs(x) >= 10000 || Math.Abs(y) >= 10000 || z <= -100 || z >= 1600 ||
             radius < 20f || radius > 150f)
             throw new Exception("lab_env_invalid_site_or_radius");
-        if (S(a, "population", "0") != "0" && S(a, "population", "0") != "1")
+        if (S(a, "population", "1") != "0" && S(a, "population", "1") != "1")
             throw new Exception("lab_env_population_must_be_0_or_1");
         if (!SafetyOk()) throw new Exception("lab_env_story_mode_only");
         if (Game.Player.Character == null || !Game.Player.Character.Exists())
             throw new Exception("lab_env_player_unavailable");
         Ped ped = Game.Player.Character;
+        if (ped.Position.DistanceTo(new Vector3(x, y, z)) > radius)
+            throw new Exception("lab_env_player_outside_approved_radius");
         // Weather.Unknown cannot be restored honestly. Fail before changing anything.
         GTA.Weather weather = World.Weather;
         if (weather == GTA.Weather.Unknown) throw new Exception("lab_env_weather_snapshot_unknown");
@@ -80,12 +82,12 @@
             World.Weather = GTA.Weather.Clear;
             World.CurrentDayTime = new TimeSpan(12, 0, 0);
             Row("lab_env_enabled", "centreX", x, "centreY", y, "centreZ", z, "radius", radius,
-                "populationSuppression", S(a, "population", "0") == "1",
+                "populationSuppression", S(a, "population", "1") == "1",
                 "originalWanted", labEnvSavedWanted, "originalMaxWanted", labEnvSavedMaxWanted,
                 "originalInvincible", labEnvSavedInvincible, "originalWeather", labEnvSavedWeather.ToString(),
                 "savedRpg", labEnvHadRpg, "originalRpgAmmo", labEnvSavedRpgAmmo,
                 "knownLimit", "dispatch_and_ignore_police_have_no_previous_state_getter");
-            labEnvSuppressPopulation = S(a, "population", "0") == "1";
+            labEnvSuppressPopulation = S(a, "population", "1") == "1";
         }
         catch
         {
