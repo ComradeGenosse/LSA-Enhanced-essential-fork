@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "classification": "PUBLIC_MODEL_NAMES_ONLY_NOT_GTA_ENHANCED_QUALIFIED",
+  "intent": "Small full-height freestanding masonry wall; not jersey-barrier traversal",
+  "candidateModels": [
+    {
+      "model": "prop_wallbrick_01",
+      "material": "brick",
+      "role": "candidate",
+      "priority": 1,
+      "reason": "Listed as GTA V Wall Brick #1; actual pivot, bounds, source type, height and collision ownership unknown"
+    },
+    {
+      "model": "prop_wallbrick_02",
+      "material": "brick",
+      "role": "candidate",
+      "priority": 2,
+      "reason": "Listed as GTA V Wall Brick #2; no Enhanced world placement or isolation proved"
+    },
+    {
+      "model": "prop_wallbrick_03",
+      "material": "brick",
+      "role": "candidate",
+      "priority": 3,
+      "reason": "Listed as GTA V Wall Brick #3; alternate if the first two are unsuitable"
+    },
+    {
+      "model": "prop_barier_conc_01a",
+      "material": "concrete",
+      "role": "negative_control",
+      "priority": 90,
+      "reason": "Real concrete jersey barrier, normally too low to demonstrate a player-height hole; inspect only as a control"
+    }
+  ],
+  "publicNameEvidence": [
+    "https://github.com/haarperr/Full-GTA-V-Props-List/blob/master/props%20list.txt",
+    "https://gtahash.com/ru/objects/MVSk1Tou"
+  ],
+  "qualificationRequired": [
+    "Actual GTA Enhanced installed model loads and CodeWalker round trip",
+    "Two genuine independently streamed full-height world placements, if available",
+    "Source model pivot, basis, dimensions and visible match",
+    "Native 9/9 source-owned collision with zero foreign owners",
+    "No residual normal or hi@ YBN, duplicate bounds, or other GTA/NVE collision",
+    "Normal LOD and any parent/occluder do not leave a visible ghost",
+    "Clear ground, walk corridor and firing approaches behind each candidate",
+    "Confirmed hide scope does not affect nearby instances"
+  ],
+  "decision": "NO_CANDIDATE_SELECTED_PENDING_LOCAL_INSPECTION"
+}
