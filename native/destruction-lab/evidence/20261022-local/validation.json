@@ -1,0 +1,14 @@
+{
+  "generatorTests": {
+    "passed": 9,
+    "failed": 0
+  },
+  "x8CleanupRegression": "PASS on Windows host; initial sandbox temp-directory access denied",
+  "x8SourceGuards": "PASS",
+  "x73SelectorSourceGuards": "PASS",
+  "installedShvdnCompile": "PASS warnings retained in compile.txt",
+  "codeWalkerV3": "PASS direct map reload, packed map reload and packed YMF dependency hashes",
+  "gtaAcceptance": "FAIL_NOT_ESTABLISHED",
+  "shots": 0,
+  "noAdditionalLiveTestsAfterUserStop": true
+}

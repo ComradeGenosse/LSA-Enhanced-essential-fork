@@ -1,0 +1,53 @@
+name: X8 destruction lab offline authoring
+on:
+  pull_request:
+    paths:
+      - 'native/destruction-lab/**'
+      - '.github/workflows/x8-destruction-lab.yml'
+  workflow_dispatch:
+
+jobs:
+  lab-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile generator and run offline unit tests
+        run: |
+          python -m py_compile native/destruction-lab/generate_lab.py native/destruction-lab/build_runtime.py native/destruction-lab/install_lab.py
+          python native/destruction-lab/build_runtime.py "$RUNNER_TEMP/lab-runtime"
+          git diff --exit-code -- native/fragment-x7/WpsBreachLabX7.3.cs
+          python -m unittest discover -s native/destruction-lab/tests -p 'test_*.py' -v
+      - name: Verify deterministic synthetic-only generation
+        run: |
+          python native/destruction-lab/generate_lab.py --fixture --output "$RUNNER_TEMP/lab-a"
+          python native/destruction-lab/generate_lab.py --fixture --output "$RUNNER_TEMP/lab-b"
+          diff -ru "$RUNNER_TEMP/lab-a" "$RUNNER_TEMP/lab-b"
+          test -f "$RUNNER_TEMP/lab-a/NOT_DEPLOYABLE.txt"
+      - name: Parse Windows packer PowerShell syntax without running CodeWalker
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile('native/destruction-lab/pack_lab.ps1', [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Out-Host; exit 1 }
+      - name: Reject synthetic fixture in Windows packer before loading CodeWalker
+        shell: pwsh
+        run: |
+          try {
+            & ./native/destruction-lab/pack_lab.ps1 -CodeWalker "$env:RUNNER_TEMP/lab-a" -BuildDir "$env:RUNNER_TEMP/lab-a" -OutputDir "$env:RUNNER_TEMP/never-pack" -ConfirmedLocalSurvey
+            throw 'ERROR: fixture was accepted'
+          } catch {
+            if ($_.Exception.Message -notmatch 'Refuse synthetic lab fixture') { throw }
+          }
+          if (Test-Path "$env:RUNNER_TEMP/never-pack") { throw 'Fixture created a package' }
+      - name: Never generate a deployable map from an unaudited template
+        run: |
+          if python native/destruction-lab/generate_lab.py --site native/destruction-lab/site.template.json --output "$RUNNER_TEMP/invalid"; then
+            echo "ERROR: unaudited site unexpectedly passed" >&2
+            exit 1
+          fi
+          test ! -e "$RUNNER_TEMP/invalid/lsa_destruction_lab.ymap.xml"

@@ -1,0 +1,23 @@
+{
+  "owner": "codex-lab",
+  "session": "lab-survey-20261022",
+  "fence": "b512d546fd274f20a6a69cc62c7c49bd",
+  "controllerPid": 63036,
+  "acquiredUnix": 1792706822.001341,
+  "pending": null,
+  "last": {
+    "protocol": 2,
+    "requestId": "4767c4155fd648388af8e2c5b38aa23d",
+    "fence": "b512d546fd274f20a6a69cc62c7c49bd",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "qualify-map-v2-A",
+    "command": "x8audit id=A stream=1 px=-1255 py=-3358 pz=14.5",
+    "state": "ERROR",
+    "error": "error",
+    "runId": "20261022-221353-755889",
+    "pid": 30696,
+    "loadedUtc": "2026-10-22T22:13:36.0211364Z",
+    "scriptSha256": "5ad91373ad99fbd6b1d0b7757951c1e05a7ae20c50ea03729818145248815803"
+  }
+}

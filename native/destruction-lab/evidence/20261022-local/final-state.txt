@@ -1,0 +1,1 @@
+PASS GTA stopped; P2 released; request and legacy slots absent

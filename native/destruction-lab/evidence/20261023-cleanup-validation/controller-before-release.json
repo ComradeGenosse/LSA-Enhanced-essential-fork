@@ -1,0 +1,23 @@
+{
+  "owner": "codex-lab",
+  "session": "lab-cleanup-20261023",
+  "fence": "451edf8057584991b167c55af24b5a0c",
+  "controllerPid": 6360,
+  "acquiredUnix": 1792768285.7510965,
+  "pending": null,
+  "last": {
+    "protocol": 2,
+    "requestId": "834d8868ea0c4848892860b146dabe4a",
+    "fence": "451edf8057584991b167c55af24b5a0c",
+    "sessionId": "lab-cleanup-20261023",
+    "experimentId": "X8",
+    "trialId": "r2-status",
+    "command": "x8status",
+    "state": "DONE",
+    "error": null,
+    "runId": "20261023-152258-adf8e3",
+    "pid": 57312,
+    "loadedUtc": "2026-10-23T15:18:17.2826344Z",
+    "scriptSha256": "27c87b054de2ead9af4d3f9650379a88b4a492e98076566ab355d69e85678728"
+  }
+}

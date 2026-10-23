@@ -1,0 +1,10 @@
+# NOT A SCRIPT. Operator must first install/stream map and verify both native sources.
+# Audit native pivots/headings before using verified=1; do not blindly replay commands.
+x8enable enable=1 approved=1
+x8register id=A rev=1 hash=1185366416 tx=-1255.0 ty=-3350.0 tz=13.049618 heading=0.0 scale=1 updot=1 verified=1
+x8register id=B rev=1 hash=1185366416 tx=-1225.0 ty=-3350.0 tz=13.049618 heading=90.0 scale=1 updot=1 verified=1
+x8status
+x8audit id=A
+x8audit id=B
+# Qualify ground and shooter positions separately; only then x8prepare / x8shot.
+# One X8 native lease at a time. Do not test B until A is fully restored 9/9.

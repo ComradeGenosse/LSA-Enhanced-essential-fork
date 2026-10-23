@@ -1,0 +1,14 @@
+{
+  "requestId": "e2b794b3c5a24bab90d147e265fd7baa",
+  "fence": "b512d546fd274f20a6a69cc62c7c49bd",
+  "sessionId": "lab-survey-20261022",
+  "experimentId": "X8",
+  "trialId": "qualify-map-B",
+  "command": "x8audit id=B stream=1 px=-1217 py=-3350 pz=14.5",
+  "expected": {
+    "pid": 40968,
+    "loadedUtc": "2026-10-22T22:09:53.9217338Z",
+    "scriptSha256": "5ad91373ad99fbd6b1d0b7757951c1e05a7ae20c50ea03729818145248815803"
+  },
+  "expiresUnix": 1792707153.174891
+}

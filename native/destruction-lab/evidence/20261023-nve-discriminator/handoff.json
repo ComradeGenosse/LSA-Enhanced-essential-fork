@@ -1,0 +1,23 @@
+{
+  "state": "GTA_STOPPED_ORIGINAL_HASHES_RESTORED_P2_RELEASED",
+  "operator": "codex-lab",
+  "session": "lab-nve-20261023",
+  "acknowledgedBy": "codex-lab",
+  "startingHead": "4f5b7528",
+  "sameExactYmapStreamsThroughNve": true,
+  "standaloneRegistration": "DEFECT_ISOLATED_FIELD_UNRESOLVED",
+  "sourceAndBounds": "VALIDATED_BY_NATIVE_A_B_LOAD",
+  "shots": 1,
+  "AFracture": "PASS_SELECTED_2_3",
+  "ATraversal": "PASS",
+  "AOriginalRestored": "PASS_9_OF_9",
+  "ACleanup": "FAIL_VERIFICATION_3_REFERENCES_REMAINING",
+  "BCollisionUnaffected": "PASS_9_OF_9_DURING_A",
+  "BShot": "NOT_RUN",
+  "endedNativeState": "RestorePending_A_before_shutdown; original9/9, cleanup unresolved. Runtime ended, no further commands replayed.",
+  "filesAndAddons": "PASS_HASH_RESTORED",
+  "nveOriginal": "PASS_HASH_RESTORED",
+  "pending": null,
+  "p2Released": true,
+  "nextAction": "Review standalone archive registration/lookup independently; before another X8 destructive test diagnose captured cleanup references and ownership. No X7.3 selection/physics change; #308 separate; no X9."
+}

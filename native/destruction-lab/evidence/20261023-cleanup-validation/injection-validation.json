@@ -1,0 +1,19 @@
+{
+    "originalNveSha256":  "83E162E5743636E5B86ADA7ED497F42C5CB055566BE45E66BCC235BA72453EE5",
+    "candidateNveSha256":  "77D1AD9DF98F1E855760C07554FD685646DEF6F6F9819EA48BB97E9E292FCF4A",
+    "exactLabBinarySha256":  "53026f7d12d5556c4e1d744a43e00ddc1b5cf386dd65dcc9a9578e740b3881a5",
+    "exactPackedPayloadSha256":  "22d66daf0c4f4f96ec0735c60513e535c9ed10f682eae37617fdfe5788524626",
+    "originalLeafEntries":  161,
+    "candidateLeafEntries":  162,
+    "changedExistingLeafEntries":  [
+                                       "dlc.rpf\\x64\\city_props.rpf/_manifest.ymf"
+                                   ],
+    "allOtherOriginalEntryBytesPreserved":  true,
+    "originalManifestSemanticsPreserved":  true,
+    "labResourceKind":  "RpfResourceFileEntry",
+    "labResourceVersion":  2,
+    "mapNameHash":  3875619246,
+    "entities":  2,
+    "standaloneLabMustBeAbsent":  true,
+    "redistributeNveBytes":  false
+}

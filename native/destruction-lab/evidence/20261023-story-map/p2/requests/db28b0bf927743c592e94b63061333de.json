@@ -1,0 +1,14 @@
+{
+  "requestId": "db28b0bf927743c592e94b63061333de",
+  "fence": "f8c0d32361b14446b0771f5f621ba831",
+  "sessionId": "lab-story-sp-20261023",
+  "experimentId": "X8",
+  "trialId": "audit-a",
+  "command": "x8audit id=A px=-1259 py=-3350 pz=14.05",
+  "expected": {
+    "pid": 49792,
+    "loadedUtc": "2026-10-23T13:56:11.9911349Z",
+    "scriptSha256": "ac8965587884aca973ca4462bc28255e971f84947eac5bf35c364d1d15821ab3"
+  },
+  "expiresUnix": 1792763880.0831335
+}

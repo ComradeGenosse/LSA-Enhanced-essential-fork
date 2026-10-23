@@ -1,0 +1,14 @@
+{
+  "requestId": "6d47cca2de6b4c1c9e41162a8a5e3ba9",
+  "fence": "434c6469caca4f678ef526f5a5241275",
+  "sessionId": "lab-nve-20261023",
+  "experimentId": "X8",
+  "trialId": "a-restore",
+  "command": "x8restore id=A",
+  "expected": {
+    "pid": 64584,
+    "loadedUtc": "2026-10-23T14:41:44.7221476Z",
+    "scriptSha256": "3be67a10df11f75d02c95d1b01ecdc8ae5a7b7183b0829621140aac5e371e1a2"
+  },
+  "expiresUnix": 1792766733.557038
+}

@@ -1,0 +1,39 @@
+{
+  "customMapSuccessfullyLoaded": "FAIL_NOT_ESTABLISHED",
+  "bothRealMapObjects": "FAIL_NOT_ESTABLISHED",
+  "nativeRpgFracture": {
+    "A": "NOT_RUN",
+    "B": "NOT_RUN"
+  },
+  "correctSelectedSections": "NOT_RUN",
+  "physicalTraversal": "NOT_RUN",
+  "independentRestorationAndCleanup": "NOT_RUN",
+  "groundSurvey": "PASS_30_SAMPLES_Z_12.945_UP_NORMAL_1",
+  "shotCount": 0,
+  "prepareCount": 0,
+  "source": "PR310 initial 4d47cd46e8267ace9202e89e3029f32251644363; X8 b5ac532a; X7.3 c232de1c",
+  "runtimeSha256": "5ad91373ad99fbd6b1d0b7757951c1e05a7ae20c50ea03729818145248815803",
+  "packAttempts": [
+    {
+      "version": 1,
+      "sha256": "6d1b7b05a7d42fcef50d6af752928a18326327fd66b1d6d560679e00a92894e3",
+      "result": "A_AND_B_MISSING"
+    },
+    {
+      "version": 2,
+      "sha256": "8307d945ff26ae99b603cbad4ac3c1b045deab35a9fddcdbe9c2772ea61a1564",
+      "result": "A_MISSING_B_NOT_RETESTED"
+    },
+    {
+      "version": 3,
+      "sha256": "9010cc5f599d2168992d7ff5d5401d0fa9d94cac9f1b51c6c6866876888d0927",
+      "result": "INSTALLED_AND_LAUNCH_REQUESTED_NO_FRESH_RUNTIME_OR_AUDIT_CAPTURED_BEFORE_USER_STOP"
+    }
+  ],
+  "filesystemRestored": true,
+  "p2OwnershipReleased": true,
+  "queuedCommandsAbsent": true,
+  "blocker": "Valid binary YMAPs did not become streamed native props in v1/v2; final packaging revision v3 remains unqualified",
+  "issue308": "SEPARATE_UNTESTED",
+  "x9": "NOT_STARTED"
+}

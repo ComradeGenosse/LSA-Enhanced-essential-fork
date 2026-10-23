@@ -1,0 +1,14 @@
+{
+  "requestId": "1cb48177c4c341429a187e2585275482",
+  "fence": "f8c0d32361b14446b0771f5f621ba831",
+  "sessionId": "lab-story-sp-20261023",
+  "experimentId": "X8",
+  "trialId": "ipl-source-b",
+  "command": "labstream x=-1225 y=-3350 z=13.049618 hold=15",
+  "expected": {
+    "pid": 44456,
+    "loadedUtc": "2026-10-23T14:06:57.7310246Z",
+    "scriptSha256": "3be67a10df11f75d02c95d1b01ecdc8ae5a7b7183b0829621140aac5e371e1a2"
+  },
+  "expiresUnix": 1792764587.8046665
+}

@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<CPackFileMetaData>
+  <MapDataGroups itemType="CMapDataGroup" />
+  <HDTxdBindingArray itemType="CHDTxdAssetBinding" />
+  <imapDependencies itemType="CImapDependency" />
+  <imapDependencies_2 itemType="CImapDependencies">
+    <Item>
+      <imapName>lsa_destruction_lab</imapName>
+      <manifestFlags />
+      <itypDepArray>
+        <Item>v_fences</Item>
+      </itypDepArray>
+    </Item>
+  </imapDependencies_2>
+  <itypDependencies_2 itemType="CItypDependencies" />
+  <Interiors itemType="CInteriorBoundsFiles" />
+</CPackFileMetaData>

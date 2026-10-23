@@ -234,27 +234,70 @@
         else throw new Exception("x8_unknown_owned_command");
         X8Receipt(id, verb);
     }
+    // X8 only owns explicitly spawned entities and positively identified native
+    // fragments. X3's 'debris' set also contains newly observed ambient props:
+    // those are intentionally NOT deleted by CleanupDebris(), so mere existence
+    // must not fail the X8 ownership gate.
     readonly List<Entity> x8CleanupEntities = new List<Entity>();
+    readonly Dictionary<int, int> x8CleanupModels = new Dictionary<int, int>();
+    int x8CleanupUnverified;
+    void X8TrackCleanup(Entity e, string provenance)
+    {
+        if (e == null) return;
+        int h = e.Handle;
+        if (x8CleanupModels.ContainsKey(h)) return;
+        int model = e.Model.Hash;
+        x8CleanupEntities.Add(e);
+        x8CleanupModels.Add(h, model);
+        Row("x8_cleanup_tracked", "handle", h, "hash", model, "provenance", provenance);
+    }
     void X8CaptureCleanup()
     {
-        foreach (Entity e in owned) if (e != null && !x8CleanupEntities.Contains(e)) x8CleanupEntities.Add(e);
+        x8CleanupUnverified = 0;
+        foreach (Entity e in owned) X8TrackCleanup(e, "spawned_by_lab");
         foreach (int h in debris)
         {
-            Entity e = Entity.FromHandle(h);
-            if (e != null && !x8CleanupEntities.Contains(e)) x8CleanupEntities.Add(e);
+            // flaggedSet/debrisOwner records the actual observed native parent
+            // before its attachment evidence can disappear. A live attachment
+            // check is a second way to establish ownership. Never delete based
+            // only on proximity or "appeared after the explosion".
+            bool labFragment = (flaggedSet.Contains(h) && debrisOwner.ContainsKey(h)) ||
+                IsVerifiedLabDebris(h);
+            if (labFragment) X8TrackCleanup(Entity.FromHandle(h), "verified_native_debris");
+            else
+            {
+                x8CleanupUnverified++;
+                Row("x8_cleanup_unverified", "handle", h,
+                    "reason", "no_positive_lab_ownership_evidence");
+            }
         }
     }
     bool X8CleanupAbsent()
     {
-        int remaining = 0;
-        foreach (Entity e in x8CleanupEntities) if (e.Exists())
+        int remaining = 0, reused = 0;
+        foreach (Entity e in x8CleanupEntities)
         {
-            remaining++;
-            Row("x8_cleanup_remaining", "handle", e.Handle, "hash", e.Model.Hash);
+            // Existence by handle alone can describe a *different* entity after
+            // GTA recycles that handle. Compare immutable model identity captured
+            // before deletion; same-model reuse remains conservatively blocked.
+            if (!e.Exists()) continue;
+            int h = e.Handle, now = e.Model.Hash, original = x8CleanupModels[h];
+            if (now != original)
+            {
+                reused++;
+                Row("x8_cleanup_reused_handle", "handle", h,
+                    "trackedHash", original, "currentHash", now);
+            }
+            else
+            {
+                remaining++;
+                Row("x8_cleanup_remaining", "handle", h, "hash", now);
+            }
         }
-        Row("x8_cleanup_verified", "tracked", x8CleanupEntities.Count, "remaining", remaining,
-            "passed", remaining == 0);
-        if (remaining == 0) x8CleanupEntities.Clear();
+        Row("x8_cleanup_verified", "tracked", x8CleanupEntities.Count,
+            "remaining", remaining, "reused", reused,
+            "unverifiedCandidates", x8CleanupUnverified, "passed", remaining == 0);
+        if (remaining == 0) { x8CleanupEntities.Clear(); x8CleanupModels.Clear(); }
         return remaining == 0;
     }
 

@@ -1,0 +1,63 @@
+[
+  {
+    "t": 36261,
+    "frame": 7652,
+    "kind": "header",
+    "requestId": "6ea096512f59469d81c9c8a654cb16fe",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "register-map-B",
+    "script": "WpsBreachLabX7.3.cs",
+    "version": "X7-0.1",
+    "scriptSha256": "5ad91373ad99fbd6b1d0b7757951c1e05a7ae20c50ea03729818145248815803",
+    "shvdnApi": "3.9.0.0",
+    "gameBuild": "2.0.1158.16",
+    "loadedUtc": "2026-10-22T22:09:53.9217338Z",
+    "pid": 40968,
+    "autoLoadScripts": "AutoLoadScripts=true",
+    "pools": {
+      "props": 307,
+      "propCap": 2300,
+      "colliders": 6,
+      "colliderCap": 228,
+      "peds": 28,
+      "pedCap": 256,
+      "vehicles": 75,
+      "vehicleCap": 300,
+      "projectiles": 0,
+      "pickups": 0
+    },
+    "commands": [
+      "x8register id=B rev=1 hash=1185366416 tx=-1225 ty=-3350 tz=13.049618 heading=90 scale=1 updot=1 verified=1"
+    ]
+  },
+  {
+    "t": 36268,
+    "frame": 7652,
+    "kind": "x8_registered",
+    "requestId": "6ea096512f59469d81c9c8a654cb16fe",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "register-map-B",
+    "id": "B",
+    "revision": 1,
+    "hash": 1185366416,
+    "pivotX": -1225,
+    "pivotY": -3350,
+    "pivotZ": 13.05,
+    "heading": 90,
+    "registered": 2,
+    "syntheticCoordinatesNotIncluded": true
+  },
+  {
+    "t": 36268,
+    "frame": 7652,
+    "kind": "done",
+    "requestId": "6ea096512f59469d81c9c8a654cb16fe",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "register-map-B",
+    "runId": "20261022-221030-e3b605",
+    "commandFailed": false
+  }
+]

@@ -1,0 +1,57 @@
+[
+  {
+    "t": 46377,
+    "frame": 8900,
+    "kind": "header",
+    "requestId": "4d44deecd3fb47ab99f10b6555b12a91",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "qualify-map-A",
+    "script": "WpsBreachLabX7.3.cs",
+    "version": "X7-0.1",
+    "scriptSha256": "5ad91373ad99fbd6b1d0b7757951c1e05a7ae20c50ea03729818145248815803",
+    "shvdnApi": "3.9.0.0",
+    "gameBuild": "2.0.1158.16",
+    "loadedUtc": "2026-10-22T22:09:53.9217338Z",
+    "pid": 40968,
+    "autoLoadScripts": "AutoLoadScripts=true",
+    "pools": {
+      "props": 310,
+      "propCap": 2300,
+      "colliders": 6,
+      "colliderCap": 228,
+      "peds": 31,
+      "pedCap": 256,
+      "vehicles": 76,
+      "vehicleCap": 300,
+      "projectiles": 0,
+      "pickups": 0
+    },
+    "commands": [
+      "x8audit id=A stream=1 px=-1255 py=-3358 pz=14.5"
+    ]
+  },
+  {
+    "t": 47618,
+    "frame": 9070,
+    "kind": "error",
+    "requestId": "4d44deecd3fb47ab99f10b6555b12a91",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "qualify-map-A",
+    "cmd": "x8audit id=A stream=1 px=-1255 py=-3358 pz=14.5",
+    "message": "Exception: x8_audit_source_ambiguous_or_missing",
+    "stack": "   at WpsBreachLab.X8Audit(Dictionary`2 a) in c:\\Program Files (x86)\\Steam\\steamapps\\common\\Grand Theft Auto V Enhanced\\scripts-x7\\WpsBreachLabX7.3.cs:line 1760     at WpsBreachLab.RunCommand(String line) in c:\\Program Files (x86)\\Steam\\steamapps\\common\\Grand Theft Auto V Enhanced\\scripts-x7\\WpsBreachLabX7.3.cs:line 208     at WpsBreachLab.OnTick() in c:\\Program Files (x86)\\Steam\\steamapps\\common\\Grand Theft Auto V Enhanced\\scripts-x7\\WpsBreachLabX7.3.cs:line 170"
+  },
+  {
+    "t": 47618,
+    "frame": 9070,
+    "kind": "done",
+    "requestId": "4d44deecd3fb47ab99f10b6555b12a91",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "qualify-map-A",
+    "runId": "20261022-221040-aea8f4",
+    "commandFailed": true
+  }
+]

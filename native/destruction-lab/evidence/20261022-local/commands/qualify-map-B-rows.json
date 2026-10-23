@@ -1,0 +1,57 @@
+[
+  {
+    "t": 79287,
+    "frame": 13097,
+    "kind": "header",
+    "requestId": "e2b794b3c5a24bab90d147e265fd7baa",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "qualify-map-B",
+    "script": "WpsBreachLabX7.3.cs",
+    "version": "X7-0.1",
+    "scriptSha256": "5ad91373ad99fbd6b1d0b7757951c1e05a7ae20c50ea03729818145248815803",
+    "shvdnApi": "3.9.0.0",
+    "gameBuild": "2.0.1158.16",
+    "loadedUtc": "2026-10-22T22:09:53.9217338Z",
+    "pid": 40968,
+    "autoLoadScripts": "AutoLoadScripts=true",
+    "pools": {
+      "props": 306,
+      "propCap": 2300,
+      "colliders": 3,
+      "colliderCap": 228,
+      "peds": 28,
+      "pedCap": 256,
+      "vehicles": 52,
+      "vehicleCap": 300,
+      "projectiles": 0,
+      "pickups": 0
+    },
+    "commands": [
+      "x8audit id=B stream=1 px=-1217 py=-3350 pz=14.5"
+    ]
+  },
+  {
+    "t": 80485,
+    "frame": 13267,
+    "kind": "error",
+    "requestId": "e2b794b3c5a24bab90d147e265fd7baa",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "qualify-map-B",
+    "cmd": "x8audit id=B stream=1 px=-1217 py=-3350 pz=14.5",
+    "message": "Exception: x8_audit_source_ambiguous_or_missing",
+    "stack": "   at WpsBreachLab.X8Audit(Dictionary`2 a) in c:\\Program Files (x86)\\Steam\\steamapps\\common\\Grand Theft Auto V Enhanced\\scripts-x7\\WpsBreachLabX7.3.cs:line 1760     at WpsBreachLab.RunCommand(String line) in c:\\Program Files (x86)\\Steam\\steamapps\\common\\Grand Theft Auto V Enhanced\\scripts-x7\\WpsBreachLabX7.3.cs:line 208     at WpsBreachLab.OnTick() in c:\\Program Files (x86)\\Steam\\steamapps\\common\\Grand Theft Auto V Enhanced\\scripts-x7\\WpsBreachLabX7.3.cs:line 170"
+  },
+  {
+    "t": 80485,
+    "frame": 13267,
+    "kind": "done",
+    "requestId": "e2b794b3c5a24bab90d147e265fd7baa",
+    "sessionId": "lab-survey-20261022",
+    "experimentId": "X8",
+    "trialId": "qualify-map-B",
+    "runId": "20261022-221113-3f30a7",
+    "commandFailed": true
+  }
+]

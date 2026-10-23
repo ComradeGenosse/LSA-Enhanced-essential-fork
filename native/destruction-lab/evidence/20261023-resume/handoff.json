@@ -1,0 +1,15 @@
+{
+  "state": "GTA_STOPPED_FILESYSTEM_RESTORED_P2_RELEASED",
+  "operator": "codex-lab",
+  "publisher": "codex",
+  "session": "lab-acceptance-20261023",
+  "acknowledgedBy": "codex-lab",
+  "sourceHead": "311759f165e1e1f8049eec3a749efa967ed2c687",
+  "shots": 0,
+  "preparations": 0,
+  "world": "No sources admitted; no spawning, hide, damage, or native lease created",
+  "filesystem": "PASS all baseline hashes and absences including addons restored",
+  "nextAction": "Offline diagnosis of registered DLC / inactive lab IPL; later live testing needs new stopped-game/P2 run; PR draft and unmerged",
+  "remainingBlocker": "DLC present/model loaded, but lab IPL inactive and no native source or collision; reference NVE IPL active",
+  "p2OwnershipReleased": true
+}

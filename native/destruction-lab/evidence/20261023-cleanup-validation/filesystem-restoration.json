@@ -1,0 +1,49 @@
+{
+  "files": [
+    {
+      "relative": "ScriptHookVDotNet.ini",
+      "expected": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+      "actual": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72"
+    },
+    {
+      "relative": "onigiri/common/data/dlclist.xml",
+      "expected": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234",
+      "actual": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234"
+    },
+    {
+      "relative": "onigiri/dlcpacks/lsa_fence_x7d/dlc.rpf",
+      "expected": null,
+      "actual": null
+    },
+    {
+      "relative": "scripts-x7/WpsBreachLabX7.3.cs",
+      "expected": null,
+      "actual": null
+    },
+    {
+      "relative": "scripts-x7/x7-models.txt",
+      "expected": null,
+      "actual": null
+    }
+  ],
+  "addons": [
+    {
+      "relative": "renodx-dlss.addon64",
+      "expected": "D3184429254F09D2F8A50B7F3D10B9B24CC3B630B35AEB81F8CB43BEB9E50AFC",
+      "actual": "D3184429254F09D2F8A50B7F3D10B9B24CC3B630B35AEB81F8CB43BEB9E50AFC",
+      "temporaryAbsent": true
+    },
+    {
+      "relative": "renodx-dlss-hotkey.addon64",
+      "expected": "A64BE8C4B00901F31894EFC15238BFDD0BEB6C16B9C545C88C7B3131B49183DB",
+      "actual": "A64BE8C4B00901F31894EFC15238BFDD0BEB6C16B9C545C88C7B3131B49183DB",
+      "temporaryAbsent": true
+    }
+  ],
+  "nve": {
+    "relative": "onigiri/dlcpacks/NVE_props_addon/dlc.rpf",
+    "expected": "83E162E5743636E5B86ADA7ED497F42C5CB055566BE45E66BCC235BA72453EE5",
+    "actual": "83E162E5743636E5B86ADA7ED497F42C5CB055566BE45E66BCC235BA72453EE5"
+  },
+  "passed": true
+}

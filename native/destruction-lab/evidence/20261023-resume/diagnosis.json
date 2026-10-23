@@ -1,0 +1,35 @@
+{
+  "sourceHead": "311759f165e1e1f8049eec3a749efa967ed2c687",
+  "initialV3DlcSha256": "9010cc5f599d2168992d7ff5d5401d0fa9d94cac9f1b51c6c6866876888d0927",
+  "hostOpenArchiveConfirmed": true,
+  "nativeDlcPresent": true,
+  "labIplActiveBeforeCorrection": false,
+  "nveReferenceIplActive": true,
+  "stockFenceModelValidLoaded": true,
+  "sourceRayHitBeforeCorrection": false,
+  "workingMountReference": "NVE_props_addon/dlc.rpf content.xml literal $level=MO_JIM_L11",
+  "originalPlacementReference": {
+    "path": "x64j.rpf/levels/gta5/_citye/indust_01/indust_01_metadata.rpf/id1_24_strm_0.ymap",
+    "modelHash": 1185366416,
+    "pivot": [
+      1065.7576,
+      -1773.7162,
+      34.851006
+    ],
+    "flags": 1572864
+  },
+  "corrections": [
+    {
+      "field": "genericConditions",
+      "before": "&#36;level=MO_JIM_L11",
+      "after": "$level=MO_JIM_L11"
+    },
+    {
+      "field": "CEntityDef.flags",
+      "before": 1572896,
+      "after": 1572864
+    }
+  ],
+  "causality": "Corrections await native recheck; do not claim either individually proven as sole cause",
+  "shotsSoFar": 0
+}

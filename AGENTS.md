@@ -1,10 +1,15 @@
 # Agent guidance for this repository
 
+## Mandatory startup on this experimental branch
+
+Before working (including after context compaction), check the current checkout, remote PR head, branch dependencies and approved operator handoff. Read [docs/agent-operations/OPERATING-STANDARD.md](docs/agent-operations/OPERATING-STANDARD.md); before PC/GTA work also read [docs/agent-operations/GTA-PC-PLAYBOOK.md](docs/agent-operations/GTA-PC-PLAYBOOK.md) **and** the existing detailed `docs/agent-operations/GTA-CONTROLLER-RUNBOOK.md`. For recurring lessons and stale-PR traps see `docs/agent-operations/PR-LESSONS-20261023.md`.
+
+Prefer read-only terminal/API/native commands over unnecessary GUI clicking; check GPU power limit without reapplying an Afterburner preset; use only approved, hash-restored DLSS addon renames when necessary. Neither these instructions nor a handoff grant new permission to deploy or use the live game. Existing P2 ownership/single-operator restrictions **remain authoritative**. The experimental branch already contains P2; do not replace it with legacy command files. Verify command/gameplay/world/filesystem outcomes separately.
+
 ## Local CLI collaboration
 
 Read `tools/agent-coordinator/README.md` for the persistent Windows queue and
-JSON handoffs. Codex owns host execution/build/deployment/GitHub/GTA; Claude
-owns experiment design, coding assignments and independent review. Use separate
+JSON handoffs. In the documented CLI-queue prototype, Codex owned host execution/build/deployment/GitHub/GTA and Claude owned design/review; the current named-operator handoff assigns roles for each real session. Use separate
 registered worktrees. Queue ownership never overrides the GTA P2 controller.
 Bound handoff chains to two hops; preserve UNKNOWN outcomes for reconciliation.
 Never attach a CLI to an assumed Desktop/Cowork conversation or bypass approvals.

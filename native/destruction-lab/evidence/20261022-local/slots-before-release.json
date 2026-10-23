@@ -1,0 +1,14 @@
+[
+  {
+    "exists": true,
+    "name": "controller.json"
+  },
+  {
+    "exists": false,
+    "name": "request.txt"
+  },
+  {
+    "exists": false,
+    "name": "command.txt"
+  }
+]
