@@ -4,7 +4,8 @@ param(
   [Parameter(Mandatory)][string]$CodeWalker,
   [Parameter(Mandatory)][string]$BuildDir,
   [Parameter(Mandatory)][string]$OutputDir,
-  [switch]$ConfirmedLocalSurvey
+  [switch]$ConfirmedLocalSurvey,
+  [switch]$StoryModeMapCandidate
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
@@ -83,6 +84,34 @@ $setup=@"
 <?xml version="1.0" encoding="UTF-8"?>
 <SSetupData><deviceName>dlc_$pack</deviceName><datFile>content.xml</datFile><nameHash>$pack</nameHash><contentChangeSetGroups><Item><NameHash>GROUP_UPDATE_STREAMING</NameHash><ContentChangeSets><Item>LSA_DESTRUCTION_LAB_STREAMING</Item></ContentChangeSets></Item></contentChangeSetGroups><startupScript/><scriptCallstackSize value="0"/><type>EXTRACONTENT_LEVEL_PACK</type><order value="100"/><minorOrder value="0"/><isLevelPack value="true"/><dependencyPackHash/><requiredVersion/><subPackCount value="0"/></SSetupData>
 "@
+# Opt-in only: test the dedicated single-player map registration path.
+# Existing v3 packaging is unchanged unless this switch is supplied.
+# Motivated by standalone single-player map DLC templates where GROUP_MAP_SP
+# executes mapChangeSetData instead of relying on GROUP_UPDATE_STREAMING.
+if($StoryModeMapCandidate){
+  $mapChangeset=@"
+<Item>
+  <changeSetName>LSA_DESTRUCTION_LAB_MAP_SP</changeSetName>
+  <mapChangeSetData>
+    <Item>
+      <associatedMap>MO_JIM_L11</associatedMap>
+      <filesToInvalidate/><filesToDisable/>
+      <filesToEnable><Item>$prefix</Item></filesToEnable>
+      <txdToLoad/><txdToUnload/><residentResources/><unregisterResources/>
+    </Item>
+  </mapChangeSetData>
+  <requiresLoadingScreen value="false"/>
+  <loadingScreenContext>LOADINGSCREEN_CONTEXT_LAST_FRAME</loadingScreenContext>
+  <useCacheLoader value="false"/>
+</Item>
+"@
+  if(-not $contents.Contains('</contentChangeSets>') -or -not $setup.Contains('</contentChangeSetGroups>')){
+    throw 'Missing known DLC changeset insertion points'
+  }
+  $contents=$contents.Replace('</contentChangeSets>',"$mapChangeset`n</contentChangeSets>")
+  $setup=$setup.Replace('</contentChangeSetGroups>',
+    '<Item><NameHash>GROUP_MAP_SP</NameHash><ContentChangeSets><Item>LSA_DESTRUCTION_LAB_MAP_SP</Item></ContentChangeSets></Item></contentChangeSetGroups>')
+}
 [xml]$null=$contents
 [xml]$null=$setup
 [IO.File]::WriteAllText((Join-Path $OutputDir 'content.xml'),$contents)
@@ -160,6 +189,7 @@ if($ymf.imapDependencies2[0].Dep.imapName.Hash -ne [CodeWalker.GameFiles.JenkHas
   dependencyDictionary='v_fences'
   mountingReference='Installed NVE_props_addon: RPF_FILE map archive, GROUP_UPDATE_STREAMING, isLevelPack=true'
   classification='EXPERIMENTAL_BINARY_UNVERIFIED_IN_GTA'
+  mapRegistrationVariant=$(if($StoryModeMapCandidate){'GROUP_MAP_SP_EXPERIMENT'}else{'V3_BASELINE'})
   onigiriDlclistLine='<Item>dlcpacks:/lsa_destruction_lab/</Item>'
   note='Does NOT install; local CodeWalker binary reload and Enhanced map DLC mount required.'
 } | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 (Join-Path $OutputDir 'pack-receipt.json')
