@@ -27,11 +27,11 @@ def cuttable_owner(group):
             not (group['name'] == 'v_clotheslo' and group.get('child') == 'root/0'))
 
 
-def planes():
+def planes(low=LOW, high=HIGH):
     for axis in range(3):
         n = np.eye(3)[axis]
-        yield np.r_[-n, LOW[axis]]
-        yield np.r_[n, -HIGH[axis]]
+        yield np.r_[-n, low[axis]]
+        yield np.r_[n, -high[axis]]
 
 
 def area(poly):
@@ -50,10 +50,10 @@ def clip(poly, plane):
     return np.asarray(out).reshape(-1, 3)
 
 
-def split_triangle(points):
+def split_triangle(points, low=LOW, high=HIGH):
     remaining = np.asarray(points, dtype=float)
     outside = []
-    for p in planes():
+    for p in planes(low, high):
         if len(remaining) and np.max(remaining@p[:3]+p[3]) <= 0:
             continue
         part = clip(remaining, -p)
@@ -89,10 +89,10 @@ def volume(hs):
         return 0.
 
 
-def split_box(points):
+def split_box(points, low=LOW, high=HIGH):
     hs = np.unique(np.round(ConvexHull(points).equations, 12), axis=0).tolist()
     outside = []
-    for p in planes():
+    for p in planes(low, high):
         part = hs + [(-p).tolist()]
         if volume(part) > 1e-12:
             outside.append(part)
@@ -104,22 +104,22 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, allow_nan=False).encode()).hexdigest()
 
 
-def partition(record, authorized):
+def partition(record, authorized, low=LOW, high=HIGH):
     points = np.asarray(record['points'], dtype=float)
     if not np.isfinite(points).all():
         raise ValueError('nonfinite geometry')
     if record['type'] not in ('Triangle', 'Box'):
         raise ValueError('unsupported primitive: '+record['type'])
-    if (points.max(0) < LOW).any() or (points.min(0) > HIGH).any():
+    if (points.max(0) < low).any() or (points.min(0) > high).any():
         original = area(points) if record['type'] == 'Triangle' else ConvexHull(points).volume
         return {'source': digest(record), 'openingMeasure': 0., 'preservedMeasure': original,
                 'protectedIntersection': 0., 'opening': [], 'remainder': [record['points']]}
     if record['type'] == 'Triangle':
-        opening, remainder = split_triangle(points)
+        opening, remainder = split_triangle(points, low, high)
         measure = area
         original = area(points)
     elif record['type'] == 'Box':
-        opening, remainder = split_box(points)
+        opening, remainder = split_box(points, low, high)
         measure = volume
         original = ConvexHull(points).volume
     else:
@@ -136,7 +136,7 @@ def partition(record, authorized):
             'remainder': [np.asarray(p).tolist() for p in remainder] if authorized else [record['points']]}
 
 
-def verify(source, candidate, allowed):
+def verify(source, candidate, allowed, low=LOW, high=HIGH):
     """Strict oracle for this partition representation, including metadata/identity.
 
     Refuses alternate tessellations: authoring/export validation is a later gate.
@@ -145,7 +145,7 @@ def verify(source, candidate, allowed):
         raise ValueError('duplicate source identity')
     if not set(allowed) <= {r['key'] for r in source}:
         raise ValueError('missing authorized source identity')
-    expected = {r['key']: partition(r, r['key'] in allowed) for r in source}
+    expected = {r['key']: partition(r, r['key'] in allowed, low, high) for r in source}
     return verify_partition(expected, candidate)
 
 
