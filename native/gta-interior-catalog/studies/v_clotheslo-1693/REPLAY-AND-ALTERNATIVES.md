@@ -12,7 +12,7 @@ Codex owns its source, validation and publication. No live operator takeover.
 authorization fix, but preserved display collision still blocks it.
 
 **South / local positive-X glazed façade: GO for the next bounded offline
-partition/authoring step under an explicitly pinned hipster profile; NO-GO for
+partition/authoring step under an explicitly pinned **base hipster** profile; NO-GO for
 deployment now.** It opens into the real shop-floor room, behind the cashier
 counter, with a clear landing and 4.55 m aisle sweep. This is a window/façade
 breach candidate, not a newly discovered solid masonry panel. No unconditional
@@ -114,7 +114,7 @@ clipped areas for each dependency, with normal/high alternatives kept separate.
 | HD visuals | `v_51_windows03` geometries 0–4, `v_51_reflectproxy` geometry 0 triangle 8, `cs2_01_shop_dec2` geometries 3/4. The main shell has no solid face across this window rectangle. Keep the .251 sill and all counter/display geometry. |
 | MLO / portal | Actual room-1 shell/window relationship and floor rays place the landing in `V_51_ShopFloorRm`. Existing **portal 2**, room 1 → limbo 0, flags 8, lies at X 7.365801, Y [-6.213129,-1.0090392], Z [.07909787,3.465098], spanning this section. Its flag/culling behavior must still be validated; no new portal is assumed necessary merely from metadata. |
 | Near/coarser LOD | MLO near LOD hash **1814693341** has actual intersections. `cs2_01_clotheslow_slod` geometries 0/1 each have triangles 2/3 intersecting. Exterior `cs2_01_clothshop_lod` has no intersection at this exact window rectangle. Preserve dictionary siblings and the #320 hierarchy. District slod3 remains uninspected. |
-| NVE | Base/NVE primary geometry and all extracted set alternatives were queried as separate archived alternatives. NVE Lights can replace the target YMAP; NVE Interiors can replace the MLO. Existing window asset is shared; do not globally overwrite it. Profile precedence and target-only references are unresolved. |
+| NVE | Base/NVE mesh payload alternatives and all extracted set alternatives were inspected. The inherited primary adapter uses base MLO transforms: 56 of 96 primary definitions differ between base/NVE (many by rounding, but one TV changes model/placement). Therefore **NVE clearance is NOT certified** by this replay. NVE Lights can replace the target YMAP; NVE Interiors can replace the MLO. Existing window asset is shared; do not globally overwrite it. NVE needs its own actual primary-transform replay before a GO. |
 | Optional sets | Both sets have complete root-mesh coverage after enabling YFT extraction. `clotheslowcheap` adds actual `v_51_posters` triangles across the aperture. Neither set intersects the landing/aisle, including the two lilo props. Hipster is the cleaner bounded authoring profile; activation is not proven. Fragment root drawables and PhysicsLOD1 bounds were inspected, not runtime fragment state. |
 
 The bounded perimeter triage used 1.5 m windows at 0.5 m spacing, followed by
@@ -128,14 +128,16 @@ oblique aperture on the building has been exhausted.
 
 ## Smallest next implementation and blockers
 
-Pin one supported profile and the exact placement first. For the hipster case,
+Pin one supported profile and the exact placement first. For the base hipster case,
 make **one offline in-memory cut/remainder candidate for this glazed rectangle**:
 boxes 209/98, the listed window/decoration/reflection faces and intersecting LOD
 faces only. Preserve sill, counter, displays, weeds and dictionary siblings.
 Reuse this verifier; do not keep polishing the rejected north opening. For a
 cheap profile, stop until poster preservation has an explicit acceptable plan.
 
-After that candidate passes, an instance-specific clone/rebind and resource
+NVE remains NO-GO until its differing primary transforms/models are checked;
+do not silently apply this base-profile clearance claim to NVE. After the base
+candidate passes, an instance-specific clone/rebind and resource
 round-trip are still required before any installed change. Other six shop
 instances, flags/materials, full normal-collision resource remainder, NVE
 placement precedence, LOD transitions and portal visibility must survive.

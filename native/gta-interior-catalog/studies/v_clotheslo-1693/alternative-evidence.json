@@ -1518,10 +1518,350 @@
       ]
     }
   ],
+  "nvePrimaryTransformDifferences": [
+    {
+      "index": 1,
+      "baseName": "v_51_clothing08",
+      "nveName": "v_51_clothing08",
+      "positionDelta": 2.3021728866111246e-05
+    },
+    {
+      "index": 2,
+      "baseName": "v_51_main_det",
+      "nveName": "v_51_main_det",
+      "positionDelta": 1.000000000861423e-08
+    },
+    {
+      "index": 4,
+      "baseName": "prop_tv_07",
+      "nveName": "binco_tv",
+      "positionDelta": 0.19530301973599884
+    },
+    {
+      "index": 6,
+      "baseName": "p_tennis_bag_01_s",
+      "nveName": "p_tennis_bag_01_s",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 7,
+      "baseName": "prop_till_01",
+      "nveName": "prop_till_01",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 8,
+      "baseName": "prop_sglasses_stand_02",
+      "nveName": "prop_sglasses_stand_02",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 9,
+      "baseName": "prop_ftowel_07",
+      "nveName": "prop_ftowel_07",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 10,
+      "baseName": "prop_ftowel_07",
+      "nveName": "prop_ftowel_07",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 11,
+      "baseName": "prop_ftowel_07",
+      "nveName": "prop_ftowel_07",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 12,
+      "baseName": "prop_ftowel_07",
+      "nveName": "prop_ftowel_07",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 13,
+      "baseName": "prop_ftowel_08",
+      "nveName": "prop_ftowel_08",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 14,
+      "baseName": "prop_ftowel_08",
+      "nveName": "prop_ftowel_08",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 15,
+      "baseName": "prop_ftowel_07",
+      "nveName": "prop_ftowel_07",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 17,
+      "baseName": "prop_ftowel_07",
+      "nveName": "prop_ftowel_07",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 20,
+      "baseName": "prop_ftowel_07",
+      "nveName": "prop_ftowel_07",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 21,
+      "baseName": "prop_ftowel_07",
+      "nveName": "prop_ftowel_07",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 23,
+      "baseName": "prop_ftowel_01",
+      "nveName": "prop_ftowel_01",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 24,
+      "baseName": "prop_ftowel_01",
+      "nveName": "prop_ftowel_01",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 25,
+      "baseName": "prop_ftowel_01",
+      "nveName": "prop_ftowel_01",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 26,
+      "baseName": "prop_sglasses_stand_03",
+      "nveName": "prop_sglasses_stand_03",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 27,
+      "baseName": "prop_venice_counter_04",
+      "nveName": "prop_venice_counter_04",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 28,
+      "baseName": "v_res_fa_shoebox1",
+      "nveName": "v_res_fa_shoebox1",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 29,
+      "baseName": "v_res_fa_shoebox2",
+      "nveName": "v_res_fa_shoebox2",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 30,
+      "baseName": "v_res_fa_shoebox2",
+      "nveName": "v_res_fa_shoebox2",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 31,
+      "baseName": "v_res_fa_shoebox4",
+      "nveName": "v_res_fa_shoebox4",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 33,
+      "baseName": "v_ind_ss_box04",
+      "nveName": "v_ind_ss_box04",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 34,
+      "baseName": "v_ind_ss_box04",
+      "nveName": "v_ind_ss_box04",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 35,
+      "baseName": "v_res_fa_fan",
+      "nveName": "v_res_fa_fan",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 36,
+      "baseName": "v_ret_gc_fan",
+      "nveName": "v_ret_gc_fan",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 37,
+      "baseName": "v_ret_gc_folder1",
+      "nveName": "v_ret_gc_folder1",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 38,
+      "baseName": "v_ret_gc_folder2",
+      "nveName": "v_ret_gc_folder2",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 39,
+      "baseName": "v_ret_gc_folder1",
+      "nveName": "v_ret_gc_folder1",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 40,
+      "baseName": "v_ret_gc_folder1",
+      "nveName": "v_ret_gc_folder1",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 42,
+      "baseName": "v_ret_gc_folder1",
+      "nveName": "v_ret_gc_folder1",
+      "positionDelta": 1.000000000139778e-06
+    },
+    {
+      "index": 43,
+      "baseName": "v_ret_gc_folder1",
+      "nveName": "v_ret_gc_folder1",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 47,
+      "baseName": "prop_cctv_cam_07a",
+      "nveName": "prop_cctv_cam_07a",
+      "positionDelta": 1.000000000139778e-06
+    },
+    {
+      "index": 49,
+      "baseName": "v_ret_gc_scissors",
+      "nveName": "v_ret_gc_scissors",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 50,
+      "baseName": "v_ret_gc_pen2",
+      "nveName": "v_ret_gc_pen2",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 51,
+      "baseName": "v_51_lights010",
+      "nveName": "v_51_lights010",
+      "positionDelta": 0.02680100203205828
+    },
+    {
+      "index": 54,
+      "baseName": "v_51_decdirt",
+      "nveName": "v_51_decdirt",
+      "positionDelta": 1.0000000005838672e-07
+    },
+    {
+      "index": 55,
+      "baseName": "prop_sglasses_stand_03",
+      "nveName": "prop_sglasses_stand_03",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 56,
+      "baseName": "v_ret_gc_calc",
+      "nveName": "v_ret_gc_calc",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 57,
+      "baseName": "v_ret_gc_pen1",
+      "nveName": "v_ret_gc_pen1",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 58,
+      "baseName": "v_ret_gc_staple",
+      "nveName": "v_ret_gc_staple",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 59,
+      "baseName": "v_ret_gc_pen1",
+      "nveName": "v_ret_gc_pen1",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 60,
+      "baseName": "v_ret_gc_calc",
+      "nveName": "v_ret_gc_calc",
+      "positionDelta": 0.0003975204900378696
+    },
+    {
+      "index": 61,
+      "baseName": "v_ret_gc_staple",
+      "nveName": "v_ret_gc_staple",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 62,
+      "baseName": "v_ret_gc_scissors",
+      "nveName": "v_ret_gc_scissors",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 68,
+      "baseName": "v_ret_gc_pen1",
+      "nveName": "v_ret_gc_pen1",
+      "positionDelta": 0.016415509774600223
+    },
+    {
+      "index": 69,
+      "baseName": "v_ret_gc_scissors",
+      "nveName": "v_ret_gc_scissors",
+      "positionDelta": 0.013734878796698732
+    },
+    {
+      "index": 70,
+      "baseName": "prop_fire_exting_2a",
+      "nveName": "prop_fire_exting_2a",
+      "positionDelta": 1.000000000139778e-06
+    },
+    {
+      "index": 76,
+      "baseName": "v_51_clothing04",
+      "nveName": "v_51_clothing04",
+      "positionDelta": 2.02299283242715e-05
+    },
+    {
+      "index": 77,
+      "baseName": "v_51_clothing05",
+      "nveName": "v_51_clothing05",
+      "positionDelta": 0.012846874446669852
+    },
+    {
+      "index": 78,
+      "baseName": "v_51_bench",
+      "nveName": "v_51_bench",
+      "positionDelta": 3.162277660189096e-06
+    },
+    {
+      "index": 81,
+      "baseName": "prop_till_01",
+      "nveName": "prop_till_01",
+      "positionDelta": 0.0
+    },
+    {
+      "index": 85,
+      "baseName": "v_res_vacuum",
+      "nveName": "v_res_vacuum",
+      "positionDelta": 0.0
+    }
+  ],
+  "nveClearanceCertified": false,
   "limitations": [
     "primary entities use #320 transform adapter; entity-set alternatives checked separately",
     "fragment root drawable and PhysicsLOD1 bounds inspected; runtime fragment state unverified",
     "archive variants/resolutions are a union, not a loaded profile",
+    "primary mesh adapter uses base MLO transforms; NVE transform differences prevent NVE clearance certification",
     "coarser district mesh, runtime streaming and exported resource round-trip unverified"
   ]
 }

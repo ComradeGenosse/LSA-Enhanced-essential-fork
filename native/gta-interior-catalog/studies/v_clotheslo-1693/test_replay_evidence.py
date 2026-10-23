@@ -29,6 +29,8 @@ class ReplayEvidenceTests(unittest.TestCase):
                           'entitySetUnsupportedBroadphase'):
                 self.assertEqual(region[field], [])
         self.assertTrue(all(row['meshGroups']>0 for row in result['entitySetCoverage']))
+        self.assertFalse(result['nveClearanceCertified'])
+        self.assertTrue(result['nvePrimaryTransformDifferences'])
         self.assertTrue(any(row['name']=='v_51_posters' for row in
                             result['regions']['opening']['entitySetIntersections']))
         fresh = self.read('fresh-comparison.json')

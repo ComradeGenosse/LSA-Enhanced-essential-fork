@@ -139,6 +139,15 @@ def main():
     if not set_path:
         raise ValueError('X9_SET_RAW must identify the optional entity-set extraction')
     set_triangles, set_coverage, set_solids, set_unsupported = entity_set_triangles(set_path)
+    nve = next(m for m in g.mlos if m['file'].startswith('onigiri'))
+    primary_differences = []
+    for base_en, nve_en in zip(g.mlo['entities'], nve['entities']):
+        base_d, nve_d = base_en['entity'], nve_en['entity']
+        fields = ('name','pos','rot','scaleXY','scaleZ')
+        if any(base_d[k] != nve_d[k] for k in fields):
+            primary_differences.append({'index':base_en['index'],'baseName':base_d['name'],
+                                        'nveName':nve_d['name'],
+                                        'positionDelta':float(np.linalg.norm(np.array(base_d['pos'])-nve_d['pos']))})
     for label,(low,high) in regions.items():
         results[label]['entitySetIntersections'] = intersections(set_triangles,low,high)
         center = (np.array(low)+high)/2
@@ -172,9 +181,12 @@ def main():
            'portals':evidence['portals'],
            'entitySetRawSha256':hashlib.sha256(Path(set_path).read_bytes()).hexdigest(),
            'entitySetCoverage':set_coverage,
+           'nvePrimaryTransformDifferences':primary_differences,
+           'nveClearanceCertified':False,
            'limitations':['primary entities use #320 transform adapter; entity-set alternatives checked separately',
                           'fragment root drawable and PhysicsLOD1 bounds inspected; runtime fragment state unverified',
                           'archive variants/resolutions are a union, not a loaded profile',
+                          'primary mesh adapter uses base MLO transforms; NVE transform differences prevent NVE clearance certification',
                           'coarser district mesh, runtime streaming and exported resource round-trip unverified']}
     print(json.dumps(out,indent=2))
 
