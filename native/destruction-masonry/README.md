@@ -27,7 +27,7 @@ Inspect `/tmp/x9-synthetic/NOT_DEPLOYABLE.txt`: no fixture may be installed. Eve
 
 A suitable target must be a **genuine independently streamed small freestanding wall** with ≥1.8 m height, 2.7–4.2 m width, 0.15–0.45 m thickness, no shared static YBN/hi@ collision, and room behind it for a player. The public `prop_wallbrick_*` names may represent loose construction props rather than usable world walls. A shortened traffic barrier is not a full-height substitute. Choose the easiest qualifying wall **after** CodeWalker and native evidence; if these names do not qualify, mark them rejected and find a different eligible archetype before creating art. Never fake source availability with an invisible script prop.
 
-Relevant evidence: [public GTA V object list](https://github.com/haarperr/Full-GTA-V-Props-List/blob/master/props%20list.txt), [concrete-barrier model record](https://gtahash.com/ru/objects/MVSk1Tou), X7/X8 source in this repo, [post-X7 asset and collision research](../../docs/next-gen-gameplay/astra-001/post-x7/README.md) (if that research PR is available on this branch). The public list is a discovery aid, not a GTA Enhanced native acceptance.
+Relevant evidence: [public GTA V object list](https://github.com/haarperr/Full-GTA-V-Props-List/blob/master/props%20list.txt), [concrete-barrier model record](https://gtahash.com/ru/objects/MVSk1Tou), X7/X8 source in this repo, [post-X7 asset and collision research in draft PR #302](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/347da80c536944c673b34118f32ba10839fd8465/docs/next-gen-gameplay/astra-001/post-x7/README.md). The public list is a discovery aid, not a GTA Enhanced native acceptance.
 
 ## Follow-up
 
