@@ -2,6 +2,10 @@
 import copy
 import itertools
 import unittest
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import numpy as np
 
@@ -16,6 +20,33 @@ def sample_triangle(key, name, z=3):
 
 
 class SouthPartitionTests(unittest.TestCase):
+    def test_changed_evidence_blob_fails_even_if_json_meaning_is_unchanged(self):
+        data = (sp.HERE/'alternative-evidence.json').read_bytes()
+        with TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path/'alternative-evidence.json').write_bytes(data+b'\n')
+            with patch.object(sp, 'HERE', path), self.assertRaisesRegex(ValueError, 'evidence changed'):
+                sp.load_reviewed()
+
+    def test_committed_windows_south_replay_receipt(self):
+        result = json.loads((sp.HERE/'south-validation-results.json').read_text())
+        initial = json.loads((sp.HERE/'south-initial-results.json').read_text())
+        self.assertEqual(result['candidateDigest'], initial['candidateDigest'])
+        self.assertEqual(result['sourceSha256'], sp.REVIEWED_RAW_SHA256)
+        self.assertEqual(result['entitySetSha256'], sp.REVIEWED_SET_SHA256)
+        self.assertEqual(result['profile'], sp.PROFILE)
+        self.assertEqual(result['sourceRecords'], sp.EXPECTED_SOURCE_COUNT)
+        self.assertTrue(result['partitionVerified'])
+        self.assertEqual(result['deployment'], 'BLOCKED')
+        self.assertEqual(len(result['cutGroups']), 13)
+        self.assertEqual(sum(len(g['sourceKeys']) for g in result['cutGroups']), result['authorizedIdentities'])
+        self.assertTrue(all(result['strictMutationChecks'].values()))
+        self.assertEqual(len(result['strictMutationChecks']), 13)
+        self.assertEqual(sum(v['records'] for v in result['protectedInventory'].values()),
+                         result['sourceRecords']-result['authorizedIdentities'])
+        for g in result['cutGroups']:
+            self.assertAlmostEqual(g['originalMeasure'], g['removedMeasure']+g['preservedMeasure'], places=7)
+
     def test_exact_reviewed_evidence_and_groups(self):
         e = sp.load_reviewed()
         allowed, protected, counts = sp.reviewed_permissions(e, "base-hipster")

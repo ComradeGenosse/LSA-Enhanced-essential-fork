@@ -1,0 +1,8 @@
+{
+  "rawHash": "primary private geometry digest differs from #320/#322",
+  "setHash": "private entity-set geometry digest differs from #322",
+  "base-cheap": "unsupported profile; only pinned base-hipster is eligible",
+  "nve-hipster": "unsupported profile; only pinned base-hipster is eligible",
+  "nve-cheap": "unsupported profile; only pinned base-hipster is eligible",
+  "unknown": "unsupported profile; only pinned base-hipster is eligible"
+}

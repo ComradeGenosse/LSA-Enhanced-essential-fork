@@ -1,5 +1,9 @@
 # X9 south glazed façade — cloud implementation / local replay handoff
 
+Local continuation: [SOUTH-VALIDATION.md](SOUTH-VALIDATION.md) records the completed
+actual Windows replay and strict mutation audit. The cloud-only/NOT RUN status
+below is retained as the original #323 handoff, not the current replay verdict.
+
 **Stage:** OFFLINE SOURCE ONLY, NOT GTA/deployment acceptance.
 **Parent:** draft PR #322 head `07793c3788dbdeefbf9369d2904b95a5e52df416`.
 **Bounded objective:** in-memory subtraction and preservation oracle for the alternative *south glazed* aperture at `v_clotheslo`. Do not revive the north wall or imply masonry behavior.

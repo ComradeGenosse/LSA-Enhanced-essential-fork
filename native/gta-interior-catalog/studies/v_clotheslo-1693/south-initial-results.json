@@ -1,0 +1,47 @@
+{
+  "sourceRecords": 497680,
+  "authorizedIdentities": 182,
+  "protectedVegetationIdentities": 32,
+  "preservedWeedSurfaceArea": 0.6432667966657496,
+  "cutOwners": {
+    "v_51_windows03": {
+      "cutCount": 100,
+      "removedMeasure": 14.275783562423642
+    },
+    "v_51_reflectproxy": {
+      "cutCount": 1,
+      "removedMeasure": 3.449999999999998
+    },
+    "cs2_01_shop_dec2": {
+      "cutCount": 15,
+      "removedMeasure": 0.49171973760838694
+    },
+    "1814693341": {
+      "cutCount": 60,
+      "removedMeasure": 3.759360676617585
+    },
+    "cs2_01_clotheslow_slod": {
+      "cutCount": 4,
+      "removedMeasure": 6.8881841903462195
+    },
+    "v_clotheslo": {
+      "cutCount": 1,
+      "removedMeasure": 0.11132944241999988
+    },
+    "cs2_01_5": {
+      "cutCount": 1,
+      "removedMeasure": 1.431331794219999
+    }
+  },
+  "candidateDigest": "81edaca5742030a3564302453e3dba053dc341d17d8540c747ace9a1c1755e3b",
+  "partitionVerified": true,
+  "deployment": "BLOCKED",
+  "profile": "base-hipster",
+  "sourceSha256": "6825722e87abf39489f04ec8e8a48726f00fc085e30445a1c6d16b4d4ecc05cb",
+  "entitySetSha256": "5b224827985e633f6b83f2efec974cc38153900e8937d9826809ef97e346b594",
+  "portal": "2 (existing; runtime flags/visibility NOT VERIFIED)",
+  "nveClearance": "NOT VERIFIED",
+  "resourceExport": "NOT RUN",
+  "instanceIsolation": "NOT RUN",
+  "gta": "NOT RUN"
+}
