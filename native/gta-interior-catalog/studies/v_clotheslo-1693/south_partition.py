@@ -12,7 +12,8 @@ from pathlib import Path
 
 import numpy as np
 
-from cut_verifier import digest, identity, partition, verify
+from cut_verifier import area, digest, identity, partition, verify, verify_partition
+from scipy.spatial import ConvexHull
 
 HERE = Path(__file__).resolve().parent
 PROFILE = "base-hipster"
@@ -147,13 +148,64 @@ def collect_records(triangles):
     return records
 
 
-def evaluate(records, allowed, protected):
+def audit_mutations(records, candidate, allowed, protected):
+    """Challenge the strict comparator using actual source/candidate records."""
+    import copy
+    predicates = {
+        "authorizedTriangle": lambda r: r['key'] in allowed and r['type']=='Triangle',
+        "normalCollision": lambda r: r['key'] in allowed and r['owner']['name']=='cs2_01_5',
+        "interiorCollision": lambda r: r['key'] in allowed and r['owner']['name']=='v_clotheslo',
+        "weeds": lambda r: r['key'] in protected,
+        "counter": lambda r: r['owner']['name']=='v_51_counter',
+        "display": lambda r: r['owner']['name'].startswith('v_51_clothing'),
+        "floor": lambda r: r['owner']['name']=='v_clotheslo' and np.max(np.array(r['points'])[:,2]) < .20,
+        "sill": lambda r: r['owner']['name']=='v_51_v_clotheslo' and
+                            np.max(np.array(r['points'])[:,2]) < .26 and
+                            np.min(np.array(r['points'])[:,0]) > 7,
+        "highCollision": lambda r: 'hi@' in r['owner'].get('file',''),
+        "nveAlternative": lambda r: r['owner'].get('file','').startswith('onigiri'),
+    }
+    results = {}
+    def reject(label, bad):
+        try:
+            verify_partition(candidate, bad)
+        except ValueError:
+            results[label] = True
+        else:
+            raise ValueError('strict mutation accepted: '+label)
+    for label, predicate in predicates.items():
+        record = next((r for r in records if predicate(r)), None)
+        if record is None:
+            raise ValueError('missing real audit witness: '+label)
+        key = record['key']
+        bad = dict(candidate)
+        bad[key] = copy.deepcopy(candidate[key])
+        field = 'remainder' if bad[key]['remainder'] else 'opening'
+        if field == 'remainder':
+            bad[key][field][0][0][0] += .01
+        else:
+            bad[key][field][0][0] += .01
+        reject(label, bad)
+    key = next(iter(candidate))
+    for label in ('missingRecord','extraRecord','materialOwnerDigest'):
+        bad = dict(candidate)
+        if label=='missingRecord': del bad[key]
+        elif label=='extraRecord': bad['unexpected-record'] = candidate[key]
+        else: bad[key] = {**candidate[key], 'source':'changed owner/material'}
+        reject(label, bad)
+    return results
+
+
+def evaluate(records, allowed, protected, audit=False):
     source_keys = {r["key"] for r in records}
     if len(source_keys) != len(records) or not allowed | protected <= source_keys:
         raise ValueError("missing/duplicate real geometry identities")
     candidate = {}
     measures = {name: {"cutCount": 0, "removedMeasure": 0.0}
                 for name in APPROVED_OWNERS}
+    groups = {}
+    preservation = {kind: {'records':0,'preservedMeasure':0.} for kind in ('Triangle','Box')}
+    max_error = {kind: 0. for kind in ('Triangle','Box')}
     weed_intersection = 0.0
     for r in records:
         authorized = r["key"] in allowed
@@ -165,19 +217,40 @@ def evaluate(records, allowed, protected):
             group = measures[r["owner"]["name"]]
             group["cutCount"] += 1
             group["removedMeasure"] += value["openingMeasure"]
+            owner = r['owner']
+            key = digest(owner)
+            g = groups.setdefault(key, {'owner':owner,'type':r['type'],
+                'unit':'m2' if r['type']=='Triangle' else 'm3', 'sourceKeys':[],
+                'originalMeasure':0.,'removedMeasure':0.,'preservedMeasure':0.})
+            original = area(np.array(r['points'])) if r['type']=='Triangle' else ConvexHull(r['points']).volume
+            g['sourceKeys'].append(r['key'])
+            g['originalMeasure'] += float(original)
+            g['removedMeasure'] += float(value['openingMeasure'])
+            g['preservedMeasure'] += float(value['preservedMeasure'])
+            max_error[r['type']] = max(max_error[r['type']], abs(float(original)-value['openingMeasure']-value['preservedMeasure']))
         elif value["protectedIntersection"] > 1e-7:
             if r["key"] not in protected:
                 raise ValueError("new protected obstruction in aperture: " + r["owner"]["name"])
             weed_intersection += value["protectedIntersection"]
+        if not authorized:
+            if value['opening'] or value['remainder'] != [r['points']] or value['source'] != digest(r):
+                raise ValueError('protected source changed: '+r['key'])
+            preservation[r['type']]['records'] += 1
+            preservation[r['type']]['preservedMeasure'] += float(value['preservedMeasure'])
     verify(records, candidate, allowed, LOW, HIGH)
-    return {"sourceRecords": len(records), "authorizedIdentities": len(allowed),
+    report = {"sourceRecords": len(records), "authorizedIdentities": len(allowed),
             "protectedVegetationIdentities": len(protected),
             "preservedWeedSurfaceArea": weed_intersection,
             "cutOwners": measures, "candidateDigest": digest(candidate),
+            "cutGroups":list(groups.values()), "protectedInventory":preservation,
+            "maximumConservationError":max_error,
             "partitionVerified": True, "deployment": "BLOCKED"}
+    if audit:
+        report['strictMutationChecks'] = audit_mutations(records, candidate, allowed, protected)
+    return report
 
 
-def run_private(profile, raw_path, set_path):
+def run_private(profile, raw_path, set_path, audit=False):
     evidence = load_reviewed()
     allowed, protected, _ = reviewed_permissions(evidence, profile)
     if hashlib.sha256(Path(raw_path).read_bytes()).hexdigest() != REVIEWED_RAW_SHA256:
@@ -191,7 +264,7 @@ def run_private(profile, raw_path, set_path):
     records = collect_records(g.tri)
     if len(records) != EXPECTED_SOURCE_COUNT:
         raise ValueError("source inventory count differs; review extraction first")
-    report = evaluate(records, allowed, protected)
+    report = evaluate(records, allowed, protected, audit=audit)
     report.update({"profile": PROFILE, "sourceSha256": REVIEWED_RAW_SHA256,
                    "entitySetSha256": REVIEWED_SET_SHA256,
                    "portal": "2 (existing; runtime flags/visibility NOT VERIFIED)",
@@ -208,8 +281,9 @@ def main():
                         help="Private reviewed #320 focused.jsonl")
     parser.add_argument("--set-raw", required=True, type=Path,
                         help="Private reviewed #322 entity-set focused.jsonl")
+    parser.add_argument('--audit', action='store_true', help='run strict mutation checks on real candidate records')
     args = parser.parse_args()
-    print(json.dumps(run_private(args.profile, args.raw, args.set_raw), indent=2))
+    print(json.dumps(run_private(args.profile, args.raw, args.set_raw, audit=args.audit), indent=2))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,481 @@
+{
+  "sourceRecords": 497680,
+  "authorizedIdentities": 182,
+  "protectedVegetationIdentities": 32,
+  "preservedWeedSurfaceArea": 0.6432667966657496,
+  "cutOwners": {
+    "v_51_windows03": {
+      "cutCount": 100,
+      "removedMeasure": 14.275783562423642
+    },
+    "v_51_reflectproxy": {
+      "cutCount": 1,
+      "removedMeasure": 3.449999999999998
+    },
+    "cs2_01_shop_dec2": {
+      "cutCount": 15,
+      "removedMeasure": 0.49171973760838694
+    },
+    "1814693341": {
+      "cutCount": 60,
+      "removedMeasure": 3.759360676617585
+    },
+    "cs2_01_clotheslow_slod": {
+      "cutCount": 4,
+      "removedMeasure": 6.8881841903462195
+    },
+    "v_clotheslo": {
+      "cutCount": 1,
+      "removedMeasure": 0.11132944241999988
+    },
+    "cs2_01_5": {
+      "cutCount": 1,
+      "removedMeasure": 1.431331794219999
+    }
+  },
+  "candidateDigest": "81edaca5742030a3564302453e3dba053dc341d17d8540c747ace9a1c1755e3b",
+  "cutGroups": [
+    {
+      "owner": {
+        "kind": "mesh",
+        "file": "x64h.rpf\\levels\\gta5\\interiors\\v_int_51.rpf\\v_51_reflectproxy.ydr",
+        "entityIndex": 90,
+        "model": 0,
+        "geometry": 0,
+        "name": "v_51_reflectproxy"
+      },
+      "type": "Triangle",
+      "unit": "m2",
+      "sourceKeys": [
+        "536e03387ece6c47c56c94bf57aa374f12a95dff74c72ebbe312ca344db4c3dc"
+      ],
+      "originalMeasure": 23.350300235930018,
+      "removedMeasure": 3.449999999999998,
+      "preservedMeasure": 19.900300235930022
+    },
+    {
+      "owner": {
+        "kind": "mesh",
+        "file": "x64h.rpf\\levels\\gta5\\interiors\\v_int_51.rpf\\v_51_windows03.ydr",
+        "entityIndex": 91,
+        "model": 0,
+        "geometry": 0,
+        "name": "v_51_windows03"
+      },
+      "type": "Triangle",
+      "unit": "m2",
+      "sourceKeys": [
+        "f58bd01c4d8fa5beec12ab2bc0a6eb4847eaf857af1a48b4ac27d3cff17cf920",
+        "8145f25220f430f9a641a4dcf49d5dd2fa3a51d2e4922a0cd529a26e6060db39",
+        "930e177b45ad65bf970909c70d0d07894e63c2ec4883820d78eecefe63bfda22",
+        "23f2705731c69e1c04d1d0223c9ad31c3fd6d28c93bff75847b9764dee98544c",
+        "264b5f77954f975116622b27e897d11db7f6ae2420cddeb4e5ee7db78937713e",
+        "1346ab5c4368704e5ace82581106f7dca0c2b4da78a67fa65649c3d9fe2ddd41",
+        "d4633d8a81caa82eb6b76829f11a3930c6251ede70dd67e035ea44a9dc6b27c3",
+        "bf6be58fba84dde3a30fca4b308ba16653b4e5f044ce0a0783309f65cb7404c9",
+        "f53c31729457434042efdaf3a3349422201297bff5943179fcb0239d841990b7",
+        "b98c95f1ab4c3344c93ec568fddc76d23581ed9630870161a18507f32e84e2d8",
+        "e5375ba53637f947be102c2e1c9c47c39e077e42557b66eab77d5f866ceea328",
+        "50e573f4b3f883b1913a21d2ce67a6e24092e8c9b9e92de9be7946e8dd40b699",
+        "11b3039e4a9adb1a1b31c82a87cb4439b156ffb572164a95b11760ff057edd39",
+        "589cb48faf9b1a7ba8265b2c3aaf60dc18799bc15d0512306bb5dd0b7f374064",
+        "65d358b85a6ddd8ded3a2866497d007d46a346b36394779fac74daf0febefb26",
+        "d1d623aeb85d0158a37cc249cfcef46bdc503480d7164bf95b416bac80bc53bf",
+        "9002f225037359fc1fb70253435a23410e64adbf61bd25630be595ea7f069149",
+        "20d03df7b5847238d5b2217dbd65efee17b3b99dbcbc8d2d5224c2ff401836ab",
+        "4a41489ad0b358cbed4611be07357e075d19b3dc58d24750cf15f648c31ebcd3",
+        "67c3c18b93ee93f0293c008efe072992233e71729b95cb91d68e01ff1ff402b0",
+        "9a356aa03b6995092777fc940102191f7b58756c7a4c60033d17ac7b575e1f17",
+        "ac2fbdeecc654fb3801cf18da1fb12701c760221446fe1fb0ba3a73164fdd425",
+        "2b970c75d78a747e593f587e11f2a274083a7095e0e0e3cdb87add93aa946745",
+        "80099a0064e611cea026566569a09aaf4825c8e2dee8b804b07292e4dc9410c5",
+        "62bca1704da86251354cc7a8c1efe461ba66773848b16e84afed47f9573286ef",
+        "4c4a39c06bf4bda41e9b78441713cd8013b2e75300ba109bf97c389dded0fe16",
+        "050a23062be867f62bc920e028466c96f2439b508c47e910af791da03c6a9b6e",
+        "c3e6495ef2b882dda8a976c6da941113c13cdee9c163d66db5de4b02bead611f",
+        "d03690c6583dbc3631e9c018edff3a74ad096870f340401af3c76f3d0894b960",
+        "8a4bdeb64a50a3bdcec8f570b23a3b71c847e97d845f6ce5f629bc37936bbf96",
+        "a7f18c256567cca750c82c085198bcd7aaefce68a5f3a6c74b99cd278b13d2b9",
+        "536e8a48dab8c1a3f44a09a9d15b5c58327779f7faa27b70c39aa995e64f7281",
+        "4ab7876d7ef94eb419ec493ab187f0a6a7f6d8dcda57ae78db4894e3d5c7e0e0",
+        "fa4363be7b8b1c0e26805c2b191e2db00abb5384d66983fa4365a2160dba3992",
+        "05004a83471c6a0c1a1bceeccdda04e1aee1d6622500085ddd414a4d79933f24",
+        "a0e2e80720b2718c4c06895059dcd490f0165fe37bc2eaf5b308c44412e7817d",
+        "63cc8a824acbf0dea995d385f990d7cf3e165b73ec4bd467debd723b9fe30dd1",
+        "24c29348f276887f28ece40103fc0b156a41f81fe1fe61e2257882a10b51d481",
+        "20354d298e3801153f7bdbaf7623e0935fe24b6706105b7a89dc4dfa2001d109",
+        "0b92da7f61b06227edf23268218c498710d844476e45aecd26223642e6443660",
+        "c04b7992ae4f3cadeafae4fd13442ca35b735ceb955a97f7d8e7c42c28220c9d",
+        "55b5ab5f8fc52e4a0a13b66ec82e5522f0161a7a0381658daf5c520b8f3c587b",
+        "29ef1381d5ba6f50d3568069d1513a7a34da78565aafa723c447b03353728777",
+        "72037d28afe0890f67a05ec0b2012354086a9a459e7a909c63a18ef2445749d4",
+        "cd3af5cf2e9ea41b8aeffa2e86cf1a22af724b29ba9e587202e4b5aba85cfea6",
+        "13346c0007a2a3f8aad9d02e18bea561d047d19e0bbec39eda95c9761924f901",
+        "0c83d63f9f33918bbb93e839eb900537231444dc5bc005ff2d520a5a8da3a90e",
+        "aba1b17262fe9d0f91da637b7bbcc5f94791525340f142ce206d05e241d2f616",
+        "b104d12bbfbe7da65fb671d3a16bf72c52998ba9328cb6671f07c3f42065ca1c",
+        "9f38c7680c9c288254707a94e819bb2c2b98a6de88d666a3821420c0518aec4f",
+        "5c7c60551d0e7f13def4f0a6d2a0d49590bf20df75bab9d7461f80f92a7c7b7e",
+        "d34377d0b1aaa78190c94f5e3fbc8c60cbcbe2c440045f98368a3ae5a93e126a"
+      ],
+      "originalMeasure": 1.4679763808717883,
+      "removedMeasure": 0.9919638581165989,
+      "preservedMeasure": 0.47601252275518935
+    },
+    {
+      "owner": {
+        "kind": "mesh",
+        "file": "x64h.rpf\\levels\\gta5\\interiors\\v_int_51.rpf\\v_51_windows03.ydr",
+        "entityIndex": 91,
+        "model": 0,
+        "geometry": 1,
+        "name": "v_51_windows03"
+      },
+      "type": "Triangle",
+      "unit": "m2",
+      "sourceKeys": [
+        "52b8ef7f2e483da13c4a6fb79c2ea88688a76825589a9c4160c79a878a1ac517",
+        "13cd025ff2924fdc6e0bd53079af83ce99cf1255f38d2e15a52a4b2ba5aa0111",
+        "f22b4569b95dbcf5f41b7dd5422a7fc8b8bb519a08588fd4469559b9b467f695",
+        "679606c7ebd1542cd5a8a289e776e8f2be370c79fc02eac62155a8298f58dbca",
+        "3fea3b437a8f9e559f654cc4621512f16570142b94203aab11f00cb2696ccbf8",
+        "34ef8107817bbdac46f12ca0808f4531bb0e4f06b8203a01bd692565826d2a73",
+        "0e32a3d09b43b665a2bcaaa2e7f6173234d4dadd098f33a3d9a2eacbb16c0e1f",
+        "942ffa37d45bf69b4d1b0e1dfd5b6b09fcfd20bcccf804dab75f4c4788c4843f",
+        "ea878e2f123226de18373e4f7688c6bf087a7d628ab87f7420947c43ef4b2028",
+        "7f4e504cc64e5451d7caefa3a27d13cb198cd186e0eaa3782a469f73652e235d",
+        "50cac69fa2e88e66a15a0f901cc00d1bd182b1b331a78f9ab380b5cf85402a2a",
+        "75e365625da44d24902be1c20307325d2726be4b673cdb8e378a289d0342770c",
+        "0ee239fba6971adcadebed2db662693291848cabb0ed24cb7155e653650b6f90",
+        "a4c053dc0a9a945996dbc8d97aae92b5f667ec8d948f99e94c9b18a30aa4b033",
+        "df795a12aae90f8abbb800d1af85164cb69e02df35f1115109cec6432d3f21d1",
+        "1aa0f4848efabd863ffa70592f7a8a152e66d45dbd3c7a8ec931c8b1af830ab8"
+      ],
+      "originalMeasure": 11.9320767224274,
+      "removedMeasure": 4.822347630308426,
+      "preservedMeasure": 7.109729092118973
+    },
+    {
+      "owner": {
+        "kind": "mesh",
+        "file": "x64h.rpf\\levels\\gta5\\interiors\\v_int_51.rpf\\v_51_windows03.ydr",
+        "entityIndex": 91,
+        "model": 0,
+        "geometry": 2,
+        "name": "v_51_windows03"
+      },
+      "type": "Triangle",
+      "unit": "m2",
+      "sourceKeys": [
+        "cba90853074d9268d3d30d46b0e1c5c5d0049bfe122777b154827df3995cecc9",
+        "b30b678ab8a9ab43c6269a748f16667d873237c1132bd1d4c1491ed8c02a6199",
+        "ae1912f4df6cbd1b10258b8bc30ab7f7276278ebdf94259ff9a282329b7fc54f",
+        "1fb88bf35707d42495d5a0aebc56d3b72ea2cda1650e4c5a2ddb94b477e1b8d6",
+        "b659b9527b7a15c322da665d5c494594b2b18f059cd5e83389e471fd85d3143e",
+        "03e0b5f23c565d168e55d6dae9a54631f493ca8cd5d7928ec99faae0d23c9ece",
+        "08538826aa5a325e2a6a06888187484545869bb035715c371b6cdc1c1c6c54c0",
+        "b791867dc3fe9d1ffd4c46a45250a8933ee5c49a407957d1be0438838495a34b"
+      ],
+      "originalMeasure": 3.060241915080626,
+      "removedMeasure": 1.8195622218443193,
+      "preservedMeasure": 1.2406796932363067
+    },
+    {
+      "owner": {
+        "kind": "mesh",
+        "file": "x64h.rpf\\levels\\gta5\\interiors\\v_int_51.rpf\\v_51_windows03.ydr",
+        "entityIndex": 91,
+        "model": 0,
+        "geometry": 3,
+        "name": "v_51_windows03"
+      },
+      "type": "Triangle",
+      "unit": "m2",
+      "sourceKeys": [
+        "f691cbc7006778ed559bf5264fc548f5e5ba8cbd8a25533cf37846f7ff2c1595",
+        "f70b30095e9881d4edd3f129767043d5fd6981b5b751cad4329062026ab394a1",
+        "58296c3fb2d68249a75ebf529779770a848a88ca516f54afadc601644d915b5c",
+        "af8442cc838c6bbea8f9fdf074753b017acec74edd9aa4e4764e0cf6cc23b30a",
+        "9addbe66b5cc91941818b4ca39bb7d1f61276b84d4bd1fa5927fbe48890525bd",
+        "37d0299f6cbf2c50f8ef13d5de72f83fbae2baee0e22103375be1609b96ab4ca",
+        "e8777e41991ae388c1cce83c17ba44db7b936b37088d5a9171b629d637691612",
+        "ce6483be099956686b77fcfc6781af5efd35b18cef5d0d069387502f21b97402",
+        "0a7fcdd579d96d2157c7472f0fc88c65d8a0b57d1934c7c1aebf704a0f5ea72d",
+        "a9fa3af31d4c649bb0cd02dbab3051d757481050f9985b19ae6109e2591350ca",
+        "f91b9b3ad8109da83bc881c025f9e88813d5ca14e204ed6b5fb80148fe936b75",
+        "ff4d8bcb66abe00cc8e2fca8cf7679d231da939aacc898fab792a00d40ebf3ab",
+        "c1e1d995dc6c9a5285691510f8a8f24ead70d66f14db0af04d9e9e8295df0bae",
+        "821a8b07b41e989b09962bd68bf84a895934082ce26c493eaaa26ee65715ffae",
+        "e7f2e69eab8d7c4a7b5e10071ae3d509a8cc30a61d137a345af15a7bb01be9f1",
+        "c8dd33014a4a73d3724bbbfc9e61c54e0ed92acd5f0e1ca55e4acecfea4053a6"
+      ],
+      "originalMeasure": 11.932076722430208,
+      "removedMeasure": 4.822347630309554,
+      "preservedMeasure": 7.109729092120656
+    },
+    {
+      "owner": {
+        "kind": "mesh",
+        "file": "x64h.rpf\\levels\\gta5\\interiors\\v_int_51.rpf\\v_51_windows03.ydr",
+        "entityIndex": 91,
+        "model": 0,
+        "geometry": 4,
+        "name": "v_51_windows03"
+      },
+      "type": "Triangle",
+      "unit": "m2",
+      "sourceKeys": [
+        "51a782f4dec6504df21d06c8a3fcdfc3c8e67cbe92ba685c7e34262c942b3b81",
+        "1e71e6addda4d9938d9a5f64b1485954eb1b5c5e701e8641437d2212bb564fd3",
+        "8938a5d47a9ad2973f77bc27a3f26ff518797018a99115af6e1a3e4c96f4bc7e",
+        "46ab5118da57f7959fdbe9ba935477330d6cfd38420c39229db71c9421dfeb4d",
+        "5b9aff48b7e9a6f997cfc48e375e939350605a5a175db9c7f7d4f1db0a77c9f1",
+        "8f1e6ee6b9eca03ec99851ff480674a8798a98eae9f7721cc9611a7e3b84e2eb",
+        "26599b68c3a6541e0ae8b9bb39c45323235faaa1e6e75ef9a91f55c65d7b4ffc",
+        "1d619b517d6a7c386fad74321661db4bce6127990168f79e4270a722f5a9cb3c"
+      ],
+      "originalMeasure": 3.060241915081348,
+      "removedMeasure": 1.8195622218447447,
+      "preservedMeasure": 1.2406796932366027
+    },
+    {
+      "owner": {
+        "kind": "mesh",
+        "file": "x64r.rpf\\levels\\gta5\\_hills\\country_02\\cs2_01.rpf\\cs2_01_shop_dec2.ydr",
+        "entityIndex": 23,
+        "model": 0,
+        "geometry": 3,
+        "name": "cs2_01_shop_dec2"
+      },
+      "type": "Triangle",
+      "unit": "m2",
+      "sourceKeys": [
+        "82d317752d74e982b2d5347a0cd0bc7d5dc6c0bf91a5be5438c192cb3217082f",
+        "a56e8a8bbc2612b765d66b2b55455e2fbc276228c93fca2de26711c459ceb5d6"
+      ],
+      "originalMeasure": 0.5360568470420175,
+      "removedMeasure": 0.17296980853064,
+      "preservedMeasure": 0.36308703851137747
+    },
+    {
+      "owner": {
+        "kind": "mesh",
+        "file": "x64r.rpf\\levels\\gta5\\_hills\\country_02\\cs2_01.rpf\\cs2_01_shop_dec2.ydr",
+        "entityIndex": 23,
+        "model": 0,
+        "geometry": 4,
+        "name": "cs2_01_shop_dec2"
+      },
+      "type": "Triangle",
+      "unit": "m2",
+      "sourceKeys": [
+        "2f1a96c016bcf64f1ba03ccc4bbb692bcaca0d9b3f8fb7a42dfce020061b3b96",
+        "92396a000d4c225b3265291f3a0f95d99dac1b9eeae46a2e7748a20a5a649770",
+        "b75990a3e66fcdf5227d93c425c6b0f3b9bacaeb70231d580c1991d860e73759",
+        "16d19292b2a19a4ea3a7638666f91adad67a5b87e7a50c033f0c9a31a3d7dd00",
+        "a77ee8661fa3072e81c9edd1e0099392d7e2937c9ae4ce3e57011828b0c5254e",
+        "a183ac78a03a9cbfc631f2a752e615528e0a2931ab2a3ef61051d02940930eba",
+        "abebfd2ff8c6369d15a520485066ed6444902d3b1ad2e934e299dfecf50ed1ae",
+        "e97b1e394b5ac68a1b1d26fcce93a83ef8074ef4c155840f996579acd930b14e",
+        "831936dc746ad140fee7aa9c8bd4efb3bf00c3e8825ab43b1e1801b62c076e1a",
+        "727bdc7f51c53d173b1cf9b2dabeb4a7333ff91799a537eccd67fdbd1f867773",
+        "601c088afffb302ab4f719d269802ff1db4f859c60115b991cee83688d1c0109",
+        "26d36af34f168b3dbb779f53b6439ca01b334931edf560685bb06bbba9495f46",
+        "c6b9b957f98fdb49752a4c3a8842cc1a9ea4f58acf057274420abd7c4ae04cc5"
+      ],
+      "originalMeasure": 0.3963431776347227,
+      "removedMeasure": 0.31874992907774696,
+      "preservedMeasure": 0.07759324855697575
+    },
+    {
+      "owner": {
+        "kind": "mesh",
+        "file": "x64r.rpf\\levels\\gta5\\_hills\\country_02\\country_02.rpf\\cs2_01_clotheslow_slod_children.ydd",
+        "entityIndex": 137,
+        "model": 0,
+        "geometry": 0,
+        "name": "1814693341"
+      },
+      "type": "Triangle",
+      "unit": "m2",
+      "sourceKeys": [
+        "3b83e03932874bafca86258db636f24ece7a6642be328358a983c74cdfe40e10",
+        "9548355960fea5e97c1c8df5d5495e46d369da0fd27dae2d56bcb13653be6f1f",
+        "e7b997141127c3cfb5b0f43ea5a16f6ce95e7597d69be6a78a0768e7f2a27d08",
+        "0fbe18977edd135582fa04610fc5c52e99dfe05485111f0225cff9a7851e6a26",
+        "feea73aac3e8e2cc52c4e9073644d69aa2f1b1b5cc1cfea7c7d79e3eb4ebdebf",
+        "445b7657203034cfc70e9eba5408b358dbe4e4e36353deb9ec79bcfafca66a65",
+        "2fe5c98dbcb17ac391517262c022e9ee0feec180095c6d67446a2d252121e62a",
+        "c3daaf4f6aa0f24c8ef0c1db831d7d2161d0875b6b2c0c9b38bbcff30480cfeb",
+        "bcf540b8fba7310feb72f80c0015317e758b86b24a8b3ddae6709fa2772358a6",
+        "26d4e4597d931c74a50f00fe4eecf63998db1e62853c2aacd8142de66918b676",
+        "2c25ad1e2fc273a359ae850b7899f205cf53621330a319084982bf429be23851",
+        "f3e4ca8d848b66cbb083aed0ea911ba3d995bd9e1a3219a5e4604719b98ac7cd",
+        "c10e931609f80e7971123d7de9a85e02596a56a26883474ff3b4b0eb4fd76805",
+        "6bdc39f94f52838b2802da440423a14e434cb59b95798558d838a151ad7bb4ad",
+        "1fb18735cd8d3c3d3fbab5fe7771463a0afe8a47f802573cfcf76a51b0e7a403",
+        "a3111ee2c71071ee1479d23163926e2f4d4dfdb23213f3b41c04dc76c6593a1e",
+        "b25d2329ac39026f1548f40360ecf6b31556c7be3888e9359f616d90e7eb6926",
+        "4e0b8e78d7536b72c22bd13ce842c422c9f53958faf144548a3e85c42e052f6a",
+        "20357b2703cef32f06b7aac6ac389a1d83d864b0fa329827c021ec96b8aabddd",
+        "80157c87281812bf82a6bd9ca199720b5e4d17add4b134bdee7c5986f78061b8",
+        "e5f4b62ca7c2ebe9069b24beb41715ad0e3155e5a3ad564c35aa4d514f9e4677",
+        "5dc7d484900cf3cc91a525ff79400f10b67a6f6ee1a217fff69c403f8200c86f",
+        "9a357227ba4e1d443fad78d373bff4a66ed9dc8ed48059c7d55bd7f0ce3bc45f",
+        "e4710dd7f367c3307204db3cd5cadcb157fe6b809f7f48d0dafc4d2e3abd8831",
+        "0e8f7dfffbfa5e3e9d52ef3237b24b699c74c2c444abe7dffe8ffed6fa03228c",
+        "c72496fd42677f5c97ee49f032fa64861bd226abc9f5c3209e26d9afcf45e816",
+        "92fa177ab0712975b7094a075796308f9cfe478aed662fc46f4b0fe74370c2b9",
+        "e1326c4d5e1bfb0f8c98438d58411389222c64902ec6789f673c278fae22cdf1",
+        "42784a47edabd72497eb00dc10b9a274632e8b61169f1a216615db94ea7d3d35",
+        "e9dcd3d28543fb875950b81c561e0069431d31eb5e06ece39ce82b5ae06babd8",
+        "e100a985614579ae73998a253ad8f9ce52937a83005282d54a11c24a8d9bcf64",
+        "e2d5ac367109d50d3c1b7ee507f3b15db9e968755afedb33d5bb3e9cc9e4fb78",
+        "e852f42cbbde1f22b8ea2abab1958c9c5324dc5f8e4bbc32b100ed581bcb3fa0",
+        "4103699f42615c2815661fd9162c5b43646205ec237ce49f36f58a213bc44968",
+        "e93e65923f98b54f92235062e0482d1c78e4c7768c0258090d49242ef26bba94",
+        "364c5b72f19653b7bb409e426cfc35f431c6ba71ea639ff3f0872f1677f6a4ab",
+        "ab57660461b45f88be196c19a51c7cc94533b2af66ff1dbc7a139005dc7a9cc6",
+        "9f662d46cff976719467cb2c43fbf843cc2abc02af161ba34da8e3886ed367b5",
+        "e0aa5dff3d38f2c93182b4178b466aba63684f5d20d63d8893220126b6d00e22",
+        "8230433a72e6bd72d5a83563a5dbf13b0e9757d21169a21ead1af663b774afad",
+        "5fe30ca216c55aba5520671d68f894b6af37f01dc86b4c4ee0f6d1059fb7f602",
+        "a452c16cd9126bb99933d43044157cf70383589d1a9b3dfdbb24aad9c4cf2b0c",
+        "d8df2a033389566a850f86924c4532fb8c2c146318a279f97295f2fc7c8cd2f1",
+        "5e2bd3033916db3137588801d60aa02a5f5c001c8844cc856adff5df0dc7460e",
+        "2ea4ce28e4e22a24bca33a764ad6bdfacbe7e504153f89c6f6132b9a67663f61",
+        "2d0c9702e136d47184d410529b36ef36eb16d8665173881cbc5fd10d4821057b",
+        "f19066f19c95aca53ec5ce504ce6bb57e3a0ee34f6a8c998bf6cfc5918f0dc56",
+        "74bca80d8b57e3e5a41f1ceaf1c529eab5d80f2bb13f286060101d872fe15639",
+        "272f08f56ca30764bff05f3168410b3be17eeae41e81126583fe0b7e06202c86",
+        "824c4d319c7a3529c153d410711414caee379dec60068be5def23289acc6416e",
+        "376a2e223ef40c351c287075c495b1c3d08c17faf4326542333455763026a524",
+        "b937c001fe7080c83c2fd532ee7e9c97f66c162eafb54000ba47f265c541a3ab",
+        "81ca20c2ab3a5f7bc89e2b7ed8808dd763484f0134a70d37bfadcd021e6b2acd",
+        "bd2816bd6fdbd9ddc50d06c02aed1d1182d8abe567c1987a20553d9c79da06e1",
+        "ae56b1d99b599d7cd50048d7234f419be090a32285276d4ee3a3df064c05229e",
+        "a3a4729d1a96ddab0b09f2bc7fe02bad13d365fcd4a7accf96232959a3877f9d",
+        "b579bc244d9ebb4129b2dc3d5f8cc7a958fafed82e61370dc86355ac5e8facc9",
+        "53ac833b3fd1cc9059ae84e8cc707c6a867ac86476af140b1a00b49287082815",
+        "de63630fd8a7112e02a69482a7eff5ad8c5b37e16b4b920226d0340846884d81",
+        "c18797021b7210babbea6831dfd0ddb0aa64e2f5fa6fa02e2824b7460600a672"
+      ],
+      "originalMeasure": 4.3189552328672525,
+      "removedMeasure": 3.759360676617585,
+      "preservedMeasure": 0.5595945562496668
+    },
+    {
+      "owner": {
+        "kind": "mesh",
+        "file": "x64r.rpf\\levels\\gta5\\_hills\\country_02\\country_02.rpf\\cs2_lod_123_slod2_children.ydd",
+        "entityIndex": 0,
+        "model": 0,
+        "geometry": 0,
+        "name": "cs2_01_clotheslow_slod"
+      },
+      "type": "Triangle",
+      "unit": "m2",
+      "sourceKeys": [
+        "ddc4674b312561da21bea59f8830ebabaafe46c3702a17ad89aecd36b67ac31e",
+        "98cf756fe5afe77f2b2e17272b4c217725312e0d4650bb3083852acbb361ab55"
+      ],
+      "originalMeasure": 15.349797387311426,
+      "removedMeasure": 3.438144453655135,
+      "preservedMeasure": 11.911652933656292
+    },
+    {
+      "owner": {
+        "kind": "mesh",
+        "file": "x64r.rpf\\levels\\gta5\\_hills\\country_02\\country_02.rpf\\cs2_lod_123_slod2_children.ydd",
+        "entityIndex": 0,
+        "model": 0,
+        "geometry": 1,
+        "name": "cs2_01_clotheslow_slod"
+      },
+      "type": "Triangle",
+      "unit": "m2",
+      "sourceKeys": [
+        "fe74560a1f3445b43eeb81adbba35cd9613cb7efb79360be09c979aaa07db976",
+        "efa7d3ddd4ed477bf4b065ab2c2f4403c23d407d98515789d7e908cdf0258672"
+      ],
+      "originalMeasure": 20.385375717179624,
+      "removedMeasure": 3.450039736691085,
+      "preservedMeasure": 16.93533598048854
+    },
+    {
+      "owner": {
+        "kind": "collision",
+        "file": "x64h.rpf\\levels\\gta5\\interiors\\v_int_51.rpf\\v_clotheslo.ybn",
+        "child": "root/0",
+        "primitive": "Box",
+        "material": "33554432, 0, , 0, 0, 0, FLAG_NOT_CLIMBABLE, 0, 0",
+        "name": "v_clotheslo"
+      },
+      "type": "Box",
+      "unit": "m3",
+      "sourceKeys": [
+        "95078807be7f34310d35ffbb046dc52f95a379aedddedc682e8043770f51c65c"
+      ],
+      "originalMeasure": 1.081373971819001,
+      "removedMeasure": 0.11132944241999988,
+      "preservedMeasure": 0.9700445292571025
+    },
+    {
+      "owner": {
+        "kind": "collision",
+        "file": "x64r.rpf\\levels\\gta5\\_hills\\country_02\\cs2_01.rpf\\cs2_01_5.ybn",
+        "child": "root/0",
+        "primitive": "Box",
+        "material": "0, 0, , 0, 0, 0, NONE, 0, 0",
+        "name": "cs2_01_5"
+      },
+      "type": "Box",
+      "unit": "m3",
+      "sourceKeys": [
+        "8589e2bc4c41b029e5afff70070e6ffe0b945b68adb58af3dd4a644007f1cefe"
+      ],
+      "originalMeasure": 21.27366933236326,
+      "removedMeasure": 1.431331794219999,
+      "preservedMeasure": 19.842337539082855
+    }
+  ],
+  "protectedInventory": {
+    "Triangle": {
+      "records": 495276,
+      "preservedMeasure": 73629.80383029554
+    },
+    "Box": {
+      "records": 2222,
+      "preservedMeasure": 6287.897086454517
+    }
+  },
+  "maximumConservationError": {
+    "Triangle": 3.552713678800501e-15,
+    "Box": 9.395968447734049e-10
+  },
+  "partitionVerified": true,
+  "deployment": "BLOCKED",
+  "strictMutationChecks": {
+    "authorizedTriangle": true,
+    "normalCollision": true,
+    "interiorCollision": true,
+    "weeds": true,
+    "counter": true,
+    "display": true,
+    "floor": true,
+    "sill": true,
+    "highCollision": true,
+    "nveAlternative": true,
+    "missingRecord": true,
+    "extraRecord": true,
+    "materialOwnerDigest": true
+  },
+  "profile": "base-hipster",
+  "sourceSha256": "6825722e87abf39489f04ec8e8a48726f00fc085e30445a1c6d16b4d4ecc05cb",
+  "entitySetSha256": "5b224827985e633f6b83f2efec974cc38153900e8937d9826809ef97e346b594",
+  "portal": "2 (existing; runtime flags/visibility NOT VERIFIED)",
+  "nveClearance": "NOT VERIFIED",
+  "resourceExport": "NOT RUN",
+  "instanceIsolation": "NOT RUN",
+  "gta": "NOT RUN"
+}

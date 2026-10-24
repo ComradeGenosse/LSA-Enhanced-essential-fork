@@ -1,0 +1,61 @@
+{
+  "utc": "2026-10-24T12:30:01.482886+00:00",
+  "operator": "Codex",
+  "publisher": "Codex",
+  "host": "local Windows",
+  "basePr": 323,
+  "baseSha": "b1513fd09dbed3585be6b5dd8e4c6e85a55b684e",
+  "runtime": {
+    "python": "3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]",
+    "numpy": "2.2.6",
+    "scipy": "1.15.3"
+  },
+  "sourceFiles": {
+    "south_partition.py": {
+      "sha256": "c3ae0fe0f5919c5231bb343d7e6b16db1daf16d318588042bf51e4364b65a020",
+      "size": 15026
+    },
+    "cut_verifier.py": {
+      "sha256": "c89992cb04281b52c5600f7468111c11c5cd6156745a0939fcdaa9063ff33016",
+      "size": 10963
+    },
+    "geometry.py": {
+      "sha256": "a3bcb70cc8455b537f202bafa2c2e46dccf573f490daa7b0c27d616287e4dcc2",
+      "size": 2258
+    },
+    "geometry_math.py": {
+      "sha256": "7e3123ded561dc4412814abe907d431d2ea31bf5f8df232047b3d69816f517fc",
+      "size": 2310
+    },
+    "alternative-evidence.json": {
+      "sha256": "5e929864fa7134062c75f4b40bf588a63cf701c88c24af06dffbd23e1644b1e7",
+      "size": 42670
+    }
+  },
+  "hostFiles": {
+    "CodeWalker.Core.dll": {
+      "sha256": "f08e8fb273c8c080d438508685b3b158db6b531a856d03be2514c46bf2e1b03a",
+      "matches322": true
+    },
+    "GTA5_Enhanced.exe": {
+      "sha256": "69da07ff67d05e9ded11289e597e8b8dc5855b0a429c085f37d148dc267cb2c5",
+      "matches322": true
+    }
+  },
+  "archiveCount": 199,
+  "archiveStatInventoryBeforeAfterEqual": true,
+  "archiveStatInventoryDigest": "16d4c5091b98268f6ffc232b57b4cb707d2912c33013a414954232a719b0e03a",
+  "boundaries": {
+    "gameLaunch": false,
+    "installedWrites": 0,
+    "assetExport": false,
+    "deployment": false,
+    "fracture": false,
+    "merge": false
+  },
+  "limitations": [
+    "Reviewed private extraction is pinned, not replaced by fresh geometry.",
+    "Archive path/size/mtime checks are not full RPF content hashes.",
+    "Other shop placement references are not edited; isolated clone/rebind is not implemented or certified."
+  ]
+}
