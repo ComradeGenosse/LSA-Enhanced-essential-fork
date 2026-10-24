@@ -1,0 +1,6 @@
+{
+  "utc": "2026-10-22T21:15:01.9672748Z",
+  "gtaStopped": true,
+  "method": "Alt-F4 confirmed; black shutdown stalled; verified exact PID force-stopped; absence independently rechecked before rollback",
+  "pid": 53504
+}

@@ -1,0 +1,19 @@
+{
+  "state": "GTA_STOPPED_FILESYSTEM_RESTORED_P2_RELEASED",
+  "operator": "codex-x8",
+  "publisher": "codex",
+  "authorization": "User explicitly authorizes X8 installation, one controlled GTA session, maximum one RPG per real fence, restoration and PR309 push; no X9",
+  "candidateDriver": "2AF1F426AB3AEC7DD29D5DD221FDA23E225C82332C0C563A06E36830EDA6BF27",
+  "backup": "C:\\Users\\Chris.COMRADE\\Documents\\Codex\\2026-10-22\\implement-and-validate-x8-locally-codex\\work\\backup",
+  "session": "x8-two-fences-20261022",
+  "acknowledgedBy": "codex-x8",
+  "outcome": {
+    "command": "A_AUDIT_ERROR_STOPPED",
+    "gameplay": "NOT_RUN",
+    "world": "BOTH_ORIGINAL_9_OF_9_AT_AUDIT_NO_HIDE_OR_DAMAGE",
+    "filesystem": "PASS_4_HASHES_3_ABSENT",
+    "shots": 0
+  },
+  "nextAction": "Release same-owner P2 ownership; push corrections and failed evidence to draft PR309; no additional GTA session or shots",
+  "p2OwnershipReleased": true
+}

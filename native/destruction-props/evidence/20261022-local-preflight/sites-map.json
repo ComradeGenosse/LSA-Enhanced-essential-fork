@@ -1,0 +1,53 @@
+[
+  {
+    "path": "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+    "x": 1065.75757,
+    "y": -1773.71619,
+    "z": 34.8510056,
+    "qx": 0,
+    "qy": 0,
+    "qz": 0.820096,
+    "qw": -0.572226,
+    "sxy": 1,
+    "sz": 1,
+    "lod": "LODTYPES_DEPTH_ORPHANHD",
+    "parent": -1,
+    "flags": 1572864,
+    "guid": 1906934778,
+    "id": "A",
+    "heading": 110.18880611294958,
+    "sources": [
+      "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap",
+      "onigiri\\dlcpacks\\nve_lights\\dlc.rpf\\x64\\lights_meta_sp.rpf\\id1_24_strm_0.ymap",
+      "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_24_strm_0.ymap",
+      "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_24_strm_0.ymap",
+      "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_24_strm_0.ymap",
+      "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_24_strm_0.ymap"
+    ]
+  },
+  {
+    "path": "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+    "x": 1017.70313,
+    "y": -2105.20483,
+    "z": 30.11713,
+    "qx": 0,
+    "qy": 0,
+    "qz": 0.7930043,
+    "qw": 0.6092162,
+    "sxy": 1,
+    "sz": 1,
+    "lod": "LODTYPES_DEPTH_ORPHANHD",
+    "parent": -1,
+    "flags": 1572864,
+    "guid": 3274221750,
+    "id": "B",
+    "heading": 255.0656926279575,
+    "sources": [
+      "x64j.rpf\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap",
+      "update\\x64\\dlcpacks\\mpbiker\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\bkr_id1_10_strm_1.ymap",
+      "update\\x64\\dlcpacks\\mpheist\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\hei_id1_10_strm_1.ymap",
+      "update\\x64\\dlcpacks\\mplowrider\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\lr_id1_10_strm_1.ymap",
+      "update\\x64\\dlcpacks\\patchday2ng\\dlc.rpf\\x64\\levels\\gta5\\_citye\\indust_01\\indust_01_metadata.rpf\\id1_10_strm_1.ymap"
+    ]
+  }
+]

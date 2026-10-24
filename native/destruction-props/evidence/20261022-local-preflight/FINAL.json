@@ -1,0 +1,217 @@
+{
+  "verdict": "FAIL_STOPPED_AT_PREFLIGHT",
+  "reason": "A approach collision with unresolved owner: three ray hits, returned entity handle 0",
+  "shotCount": 0,
+  "session": "x8-two-fences-20261022",
+  "runtime": {
+    "pid": 53504,
+    "loadedUtc": "2026-10-22T21:13:02.9849283Z",
+    "scriptSha256": "2af1f426ab3aec7dd29d5dd221fda23e225c82332c0c563a06e36830eda6bf27"
+  },
+  "fences": {
+    "A": {
+      "acceptance": "FAIL_NOT_VALIDATED",
+      "audit": {
+        "t": 50038,
+        "frame": 9440,
+        "kind": "x8_audit",
+        "requestId": "2375509fb0074274be66b3e294829627",
+        "sessionId": "x8-two-fences-20261022",
+        "experimentId": "X8",
+        "trialId": "audit-A-before",
+        "id": "A",
+        "x": 1065.758,
+        "y": -1773.716,
+        "z": 34.851,
+        "heading": 110.189,
+        "updot": 1,
+        "unit": true,
+        "width": 2.536,
+        "height": 2.351,
+        "visible": true,
+        "originalBlocked": 9,
+        "foreign": 0,
+        "approachHits": 3,
+        "owned": 0,
+        "debris": 0,
+        "pools": {
+          "props": 329,
+          "propCap": 2300,
+          "colliders": 1,
+          "colliderCap": 228,
+          "peds": 32,
+          "pedCap": 256,
+          "vehicles": 123,
+          "vehicleCap": 300,
+          "projectiles": 0,
+          "pickups": 0
+        }
+      },
+      "fracturedSections": [],
+      "fracture": "NOT_RUN",
+      "traversal": "NOT_RUN",
+      "postFractureRestoration": "NOT_RUN",
+      "originalCollision": "9/9 at read-only audit",
+      "stagedRoots": 0,
+      "stagedAnchors": 0,
+      "experimentDebris": 0,
+      "hidden": false
+    },
+    "B": {
+      "acceptance": "FAIL_NOT_VALIDATED",
+      "audit": {
+        "t": 44340,
+        "frame": 8723,
+        "kind": "x8_audit",
+        "requestId": "460256770beb4ffc81da8382d47b3b80",
+        "sessionId": "x8-two-fences-20261022",
+        "experimentId": "X8",
+        "trialId": "audit-B-before",
+        "id": "B",
+        "x": 1017.703,
+        "y": -2105.205,
+        "z": 30.117,
+        "heading": 255.066,
+        "updot": 1,
+        "unit": true,
+        "width": 2.536,
+        "height": 2.351,
+        "visible": true,
+        "originalBlocked": 9,
+        "foreign": 0,
+        "approachHits": 0,
+        "owned": 0,
+        "debris": 0,
+        "pools": {
+          "props": 460,
+          "propCap": 2300,
+          "colliders": 1,
+          "colliderCap": 228,
+          "peds": 17,
+          "pedCap": 256,
+          "vehicles": 137,
+          "vehicleCap": 300,
+          "projectiles": 0,
+          "pickups": 0
+        }
+      },
+      "fracturedSections": [],
+      "fracture": "NOT_RUN",
+      "traversal": "NOT_RUN",
+      "postFractureRestoration": "NOT_RUN",
+      "originalCollision": "9/9 at read-only audit",
+      "stagedRoots": 0,
+      "stagedAnchors": 0,
+      "experimentDebris": 0,
+      "hidden": false
+    }
+  },
+  "finalSlots": [
+    {
+      "t": 79158,
+      "frame": 13200,
+      "kind": "x8_lifecycle",
+      "requestId": "8c8afde24dfc4bab87d0e850a1bc9d44",
+      "sessionId": "x8-two-fences-20261022",
+      "experimentId": "X8",
+      "trialId": "stopped-status",
+      "id": "A",
+      "operation": "status",
+      "revision": 1,
+      "state": "Registered",
+      "lease": null,
+      "sourceHash": 1185366416,
+      "heading": 110.189,
+      "rootsExpected": 0,
+      "anchorsExpected": 0,
+      "hideIntent": false,
+      "x7State": "None",
+      "x7Hidden": false,
+      "x7Committed": false
+    },
+    {
+      "t": 79158,
+      "frame": 13200,
+      "kind": "x8_lifecycle",
+      "requestId": "8c8afde24dfc4bab87d0e850a1bc9d44",
+      "sessionId": "x8-two-fences-20261022",
+      "experimentId": "X8",
+      "trialId": "stopped-status",
+      "id": "B",
+      "operation": "status",
+      "revision": 1,
+      "state": "Registered",
+      "lease": null,
+      "sourceHash": 1185366416,
+      "heading": 255.066,
+      "rootsExpected": 0,
+      "anchorsExpected": 0,
+      "hideIntent": false,
+      "x7State": "None",
+      "x7Hidden": false,
+      "x7Committed": false
+    }
+  ],
+  "filesystemRestoration": {
+    "passed": true,
+    "files": [
+      {
+        "relative": "ScriptHookVDotNet.ini",
+        "expected": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72",
+        "actual": "C9ECD8E277F8C7012793E8A2368700C71BE626D3D270F0B68E6DBA0ACA53BB72"
+      },
+      {
+        "relative": "onigiri/common/data/dlclist.xml",
+        "expected": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234",
+        "actual": "C0C9D70C7B4241C69674126C8AEE71143B760FAD6E3EAF7BB02AA76FE3B4C234"
+      },
+      {
+        "relative": "onigiri/dlcpacks/lsa_fence_x7d/dlc.rpf",
+        "expected": null,
+        "actual": null
+      },
+      {
+        "relative": "scripts-x7/WpsBreachLabX7.3.cs",
+        "expected": null,
+        "actual": null
+      },
+      {
+        "relative": "scripts-x7/x7-models.txt",
+        "expected": null,
+        "actual": null
+      }
+    ],
+    "addons": [
+      {
+        "relative": "renodx-dlss.addon64",
+        "expected": "D3184429254F09D2F8A50B7F3D10B9B24CC3B630B35AEB81F8CB43BEB9E50AFC",
+        "actual": "D3184429254F09D2F8A50B7F3D10B9B24CC3B630B35AEB81F8CB43BEB9E50AFC",
+        "temporaryAbsent": true
+      },
+      {
+        "relative": "renodx-dlss-hotkey.addon64",
+        "expected": "A64BE8C4B00901F31894EFC15238BFDD0BEB6C16B9C545C88C7B3131B49183DB",
+        "actual": "A64BE8C4B00901F31894EFC15238BFDD0BEB6C16B9C545C88C7B3131B49183DB",
+        "temporaryAbsent": true
+      }
+    ]
+  },
+  "shutdown": {
+    "utc": "2026-10-22T21:15:01.9672748Z",
+    "gtaStopped": true,
+    "method": "Alt-F4 confirmed; black shutdown stalled; verified exact PID force-stopped; absence independently rechecked before rollback",
+    "pid": 53504
+  },
+  "p2OwnershipReleased": true,
+  "queuedCommandsAbsent": true,
+  "performance": "Native shot/commit/fracture/traversal performance NOT_MEASURED; audit prop pools below 21%",
+  "limitations": [
+    "Sequential native lease only",
+    "A approach hits have unresolved collision ownership",
+    "B audit rays clear but ground rises 0.591m from local T=-2 to T=2; traversal unverified",
+    "No native destruction or restoration acceptance for X8",
+    "Cleanup verification fix only exercised offline",
+    "Issue308 remains separate and untested",
+    "No X9"
+  ]
+}

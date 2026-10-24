@@ -1,0 +1,14 @@
+{
+  "requestId": "8c8afde24dfc4bab87d0e850a1bc9d44",
+  "fence": "ea7b40b90f08432ba2b0d06c64c238a3",
+  "sessionId": "x8-two-fences-20261022",
+  "experimentId": "X8",
+  "trialId": "stopped-status",
+  "command": "x8status",
+  "expected": {
+    "pid": 53504,
+    "loadedUtc": "2026-10-22T21:13:02.9849283Z",
+    "scriptSha256": "2af1f426ab3aec7dd29d5dd221fda23e225c82332c0c563a06e36830eda6bf27"
+  },
+  "expiresUnix": 1792703742.0010936
+}
