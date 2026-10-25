@@ -41,7 +41,7 @@ namespace LSA.Enhanced.Ui
                 switch (action) {
                     case "repair": {
                         var car = Current(); if (car == null) return "Enter a vehicle first";
-                        car.Repair(); car.RepairComponents(); return "Vehicle repaired (game-native damage)";
+                        car.Repair(); car.RepairComponents(VehicleComponents.All); return "Vehicle repaired (game-native damage)";
                     }
                     case "clean": {
                         var car = Current(); if (car == null) return "Enter a vehicle first";
@@ -101,8 +101,14 @@ namespace LSA.Enhanced.Ui
                 if (created.Count == 0) return "No cheat-spawned vehicles to delete";
                 var last = created[created.Count - 1];
                 // Refuse if anybody occupies it; never delete an ambient or P2-owned vehicle.
-                if (Current() == last || NativeFunction.CallByHash<int>(0x24CB2137731FFE89UL,last) > 0
-                    || last.Driver != null && last.Driver.IsValid()) return "Vehicle occupied; exit first";
+                if (!last.CreatedByTheCallingPlugin) {
+                    created.RemoveAt(created.Count - 1);
+                    return "Spawn ownership no longer verified; not deleting";
+                }
+                // Native occupant checks must succeed and return zero, otherwise fail closed.
+                int passengers = NativeFunction.CallByHash<int>(0x24CB2137731FFE89UL,last);
+                if (Current() == last || passengers != 0
+                    || last.Driver != null && last.Driver.IsValid()) return "Vehicle occupied or occupancy unknown; exit first";
                 last.Delete();
                 created.RemoveAt(created.Count - 1);
                 return "Last cheat-spawned vehicle removed";
