@@ -129,6 +129,10 @@ namespace LSA.Enhanced
                 Settings = () => settings,Essential = () => essential,Router = () => router,HostStatus = bridge.Describe,Origin = origin,
                 TalkStatus = () => talk.DisplayState,ClearTalkTarget = () => talk.Clear("manual"),TalkConflict = () => talk.Conflict,
                 VehicleHudMode = () => vehicleHud.Mode,SetVehicleHudMode = vehicleHud.SetMode,VehicleHudView = () => vehicleHud.Current,
+                VehicleDeformationEnabled = () => vehicleHud.DeformationEnabled,
+                SetVehicleDeformationEnabled = vehicleHud.SetDeformationEnabled,
+                VehicleDeformationStatus = () => vehicleHud.DeformationStatus,
+                CaptureVehicleDeformation = vehicleHud.CaptureDeformation,
                 VehicleTelemetryLogging = () => vehicleHud.Logging, SetVehicleTelemetryLogging = vehicleHud.SetLogging,
                 EndpointState = EndpointState,Paused = () => gameState.Paused,PluginsPath = plugins,Log = Game.LogTrivial};
             ui = new UiBridge(context,CreateMenu);

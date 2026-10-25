@@ -31,6 +31,10 @@ namespace LSA.Enhanced.Ui
         public Func<LSA.Enhanced.VehicleHud.VehicleView> VehicleHudView = () => null;
         public Func<bool> VehicleTelemetryLogging = () => false;
         public Action<bool> SetVehicleTelemetryLogging = _ => { };
+        public Func<bool> VehicleDeformationEnabled = () => false;
+        public Action<bool> SetVehicleDeformationEnabled = _ => { };
+        public Func<string> VehicleDeformationStatus = () => "OFF";
+        public Func<string,string> CaptureVehicleDeformation = _ => "Unavailable";
         public string PluginsPath;
         public Action<string> Log = _ => { };
     }
