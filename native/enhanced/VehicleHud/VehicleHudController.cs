@@ -501,11 +501,11 @@ namespace LSA.Enhanced.VehicleHud
                 "FRONT / "+mesh.Archetype.ToUpperInvariant(),
                 px+32*s,py+62*s,10*s,Color.FromArgb(225,151,210,220));
             if(textured) {
-                if(mesh.ExperimentalDeformation && original!=null &&
-                    original.ExtractedGeometry &&
-                    original.Outline.Length==mesh.Outline.Length)
-                    DrawWarpedSprite(g,sourceSprite,cx,front,width,span,original,mesh);
-                else g.DrawTexture(sourceSprite,
+                // VH7's 6x12 UV-tile displacement produced global shrinkage,
+                // gaps and misaligned regions in the real Buffalo replay.
+                // Fail visually safe: keep the recognizable clean-car image
+                // until a continuous topology-preserving renderer is proven.
+                g.DrawTexture(sourceSprite,
                     new RectangleF(cx-width*.5f,front,width,span));
                 // Measured changed exterior outline stays visible as a
                 // subtle signal on top of the detailed original render.
@@ -536,44 +536,8 @@ namespace LSA.Enhanced.VehicleHud
                 Wheel(g,cx+width*.5f+5*s,rearWheel-15*s,s,VehicleHudPresentation.WheelState(reading,3));
             }
         }
-        // VH7 experimental 2D sprite deformation. 6x12 UV rectangles sample
-        // the real orthographic image, offset by the *measured* VH5 outline
-        // changes. No texture uploads, file access or geometry parse per frame.
-        // This uses 72 documented Rage.Graphics DrawTexture calls when the
-        // experimental damage shape is active, versus one for the clean car.
-        // Smooth scrolling and exact UV-mesh bending are not claimed.
-        static void DrawWarpedSprite(Rage.Graphics g,Rage.Texture texture,
-            float centerX,float top,float width,float height,
-            VehicleBodyMesh pristine,VehicleBodyMesh damaged)
-        {
-            const int columns=6, rows=12;
-            for(int y=0;y<rows;y++)for(int x=0;x<columns;x++) {
-                float u0=(float)x/columns,v0=(float)y/rows;
-                float u1=(float)(x+1)/columns,v1=(float)(y+1)/rows;
-                float ox=(u0+u1)*.5f-.5f,oy=(v0+v1)*.5f;
-                float sx=0f,sy=0f,total=0f;
-                for(int k=0;k<pristine.Outline.Length;k++) {
-                    var a=pristine.Outline[k];var b=damaged.Outline[k];
-                    float dx=a.X-ox,dy=a.Y-oy;
-                    float d2=dx*dx+dy*dy;
-                    if(d2>.17f)continue;
-                    float weight=1f/(.008f+d2*d2*32f);
-                    sx+=(b.X-a.X)*weight;
-                    sy+=(b.Y-a.Y)*weight;
-                    total+=weight;
-                }
-                if(total>0) {sx/=total;sy/=total;}
-                // Limit visible distortion to the already bounded VH5
-                // shape rather than stretching arbitrary game textures.
-                sx=Math.Max(-.095f,Math.Min(.095f,sx));
-                sy=Math.Max(-.095f,Math.Min(.095f,sy));
-                g.DrawTexture(texture,new RectangleF(
-                    centerX-width*.5f+u0*width+sx*width,
-                    top+v0*height+sy*height,
-                    width/columns+.45f,height/rows+.45f),
-                    u0,v0,u1,v1);
-            }
-        }
+        // VH8: Experimental tiled image warping intentionally disabled.
+        // Localized measured damage remains visible on the 2D outline.
         static void StrokePolygon(Rage.Graphics g,BodyVertex[] vertices,
             float cx,float top,float width,float length,float scale,Color color)
         {
