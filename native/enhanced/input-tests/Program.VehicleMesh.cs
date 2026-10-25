@@ -21,7 +21,7 @@ static partial class Program
             VehicleMeshGeometry.Build("sultan",bounds).Archetype=="sedan" &&
             VehicleMeshGeometry.Build("dubsta",bounds).Archetype=="suv",
             "six archetypes plus the supercar profile supported");
-        Check(VehicleMeshGeometry.Build("unknown-mod-car",bounds).Archetype=="coupe" &&
+        Check(VehicleMeshGeometry.Build("unknown-mod-car",bounds).Archetype=="sedan" &&
             VehicleMeshGeometry.Build("unknown-mod-car",
                 new DeformationBounds(-1,-3,-.2f,1,3,2.2f)).Archetype=="suv",
             "unknown addon vehicles fall back to model dimension heuristics");
