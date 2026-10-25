@@ -28,6 +28,7 @@ static partial class Program
             RouterTests();
             TalkTests();
             FeedbackTests();
+            VehicleHudTests();
             InterceptionTests();
             ViewModelTests();
             CheatFavoritesTests();

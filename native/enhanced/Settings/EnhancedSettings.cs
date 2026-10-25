@@ -28,6 +28,7 @@ namespace LSA.Enhanced.Settings
         public string OrdinaryNpc {get;private set;}                 // "ask" or "off"
         public IReadOnlyDictionary<string,string> Phrases {get;private set;}
         public string Hud {get;private set;}                         // "notification", "subtitle" or "off"
+        public string VehicleHudMode {get;private set;}              // "off", "minimal" or "full"
         public bool TalkEnabled {get;private set;}
         public int TalkKeyCode {get;private set;}
         public string TalkKeyName {get;private set;}
@@ -57,7 +58,7 @@ namespace LSA.Enhanced.Settings
         {
             if (json == null || Encoding.UTF8.GetByteCount(json) > MaxFileBytes) throw Fail("file","larger than 16 KiB");
             var root = new JavaScriptSerializer {MaxJsonLength = MaxFileBytes * 2,RecursionLimit = 8}.DeserializeObject(json) as Dictionary<string,object> ?? throw Fail("file","not a JSON object");
-            Only(root,"$","version","input","quickCommands","ui","feedback","talkTargeting");
+            Only(root,"$","version","input","quickCommands","ui","feedback","talkTargeting","vehicleHud");
             if (!(root.TryGetValue("version",out var version) && version is int number && number == 1)) throw Fail("version","must be 1");
             var result = new EnhancedSettings();
             using (var hash = SHA256.Create()) result.Revision = BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(json))).Replace("-","").ToLowerInvariant();
@@ -147,6 +148,9 @@ namespace LSA.Enhanced.Settings
                 if (codes.Contains(talkKey)) throw Fail("talkTargeting.key",PhysicalKeys.Name(talkKey) + " is already a router key");
                 result.TalkKeyCode = talkKey; result.TalkKeyName = PhysicalKeys.Name(talkKey);
             } else if (result.TalkEnabled) throw Fail("talkTargeting.key","required when talk targeting is enabled");
+            var vehicleHud = Section(root,"vehicleHud"); Only(vehicleHud,"vehicleHud","mode");
+            result.VehicleHudMode = vehicleHud.TryGetValue("mode",out var vehicleMode) ? vehicleMode as string : "full";
+            if (result.VehicleHudMode != "off" && result.VehicleHudMode != "minimal" && result.VehicleHudMode != "full") throw Fail("vehicleHud.mode","use off, minimal or full");
             var feedback = Section(root,"feedback"); Only(feedback,"feedback","hud");
             result.Hud = feedback.TryGetValue("hud",out var hud) ? hud as string : "notification";
             if (result.Hud != "notification" && result.Hud != "subtitle" && result.Hud != "off") throw Fail("feedback.hud","use notification, subtitle or off");

@@ -32,7 +32,7 @@ namespace LSA.Enhanced.Ui
         readonly UiContext context;
         readonly MenuPool pool = new MenuPool();
         readonly List<UIMenu> menus = new List<UIMenu>();
-        readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage;
+        readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage, vehicleHud;
         readonly UIMenu cheatMenu, cheatVehicles, cheatFavorites, cheatPlayer;
         readonly VehicleFavorites favorites;
         readonly VehicleCheats cheats;
@@ -76,9 +76,11 @@ namespace LSA.Enhanced.Ui
             cheatVehicles = Menu("Vehicle Options");
             cheatFavorites = Menu("Vehicle Favorites");
             cheatPlayer = Menu("Player Options");
+            vehicleHud = Menu("Vehicle Diagnostics");
             Bind(cheatMenu,"Cheat Menu","Local single-player gameplay tools; no AI required.");
             Bind(cheatVehicles,"Vehicle Options","Repair, spawn and manage cars.",cheatMenu);
             cheatFavorites.ParentMenu = cheatVehicles; // Dynamic parent items are rebuilt by Render; navigate through a local action.
+            vehicleHud.ParentMenu = cheatVehicles; // Opened using a local action, so menu refresh retains navigation.
             Bind(cheatPlayer,"Player Options","Health, armor, wanted and invincibility.",cheatMenu);
             Bind(current,"Current NPC","Status and actions for the NPC Essential has selected.");
             Bind(roster,"My Characters","Select a promoted character, summon, dismiss or manage gameplay.");
@@ -92,7 +94,7 @@ namespace LSA.Enhanced.Ui
             settingsPage.AddItem(editorItem);
             character.ParentMenu = roster;
             activities.ParentMenu = current;
-            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director),("cheatVehicles",cheatVehicles),("cheatFavorites",cheatFavorites),("cheatPlayer",cheatPlayer)})
+            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director),("cheatVehicles",cheatVehicles),("cheatFavorites",cheatFavorites),("cheatPlayer",cheatPlayer),("vehicleHud",vehicleHud)})
                 pages[pair.Item2] = new Page {Name = pair.Item1,Menu = pair.Item2};
         }
         UIMenu Menu(string subtitle)
@@ -262,6 +264,11 @@ namespace LSA.Enhanced.Ui
         void SaveChoice(Page page,UIMenuItem item,MenuLine line)
         {
             if (line.Command == ControlsView.ChordWindowCommand || !(item is UIMenuListScrollerItem<string> scroller)) return;
+            if (line.Command == "local.vehicleHudMode") {
+                int choice = scroller.Index;
+                if (choice >= 0 && choice < line.Options.Length) { context.SetVehicleHudMode(line.Options[choice]); Invalidate(page); }
+                return;
+            }
             int index = scroller.Index;
             if (index < 0 || index >= line.Options.Length || line.Options[index] == line.Value) return;
             var args = new CommandArgs {Value = line.Options[index]};
@@ -273,6 +280,10 @@ namespace LSA.Enhanced.Ui
         {
             switch (line.Command ?? line.Key) {
                 case LocalOpenCharacter: OpenCharacter(line.Value,page.Menu); break;
+                case "local.openVehicleHud":
+                    vehicleHud.ParentMenu = page.Menu;
+                    Invalidate(pages[vehicleHud]);
+                    page.Menu.Visible = false; vehicleHud.Visible = true; break;
                 case "local.openCheatFavorites":
                     cheatFavorites.ParentMenu = page.Menu;
                     Invalidate(pages[cheatFavorites]);
@@ -556,7 +567,8 @@ namespace LSA.Enhanced.Ui
                     MenuLine.Action("saveCurrent","Favorite current vehicle","cheat.saveCurrent","Save your current vehicle's model to the favorites file."),
                     MenuLine.Action("addFavorite","Add favorite by model","cheat.addFavorite","Type a vehicle model to save for later spawning."),
                     MenuLine.Action("deleteLast","Delete last spawned vehicle","cheat.deleteLast","Delete only the last unoccupied vehicle created by this cheat menu.",true,true),
-                    MenuLine.Action("openFavorites","Vehicle Favorites","local.openCheatFavorites","Browse, spawn or remove saved favorites.")
+                    MenuLine.Action("openFavorites","Vehicle Favorites","local.openCheatFavorites","Browse, spawn or remove saved favorites."),
+                    MenuLine.Action("openVehicleHud","Vehicle Diagnostics","local.openVehicleHud","See damage, tire bursts, handling inference and diagnostics overlay settings.")
                 };
             }
             if (page.Menu == cheatFavorites) {
@@ -671,6 +683,29 @@ namespace LSA.Enhanced.Ui
                 } else lines.Insert(1,MenuLine.Fact("activitySelection","Activity actions",
                     row.Spawned || row.Suspended ? "Checking native binding" : "Summon first",
                     "An absent character cannot perform world actions. Otherwise wait for verified native ownership."));
+                return lines;
+            }
+            if (page.Menu == vehicleHud) {
+                subtitle = "Vehicle Diagnostics";
+                var view = context.VehicleHudView();
+                var lines = new List<MenuLine> {
+                    MenuLine.Choice("mode","Overlay mode","local.vehicleHudMode",context.VehicleHudMode(),
+                        new[] {"off","minimal","full"},new[] {"Off","Minimal","Full"},
+                        "Choose an overlay mode, then press Select to apply. Session-only; edit LSA.Enhanced.json to persist."),
+                    MenuLine.Fact("scope","Vehicle","Driver only","The panel is shown only when driving a car, not in other seats."),
+                    MenuLine.Fact("brakes","Brake wear","N/A","No verified per-wheel brake damage source is available."),
+                    MenuLine.Fact("suspension","Suspension damage","N/A","External damage mods need an explicit telemetry integration."),
+                    MenuLine.Fact("wheel","Tire status","Direct","Tire burst native; wheel detach or rim health is not implied.")
+                };
+                if (view != null) {
+                    var sample = view.Reading;
+                    lines.Add(MenuLine.Fact("engine","Engine health",Math.Round(sample.Engine).ToString(CultureInfo.InvariantCulture) + " HP"));
+                    lines.Add(MenuLine.Fact("body","Body health",Math.Round(sample.Body).ToString(CultureInfo.InvariantCulture) + " HP"));
+                    lines.Add(MenuLine.Fact("tank","Fuel tank health",Math.Round(sample.Tank).ToString(CultureInfo.InvariantCulture) + " HP"));
+                    lines.Add(MenuLine.Fact("pull","Handling drift",view.DriftHint ?? "Not detected","Inference; not confirmed alignment or brake damage."));
+                    for (int i = 0; i < view.Events.Length; i++)
+                        lines.Add(MenuLine.Fact("damage:"+i,view.Events[i].Text,"Observed"));
+                } else lines.Add(MenuLine.Fact("drive","No driven car","","Enter the driver seat to start live diagnostics."));
                 return lines;
             }
             if (page.Menu == controls) {

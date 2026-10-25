@@ -26,6 +26,9 @@ namespace LSA.Enhanced.Ui
         public Func<string> Origin = () => null;
         public Func<string> EndpointState = () => null;
         public Func<bool> Paused = () => false;
+        public Func<string> VehicleHudMode = () => "off";
+        public Action<string> SetVehicleHudMode = _ => { };
+        public Func<LSA.Enhanced.VehicleHud.VehicleView> VehicleHudView = () => null;
         public string PluginsPath;
         public Action<string> Log = _ => { };
     }
