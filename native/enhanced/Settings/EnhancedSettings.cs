@@ -27,8 +27,8 @@ namespace LSA.Enhanced.Settings
         public IReadOnlyList<GestureBinding> Bindings {get;private set;}
         public string OrdinaryNpc {get;private set;}                 // "ask" or "off"
         public IReadOnlyDictionary<string,string> Phrases {get;private set;}
-        public string Hud {get;private set;}
-        public string VehicleHudMode {get;private set;}                         // "notification", "subtitle" or "off"
+        public string Hud {get;private set;}                         // "notification", "subtitle" or "off"
+        public string VehicleHudMode {get;private set;}              // "off", "minimal" or "full"
         public bool TalkEnabled {get;private set;}
         public int TalkKeyCode {get;private set;}
         public string TalkKeyName {get;private set;}
