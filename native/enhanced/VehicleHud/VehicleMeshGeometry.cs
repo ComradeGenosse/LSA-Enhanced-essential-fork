@@ -21,13 +21,24 @@ namespace LSA.Enhanced.VehicleHud
         public readonly BodyVertex[] Cabin;
         public readonly float FrontWheelY,RearWheelY;
         public readonly bool ExperimentalDeformation;
+        // Local-user-supplied VH6 data; never included in the public DLL.
+        public readonly BodyVertex[][] GlassRings;
+        public readonly BodyVertex[] WheelCenters;
+        public readonly bool ExtractedGeometry;
+        public readonly float DisplayAspect;
         public VehicleBodyMesh(string model,string archetype,DeformationBounds bounds,
             BodyVertex[] outline,BodyVertex[] cabin,float frontWheelY,float rearWheelY,
-            bool experimental=false)
+            bool experimental=false,BodyVertex[][] glassRings=null,
+            BodyVertex[] wheelCenters=null,bool extracted=false,float displayAspect=0f)
         {
             Model=model; Archetype=archetype; Bounds=bounds;
             Outline=outline; Cabin=cabin; FrontWheelY=frontWheelY; RearWheelY=rearWheelY;
             ExperimentalDeformation=experimental;
+            GlassRings=glassRings??new BodyVertex[0][];
+            WheelCenters=wheelCenters??new BodyVertex[0];
+            ExtractedGeometry=extracted;
+            DisplayAspect=displayAspect>0f?displayAspect:
+                (bounds.MaxX-bounds.MinX)/(bounds.MaxY-bounds.MinY);
         }
     }
     public static class VehicleMeshGeometry
@@ -139,7 +150,8 @@ namespace LSA.Enhanced.VehicleHud
         {
             if(current==null)return target;
             if(target==null || current.Outline.Length!=target.Outline.Length ||
-                current.Cabin.Length!=target.Cabin.Length || current.Model!=target.Model)
+                current.Cabin.Length!=target.Cabin.Length || current.Model!=target.Model ||
+                current.GlassRings.Length!=target.GlassRings.Length)
                 return target;
             factor=Math.Max(0f,Math.Min(1f,factor));
             float maxChange=0;
@@ -151,16 +163,27 @@ namespace LSA.Enhanced.VehicleHud
                 maxChange=Math.Max(maxChange,Math.Abs(current.Cabin[i].X-target.Cabin[i].X));
                 maxChange=Math.Max(maxChange,Math.Abs(current.Cabin[i].Y-target.Cabin[i].Y));
             }
+            for(int j=0;j<current.GlassRings.Length;j++) {
+                if(current.GlassRings[j].Length!=target.GlassRings[j].Length)return target;
+                for(int i=0;i<current.GlassRings[j].Length;i++) {
+                    maxChange=Math.Max(maxChange,Math.Abs(current.GlassRings[j][i].X-target.GlassRings[j][i].X));
+                    maxChange=Math.Max(maxChange,Math.Abs(current.GlassRings[j][i].Y-target.GlassRings[j][i].Y));
+                }
+            }
             if(maxChange<.0004f || factor>=1f)return target;
             Func<BodyVertex[],BodyVertex[],BodyVertex[]> mix=(oldPoints,newPoints) =>
                 oldPoints.Select((p,i) => new BodyVertex(
                     p.X+(newPoints[i].X-p.X)*factor,
                     p.Y+(newPoints[i].Y-p.Y)*factor
                 )).ToArray();
+            var windows=new BodyVertex[target.GlassRings.Length][];
+            for(int i=0;i<windows.Length;i++)
+                windows[i]=mix(current.GlassRings[i],target.GlassRings[i]);
             return new VehicleBodyMesh(target.Model,target.Archetype,target.Bounds,
                 mix(current.Outline,target.Outline),mix(current.Cabin,target.Cabin),
                 target.FrontWheelY,target.RearWheelY,
-                target.ExperimentalDeformation);
+                target.ExperimentalDeformation,windows,target.WheelCenters,
+                target.ExtractedGeometry,target.DisplayAspect);
         }
         // Strict pair integrity: never combine captures from a different car
         // or deform the HUD from body health, native tyre burst or nonfinite
@@ -220,8 +243,10 @@ namespace LSA.Enhanced.VehicleHud
             var outline=mesh.Outline.Select(v=>Shift(v,changes)).ToArray();
             var cabin=mesh.Cabin.Select(v=>Shift(v,changes)).ToArray();
             if(!PolygonSafe(outline))return mesh; // fail closed on folding
+            var windows=mesh.GlassRings.Select(r=>r.Select(v=>Shift(v,changes)).ToArray()).ToArray();
             return new VehicleBodyMesh(mesh.Model,mesh.Archetype,mesh.Bounds,
-                outline,cabin,mesh.FrontWheelY,mesh.RearWheelY,true);
+                outline,cabin,mesh.FrontWheelY,mesh.RearWheelY,true,windows,
+                mesh.WheelCenters,mesh.ExtractedGeometry,mesh.DisplayAspect);
         }
         sealed class Motion
         {
@@ -256,17 +281,36 @@ namespace LSA.Enhanced.VehicleHud
         }
         // At most one winding direction change tolerated? No. The outline
         // should never fold, even if noisy captures pass vector validity.
-        static bool PolygonSafe(BodyVertex[] points)
+        // VH6 can supply an arbitrary clockwise or CCW 14-point polygon.
+        // Unlike procedural station meshes, its vertex order is not
+        // monotonic in Y. Check true segment intersections instead.
+        public static bool PolygonSafe(BodyVertex[] points)
         {
-            if(points==null||points.Length<6)return false;
+            if(points==null||points.Length<3||points.Length>96)return false;
+            float signedArea=0f;
             for(int i=0;i<points.Length;i++) {
-                var p=points[i];
-                if(!Finite(p.X)||!Finite(p.Y))return false;
-                if(i>0 && i<points.Length/2 && p.Y+0.001f<points[i-1].Y)return false;
-                if(i>points.Length/2 && p.Y-0.001f>points[i-1].Y)return false;
+                var a=points[i];var b=points[(i+1)%points.Length];
+                if(!Finite(a.X)||!Finite(a.Y) || a.X<-.65f || a.X>.65f ||
+                    a.Y<-.1f || a.Y>1.1f) return false;
+                if(Math.Abs(a.X-b.X)+Math.Abs(a.Y-b.Y)<.000001f)return false;
+                signedArea+=a.X*b.Y-b.X*a.Y;
+            }
+            if(Math.Abs(signedArea)<.001f)return false;
+            for(int i=0;i<points.Length;i++) {
+                var a=points[i]; var b=points[(i+1)%points.Length];
+                for(int j=i+1;j<points.Length;j++) {
+                    if(j==i || j==(i+1)%points.Length ||
+                        (j+1)%points.Length==i)continue;
+                    var c=points[j];var d=points[(j+1)%points.Length];
+                    float abC=Cross(a,b,c),abD=Cross(a,b,d);
+                    float cdA=Cross(c,d,a),cdB=Cross(c,d,b);
+                    if(abC*abD<0f && cdA*cdB<0f)return false;
+                }
             }
             return true;
         }
+        static float Cross(BodyVertex a,BodyVertex b,BodyVertex c)=>
+            (b.X-a.X)*(c.Y-a.Y)-(b.Y-a.Y)*(c.X-a.X);
         static float Clamp(float v,float min,float max)=>Math.Max(min,Math.Min(max,v));
         static bool Finite(float v)=>!float.IsNaN(v)&&!float.IsInfinity(v);
     }

@@ -26,6 +26,8 @@ namespace LSA.Enhanced.Ui
         public Func<string> Origin = () => null;
         public Func<string> EndpointState = () => null;
         public Func<bool> Paused = () => false;
+        public Func<string> ModelGeometryStatus = () => "No model selected";
+        public Func<string> VehicleSpriteStatus = () => "No car texture";
         public Func<string> VehicleHudMode = () => "off";
         public Action<string> SetVehicleHudMode = _ => { };
         public Func<LSA.Enhanced.VehicleHud.VehicleView> VehicleHudView = () => null;
