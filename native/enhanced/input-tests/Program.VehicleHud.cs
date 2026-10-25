@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using LSA.Enhanced.VehicleHud;
+using LSA.Enhanced.Settings;
 
 static partial class Program
 {
