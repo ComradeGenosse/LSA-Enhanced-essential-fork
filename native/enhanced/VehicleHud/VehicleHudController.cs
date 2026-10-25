@@ -65,7 +65,7 @@ namespace LSA.Enhanced.VehicleHud
         {
             var v = new VehicleReading {
                 Handle = car.Handle,
-                Engine = car.EngineHealth, Body = car.BodyHealth, Tank = car.FuelTankHealth,
+                Engine = car.EngineHealth, Body = NativeFunction.CallByName<float>("GET_VEHICLE_BODY_HEALTH",car.Handle), Tank = car.FuelTankHealth,
                 SpeedMps = car.Speed, SteeringDegrees = car.SteeringAngle, OnAllWheels = car.IsOnAllWheels
             };
             var velocity = car.Velocity;
