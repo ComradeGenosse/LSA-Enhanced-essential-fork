@@ -66,7 +66,7 @@ namespace LSA.Enhanced.VehicleHud
             }
             string drift = Drift(next);
             if (drift == null || drift != driftDirection) { driftDirection = drift; driftSince = timeMs; }
-            else if (timeMs - driftSince >= 1600 && timeMs - driftLastEvent >= 12000) {
+            else if (timeMs - driftSince >= 1600 && (driftLastEvent == 0 || timeMs - driftLastEvent >= 12000)) {
                 Add(timeMs,"Possible " + drift + " drift (inferred)");
                 driftLastEvent = timeMs;
             }
