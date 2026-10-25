@@ -64,8 +64,8 @@ namespace LSA.Enhanced.VehicleHud
         static VehicleReading Read(Vehicle car)
         {
             var v = new VehicleReading {
-                Handle = car.Handle,
-                Engine = car.EngineHealth, Body = NativeFunction.CallByName<float>("GET_VEHICLE_BODY_HEALTH",car.Handle), Tank = car.FuelTankHealth,
+                Handle = unchecked((int)car.Handle.Value),
+                Engine = car.EngineHealth, Body = NativeFunction.CallByName<float>("GET_VEHICLE_BODY_HEALTH",unchecked((int)car.Handle.Value)), Tank = car.FuelTankHealth,
                 SpeedMps = car.Speed, SteeringDegrees = car.SteeringAngle, OnAllWheels = car.IsOnAllWheels
             };
             var velocity = car.Velocity;
@@ -80,8 +80,8 @@ namespace LSA.Enhanced.VehicleHud
             int[] ids = {0,1,4,5};
             for (int i = 0; i < ids.Length; i++) {
                 try {
-                    bool burst = NativeFunction.CallByName<bool>("IS_VEHICLE_TYRE_BURST",car.Handle,ids[i],false) ||
-                                 NativeFunction.CallByName<bool>("IS_VEHICLE_TYRE_BURST",car.Handle,ids[i],true);
+                    bool burst = NativeFunction.CallByName<bool>("IS_VEHICLE_TYRE_BURST",unchecked((int)car.Handle.Value),ids[i],false) ||
+                                 NativeFunction.CallByName<bool>("IS_VEHICLE_TYRE_BURST",unchecked((int)car.Handle.Value),ids[i],true);
                     v.KnownTires |= 1 << i;
                     if (burst) v.BurstTires |= 1 << i;
                 } catch { /* No invented status for unsupported wheel/native. */ }
