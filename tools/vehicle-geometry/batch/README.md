@@ -29,6 +29,32 @@ models live in **different RPF archive paths**: inventory paths from the
 actual game version, rather than guessing all of them are in x64e.rpf.
 Keep a model => source archive mapping outside the public repo.
 
+### Batch extraction from confirmed local model paths
+
+Codex must first inventory the actual Enhanced and DLC archives and save a
+PRIVATE CSV with two columns: `model,assetPath`. Example (illustrative,
+not authoritative for all games/DLCs):
+
+```csv
+model,assetPath
+buffalo,x64e.rpf/levels/gta5/vehicles.rpf/buffalo_hi.yft
+```
+
+Then export a batch using RPFView 0.11.0+ installed locally:
+
+```powershell
+.\tools\vehicle-geometry\batch\export_models_from_manifest.ps1 `
+  -ManifestCsv "C:\LSA-private\model-paths.csv" `
+  -RpfViewCli "C:\path\to\rpfview-cli.exe" `
+  -GameRoot "C:\path\to\GTA V Enhanced" `
+  -OutputRoot "C:\LSA-private\vehicle-glbs" `
+  -MaxModels 20
+```
+
+The exporter only reads the game archives and writes private GLBs; its
+`_vh8-extraction-results.csv` records successes and failures. Do NOT
+invent DLC paths: use the exact discovered archive paths.
+
 ### Convert one batch (20 models by default)
 
 ```powershell
@@ -56,6 +82,17 @@ Each PASS produces `<model>.json` and `<model>-shaded.png`.
 Copy only these paired files to the local GTA install:
 
 `<GTA Enhanced>\Plugins\LSA\VehicleGeometry\`
+
+After validation, optionally install the entire completed batch locally:
+
+```powershell
+.\tools\vehicle-geometry\batch\install_local_library.ps1 `
+  -GeneratedLibrary "C:\LSA-private\generated-library" `
+  -GameRoot "C:\path\to\GTA V Enhanced"
+```
+
+The installer copies only validated JSON/PNG pairs. It does not install
+raw source geometry or modify GTA archives.
 
 The output manifest is `_vh8-batch-manifest.json`. Preserve the original
 GLBs in a private archive for future rendering improvements.

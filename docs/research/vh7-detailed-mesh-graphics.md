@@ -1,5 +1,16 @@
 # VH7 — Detailed source-mesh Buffalo rendering, local-only
 
+## VH8 correction (supersedes earlier VH7 tiled-warp description)
+
+The 6x12 UV-tile warp produced visibly implausible whole-vehicle shrinkage
+and seams in real Buffalo crash data. It has been **disabled** in the
+runtime: the original source-rendered image remains stable, while VH5's
+measured perimeter deformation is still shown with an orange outline.
+Do not characterize the previous independent-tile method as working
+vehicle-image deformation. Full connected-texture deformation remains a
+separate research task; first scale the static model-specific image
+library via `tools/vehicle-geometry/batch/README.md`.
+
 ## Verified local extraction/rendering
 
 The owner provided `VH7-Buffalo-Source-Handoff.zip` containing a 4.36 MiB
