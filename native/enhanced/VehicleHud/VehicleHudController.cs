@@ -18,6 +18,11 @@ namespace LSA.Enhanced.VehicleHud
         readonly string traceFile;
         readonly VehicleDeformationLab deformationLab;
         readonly VehicleGeometryLibrary geometryLibrary;
+        readonly string spriteDirectory;
+        readonly Dictionary<string,Rage.Texture> spriteCache=
+            new Dictionary<string,Rage.Texture>(StringComparer.OrdinalIgnoreCase);
+        Rage.Texture activeSprite;
+        public string SpriteStatus {get;private set;}="No vehicle selected";
         public string ModelGeometryStatus => geometryLibrary.Status;
         readonly VehicleLiveDeformationSampler liveDeformation =
             new VehicleLiveDeformationSampler();
@@ -65,6 +70,7 @@ namespace LSA.Enhanced.VehicleHud
             traceFile = Path.Combine(plugins ?? "", "LSA", "Logs", "vehicle-telemetry.csv");
             deformationLab = new VehicleDeformationLab(plugins);
             geometryLibrary = new VehicleGeometryLibrary(plugins);
+            spriteDirectory=Path.Combine(plugins??"","LSA","VehicleGeometry");
             flightDirectory = Path.Combine(plugins ?? "", "LSA", "Logs", "VH3");
         }
         public void SetLogging(bool enabled)
@@ -103,6 +109,7 @@ namespace LSA.Enhanced.VehicleHud
             Game.FrameRender -= Paint;
             hooked = false;
             timeline.Clear(); published = null; publishedBody = null;
+            activeSprite=null;SpriteStatus="No vehicle selected";
             completedCaptureMesh=null;completedCaptureHandle=0;showCaptureMesh=false;
             deformationLab.SetEnabled(false);
             liveDeformation.SetEnabled(false);
@@ -121,6 +128,7 @@ namespace LSA.Enhanced.VehicleHud
                 if (car == null || !car.IsValid() || !car.IsCar || car.Driver == null || car.Driver.Handle != player.Handle) {
                     timeline.Clear(); published = null;
                     publishedBody = null; bodyHandle = 0;
+                    activeSprite=null;SpriteStatus="No vehicle selected";
                     completedCaptureMesh=null;completedCaptureHandle=0;
                     deformationLab.Tick(null,now);
                     liveDeformation.VehicleLost();
@@ -131,6 +139,7 @@ namespace LSA.Enhanced.VehicleHud
                 if (bodyHandle != unchecked((int)car.Handle.Value)) {
                     bodyHandle = unchecked((int)car.Handle.Value);
                     publishedBody = null;
+                    activeSprite=null;SpriteStatus="No vehicle sprite";
                     completedCaptureMesh=null;completedCaptureHandle=0;
                     flightModel = "unavailable";
                     try {
@@ -141,6 +150,7 @@ namespace LSA.Enhanced.VehicleHud
                         publishedBody=geometryLibrary.LoadOrFallback(name,
                             new DeformationBounds(min.X,min.Y,min.Z,max.X,max.Y,max.Z));
                         Game.LogTrivial("[VH6] geometry "+geometryLibrary.Status);
+                        LoadSpriteForVehicle(name,publishedBody);
                     } catch (Exception error) {
                         Game.LogTrivial("[VH3B] silhouette_unavailable "+error.GetType().Name);
                     }
@@ -390,7 +400,8 @@ namespace LSA.Enhanced.VehicleHud
                     if(capturedPreview)shape=completedCaptureMesh;
                     else if(livePreview)shape=liveDeformation.Current;
                     if(shape != null && bodyHandle == view.Reading.Handle) {
-                        DrawBodyMesh(g,left,top,s,view.Reading,shape);
+                        DrawBodyMesh(g,left,top,s,view.Reading,shape,
+                            activeSprite, publishedBody);
                         if(capturedPreview || livePreview)
                             Text(g,capturedPreview?"VH3 CAPTURE REPLAY":"VH5 LIVE EXPERIMENT",
                                 left+35*s,top+239*s,9*s,
@@ -418,8 +429,65 @@ namespace LSA.Enhanced.VehicleHud
                 }
             }
         }
+        // Load a private user-generated PNG only once per selected model.
+        // Absolutely no file access or texture creation during FrameRender.
+        void LoadSpriteForVehicle(string model,VehicleBodyMesh mesh)
+        {
+            activeSprite=null;
+            if(mesh==null || !mesh.ExtractedGeometry) {
+                SpriteStatus="Outline only (no validated local geometry)";
+                return;
+            }
+            if(spriteCache.TryGetValue(model,out var cached)) {
+                activeSprite=cached;SpriteStatus="LOCAL 3D SOURCE RENDER";
+                return;
+            }
+            if(spriteCache.Count>=8) {
+                SpriteStatus="Sprite budget reached (8 models)";
+                return;
+            }
+            try {
+                if(string.IsNullOrWhiteSpace(model)||model.Length>32 ||
+                    !System.Linq.Enumerable.All(model,c=>char.IsLetterOrDigit(c)||c=='_'))
+                    return;
+                string path=Path.Combine(spriteDirectory,
+                    model.ToLowerInvariant()+"-shaded.png");
+                if(!File.Exists(path)) {
+                    SpriteStatus="Outline only (PNG missing)";
+                    return;
+                }
+                var f=new FileInfo(path);
+                if(f.Length>4*1024*1024 || f.Length<32) {
+                    SpriteStatus="Outline only (invalid PNG size)";return;
+                }
+                // Reject wrong file formats, suspicious sizes, and huge textures.
+                byte[] header=new byte[24];
+                using(var stream=File.OpenRead(path)) {
+                    if(stream.Read(header,0,24)!=24)throw new InvalidDataException();
+                }
+                byte[] png={137,80,78,71,13,10,26,10};
+                for(int i=0;i<8;i++)if(header[i]!=png[i])
+                    throw new InvalidDataException("PNG signature");
+                int width=(header[16]<<24)|(header[17]<<16)|(header[18]<<8)|header[19];
+                int height=(header[20]<<24)|(header[21]<<16)|(header[22]<<8)|header[23];
+                if(width<128 || height<256 || width>2048 || height>2048)
+                    throw new InvalidDataException("PNG dimensions");
+                // Texture API is part of RagePluginHook. If unsupported on
+                // the user's install, fail closed to the existing outline.
+                var loaded=Game.CreateTextureFromFile(path);
+                if(loaded==null)throw new InvalidDataException("null texture");
+                spriteCache[model]=loaded;activeSprite=loaded;
+                SpriteStatus="LOCAL 3D SOURCE RENDER";
+                Game.LogTrivial("[VH7] source_sprite_loaded model="+model+
+                    " width="+width+" height="+height);
+            } catch(Exception error) {
+                SpriteStatus="Outline only (sprite load failed)";
+                Game.LogTrivial("[VH7] source_sprite_failed "+error.GetType().Name);
+            }
+        }
         static void DrawBodyMesh(Rage.Graphics g,float px,float py,float s,
-            VehicleReading reading,VehicleBodyMesh mesh)
+            VehicleReading reading,VehicleBodyMesh mesh,
+            Rage.Texture sourceSprite,VehicleBodyMesh original)
         {
             // Source is either a local user-provided extracted VH6 contour
             // or the existing procedural silhouette. Never read geometry in Paint.
@@ -427,18 +495,32 @@ namespace LSA.Enhanced.VehicleHud
             // Preserve each model's measured width:length ratio within the
             // available 2D HUD space instead of stretching every car to 101px.
             float width=Math.Max(59f*s,Math.Min(98f*s,span*mesh.DisplayAspect));
-            Text(g,mesh.ExtractedGeometry?"FRONT / MESH-DERIVED":
+            bool textured=sourceSprite!=null && mesh.ExtractedGeometry;
+            Text(g,textured?"FRONT / 3D-MESH RENDER":
+                mesh.ExtractedGeometry?"FRONT / MESH-DERIVED":
                 "FRONT / "+mesh.Archetype.ToUpperInvariant(),
                 px+32*s,py+62*s,10*s,Color.FromArgb(225,151,210,220));
-            StrokePolygon(g,mesh.Outline,cx,front,width,span,s,
+            if(textured) {
+                if(mesh.ExperimentalDeformation && original!=null &&
+                    original.ExtractedGeometry &&
+                    original.Outline.Length==mesh.Outline.Length)
+                    DrawWarpedSprite(g,sourceSprite,cx,front,width,span,original,mesh);
+                else g.DrawTexture(sourceSprite,
+                    new RectangleF(cx-width*.5f,front,width,span));
+                // Measured changed exterior outline stays visible as a
+                // subtle signal on top of the detailed original render.
+                if(mesh.ExperimentalDeformation)
+                    StrokePolygon(g,mesh.Outline,cx,front,width,span,s,
+                        Color.FromArgb(220,243,173,89));
+            } else StrokePolygon(g,mesh.Outline,cx,front,width,span,s,
                 Color.FromArgb(255,78,210,221));
-            if(mesh.ExtractedGeometry && mesh.GlassRings.Length>0) {
+            if(!textured && mesh.ExtractedGeometry && mesh.GlassRings.Length>0) {
                 // Actual glass-material projections (not guessed cabin).
                 // Limit ring count and vertex work at the local-data parser.
                 foreach(var ring in mesh.GlassRings)
                     StrokePolygon(g,ring,cx,front,width,span,s,
                         Color.FromArgb(180,155,213,225));
-            } else StrokePolygon(g,mesh.Cabin,cx,front,width,span,s,
+            } else if(!textured)StrokePolygon(g,mesh.Cabin,cx,front,width,span,s,
                 Color.FromArgb(175,155,213,225));
             if(mesh.ExtractedGeometry && mesh.WheelCenters.Length==4) {
                 for(int i=0;i<4;i++) {
@@ -452,6 +534,44 @@ namespace LSA.Enhanced.VehicleHud
                 Wheel(g,cx+width*.5f+5*s,frontWheel-15*s,s,VehicleHudPresentation.WheelState(reading,1));
                 Wheel(g,cx-width*.5f-21*s,rearWheel-15*s,s,VehicleHudPresentation.WheelState(reading,2));
                 Wheel(g,cx+width*.5f+5*s,rearWheel-15*s,s,VehicleHudPresentation.WheelState(reading,3));
+            }
+        }
+        // VH7 experimental 2D sprite deformation. 6x12 UV rectangles sample
+        // the real orthographic image, offset by the *measured* VH5 outline
+        // changes. No texture uploads, file access or geometry parse per frame.
+        // This uses 72 documented Rage.Graphics DrawTexture calls when the
+        // experimental damage shape is active, versus one for the clean car.
+        // Smooth scrolling and exact UV-mesh bending are not claimed.
+        static void DrawWarpedSprite(Rage.Graphics g,Rage.Texture texture,
+            float centerX,float top,float width,float height,
+            VehicleBodyMesh pristine,VehicleBodyMesh damaged)
+        {
+            const int columns=6, rows=12;
+            for(int y=0;y<rows;y++)for(int x=0;x<columns;x++) {
+                float u0=(float)x/columns,v0=(float)y/rows;
+                float u1=(float)(x+1)/columns,v1=(float)(y+1)/rows;
+                float ox=(u0+u1)*.5f-.5f,oy=(v0+v1)*.5f;
+                float sx=0f,sy=0f,total=0f;
+                for(int k=0;k<pristine.Outline.Length;k++) {
+                    var a=pristine.Outline[k];var b=damaged.Outline[k];
+                    float dx=a.X-ox,dy=a.Y-oy;
+                    float d2=dx*dx+dy*dy;
+                    if(d2>.17f)continue;
+                    float weight=1f/(.008f+d2*d2*32f);
+                    sx+=(b.X-a.X)*weight;
+                    sy+=(b.Y-a.Y)*weight;
+                    total+=weight;
+                }
+                if(total>0) {sx/=total;sy/=total;}
+                // Limit visible distortion to the already bounded VH5
+                // shape rather than stretching arbitrary game textures.
+                sx=Math.Max(-.095f,Math.Min(.095f,sx));
+                sy=Math.Max(-.095f,Math.Min(.095f,sy));
+                g.DrawTexture(texture,new RectangleF(
+                    centerX-width*.5f+u0*width+sx*width,
+                    top+v0*height+sy*height,
+                    width/columns+.45f,height/rows+.45f),
+                    u0,v0,u1,v1);
             }
         }
         static void StrokePolygon(Rage.Graphics g,BodyVertex[] vertices,

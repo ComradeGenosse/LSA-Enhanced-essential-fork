@@ -130,6 +130,7 @@ namespace LSA.Enhanced
                 TalkStatus = () => talk.DisplayState,ClearTalkTarget = () => talk.Clear("manual"),TalkConflict = () => talk.Conflict,
                 VehicleHudMode = () => vehicleHud.Mode,SetVehicleHudMode = vehicleHud.SetMode,VehicleHudView = () => vehicleHud.Current,
                 ModelGeometryStatus = () => vehicleHud.ModelGeometryStatus,
+                VehicleSpriteStatus = () => vehicleHud.SpriteStatus,
                 VehicleDeformationEnabled = () => vehicleHud.DeformationEnabled,
                 SetVehicleDeformationEnabled = vehicleHud.SetDeformationEnabled,
                 VehicleDeformationStatus = () => vehicleHud.DeformationStatus,

@@ -847,6 +847,9 @@ namespace LSA.Enhanced.Ui
                     MenuLine.Fact("vh6source","Vehicle model geometry",
                         context.ModelGeometryStatus(),
                         "VH6 locally extracted silhouette when present; otherwise the existing archetype fallback."),
+                    MenuLine.Fact("vh7sprite","Detailed model render",
+                        context.VehicleSpriteStatus(),
+                        "VH7 private source-mesh top-down PNG. If absent, the outline is used."),
                     MenuLine.Fact("brakes","Brake wear","N/A","No verified per-wheel brake damage source is available."),
                     MenuLine.Fact("suspension","Suspension damage","N/A","External damage mods need an explicit telemetry integration."),
                     MenuLine.Fact("wheel","Tire status","Direct","Tire burst native; wheel detach or rim health is not implied.")
