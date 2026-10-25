@@ -40,13 +40,14 @@ static partial class Program
         Check(VehicleDamageTimeline.Drift(Reading(speed:17,lateral:0.9f,ground:false)) == null,"airborne suppresses drift");
         Check(VehicleDamageTimeline.Drift(Reading(speed:17,lateral:0.9f,forward:false)) == null,"reversing suppresses drift");
         Check(VehicleDamageTimeline.Drift(Reading(speed:17,lateral:4f)) == null,"large slide suppresses drift");
-        tracker.Update(Reading(speed:17,lateral:0.9f),3000);
+        tracker.Update(Reading(speed:17,lateral:0.9f),3000); // vehicle-switch baseline
+        tracker.Update(Reading(speed:17,lateral:0.9f),3200); // first eligible lateral sample
         tracker.Update(Reading(speed:17,lateral:0.9f),4400);
-        Check(tracker.Current.DriftHint == null,"single quick lateral sample cannot imply pull");
-        tracker.Update(Reading(speed:17,lateral:0.9f),4600);
+        Check(tracker.Current.DriftHint == null,"brief lateral motion cannot imply pull");
+        tracker.Update(Reading(speed:17,lateral:0.9f),4800);
         Check(tracker.Current.DriftHint != null && tracker.Current.Events.Last().Text.Contains("inferred"),
             "sustained drift labeled inferred and logged");
-        tracker.Update(Reading(speed:17,lateral:0f),4800);
+        tracker.Update(Reading(speed:17,lateral:0f),5000);
         Check(tracker.Current.DriftHint == null,"drift display clears when motion straightens");
         Check(Settings("{\"version\":1,\"vehicleHud\":{\"mode\":\"minimal\"}}").VehicleHudMode == "minimal",
             "minimal vehicle HUD setting accepted");
