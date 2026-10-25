@@ -5,7 +5,7 @@ Status: draft pending pinned Windows compilation and GTA V Enhanced runtime acce
 ## Access
 
 Drive an ordinary four-wheel car to show the lower-right diagnostic display.
-Open **F11 → Vehicle Diagnostics** to select **Off**, **Minimal**, or **Full** (press Select to apply).
+Open **F11 → Cheat Menu → Vehicle Options → Vehicle Diagnostics** to select **Off**, **Minimal**, or **Full** (press Select to apply).
 
 The mode is session-only in the menu. To persist it, set this in
 `Plugins/LSA.Enhanced.json`:
