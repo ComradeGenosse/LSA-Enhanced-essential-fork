@@ -38,6 +38,8 @@ namespace LSA.Enhanced.VehicleHud
         }
         readonly VehicleDamageTimeline timeline = new VehicleDamageTimeline();
         volatile VehicleView published;
+        volatile VehicleBodyMesh publishedBody;
+        int bodyHandle;
         volatile string mode = "full";
         long nextSample;
         int failures, drawFailures;
@@ -63,7 +65,7 @@ namespace LSA.Enhanced.VehicleHud
             if (!hooked) return;
             Game.FrameRender -= Paint;
             hooked = false;
-            timeline.Clear(); published = null;
+            timeline.Clear(); published = null; publishedBody = null;
         }
         public void Tick(long now,bool paused)
         {
@@ -76,8 +78,22 @@ namespace LSA.Enhanced.VehicleHud
                 var car = player != null && player.IsValid() ? player.CurrentVehicle : null;
                 if (car == null || !car.IsValid() || !car.IsCar || car.Driver == null || car.Driver.Handle != player.Handle) {
                     timeline.Clear(); published = null;
+                    publishedBody = null; bodyHandle = 0;
                     deformationLab.Tick(null,now);
                     failures = 0; return;
+                }
+                if (bodyHandle != unchecked((int)car.Handle.Value)) {
+                    bodyHandle = unchecked((int)car.Handle.Value);
+                    publishedBody = null;
+                    try {
+                        Vector3 min,max;
+                        car.Model.GetDimensions(out min,out max);
+                        string name=car.Model.Name ?? "unknown";
+                        publishedBody=VehicleMeshGeometry.Build(name,
+                            new DeformationBounds(min.X,min.Y,min.Z,max.X,max.Y,max.Z));
+                    } catch (Exception error) {
+                        Game.LogTrivial("[VH3B] silhouette_unavailable "+error.GetType().Name);
+                    }
                 }
                 // Optional VH3 sampling: six probe calls per sampler tick.
                 // The live HUD does not use this experimental data.
@@ -230,7 +246,10 @@ namespace LSA.Enhanced.VehicleHud
                     if (presentation.Severity == 2 && presentation.Status == "TIRE PUNCTURE")
                         Text(g,"!",left+423*s,top+15*s,15*s,severity);
                 } else {
-                    DrawCar(g,left,top,s,view.Reading);
+                    var shape = publishedBody;
+                    if(shape != null && bodyHandle == view.Reading.Handle)
+                        DrawBodyMesh(g,left,top,s,view.Reading,shape);
+                    else DrawCar(g,left,top,s,view.Reading);
                     Stat(g,"ENGINE",view.Reading.Engine,left+232*s,top+76*s,176*s,s);
                     Stat(g,"BODY",view.Reading.Body,left+232*s,top+133*s,176*s,s);
                     Stat(g,"FUEL TANK",view.Reading.Tank,left+232*s,top+190*s,176*s,s);
@@ -250,6 +269,48 @@ namespace LSA.Enhanced.VehicleHud
             } catch(Exception error) {
                 if (++drawFailures >= 3) {
                     drawDisabled=true; Game.LogTrivial("[VH1] draw_disabled " + error.GetType().Name);
+                }
+            }
+        }
+        static void DrawBodyMesh(Rage.Graphics g,float px,float py,float s,
+            VehicleReading reading,VehicleBodyMesh mesh)
+        {
+            // Vehicle model bounds and known archetype silhouette. Deliberately
+            // UNDEFORMED until probe/runtime spatial correspondence is validated.
+            float cx=px+117*s, front=py+87*s, span=151*s;
+            // Preserve each model's measured width:length ratio within the
+            // available 2D HUD space instead of stretching every car to 101px.
+            float modelWidth=mesh.Bounds.MaxX-mesh.Bounds.MinX;
+            float modelLength=mesh.Bounds.MaxY-mesh.Bounds.MinY;
+            float width=Math.Max(59f,Math.Min(98f,span*modelWidth/modelLength))*s;
+            Text(g,"FRONT / "+mesh.Archetype.ToUpperInvariant(),px+32*s,py+62*s,10*s,
+                Color.FromArgb(225,151,210,220));
+            StrokePolygon(g,mesh.Outline,cx,front,width,span,s,
+                Color.FromArgb(255,78,210,221));
+            StrokePolygon(g,mesh.Cabin,cx,front,width,span,s,
+                Color.FromArgb(175,155,213,225));
+            float frontWheel=front+mesh.FrontWheelY*span, rearWheel=front+mesh.RearWheelY*span;
+            Wheel(g,cx-width*.5f-21*s,frontWheel-15*s,s,VehicleHudPresentation.WheelState(reading,0));
+            Wheel(g,cx+width*.5f+5*s,frontWheel-15*s,s,VehicleHudPresentation.WheelState(reading,1));
+            Wheel(g,cx-width*.5f-21*s,rearWheel-15*s,s,VehicleHudPresentation.WheelState(reading,2));
+            Wheel(g,cx+width*.5f+5*s,rearWheel-15*s,s,VehicleHudPresentation.WheelState(reading,3));
+        }
+        static void StrokePolygon(Rage.Graphics g,BodyVertex[] vertices,
+            float cx,float top,float width,float length,float scale,Color color)
+        {
+            if(vertices==null||vertices.Length<3)return;
+            for(int i=0;i<vertices.Length;i++) {
+                var a=vertices[i]; var b=vertices[(i+1)%vertices.Length];
+                float x0=cx+a.X*width,y0=top+a.Y*length;
+                float x1=cx+b.X*width,y1=top+b.Y*length;
+                // Only known Rage.Graphics primitives; no dependence on
+                // undocumented polyline/triangle or DX12 hooking APIs.
+                int steps=Math.Max(1,(int)Math.Ceiling(
+                    Math.Sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0))/(4.0*scale)));
+                for(int j=0;j<=steps;j++) {
+                    float t=(float)j/steps;
+                    Fill(g,x0+(x1-x0)*t-1.35f*scale,y0+(y1-y0)*t-1.35f*scale,
+                        2.7f*scale,2.7f*scale,color);
                 }
             }
         }
