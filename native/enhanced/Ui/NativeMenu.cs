@@ -844,6 +844,9 @@ namespace LSA.Enhanced.Ui
                         new[] {"off","minimal","full"},new[] {"Off","Minimal","Full"},
                         "Choose an overlay mode, then press Select to apply. Session-only; edit LSA.Enhanced.json to persist."),
                     MenuLine.Fact("scope","Vehicle","Driver only","The panel is shown only when driving a car, not in other seats."),
+                    MenuLine.Fact("vh6source","Vehicle model geometry",
+                        context.ModelGeometryStatus(),
+                        "VH6 locally extracted silhouette when present; otherwise the existing archetype fallback."),
                     MenuLine.Fact("brakes","Brake wear","N/A","No verified per-wheel brake damage source is available."),
                     MenuLine.Fact("suspension","Suspension damage","N/A","External damage mods need an explicit telemetry integration."),
                     MenuLine.Fact("wheel","Tire status","Direct","Tire burst native; wheel detach or rim health is not implied.")

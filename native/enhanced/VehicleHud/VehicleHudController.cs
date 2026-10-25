@@ -17,6 +17,8 @@ namespace LSA.Enhanced.VehicleHud
         const long CsvSizeLimit = 10L * 1024 * 1024; // bounded log, never auto-delete
         readonly string traceFile;
         readonly VehicleDeformationLab deformationLab;
+        readonly VehicleGeometryLibrary geometryLibrary;
+        public string ModelGeometryStatus => geometryLibrary.Status;
         readonly VehicleLiveDeformationSampler liveDeformation =
             new VehicleLiveDeformationSampler();
         public bool LiveDeformationEnabled => liveDeformation.Enabled;
@@ -62,6 +64,7 @@ namespace LSA.Enhanced.VehicleHud
         {
             traceFile = Path.Combine(plugins ?? "", "LSA", "Logs", "vehicle-telemetry.csv");
             deformationLab = new VehicleDeformationLab(plugins);
+            geometryLibrary = new VehicleGeometryLibrary(plugins);
             flightDirectory = Path.Combine(plugins ?? "", "LSA", "Logs", "VH3");
         }
         public void SetLogging(bool enabled)
@@ -135,8 +138,9 @@ namespace LSA.Enhanced.VehicleHud
                         car.Model.GetDimensions(out min,out max);
                         string name=car.Model.Name ?? "unknown";
                         flightModel = name;
-                        publishedBody=VehicleMeshGeometry.Build(name,
+                        publishedBody=geometryLibrary.LoadOrFallback(name,
                             new DeformationBounds(min.X,min.Y,min.Z,max.X,max.Y,max.Z));
+                        Game.LogTrivial("[VH6] geometry "+geometryLibrary.Status);
                     } catch (Exception error) {
                         Game.LogTrivial("[VH3B] silhouette_unavailable "+error.GetType().Name);
                     }
@@ -417,25 +421,38 @@ namespace LSA.Enhanced.VehicleHud
         static void DrawBodyMesh(Rage.Graphics g,float px,float py,float s,
             VehicleReading reading,VehicleBodyMesh mesh)
         {
-            // Vehicle model bounds and known archetype silhouette. Deliberately
-            // UNDEFORMED until probe/runtime spatial correspondence is validated.
+            // Source is either a local user-provided extracted VH6 contour
+            // or the existing procedural silhouette. Never read geometry in Paint.
             float cx=px+117*s, front=py+87*s, span=151*s;
             // Preserve each model's measured width:length ratio within the
             // available 2D HUD space instead of stretching every car to 101px.
-            float modelWidth=mesh.Bounds.MaxX-mesh.Bounds.MinX;
-            float modelLength=mesh.Bounds.MaxY-mesh.Bounds.MinY;
-            float width=Math.Max(59f,Math.Min(98f,span*modelWidth/modelLength))*s;
-            Text(g,"FRONT / "+mesh.Archetype.ToUpperInvariant(),px+32*s,py+62*s,10*s,
-                Color.FromArgb(225,151,210,220));
+            float width=Math.Max(59f*s,Math.Min(98f*s,span*mesh.DisplayAspect));
+            Text(g,mesh.ExtractedGeometry?"FRONT / MESH-DERIVED":
+                "FRONT / "+mesh.Archetype.ToUpperInvariant(),
+                px+32*s,py+62*s,10*s,Color.FromArgb(225,151,210,220));
             StrokePolygon(g,mesh.Outline,cx,front,width,span,s,
                 Color.FromArgb(255,78,210,221));
-            StrokePolygon(g,mesh.Cabin,cx,front,width,span,s,
+            if(mesh.ExtractedGeometry && mesh.GlassRings.Length>0) {
+                // Actual glass-material projections (not guessed cabin).
+                // Limit ring count and vertex work at the local-data parser.
+                foreach(var ring in mesh.GlassRings)
+                    StrokePolygon(g,ring,cx,front,width,span,s,
+                        Color.FromArgb(180,155,213,225));
+            } else StrokePolygon(g,mesh.Cabin,cx,front,width,span,s,
                 Color.FromArgb(175,155,213,225));
-            float frontWheel=front+mesh.FrontWheelY*span, rearWheel=front+mesh.RearWheelY*span;
-            Wheel(g,cx-width*.5f-21*s,frontWheel-15*s,s,VehicleHudPresentation.WheelState(reading,0));
-            Wheel(g,cx+width*.5f+5*s,frontWheel-15*s,s,VehicleHudPresentation.WheelState(reading,1));
-            Wheel(g,cx-width*.5f-21*s,rearWheel-15*s,s,VehicleHudPresentation.WheelState(reading,2));
-            Wheel(g,cx+width*.5f+5*s,rearWheel-15*s,s,VehicleHudPresentation.WheelState(reading,3));
+            if(mesh.ExtractedGeometry && mesh.WheelCenters.Length==4) {
+                for(int i=0;i<4;i++) {
+                    var p=mesh.WheelCenters[i];
+                    Wheel(g,cx+p.X*width-8*s,front+p.Y*span-17*s,s,
+                        VehicleHudPresentation.WheelState(reading,i));
+                }
+            } else {
+                float frontWheel=front+mesh.FrontWheelY*span, rearWheel=front+mesh.RearWheelY*span;
+                Wheel(g,cx-width*.5f-21*s,frontWheel-15*s,s,VehicleHudPresentation.WheelState(reading,0));
+                Wheel(g,cx+width*.5f+5*s,frontWheel-15*s,s,VehicleHudPresentation.WheelState(reading,1));
+                Wheel(g,cx-width*.5f-21*s,rearWheel-15*s,s,VehicleHudPresentation.WheelState(reading,2));
+                Wheel(g,cx+width*.5f+5*s,rearWheel-15*s,s,VehicleHudPresentation.WheelState(reading,3));
+            }
         }
         static void StrokePolygon(Rage.Graphics g,BodyVertex[] vertices,
             float cx,float top,float width,float length,float scale,Color color)

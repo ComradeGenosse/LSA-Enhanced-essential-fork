@@ -15,6 +15,7 @@ static partial class Program
     static void VehicleHudTests()
     {
         VehicleMeshTests();
+        VehicleGeometryTests();
         VehicleCrashTests();
         var tracker = new VehicleDamageTimeline();
         tracker.Update(Reading(),1000);
