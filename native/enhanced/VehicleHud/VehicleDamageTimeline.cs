@@ -11,6 +11,14 @@ namespace LSA.Enhanced.VehicleHud
         public float Engine, Body, Tank;
         public int KnownTires; // bits: front-left, front-right, rear-left, rear-right
         public int BurstTires;
+        // Independent read-only RPH wheel-property getter snapshots, NOT native tire IDs.
+        // Physical corner correspondence needs runtime verification.
+        public int KnownWheelHealth, KnownTireHealth, KnownDeformation;
+        public float[] WheelHealth = {float.NaN,float.NaN,float.NaN,float.NaN};
+        public float[] TireHealth = {float.NaN,float.NaN,float.NaN,float.NaN};
+        // Native GET_VEHICLE_DEFORMATION_AT_POS probes at four fixed local offsets.
+        // The values are displacement magnitudes, not individual body-part health.
+        public float[] Deformation = {float.NaN,float.NaN,float.NaN,float.NaN};
         public bool OnAllWheels;
         public bool MovingForward;
         public float SpeedMps, SteeringDegrees, LateralSpeedMps;
@@ -56,13 +64,28 @@ namespace LSA.Enhanced.VehicleHud
                 return;
             }
             AddHealth("Engine",previous.Engine,next.Engine,timeMs);
-            AddHealth("Body",previous.Body,next.Body,timeMs);
+            float bodyLoss = previous.Body - next.Body;
+            if (Finite(previous.Body) && Finite(next.Body) && bodyLoss >= 120f)
+                Add(timeMs,"Major body damage -" + Math.Round(bodyLoss) + " HP");
+            else AddHealth("Body",previous.Body,next.Body,timeMs);
             AddHealth("Fuel tank",previous.Tank,next.Tank,timeMs);
             int comparable = previous.KnownTires & next.KnownTires;
             int changed = (previous.BurstTires ^ next.BurstTires) & comparable;
             for (int i = 0; i < 4; i++) {
                 int bit = 1 << i;
                 if ((changed & bit) != 0) Add(timeMs,TireNames[i] + (((next.BurstTires & bit) != 0) ? " tire burst" : " tire repaired"));
+            }
+            for (int i = 0; i < 4; i++) {
+                int bit = 1 << i;
+                if ((previous.KnownWheelHealth & next.KnownWheelHealth & bit) != 0)
+                    AddRawHealth("Wheel slot " + i,previous.WheelHealth[i],next.WheelHealth[i],timeMs);
+                if ((previous.KnownTireHealth & next.KnownTireHealth & bit) != 0)
+                    AddRawHealth("Tire slot " + i,previous.TireHealth[i],next.TireHealth[i],timeMs);
+                if ((previous.KnownDeformation & next.KnownDeformation & bit) != 0) {
+                    float change = next.Deformation[i]-previous.Deformation[i];
+                    if (Finite(change) && change >= 0.12f)
+                        Add(timeMs,"Chassis probe " + i + " +" + Math.Round(change,2) + " units (sample)");
+                }
             }
             string drift = Drift(next);
             if (drift == null || drift != driftDirection) { driftDirection = drift; driftSince = timeMs; }
@@ -89,6 +112,15 @@ namespace LSA.Enhanced.VehicleHud
             float change = newValue - oldValue;
             if (change <= -8f) Add(timeMs,name + " -" + Math.Round(-change) + " HP");
             else if (change >= 40f) Add(timeMs,name + " repaired");
+        }
+        // Getter scale and wheel mapping remain game-build unverified;
+        // do not turn raw health or deformation into percentages.
+        void AddRawHealth(string name,float oldValue,float newValue,long timeMs)
+        {
+            if (!Finite(oldValue) || !Finite(newValue)) return;
+            float change = newValue - oldValue;
+            if (change <= -10f) Add(timeMs,name + " -" + Math.Round(-change) + " raw units");
+            else if (change >= 40f) Add(timeMs,name + " recovered +" + Math.Round(change) + " raw units");
         }
         static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
         void Add(long atMs,string message)

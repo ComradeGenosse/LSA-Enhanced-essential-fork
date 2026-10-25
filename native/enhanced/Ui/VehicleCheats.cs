@@ -30,6 +30,8 @@ namespace LSA.Enhanced.Ui
             try { return VehicleFavorites.Normalize(Current()?.Model.Name); }
             catch { return null; }
         }
+        public bool InVehicle { get { try { return Current() != null; } catch { return false; } } }
+        public int WantedLevel { get { try { return Game.LocalPlayer.WantedLevel; } catch { return -1; } } }
         public bool Invincible
         {
             get { try { return Game.LocalPlayer.IsInvincible; } catch { return false; } }

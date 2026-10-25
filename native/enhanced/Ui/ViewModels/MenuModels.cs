@@ -29,6 +29,30 @@ namespace LSA.Enhanced.Ui
         public static MenuLine Switch(string key,string text,string command,bool on,string description,bool enabled = true) =>
             new MenuLine {Key = key,Text = text,Command = command,Value = on ? "on" : "off",Toggle = true,Description = description,Enabled = enabled};
     }
+    // Pure shared dashboard layout: rendering and game reads are supplied by the native layer.
+    // Stable keys and positions prevent controller selection from jumping on status changes.
+    public static class QuickControlsView
+    {
+        public static List<MenuLine> Build(string vehicleStatus,bool canRepair,string hudMode,bool invincible,int wanted,string npcStatus)
+        {
+            var lines = new List<MenuLine> {
+                MenuLine.Fact("quick.vehicle","Vehicle",vehicleStatus ?? "Not driving","Snapshot from the driven car; unsupported measurements are never synthesized."),
+                MenuLine.Action("quick.repair","Repair vehicle","cheat.repair","Repair vanilla vehicle damage (mod-specific faults may persist).",canRepair),
+                MenuLine.Choice("quick.hud","Vehicle HUD","local.vehicleHudMode",hudMode,
+                    new[] {"off","minimal","full"},new[] {"Off","Minimal","Full"},"Select to apply for this session. Startup default is in LSA.Enhanced.json."),
+                MenuLine.Action("quick.invincible","Player invincibility","cheat.invincible","Toggle local player invincibility."),
+                MenuLine.Action("quick.wanted","Clear wanted level","cheat.wanted","Clear police stars once.",wanted > 0),
+                MenuLine.Action("quick.npc","NPC actions","local.openQuickCurrent","Follow, wait, dismiss, promote and other context-sensitive NPC actions."),
+                MenuLine.Action("quick.favorites","Spawn favorites","local.openCheatFavorites","Select saved vehicle models; works on foot."),
+                MenuLine.Action("quick.all","All tools & settings","local.openAdvanced","Advanced vehicles, NPCs, activities, AI, voice and diagnostic options.")
+            };
+            lines[3].Right = invincible ? "ON" : "OFF";
+            lines[4].Right = wanted < 0 ? "Unavailable" : wanted + " stars";
+            lines[5].Right = string.IsNullOrEmpty(npcStatus) ? "None" : npcStatus;
+            return lines;
+        }
+    }
+
     public sealed class Describe
     {
         public string Kind = "unknown", Name, CharacterId, Relationship, Status, Voice;

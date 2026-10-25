@@ -49,6 +49,33 @@ static partial class Program
             "sustained drift labeled inferred and logged");
         tracker.Update(Reading(speed:17,lateral:0f),5000);
         Check(tracker.Current.DriftHint == null,"drift display clears when motion straightens");
+        // Per-wheel API readings remain distinct from punctures and health percentages.
+        var samples = new VehicleDamageTimeline();
+        var w0 = Reading();
+        w0.KnownWheelHealth = 1; w0.WheelHealth[0] = 1000f;
+        w0.KnownTireHealth = 1; w0.TireHealth[0] = 900f;
+        w0.KnownDeformation = 1; w0.Deformation[0] = 0.10f;
+        samples.Update(w0,10000);
+        var w1 = Reading(body:820);
+        w1.KnownWheelHealth = 1; w1.WheelHealth[0] = 975f;
+        w1.KnownTireHealth = 1; w1.TireHealth[0] = 870f;
+        w1.KnownDeformation = 1; w1.Deformation[0] = 0.35f;
+        samples.Update(w1,10200);
+        Check(samples.Current.Events.Any(x=>x.Text=="Major body damage -180 HP"),
+            "substantial body delta is reported as aggregate damage, not impact-zone certainty");
+        Check(samples.Current.Events.Any(x=>x.Text=="Wheel slot 0 -25 raw units") &&
+            samples.Current.Events.Any(x=>x.Text=="Tire slot 0 -30 raw units"),
+            "wheel and tire health are independent raw sampled measurements");
+        Check(samples.Current.Events.Any(x=>x.Text.StartsWith("Chassis probe 0 +")),
+            "deformation delta reports its anonymous fixed probe location");
+        var missing = Reading(body:820);
+        missing.WheelHealth[0] = 0; missing.TireHealth[0] = 0; missing.Deformation[0] = 4;
+        samples.Update(missing,10400);
+        Check(!samples.Current.Events.Any(x=>x.Text.Contains("slot 0 recovered")),
+            "unavailable getter is not interpreted as recovered wheel health");
+        samples.Update(Reading(handle:77,body:820),10600);
+        Check(samples.Current.Events.Length == 0,"wheel/probe history resets across vehicles");
+
         Check(Settings("{\"version\":1,\"vehicleHud\":{\"mode\":\"minimal\"}}").VehicleHudMode == "minimal",
             "minimal vehicle HUD setting accepted");
         Check(Settings("{\"version\":1,\"vehicleHud\":{\"mode\":\"off\"}}").VehicleHudMode == "off",

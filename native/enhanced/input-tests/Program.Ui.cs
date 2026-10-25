@@ -40,6 +40,7 @@ static partial class Program
     static partial void ViewModelTests()
     {
         ExampleSettingsTests();
+        QuickDashboardTests();
         CurrentNpcTests();
         DescribeTests();
         CharacterListTests();
@@ -49,6 +50,37 @@ static partial class Program
         AiVoiceTests();
         UiBridgeTests();
         SessionOverrideTests();
+    }
+
+    static void QuickDashboardTests()
+    {
+        var onFoot = QuickControlsView.Build("On foot",false,"full",false,0,"None");
+        Check(onFoot.Count == 8,"controller quick root remains eight stable rows");
+        Check(onFoot.Select(l=>l.Key).Distinct().Count() == 8,"quick root stable unique row keys");
+        Check(!Line(onFoot,"quick.repair").Enabled && Line(onFoot,"quick.vehicle").Right == "On foot",
+            "on-foot quick action does not claim a repair target");
+        Check(!Line(onFoot,"quick.wanted").Enabled && Line(onFoot,"quick.wanted").Right == "0 stars",
+            "clear wanted row reflects the actual known star count");
+        Check(Line(onFoot,"quick.hud").Value == "full" &&
+            Line(onFoot,"quick.hud").Options.SequenceEqual(new[] {"off","minimal","full"}) &&
+            Line(onFoot,"quick.hud").Command == "local.vehicleHudMode",
+            "HUD mode exposes the same session control at the top level");
+        Check(Line(onFoot,"quick.npc").Command == "local.openQuickCurrent" &&
+            Line(onFoot,"quick.all").Command == "local.openAdvanced" &&
+            Line(onFoot,"quick.favorites").Command == "local.openCheatFavorites",
+            "quick page routes to canonical NPC and advanced menus without duplicates");
+        var driving = QuickControlsView.Build("E 820 / B 940",true,"minimal",true,3,"Nathan / Following");
+        Check(Line(driving,"quick.repair").Enabled &&
+            Line(driving,"quick.vehicle").Right == "E 820 / B 940" &&
+            Line(driving,"quick.hud").Value == "minimal",
+            "driving context enables repair and passes through only real observed vehicle text");
+        Check(Line(driving,"quick.invincible").Right == "ON" &&
+            Line(driving,"quick.wanted").Right == "3 stars" &&
+            Line(driving,"quick.wanted").Enabled &&
+            Line(driving,"quick.npc").Right == "Nathan / Following",
+            "cheat and NPC state visible without changing quick row ordering");
+        Check(Line(QuickControlsView.Build(null,false,"off",false,-1,null),"quick.wanted").Right == "Unavailable",
+            "unknown wanted level explicitly unavailable");
     }
 
     static void ExampleSettingsTests()

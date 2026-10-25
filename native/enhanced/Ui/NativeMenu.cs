@@ -703,6 +703,19 @@ namespace LSA.Enhanced.Ui
                     lines.Add(MenuLine.Fact("body","Body health",Math.Round(sample.Body).ToString(CultureInfo.InvariantCulture) + " HP"));
                     lines.Add(MenuLine.Fact("tank","Fuel tank health",Math.Round(sample.Tank).ToString(CultureInfo.InvariantCulture) + " HP"));
                     lines.Add(MenuLine.Fact("pull","Handling drift",view.DriftHint ?? "Not detected","Inference; not confirmed alignment or brake damage."));
+                    for (int i = 0; i < 4; i++) {
+                        int bit = 1 << i;
+                        string wh = (sample.KnownWheelHealth & bit) == 0 ? "N/A" :
+                            Math.Round(sample.WheelHealth[i]).ToString(CultureInfo.InvariantCulture) + " raw";
+                        string th = (sample.KnownTireHealth & bit) == 0 ? "N/A" :
+                            Math.Round(sample.TireHealth[i]).ToString(CultureInfo.InvariantCulture) + " raw";
+                        lines.Add(MenuLine.Fact("wheel:"+i,"Wheel slot " + i,wh + " / tire " + th,
+                            "Supported RPH getter; wheel index mapping and Enhanced runtime operation unverified. Neither value proves axle attachment."));
+                        string deformation = (sample.KnownDeformation & bit) == 0 ? "N/A" :
+                            Math.Round(sample.Deformation[i],2).ToString(CultureInfo.InvariantCulture) + " raw";
+                        lines.Add(MenuLine.Fact("deform:"+i,"Chassis sample " + i,deformation,
+                            "Fixed local chassis sample offset. Magnitude is not per-panel damage and needs in-game calibration."));
+                    }
                     for (int i = 0; i < view.Events.Length; i++)
                         lines.Add(MenuLine.Fact("damage:"+i,view.Events[i].Text,"Observed"));
                 } else lines.Add(MenuLine.Fact("drive","No driven car","","Enter the driver seat to start live diagnostics."));

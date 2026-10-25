@@ -86,8 +86,38 @@ namespace LSA.Enhanced.VehicleHud
                     if (burst) v.BurstTires |= 1 << i;
                 } catch { /* No invented status for unsupported wheel/native. */ }
             }
+            // RPH getters are declared by the pinned SDK, but still require
+            // validation on this exact Enhanced runtime. Wheels[] indexes are
+            // deliberately shown as slots, not trusted physical corners.
+            for (int i = 0; i < 4; i++) {
+                try {
+                    float health = car.Wheels[i].Health;
+                    if (Plausible(health)) { v.WheelHealth[i] = health; v.KnownWheelHealth |= 1 << i; }
+                } catch { /* Unsupported wheel slot: remain unknown. */ }
+                try {
+                    float health = car.Wheels[i].TireHealth;
+                    if (Plausible(health)) { v.TireHealth[i] = health; v.KnownTireHealth |= 1 << i; }
+                } catch { /* Not equivalent to puncture status. */ }
+            }
+            // Offset probes are VEHICLE-local sample points, NOT crash-zone
+            // identities. No in-game mapping/calibration is claimed.
+            float[] px = {-0.7f,0.7f,-0.7f,0.7f};
+            float[] py = {1.0f,1.0f,-1.0f,-1.0f};
+            for (int i = 0; i < 4; i++) {
+                try {
+                    var deformation = NativeFunction.CallByHash<Vector3>(0x4EC6CFBC7B2E9536UL,
+                        unchecked((int)car.Handle.Value),px[i],py[i],0.45f);
+                    float length = (float)Math.Sqrt(deformation.X*deformation.X +
+                        deformation.Y*deformation.Y + deformation.Z*deformation.Z);
+                    if (length >= 0f && length <= 5f && !float.IsNaN(length)) {
+                        v.Deformation[i] = length; v.KnownDeformation |= 1 << i;
+                    }
+                } catch { /* Deformation probe unsupported: unavailable. */ }
+            }
             return v;
         }
+        static bool Plausible(float value) => !float.IsNaN(value) && !float.IsInfinity(value) &&
+            value >= 0f && value <= 5000f;
         void Paint(object sender,GraphicsEventArgs args)
         {
             if (mode == "off" || drawDisabled || args?.Graphics == null) return;
@@ -98,7 +128,7 @@ namespace LSA.Enhanced.VehicleHud
                 if (screen.Width < 640 || screen.Height < 400) return;
                 float scale = Math.Max(0.8f,Math.Min(1.6f,screen.Height / 1080f));
                 var g = args.Graphics;
-                float w = 290f * scale, h = (mode == "full" ? 306f : 145f) * scale;
+                float w = 290f * scale, h = (mode == "full" ? 390f : 145f) * scale;
                 float x = screen.Width - w - 24f * scale, y = screen.Height - h - 125f * scale;
                 g.DrawRectangle(new RectangleF(x,y,w,h),Color.FromArgb(190,7,17,24));
                 g.DrawRectangle(new RectangleF(x,y,w,2f * scale),Color.FromArgb(230,70,201,199));
@@ -128,11 +158,30 @@ namespace LSA.Enhanced.VehicleHud
                     Health(g,"FUEL TANK",view.Reading.Tank,rx,by+94*scale,scale);
                     Text(g,"BRAKES / SUSP  N/A",x+14*scale,y+199*scale,12*scale,Color.LightGray);
                     Text(g,view.DriftHint ?? "ALIGNMENT  UNVERIFIED",x+14*scale,y+221*scale,12*scale,view.DriftHint==null?Color.Gray:Color.Orange);
-                    Text(g,"RECENT DAMAGE  (LATEST LAST)",x+14*scale,y+246*scale,11*scale,Color.FromArgb(255,130,233,225));
+                    Text(g,"RPH WHEEL / TIRE HEALTH  (RAW, UNVERIFIED)",
+                        x+14*scale,y+242*scale,10*scale,Color.FromArgb(255,130,233,225));
+                    for (int i = 0; i < 4; i++) {
+                        int bit = 1 << i;
+                        string wheel = (view.Reading.KnownWheelHealth & bit) == 0 ? "?" :
+                            Math.Round(view.Reading.WheelHealth[i]).ToString();
+                        string tire = (view.Reading.KnownTireHealth & bit) == 0 ? "?" :
+                            Math.Round(view.Reading.TireHealth[i]).ToString();
+                        Text(g,"Slot " + i + ": W " + wheel + " / T " + tire,
+                            x+14*scale,y+(256+i*14)*scale,11*scale,Color.White);
+                    }
+                    float maxDeformation = float.NaN;
+                    for (int i = 0; i < 4; i++) if ((view.Reading.KnownDeformation & (1<<i)) != 0) {
+                        if (float.IsNaN(maxDeformation) || view.Reading.Deformation[i] > maxDeformation)
+                            maxDeformation = view.Reading.Deformation[i];
+                    }
+                    Text(g,"Deformation probes: " + (float.IsNaN(maxDeformation) ? "N/A" :
+                        "max " + Math.Round(maxDeformation,2) + " raw units"),
+                        x+14*scale,y+312*scale,11*scale,Color.LightGray);
+                    Text(g,"RECENT DAMAGE  (LATEST LAST)",x+14*scale,y+332*scale,10*scale,Color.FromArgb(255,130,233,225));
                     int start = Math.Max(0,view.Events.Length-2);
                     for (int i = start; i < view.Events.Length; i++)
-                        Text(g,view.Events[i].Text,x+14*scale,y+(262+(i-start)*18)*scale,12*scale,Color.White);
-                    if (view.Events.Length==0) Text(g,"No damage changes observed",x+14*scale,y+266*scale,12*scale,Color.Gray);
+                        Text(g,view.Events[i].Text,x+14*scale,y+(349+(i-start)*17)*scale,11*scale,Color.White);
+                    if (view.Events.Length==0) Text(g,"No damage changes observed",x+14*scale,y+350*scale,11*scale,Color.Gray);
                 }
                 drawFailures = 0;
             } catch (Exception error) {
