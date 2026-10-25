@@ -32,7 +32,7 @@ namespace LSA.Enhanced.Ui
         readonly UiContext context;
         readonly MenuPool pool = new MenuPool();
         readonly List<UIMenu> menus = new List<UIMenu>();
-        readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage;
+        readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage, vehicleHud;
         readonly Dictionary<UIMenu,Page> pages = new Dictionary<UIMenu,Page>();
         readonly MenuData data;
         readonly OnscreenKeyboard keyboard = new OnscreenKeyboard();
@@ -63,6 +63,7 @@ namespace LSA.Enhanced.Ui
             controls = Menu("Gameplay Controls");
             ai = Menu("AI and voice");
             diagnostics = Menu("Diagnostics");
+            vehicleHud = Menu("Vehicle Diagnostics");
             activities = Menu("Assign Activity");
             navigation = Menu("Activities & Navigation");
             director = Menu("Director & Social");
@@ -73,13 +74,14 @@ namespace LSA.Enhanced.Ui
             Bind(director,"Director & Social","Manual social scenes, availability and admission feedback.");
             Bind(controls,"Gameplay Controls","Gestures, router keys and Essential's own keys.");
             Bind(diagnostics,"Diagnostics","Native host, command bridge, AI companion and recent failures.");
+            Bind(vehicleHud,"Vehicle Diagnostics","Driving-only health schematic, tire status, and recent damage history.");
             Bind(settingsPage,"Settings / Browser Editor","Full character and memory editing, AI providers and configuration.");
             Bind(ai,"AI and voice","Read-only companion configuration.",settingsPage);
             editorItem = new UIMenuItem("Browser editor","Open this address in a browser for character editing and configuration.");
             settingsPage.AddItem(editorItem);
             character.ParentMenu = roster;
             activities.ParentMenu = current;
-            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director)})
+            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director),("vehicleHud",vehicleHud)})
                 pages[pair.Item2] = new Page {Name = pair.Item1,Menu = pair.Item2};
         }
         UIMenu Menu(string subtitle)
@@ -245,6 +247,11 @@ namespace LSA.Enhanced.Ui
         void SaveChoice(Page page,UIMenuItem item,MenuLine line)
         {
             if (line.Command == ControlsView.ChordWindowCommand || !(item is UIMenuListScrollerItem<string> scroller)) return;
+            if (line.Command == "local.vehicleHudMode") {
+                int choice = scroller.Index;
+                if (choice >= 0 && choice < line.Options.Length) { context.SetVehicleHudMode(line.Options[choice]); Invalidate(page); }
+                return;
+            }
             int index = scroller.Index;
             if (index < 0 || index >= line.Options.Length || line.Options[index] == line.Value) return;
             var args = new CommandArgs {Value = line.Options[index]};
@@ -581,6 +588,29 @@ namespace LSA.Enhanced.Ui
                 } else lines.Insert(1,MenuLine.Fact("activitySelection","Activity actions",
                     row.Spawned || row.Suspended ? "Checking native binding" : "Summon first",
                     "An absent character cannot perform world actions. Otherwise wait for verified native ownership."));
+                return lines;
+            }
+            if (page.Menu == vehicleHud) {
+                subtitle = "Vehicle Diagnostics";
+                var view = context.VehicleHudView();
+                var lines = new List<MenuLine> {
+                    MenuLine.Choice("mode","Overlay mode","local.vehicleHudMode",context.VehicleHudMode(),
+                        new[] {"off","minimal","full"},new[] {"Off","Minimal","Full"},
+                        "Choose an overlay mode, then press Select to apply. Session-only; edit LSA.Enhanced.json to persist."),
+                    MenuLine.Fact("scope","Vehicle","Driver only","The panel is shown only when driving a car, not in other seats."),
+                    MenuLine.Fact("brakes","Brake wear","N/A","No verified per-wheel brake damage source is available."),
+                    MenuLine.Fact("suspension","Suspension damage","N/A","External damage mods need an explicit telemetry integration."),
+                    MenuLine.Fact("wheel","Tire status","Direct","Tire burst native; wheel detach or rim health is not implied.")
+                };
+                if (view != null) {
+                    var sample = view.Reading;
+                    lines.Add(MenuLine.Fact("engine","Engine health",Math.Round(sample.Engine).ToString(CultureInfo.InvariantCulture) + " HP"));
+                    lines.Add(MenuLine.Fact("body","Body health",Math.Round(sample.Body).ToString(CultureInfo.InvariantCulture) + " HP"));
+                    lines.Add(MenuLine.Fact("tank","Fuel tank health",Math.Round(sample.Tank).ToString(CultureInfo.InvariantCulture) + " HP"));
+                    lines.Add(MenuLine.Fact("pull","Handling drift",view.DriftHint ?? "Not detected","Inference; not confirmed alignment or brake damage."));
+                    for (int i = 0; i < view.Events.Length; i++)
+                        lines.Add(MenuLine.Fact("damage:"+i,view.Events[i].Text,"Observed"));
+                } else lines.Add(MenuLine.Fact("drive","No driven car","","Enter the driver seat to start live diagnostics."));
                 return lines;
             }
             if (page.Menu == controls) {
