@@ -33,6 +33,9 @@ namespace LSA.Enhanced.Ui
         readonly MenuPool pool = new MenuPool();
         readonly List<UIMenu> menus = new List<UIMenu>();
         readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage;
+        readonly UIMenu cheatMenu, cheatVehicles, cheatFavorites, cheatPlayer;
+        readonly VehicleFavorites favorites;
+        readonly VehicleCheats cheats;
         readonly Dictionary<UIMenu,Page> pages = new Dictionary<UIMenu,Page>();
         readonly MenuData data;
         readonly OnscreenKeyboard keyboard = new OnscreenKeyboard();
@@ -56,6 +59,8 @@ namespace LSA.Enhanced.Ui
         {
             this.context = context;
             data = new MenuData(context.Companion,context.Clock);
+            favorites = new VehicleFavorites(context.PluginsPath);
+            cheats = new VehicleCheats(context.Log);
             main = Menu("Main menu");
             current = Menu("Current NPC");
             roster = Menu("Characters");
@@ -67,6 +72,14 @@ namespace LSA.Enhanced.Ui
             navigation = Menu("Activities & Navigation");
             director = Menu("Director & Social");
             settingsPage = Menu("Settings / Browser Editor");
+            cheatMenu = Menu("Cheat Menu");
+            cheatVehicles = Menu("Vehicle Options");
+            cheatFavorites = Menu("Vehicle Favorites");
+            cheatPlayer = Menu("Player Options");
+            Bind(cheatMenu,"Cheat Menu","Local single-player gameplay tools; no AI required.");
+            Bind(cheatVehicles,"Vehicle Options","Repair, spawn and manage cars.",cheatMenu);
+            Bind(cheatFavorites,"Vehicle Favorites","Spawn or remove saved favorite vehicle models.",cheatVehicles);
+            Bind(cheatPlayer,"Player Options","Health, armor, wanted and invincibility.",cheatMenu);
             Bind(current,"Current NPC","Status and actions for the NPC Essential has selected.");
             Bind(roster,"My Characters","Select a promoted character, summon, dismiss or manage gameplay.");
             Bind(navigation,"Activities & Navigation","ACT activity status, control and navigation readiness.");
@@ -79,7 +92,7 @@ namespace LSA.Enhanced.Ui
             settingsPage.AddItem(editorItem);
             character.ParentMenu = roster;
             activities.ParentMenu = current;
-            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director)})
+            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director),("cheatVehicles",cheatVehicles),("cheatFavorites",cheatFavorites),("cheatPlayer",cheatPlayer)})
                 pages[pair.Item2] = new Page {Name = pair.Item1,Menu = pair.Item2};
         }
         UIMenu Menu(string subtitle)
@@ -206,6 +219,10 @@ namespace LSA.Enhanced.Ui
         {
             if (rendering || !pages.TryGetValue(sender,out var page) || !page.Lines.TryGetValue(item,out var line) || line.Info || !line.Enabled || line.Toggle) return;
             if (line.Options != null) { SaveChoice(page,item,line); return; }
+            if (line.Command != null && line.Command.StartsWith("cheat.",StringComparison.Ordinal)) {
+                if (line.Confirm && !(armedItem == item && context.Clock.Monotonic <= armedUntil)) { Arm(page,item,line); return; }
+                Disarm(); Cheat(page,line); return;
+            }
             if (line.Command == null || line.Command.StartsWith("local.",StringComparison.Ordinal)) { Local(page,line); return; }
             if (line.Command == CommandCatalog.CharacterRename || line.Command == CommandCatalog.CharacterMemoryAdd) { TypeText(page,line); return; }
             if (line.Command == CommandCatalog.DirectorSocialManual) {
@@ -289,6 +306,40 @@ namespace LSA.Enhanced.Ui
                 case "log": context.Log("[UX] diagnostics " + string.Join("; ",DiagnosticsLines().Where(item => item.Info).Select(item => item.Text + "=" + item.Right))); context.Hud.Show("Diagnostics written to RagePluginHook.log"); break;
                 case CurrentNpcView.ClearTalkCommand: context.ClearTalkTarget(); Invalidate(page); break;
             }
+        }
+        void Cheat(Page page,MenuLine line)
+        {
+            string cmd = line.Command.Substring("cheat.".Length);
+            if (cmd == "spawn" || cmd == "addFavorite") {
+                try {
+                    keyboard.Open("",32,value => {
+                        var prior = hiddenForKeyboard; hiddenForKeyboard = null;
+                        if (prior != null) prior.Visible = true;
+                        if (value == null) return;
+                        string result = cmd == "spawn" ? cheats.Spawn(value) :
+                            (favorites.Add(value) ? "Favorite added" : "Invalid/duplicate favorite or file not writable");
+                        context.Hud.Show(result);
+                        Invalidate(page);
+                    });
+                    hiddenForKeyboard = page.Menu; page.Menu.Visible = false;
+                } catch { context.Hud.Show("Vehicle input unavailable"); }
+                return;
+            }
+            string message;
+            switch (cmd) {
+                case "saveCurrent": {
+                    string model = cheats.CurrentModel();
+                    message = model == null ? "Current vehicle model unknown" :
+                        (favorites.Add(model) ? "Favorite saved: " + model : "Duplicate, full or file not writable");
+                    break;
+                }
+                case "spawnFavorite": message = cheats.Spawn(line.Value); break;
+                case "removeFavorite": message = favorites.Remove(line.Value) ? "Favorite removed: " + line.Value : "Could not remove favorite"; break;
+                default: message = cheats.Apply(cmd); break;
+            }
+            context.Hud.Show(message);
+            Invalidate(page);
+            if (cmd == "removeFavorite") Invalidate(pages[cheatFavorites]);
         }
         void OpenCharacter(string characterId,UIMenu from)
         {
@@ -491,6 +542,40 @@ namespace LSA.Enhanced.Ui
         {
             var settings = context.Settings();
             long utc = context.Clock.Utc;
+            if (page.Menu == cheatVehicles) {
+                subtitle = "Vehicle Options";
+                return new List<MenuLine> {
+                    MenuLine.Action("repair","Repair current vehicle","cheat.repair","Repair engine, body and standard vehicle components."),
+                    MenuLine.Action("clean","Clean current vehicle","cheat.clean","Remove dirt."),
+                    MenuLine.Action("upright","Set vehicle upright","cheat.upright","Try to place the current vehicle on its wheels."),
+                    MenuLine.Action("spawn","Spawn vehicle by model","cheat.spawn","Type any valid stock or installed addon vehicle model."),
+                    MenuLine.Action("saveCurrent","Favorite current vehicle","cheat.saveCurrent","Save your current vehicle's model to the favorites file."),
+                    MenuLine.Action("addFavorite","Add favorite by model","cheat.addFavorite","Type a vehicle model to save for later spawning."),
+                    MenuLine.Action("deleteLast","Delete last spawned vehicle","cheat.deleteLast","Delete only the last unoccupied vehicle created by this cheat menu.",true,true)
+                };
+            }
+            if (page.Menu == cheatFavorites) {
+                subtitle = "Vehicle Favorites";
+                var lines = new List<MenuLine>();
+                if (favorites.Models.Count == 0)
+                    lines.Add(MenuLine.Fact("empty","No favorites saved","", "From Vehicle Options choose Favorite current vehicle or Add favorite by model."));
+                foreach (var model in favorites.Models) {
+                    lines.Add(MenuLine.Action("spawn:" + model,"Spawn " + model,"cheat.spawnFavorite","Spawn this favorite vehicle next to the player."));
+                    lines[lines.Count - 1].Value = model;
+                    lines.Add(MenuLine.Action("remove:" + model,"Remove " + model,"cheat.removeFavorite","Remove this model from saved favorites.",true,true));
+                    lines[lines.Count - 1].Value = model;
+                }
+                return lines;
+            }
+            if (page.Menu == cheatPlayer) {
+                subtitle = "Player Options";
+                return new List<MenuLine> {
+                    MenuLine.Action("heal","Restore health","cheat.heal","Restore the current player character to maximum health."),
+                    MenuLine.Action("armor","Full armor","cheat.armor","Set armor to 100."),
+                    MenuLine.Action("wanted","Clear wanted level","cheat.wanted","Clear the current wanted level once."),
+                    MenuLine.Action("invincible","Toggle invincibility","cheat.invincible","Toggle invincibility for the current player.",true)
+                };
+            }
             if (page.Menu == activities) {
                 subtitle = "Assign Activity";
                 bool sameActor = activityTargetBinding == null ||

@@ -30,6 +30,7 @@ static partial class Program
             FeedbackTests();
             InterceptionTests();
             ViewModelTests();
+            CheatFavoritesTests();
             Console.WriteLine("UX phase 2/3 input, settings, dispatch and view models: " + count + " assertions passed; no game assemblies loaded.");
             return 0;
         } catch (Exception error) { Console.Error.WriteLine(error); return 1; }
