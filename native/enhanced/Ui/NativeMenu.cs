@@ -308,6 +308,11 @@ namespace LSA.Enhanced.Ui
                 case "local.openQuickCurrent":
                     current.ParentMenu = quick; Invalidate(pages[current]);
                     page.Menu.Visible = false; current.Visible = true; break;
+                case "local.flightToggle":
+                    context.SetCrashFlightRecording(!context.CrashFlightRecording());
+                    context.Hud.Show(context.CrashFlightRecording() ?
+                        "Crash flight recorder armed (5Hz, opt-in)" : "Crash flight recorder stopped");
+                    Invalidate(page); break;
                 case "local.vh3Toggle":
                     context.SetVehicleDeformationEnabled(!context.VehicleDeformationEnabled());
                     context.Hud.Show(context.VehicleDeformationEnabled() ?
@@ -835,6 +840,14 @@ namespace LSA.Enhanced.Ui
                     "Optional 1 Hz read-only snapshots and damage events. Plugins/LSA/Logs/vehicle-telemetry.csv; stops at 10 MiB.");
                 logging.Right = context.VehicleTelemetryLogging() ? "ON" : "OFF";
                 lines.Insert(1,logging);
+                var flight=MenuLine.Action("flight","Crash flight recorder (5Hz)",
+                    "local.flightToggle",
+                    "Optional 10s before / 8s after body, engine or tire damage. " +
+                    "Uses existing samples only; writes when parked, max 10 incidents. OFF by default.");
+                flight.Right=context.CrashFlightRecording() ? "ON" : "OFF";
+                lines.Insert(2,flight);
+                lines.Insert(3,MenuLine.Fact("flightState","Flight recorder status",
+                    context.CrashFlightStatus(),"Crash recorder is entirely optional, never adds dense mesh probes."));
                 // Research-only: deliberate one-shot 48-point sweeps, never
                 // active by default and never used to color the driving HUD.
                 var labEnabled = context.VehicleDeformationEnabled();

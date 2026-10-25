@@ -12,6 +12,9 @@ namespace LSA.Enhanced.VehicleHud
     internal sealed class VehicleDeformationLab
     {
         const int ProbeBatch=6, MaxCaptures=20;
+        const long MaxTickProbeUs=2500, MaxIndividualProbeUs=8000;
+        const long MaxSweepMs=20000, MaxCaptureBytes=96*1024, MaxSessionBytes=2*1024*1024;
+        long savedBytes;
         readonly string root;
         bool enabled;
         int saved,vehicleHandle;
@@ -51,14 +54,28 @@ namespace LSA.Enhanced.VehicleHud
         {
             if(!enabled || (pending==null&&active==null))return;
             if(car==null||!car.IsValid()||!car.IsCar) {
-                pending=null;active=null;probeTrace.Clear();
-                Status="NO DRIVEN CAR";return;
+                pending=null;active=null;probeTrace.Clear();sessionId=null;vehicleHandle=0;
+                Status="NO DRIVEN CAR - RECAPTURE BASELINE";return;
             }
             int handle=unchecked((int)car.Handle.Value);
             if(active!=null && active.Handle!=handle) {
                 active=null;pending=null;sessionId=null;vehicleHandle=0;
                 probeTrace.Clear();
                 Status="CANCELLED - VEHICLE CHANGED";return;
+            }
+            // These 48 calls are diagnostic only: never scan while driving.
+            // A rolling car produces ambiguous offsets and needless game load.
+            try {
+                if(float.IsNaN(car.Speed)||float.IsInfinity(car.Speed)||Math.Abs(car.Speed)>0.5f) {
+                    active=null;pending=null;probeTrace.Clear();captureClock=null;
+                    Status="CANCELLED - PARK BEFORE CAPTURE";
+                    return;
+                }
+            } catch { active=null;pending=null;Status="CANCELLED - SPEED UNKNOWN";return; }
+            if(active!=null && captureClock!=null && captureClock.ElapsedMilliseconds>MaxSweepMs) {
+                active=null;pending=null;probeTrace.Clear();captureClock=null;
+                enabled=false;Status="DISABLED - SWEEP TIMEOUT";
+                Game.LogTrivial("[VH3] disabled sweep_timeout");return;
             }
             if(active==null) {
                 try {
@@ -94,6 +111,7 @@ namespace LSA.Enhanced.VehicleHud
                     return;
                 }
             }
+            long batchStart=Stopwatch.GetTimestamp();
             for(int i=0;i<ProbeBatch&&!active.Complete;i++) {
                 var p=active.Next;
                 long nativeStart=Stopwatch.GetTimestamp();
@@ -108,6 +126,11 @@ namespace LSA.Enhanced.VehicleHud
                 long elapsedTicks=Stopwatch.GetTimestamp()-nativeStart;
                 long callUs=elapsedTicks<=0?0:(long)(elapsedTicks*1000000d/Stopwatch.Frequency);
                 if(callUs>maxNativeMicroseconds)maxNativeMicroseconds=callUs;
+                if(callUs>MaxIndividualProbeUs) {
+                    active=null;pending=null;probeTrace.Clear();captureClock=null;
+                    enabled=false; Status="DISABLED - EXPENSIVE NATIVE";
+                    Game.LogTrivial("[VH3] disabled native_call_us="+callUs);return;
+                }
                 float speed=float.NaN,wx=float.NaN,wy=float.NaN,wz=float.NaN;
                 try {
                     speed=car.Speed;
@@ -127,6 +150,9 @@ namespace LSA.Enhanced.VehicleHud
                     probeTrace.Add(""); // preserve index ordering as a visible gap
                     Game.LogTrivial("[VH3] trace_row_failed "+traceError.GetType().Name);
                 }
+                // Enforce wall-clock work budget, not just six calls per tick.
+                long batchUs=(long)((Stopwatch.GetTimestamp()-batchStart)*1000000d/Stopwatch.Frequency);
+                if(batchUs>=MaxTickProbeUs)break;
             }
             if(!active.Complete) {
                 Status="CAPTURING "+active.Phase+" "+active.Count+"/"+active.Points.Length;
@@ -144,7 +170,15 @@ namespace LSA.Enhanced.VehicleHud
                 // One file per capture; no rotation, auto-delete, mutation of
                 // GTA assets, network requests, or arbitrary output filenames.
                 if(File.Exists(path))throw new IOException("capture_exists");
-                File.WriteAllText(path,finished.Csv());
+                string captureText=finished.Csv();
+                string forensicText=VehicleProbeTrace.Header+Environment.NewLine+
+                    string.Join(Environment.NewLine,probeTrace.ToArray())+Environment.NewLine;
+                long projectedBytes=System.Text.Encoding.UTF8.GetByteCount(captureText)+
+                    System.Text.Encoding.UTF8.GetByteCount(forensicText);
+                if(projectedBytes>MaxCaptureBytes || savedBytes+projectedBytes>MaxSessionBytes)
+                    throw new IOException("session_diagnostic_quota");
+                File.WriteAllText(path,captureText);
+                savedBytes+=System.Text.Encoding.UTF8.GetByteCount(captureText);
                 // A separate forensic audit retains precise probe timings,
                 // sample UTC, speed and position without breaking the existing
                 // 24-column capture/replay parser or old saved files.
@@ -152,8 +186,8 @@ namespace LSA.Enhanced.VehicleHud
                     string tracePath=Path.Combine(root,finished.CaptureId+"_"+safeModel+
                         "_"+finished.Phase+".diagnostics.csv");
                     if(File.Exists(tracePath))throw new IOException("trace_exists");
-                    File.WriteAllText(tracePath,VehicleProbeTrace.Header+Environment.NewLine+
-                        string.Join(Environment.NewLine,probeTrace.ToArray())+Environment.NewLine);
+                    File.WriteAllText(tracePath,forensicText);
+                    savedBytes+=System.Text.Encoding.UTF8.GetByteCount(forensicText);
                 } catch(Exception auditError) {
                     Game.LogTrivial("[VH3] diagnostics_write_failed "+auditError.GetType().Name);
                 }

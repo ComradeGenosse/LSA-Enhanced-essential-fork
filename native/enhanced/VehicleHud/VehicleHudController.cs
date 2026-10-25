@@ -3,6 +3,7 @@ using System.Drawing;
 using System.IO;
 using System.Collections.Generic;
 using System.Text;
+using System.Diagnostics;
 using Rage;
 using Rage.Native;
 
@@ -16,6 +17,16 @@ namespace LSA.Enhanced.VehicleHud
         const long CsvSizeLimit = 10L * 1024 * 1024; // bounded log, never auto-delete
         readonly string traceFile;
         readonly VehicleDeformationLab deformationLab;
+        readonly VehicleCrashFlightRecorder flight = new VehicleCrashFlightRecorder();
+        readonly string flightDirectory;
+        int flightFiles;
+        long flightBytes;
+        int slowHealthSamples;
+        readonly Queue<string> pendingFlight = new Queue<string>();
+        string flightModel = "unavailable";
+        public bool CrashRecording => flight.Enabled;
+        public string CrashRecordingStatus => flight.Status;
+        public void SetCrashRecording(bool enabled) => flight.SetEnabled(enabled);
         public bool DeformationEnabled => deformationLab.Enabled;
         public string DeformationStatus => deformationLab.Status;
         public void SetDeformationEnabled(bool enabled) => deformationLab.SetEnabled(enabled);
@@ -29,6 +40,7 @@ namespace LSA.Enhanced.VehicleHud
         {
             traceFile = Path.Combine(plugins ?? "", "LSA", "Logs", "vehicle-telemetry.csv");
             deformationLab = new VehicleDeformationLab(plugins);
+            flightDirectory = Path.Combine(plugins ?? "", "LSA", "Logs", "VH3");
         }
         public void SetLogging(bool enabled)
         {
@@ -66,10 +78,12 @@ namespace LSA.Enhanced.VehicleHud
             Game.FrameRender -= Paint;
             hooked = false;
             timeline.Clear(); published = null; publishedBody = null;
+            deformationLab.SetEnabled(false);
+            flight.Stop();
         }
         public void Tick(long now,bool paused)
         {
-            if ((mode == "off" && !Logging && !deformationLab.Enabled) || samplerDisabled) return;
+            if ((mode == "off" && !Logging && !deformationLab.Enabled && !flight.Enabled && pendingFlight.Count==0) || samplerDisabled) return;
             if (now < nextSample) return;
             nextSample = now + SampleEveryMs;
             if (paused) { timeline.Clear(); published = null; return; }
@@ -80,15 +94,19 @@ namespace LSA.Enhanced.VehicleHud
                     timeline.Clear(); published = null;
                     publishedBody = null; bodyHandle = 0;
                     deformationLab.Tick(null,now);
+                    flight.NoVehicle();
+                    FlushFlightWhenStationary(true);
                     failures = 0; return;
                 }
                 if (bodyHandle != unchecked((int)car.Handle.Value)) {
                     bodyHandle = unchecked((int)car.Handle.Value);
                     publishedBody = null;
+                    flightModel = "unavailable";
                     try {
                         Vector3 min,max;
                         car.Model.GetDimensions(out min,out max);
                         string name=car.Model.Name ?? "unknown";
+                        flightModel = name;
                         publishedBody=VehicleMeshGeometry.Build(name,
                             new DeformationBounds(min.X,min.Y,min.Z,max.X,max.Y,max.Z));
                     } catch (Exception error) {
@@ -98,15 +116,76 @@ namespace LSA.Enhanced.VehicleHud
                 // Optional VH3 sampling: six probe calls per sampler tick.
                 // The live HUD does not use this experimental data.
                 deformationLab.Tick(car,now);
+                // In HUD-off / flight-only mode, ordinary health sampling is
+                // still required for the flight recorder. It runs at 5Hz,
+                // never adds deformation probes beyond the existing four.
+                if(mode=="off" && !Logging && !flight.Enabled) {
+                    FlushFlightWhenStationary(car.Speed<=0.5f);
+                    published=null;failures=0;return;
+                }
+                long healthStart=(flight.Enabled || Logging)?Stopwatch.GetTimestamp():0L;
                 var v = Read(car);
+                if(healthStart!=0) {
+                    long healthUs=(long)((Stopwatch.GetTimestamp()-healthStart)*1000000d/Stopwatch.Frequency);
+                    slowHealthSamples=healthUs>8000?slowHealthSamples+1:0;
+                    if(slowHealthSamples>=3) {
+                        flight.Stop(); Logging=false;
+                        Game.LogTrivial("[VH4] optional_recorders_disabled health_sample_us="+healthUs);
+                        slowHealthSamples=0;
+                    }
+                }
                 timeline.Update(v,now);
                 published = timeline.Current;
+                if (flight.Enabled) {
+                    string incident=flight.Observe(published,flightModel,now,DateTime.UtcNow.ToString("o"));
+                    if (incident != null) {
+                        // Keep a hard upper bound on pending writes. No I/O
+                        // on a live impact or while the car is moving.
+                        if (pendingFlight.Count<2) pendingFlight.Enqueue(incident);
+                        else Game.LogTrivial("[VH4] incident_dropped pending_queue_full");
+                    }
+                    FlushFlightWhenStationary(car.Speed<=0.5f);
+                }
                 if (Logging) Trace(car,published,now);
                 failures = 0;
             } catch (Exception error) {
                 timeline.Clear(); published = null;
                 if (++failures == 1) Game.LogTrivial("[VH1] sample_failed " + error.GetType().Name);
                 if (failures >= 5) { samplerDisabled = true; Game.LogTrivial("[VH1] sampler_disabled; other LSA features unaffected"); }
+            }
+        }
+        void FlushFlightWhenStationary(bool stationary)
+        {
+            if(!stationary || pendingFlight.Count==0)return;
+            PersistCrashIncident(pendingFlight.Dequeue());
+        }
+        // Save at most 10 small opt-in crash incidents in the session.
+        // Never write while driving; hold at most two completed records.
+        // File failures disable only the flight recorder, not gameplay/HUD.
+        void PersistCrashIncident(string csv)
+        {
+            try {
+                if(csv.Length>120*1024 || flightFiles>=10 || flightBytes+csv.Length>1200*1024) {
+                    flight.Stop();Game.LogTrivial("[VH4] flight_disabled quota");return;
+                }
+                Directory.CreateDirectory(flightDirectory);
+                string file="flight-"+DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff")+"-"+
+                    (++flightFiles).ToString(System.Globalization.CultureInfo.InvariantCulture)+".csv";
+                string path=Path.Combine(flightDirectory,file);
+                if(File.Exists(path))throw new IOException("collision");
+                long ioStart=Stopwatch.GetTimestamp();
+                File.WriteAllText(path,csv);
+                long ioUs=(long)((Stopwatch.GetTimestamp()-ioStart)*1000000d/Stopwatch.Frequency);
+                flightBytes+=System.Text.Encoding.UTF8.GetByteCount(csv);
+                Game.LogTrivial("[VH4] incident_saved file="+path+" bytes="+csv.Length+
+                    " write_us="+ioUs);
+                if(ioUs>15000) {
+                    flight.Stop();
+                    Game.LogTrivial("[VH4] flight_disabled disk_slow");
+                }
+            } catch(Exception error) {
+                flight.Stop();
+                Game.LogTrivial("[VH4] flight_disabled "+error.GetType().Name);
             }
         }
         // Only the game fiber performs file I/O; samples are rate limited,

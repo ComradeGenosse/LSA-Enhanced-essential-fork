@@ -134,6 +134,9 @@ namespace LSA.Enhanced
                 VehicleDeformationStatus = () => vehicleHud.DeformationStatus,
                 CaptureVehicleDeformation = vehicleHud.CaptureDeformation,
                 VehicleTelemetryLogging = () => vehicleHud.Logging, SetVehicleTelemetryLogging = vehicleHud.SetLogging,
+                CrashFlightRecording = () => vehicleHud.CrashRecording,
+                SetCrashFlightRecording = vehicleHud.SetCrashRecording,
+                CrashFlightStatus = () => vehicleHud.CrashRecordingStatus,
                 EndpointState = EndpointState,Paused = () => gameState.Paused,PluginsPath = plugins,Log = Game.LogTrivial};
             ui = new UiBridge(context,CreateMenu);
             dispatcher.Ui = ui; router.UiAvailable = () => ui.Available; router.MenuOpen = () => ui.AnyMenuOpen;

@@ -15,6 +15,7 @@ static partial class Program
     static void VehicleHudTests()
     {
         VehicleMeshTests();
+        VehicleCrashTests();
         var tracker = new VehicleDamageTimeline();
         tracker.Update(Reading(),1000);
         Check(tracker.Current.Events.Length == 0,"initial car reading has no synthetic damage event");
