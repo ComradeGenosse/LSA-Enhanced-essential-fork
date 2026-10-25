@@ -12,7 +12,7 @@
     <Compile Include="../Commands/CommandCatalog.cs;../Commands/Contracts.cs;../Commands/NativeSnapshot.cs;../Commands/LoaderDispatcher.cs" />
     <Compile Include="../Companion/CompanionClient.cs" />
     <Compile Include="../Settings/EnhancedSettings.cs" />
-    <Compile Include="../VehicleHud/VehicleDamageTimeline.cs;../VehicleHud/VehicleHudPresentation.cs;../VehicleHud/VehicleTelemetryCsv.cs" />
+    <Compile Include="../VehicleHud/VehicleDamageTimeline.cs;../VehicleHud/VehicleHudPresentation.cs;../VehicleHud/VehicleTelemetryCsv.cs;../VehicleHud/VehicleDeformationExperiment.cs" />
     <Compile Include="../Ui/ViewModels/MenuModels.cs;../Ui/MenuData.cs;../Ui/UiBridge.cs;../Ui/VehicleFavorites.cs;../Ui/VehicleCatalog.cs" />
     <EmbeddedResource Include="../../../contracts/commands.v2.json" LogicalName="LSA.Enhanced.commands.v2.json" />
     <EmbeddedResource Include="../Ui/VehicleModels.txt" LogicalName="LSA.Enhanced.vehicle_models.txt" />

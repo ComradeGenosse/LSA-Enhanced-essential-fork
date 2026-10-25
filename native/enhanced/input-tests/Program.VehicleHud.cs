@@ -110,6 +110,47 @@ static partial class Program
             csv.Contains(",,,,") && VehicleTelemetryCsv.Header.Split(',').Length == 22,
             "CSV preserves zero tire health separately from unavailable slots");
 
+        // VH3: geometry normalization and native-independent capture/export.
+        var bounds = new DeformationBounds(-1f,-2.2f,-0.25f,1f,2.2f,1.65f);
+        var probeGrid = VehicleDeformationGrid.Build(bounds);
+        Check(probeGrid.Length == 48 && probeGrid.Select(p => p.Index).SequenceEqual(
+            Enumerable.Range(0,48)), "48 stable, indexed exterior probes");
+        Check(probeGrid.Count(p=>p.Region=="front")==9 &&
+            probeGrid.Count(p=>p.Region=="rear")==9 &&
+            probeGrid.Count(p=>p.Region=="left")==12 &&
+            probeGrid.Count(p=>p.Region=="right")==12 &&
+            probeGrid.Count(p=>p.Region=="roof")==6,
+            "probe census covers both ends, both sides and roof");
+        Check(probeGrid.All(p=>p.X>=bounds.MinX&&p.X<=bounds.MaxX &&
+            p.Y>=bounds.MinY&&p.Y<=bounds.MaxY &&
+            p.Z>=bounds.MinZ&&p.Z<=bounds.MaxZ),
+            "all sample offsets remain inside validated model bounds");
+        Check(VehicleDeformationGrid.Build(new DeformationBounds(0,0,0,0,0,0)).Length==0 &&
+            VehicleDeformationGrid.Build(new DeformationBounds(float.NaN,-2,0,1,2,1)).Length==0,
+            "missing, degenerate or NaN model bounds fail closed");
+        var baseline=new DeformationCapture("cap_1","baseline","testcar",42,
+            "2026-10-25T19:00:00Z",bounds,1000f,1000f);
+        Check(baseline.Next.Index==0 && !baseline.Complete,"capture starts blank");
+        for(int i=0;i<48;i++)
+            baseline.Record(i==1 ? float.NaN : 0,i==1 ? 0.0f : 0,0,
+                i==2 ? "native_not_supported" : null);
+        Check(baseline.Complete && baseline.Count==48 && baseline.ValidCount==46,
+            "zero deformation is a valid native response while failures remain unknown");
+        var output=baseline.Csv();
+        var rows=output.Trim().Split('\n');
+        Check(rows.Length==49 && DeformationCapture.Header.Split(',').Length==24 &&
+            rows.Skip(1).All(r=>r.TrimEnd('\r').Split(',').Length==24),
+            "48 bounded capture CSV rows with full vector and model bounds");
+        Check(rows[1].Contains(",0,0,0,0,1,") &&
+            output.Contains("\"native_not_supported\"") &&
+            output.Contains(",0,\"invalid_vector\""),
+            "CSV differentiates real zero vectors, explicit probe errors and invalid readings");
+        Check(Math.Abs(baseline.Points[0].Y - bounds.Y(0.96f))<0.0001f,
+            "front offsets scale with model dimensions");
+        bool blocked=false;
+        try {baseline.Record(0,0,0);}catch(InvalidOperationException){blocked=true;}
+        Check(blocked,"capture cannot silently exceed 48 probes");
+
         Check(Settings("{\"version\":1,\"vehicleHud\":{\"mode\":\"minimal\"}}").VehicleHudMode == "minimal",
             "minimal vehicle HUD setting accepted");
         Check(Settings("{\"version\":1,\"vehicleHud\":{\"mode\":\"off\"}}").VehicleHudMode == "off",

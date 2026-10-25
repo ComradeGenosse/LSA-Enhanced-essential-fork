@@ -15,6 +15,11 @@ namespace LSA.Enhanced.VehicleHud
         const int SampleEveryMs = 200, CsvSampleMs = 1000;
         const long CsvSizeLimit = 10L * 1024 * 1024; // bounded log, never auto-delete
         readonly string traceFile;
+        readonly VehicleDeformationLab deformationLab;
+        public bool DeformationEnabled => deformationLab.Enabled;
+        public string DeformationStatus => deformationLab.Status;
+        public void SetDeformationEnabled(bool enabled) => deformationLab.SetEnabled(enabled);
+        public string CaptureDeformation(string phase) => deformationLab.Request(phase);
         long nextCsv;
         int lastLoggedVehicle;
         long lastEventAt = -1;
@@ -23,6 +28,7 @@ namespace LSA.Enhanced.VehicleHud
         public VehicleHudController(string plugins)
         {
             traceFile = Path.Combine(plugins ?? "", "LSA", "Logs", "vehicle-telemetry.csv");
+            deformationLab = new VehicleDeformationLab(plugins);
         }
         public void SetLogging(bool enabled)
         {
@@ -61,7 +67,7 @@ namespace LSA.Enhanced.VehicleHud
         }
         public void Tick(long now,bool paused)
         {
-            if ((mode == "off" && !Logging) || samplerDisabled) return;
+            if ((mode == "off" && !Logging && !deformationLab.Enabled) || samplerDisabled) return;
             if (now < nextSample) return;
             nextSample = now + SampleEveryMs;
             if (paused) { timeline.Clear(); published = null; return; }
@@ -69,8 +75,13 @@ namespace LSA.Enhanced.VehicleHud
                 var player = Game.LocalPlayer.Character;
                 var car = player != null && player.IsValid() ? player.CurrentVehicle : null;
                 if (car == null || !car.IsValid() || !car.IsCar || car.Driver == null || car.Driver.Handle != player.Handle) {
-                    timeline.Clear(); published = null; failures = 0; return;
+                    timeline.Clear(); published = null;
+                    deformationLab.Tick(null,now);
+                    failures = 0; return;
                 }
+                // Optional VH3 sampling: six probe calls per sampler tick.
+                // The live HUD does not use this experimental data.
+                deformationLab.Tick(car,now);
                 var v = Read(car);
                 timeline.Update(v,now);
                 published = timeline.Current;

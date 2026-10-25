@@ -308,6 +308,16 @@ namespace LSA.Enhanced.Ui
                 case "local.openQuickCurrent":
                     current.ParentMenu = quick; Invalidate(pages[current]);
                     page.Menu.Visible = false; current.Visible = true; break;
+                case "local.vh3Toggle":
+                    context.SetVehicleDeformationEnabled(!context.VehicleDeformationEnabled());
+                    context.Hud.Show(context.VehicleDeformationEnabled() ?
+                        "VH3 deformation experiment enabled" : "VH3 deformation experiment disabled");
+                    Invalidate(page); break;
+                case "local.vh3Baseline":
+                case "local.vh3Damaged":
+                    context.Hud.Show(context.CaptureVehicleDeformation(
+                        line.Command == "local.vh3Baseline" ? "baseline" : "damaged"));
+                    Invalidate(page); break;
                 case "local.vehicleLogToggle":
                     context.SetVehicleTelemetryLogging(!context.VehicleTelemetryLogging());
                     context.Hud.Show(context.VehicleTelemetryLogging() ? "Vehicle CSV logging enabled" : "Vehicle CSV logging disabled");
@@ -825,6 +835,23 @@ namespace LSA.Enhanced.Ui
                     "Optional 1 Hz read-only snapshots and damage events. Plugins/LSA/Logs/vehicle-telemetry.csv; stops at 10 MiB.");
                 logging.Right = context.VehicleTelemetryLogging() ? "ON" : "OFF";
                 lines.Insert(1,logging);
+                // Research-only: deliberate one-shot 48-point sweeps, never
+                // active by default and never used to color the driving HUD.
+                var labEnabled = context.VehicleDeformationEnabled();
+                var lab = MenuLine.Action("vh3","VH3 deformation experiment","local.vh3Toggle",
+                    "Read-only 48-point capture; session-only, disabled by default.");
+                lab.Right = labEnabled ? "ON" : "OFF";
+                lines.Add(lab);
+                lines.Add(MenuLine.Fact("vh3state","VH3 capture status",
+                    context.VehicleDeformationStatus(),"One-shot capture progress or last result."));
+                if (labEnabled) {
+                    lines.Add(MenuLine.Action("vh3baseline","Capture undamaged baseline",
+                        "local.vh3Baseline",
+                        "Stop car on level ground first; 48 position/vector probes collected incrementally."));
+                    lines.Add(MenuLine.Action("vh3damaged","Capture after impact",
+                        "local.vh3Damaged",
+                        "Same vehicle as saved baseline. Results export into Plugins/LSA/Logs/VH3/"));
+                }
                 if (view != null) {
                     var sample = view.Reading;
                     lines.Add(MenuLine.Fact("engine","Engine health",Math.Round(sample.Engine).ToString(CultureInfo.InvariantCulture) + " HP"));
