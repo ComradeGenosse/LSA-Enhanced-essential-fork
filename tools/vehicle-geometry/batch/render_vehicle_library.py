@@ -52,9 +52,11 @@ def normpoint(px,py,bounds,frame):
     return {"x":round((world_x-(xlo+xhi)/2)/(xhi-xlo),6),
             "y":round((world_z-zlo)/(zhi-zlo),6)}
 
-def vertices_from_contour(image,limit,eps,frame,bounds):
+def vertices_from_contour(image,limit,eps,frame,bounds,allow_empty=False):
     rings,_=cv2.findContours(image,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-    if not rings:raise ValueError("No visible projected triangles")
+    if not rings:
+        if allow_empty:return []
+        raise ValueError("No visible projected triangles")
     rings=sorted(rings,key=cv2.contourArea,reverse=True)
     result=[]
     for item in rings:
@@ -116,7 +118,8 @@ def process(model,source,dest,limit_triangles=180000,preview=True):
         xy=np.column_stack(((verts[:,0]-xmin)*sx,(verts[:,2]-zmin)*sy)).astype(np.float32)
         for i,face in enumerate(faces):
             pts=xy[face]
-            if abs(np.cross(pts[1]-pts[0],pts[2]-pts[0]))*.5<.04:continue
+            v1=pts[1]-pts[0];v2=pts[2]-pts[0]
+            if abs(v1[0]*v2[1]-v1[1]*v2[0])*.5<.04:continue
             polygons.append((float(max(verts[face,1])),pts,normals[i],
                              material,wheel,uv[face] if uv is not None else None,tex))
     polygons.sort(key=lambda t:t[0])
@@ -142,7 +145,7 @@ def process(model,source,dest,limit_triangles=180000,preview=True):
     rings=vertices_from_contour(mask,64,1.1,screen,render_bounds)
     if not rings or len(rings[0])<6:raise ValueError("No valid exterior outline")
     outline=rings[0]
-    glass_rings=vertices_from_contour(glass,96,1.7,screen,render_bounds)[:8]
+    glass_rings=vertices_from_contour(glass,96,1.7,screen,render_bounds,allow_empty=True)[:8]
     def obj(points,prefix):
         return [{"id":f"{prefix}_{i:02d}",**p} for i,p in enumerate(points)]
     def wheel(k):
