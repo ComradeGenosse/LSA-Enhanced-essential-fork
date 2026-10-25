@@ -49,6 +49,34 @@ static partial class Program
         Check(changed.Outline.All(v=>!float.IsNaN(v.X) && !float.IsNaN(v.Y) &&
             Math.Abs(v.X)<=.54f && v.Y>=0 && v.Y<=1),
             "displacement is bounded and finite");
+        // Public-safe synthetic field modeled on observed front-left impact
+        // magnitudes, not copied from any user's private GTA log files.
+        var buffaloBounds=new DeformationBounds(-1.02f,-2.56f,-.63f,1.02f,2.51f,.83f);
+        var buffaloMesh=VehicleMeshGeometry.Build("BUFFALO",buffaloBounds);
+        Check(buffaloMesh!=null && buffaloMesh.Archetype=="muscle",
+            "Buffalo resolves stock-car archetype without exact YFT geometry");
+        var b0=new DeformationCapture("synthetic_buffalo","baseline","BUFFALO",77,
+            "2026-10-25T20:00:00Z",buffaloBounds,1000,1000);
+        var b1=new DeformationCapture("synthetic_buffalo","damaged","BUFFALO",77,
+            "2026-10-25T20:01:00Z",buffaloBounds,500,650);
+        while(!b0.Complete) {
+            var point=b0.Next;
+            b0.Record(0,0,0);
+            // Broad front-left crush, moderate right-front movement.
+            if(point.Region=="front")
+                b1.Record(point.X<0 ? .40f : .08f,-.37f,-.04f);
+            else if(point.Region=="left" && point.Y>0)
+                b1.Record(.32f,-.30f,-.02f);
+            else b1.Record(0,0,0);
+        }
+        var observedLike=VehicleMeshGeometry.Deform(buffaloMesh,b0,b1);
+        Check(observedLike.ExperimentalDeformation &&
+            observedLike.Outline[0].X>buffaloMesh.Outline[0].X &&
+            observedLike.Outline[0].Y>buffaloMesh.Outline[0].Y,
+            "front-left real-scale deformation moves front-left outline inward/backward");
+        Check(observedLike.Outline.All(v=>v.X>=-.54f && v.X<=.54f &&
+            v.Y>=0 && v.Y<=1 && !float.IsNaN(v.X) && !float.IsNaN(v.Y)),
+            "real-scale synthetic vectors never escape bounded screen footprint");
         var unchanged=new DeformationCapture("pair_1","damaged","adder",42,
             "2026-10-25T19:00:05Z",bounds,1000,700);
         while(!unchanged.Complete)unchanged.Record(0,0,0);

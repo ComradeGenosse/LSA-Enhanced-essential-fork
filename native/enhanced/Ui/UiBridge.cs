@@ -38,6 +38,9 @@ namespace LSA.Enhanced.Ui
         public Action<bool> SetVehicleDeformationEnabled = _ => { };
         public Func<string> VehicleDeformationStatus = () => "OFF";
         public Func<string,string> CaptureVehicleDeformation = _ => "Unavailable";
+        public Func<bool> CaptureMeshPreviewEnabled = () => false;
+        public Action<bool> SetCaptureMeshPreview = _ => { };
+        public Func<string> CaptureMeshPreviewStatus = () => "NO CAPTURE";
         public string PluginsPath;
         public Action<string> Log = _ => { };
     }

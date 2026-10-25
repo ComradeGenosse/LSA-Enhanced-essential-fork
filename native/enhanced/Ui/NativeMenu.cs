@@ -318,6 +318,12 @@ namespace LSA.Enhanced.Ui
                     context.Hud.Show(context.VehicleDeformationEnabled() ?
                         "VH3 deformation experiment enabled" : "VH3 deformation experiment disabled");
                     Invalidate(page); break;
+                case "local.vh3PreviewToggle":
+                    context.SetCaptureMeshPreview(!context.CaptureMeshPreviewEnabled());
+                    context.Hud.Show(context.CaptureMeshPreviewEnabled() ?
+                        "VH3 saved-capture mesh preview enabled (Full HUD)" :
+                        "VH3 saved-capture mesh preview disabled");
+                    Invalidate(page); break;
                 case "local.vh3Baseline":
                 case "local.vh3Damaged":
                     context.Hud.Show(context.CaptureVehicleDeformation(
@@ -857,6 +863,14 @@ namespace LSA.Enhanced.Ui
                 lines.Add(lab);
                 lines.Add(MenuLine.Fact("vh3state","VH3 capture status",
                     context.VehicleDeformationStatus(),"One-shot capture progress or last result."));
+                var meshPreview=MenuLine.Action("vh3preview","Preview last paired VH3 mesh",
+                    "local.vh3PreviewToggle",
+                    "Experimental, OFF by default. Uses a completed baseline/impact pair for the current car; only changes Full HUD silhouette.");
+                meshPreview.Right=context.CaptureMeshPreviewEnabled()?"ON":"OFF";
+                lines.Add(meshPreview);
+                lines.Add(MenuLine.Fact("vh3previewstatus","Mesh preview status",
+                    context.CaptureMeshPreviewStatus(),
+                    "One-shot visualization only. Not continuous deformation or exact game geometry."));
                 if (labEnabled) {
                     lines.Add(MenuLine.Action("vh3baseline","Capture undamaged baseline",
                         "local.vh3Baseline",

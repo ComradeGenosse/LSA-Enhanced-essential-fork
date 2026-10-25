@@ -82,6 +82,7 @@ namespace LSA.Enhanced.VehicleHud
                 {"futo",new Shape(.36f,.45f,.44f,.38f,.30f,.75f,.22f,.78f)},
                 {"sultan",new Shape(.38f,.46f,.48f,.42f,.29f,.77f,.22f,.81f)},
                 {"dominator",new Shape(.39f,.48f,.49f,.40f,.39f,.74f,.24f,.81f)},
+                {"buffalo",new Shape(.36f,.46f,.48f,.39f,.34f,.75f,.22f,.80f)},
                 {"gauntlet",new Shape(.34f,.47f,.48f,.40f,.38f,.77f,.25f,.78f)},
                 {"dubsta",new Shape(.42f,.49f,.50f,.45f,.19f,.84f,.21f,.82f)},
                 {"bison",new Shape(.39f,.49f,.49f,.43f,.17f,.53f,.23f,.81f)},

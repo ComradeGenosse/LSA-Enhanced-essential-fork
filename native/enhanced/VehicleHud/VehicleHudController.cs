@@ -17,6 +17,15 @@ namespace LSA.Enhanced.VehicleHud
         const long CsvSizeLimit = 10L * 1024 * 1024; // bounded log, never auto-delete
         readonly string traceFile;
         readonly VehicleDeformationLab deformationLab;
+        volatile VehicleBodyMesh completedCaptureMesh;
+        int completedCaptureHandle;
+        volatile bool showCaptureMesh;
+        public bool CaptureMeshPreviewEnabled => showCaptureMesh;
+        public void SetCaptureMeshPreview(bool enable) => showCaptureMesh=enable;
+        public string CaptureMeshPreviewStatus =>
+            completedCaptureMesh!=null ? "PAIRED - "+completedCaptureMesh.Model+
+                (completedCaptureMesh.ExperimentalDeformation ? " / DEFORMED" : " / NO QUALIFYING CHANGE") :
+                "NO COMPLETED VH3 PAIR";
         readonly VehicleCrashFlightRecorder flight = new VehicleCrashFlightRecorder();
         readonly string flightDirectory;
         int flightFiles;
@@ -30,7 +39,15 @@ namespace LSA.Enhanced.VehicleHud
         public bool DeformationEnabled => deformationLab.Enabled;
         public string DeformationStatus => deformationLab.Status;
         public void SetDeformationEnabled(bool enabled) => deformationLab.SetEnabled(enabled);
-        public string CaptureDeformation(string phase) => deformationLab.Request(phase);
+        public string CaptureDeformation(string phase)
+        {
+            string message=deformationLab.Request(phase);
+            if(phase=="baseline" && message.StartsWith("VH3 baseline",StringComparison.Ordinal)) {
+                // A new experiment invalidates prior matched capture geometry.
+                completedCaptureMesh=null;completedCaptureHandle=0;
+            }
+            return message;
+        }
         long nextCsv;
         int lastLoggedVehicle;
         long lastEventAt = -1;
@@ -78,6 +95,7 @@ namespace LSA.Enhanced.VehicleHud
             Game.FrameRender -= Paint;
             hooked = false;
             timeline.Clear(); published = null; publishedBody = null;
+            completedCaptureMesh=null;completedCaptureHandle=0;showCaptureMesh=false;
             deformationLab.SetEnabled(false);
             flight.Stop();
         }
@@ -93,6 +111,7 @@ namespace LSA.Enhanced.VehicleHud
                 if (car == null || !car.IsValid() || !car.IsCar || car.Driver == null || car.Driver.Handle != player.Handle) {
                     timeline.Clear(); published = null;
                     publishedBody = null; bodyHandle = 0;
+                    completedCaptureMesh=null;completedCaptureHandle=0;
                     deformationLab.Tick(null,now);
                     flight.NoVehicle();
                     FlushFlightWhenStationary(true);
@@ -101,6 +120,7 @@ namespace LSA.Enhanced.VehicleHud
                 if (bodyHandle != unchecked((int)car.Handle.Value)) {
                     bodyHandle = unchecked((int)car.Handle.Value);
                     publishedBody = null;
+                    completedCaptureMesh=null;completedCaptureHandle=0;
                     flightModel = "unavailable";
                     try {
                         Vector3 min,max;
@@ -116,6 +136,27 @@ namespace LSA.Enhanced.VehicleHud
                 // Optional VH3 sampling: six probe calls per sampler tick.
                 // The live HUD does not use this experimental data.
                 deformationLab.Tick(car,now);
+                DeformationCapture before,after;
+                if(deformationLab.TryConsumePair(out before,out after)) {
+                    // This is a ONE-SHOT paired snapshot review, not live
+                    // frame-by-frame deformation. Every vertex is computed
+                    // on the game fiber; FrameRender only reads the snapshot.
+                    var source=publishedBody;
+                    if(source!=null && source.Model==before.Model &&
+                        before.Handle==bodyHandle) {
+                        try {
+                            var candidate=VehicleMeshGeometry.Deform(source,before,after);
+                            completedCaptureMesh=candidate;
+                            completedCaptureHandle=bodyHandle;
+                            Game.LogTrivial("[VH3C] paired_mesh="+
+                                (candidate.ExperimentalDeformation?"deformed":"unchanged")+
+                                " model="+source.Model);
+                        } catch(Exception error) {
+                            completedCaptureMesh=null;completedCaptureHandle=0;
+                            Game.LogTrivial("[VH3C] mesh_reconstruction_failed "+error.GetType().Name);
+                        }
+                    }
+                }
                 // In HUD-off / flight-only mode, ordinary health sampling is
                 // still required for the flight recorder. It runs at 5Hz,
                 // never adds deformation probes beyond the existing four.
@@ -326,9 +367,15 @@ namespace LSA.Enhanced.VehicleHud
                         Text(g,"!",left+423*s,top+15*s,15*s,severity);
                 } else {
                     var shape = publishedBody;
-                    if(shape != null && bodyHandle == view.Reading.Handle)
+                    bool capturedPreview=showCaptureMesh && completedCaptureMesh!=null &&
+                        completedCaptureHandle==view.Reading.Handle;
+                    if(capturedPreview) shape=completedCaptureMesh;
+                    if(shape != null && bodyHandle == view.Reading.Handle) {
                         DrawBodyMesh(g,left,top,s,view.Reading,shape);
-                    else DrawCar(g,left,top,s,view.Reading);
+                        if(capturedPreview)
+                            Text(g,"VH3 CAPTURE REPLAY",left+38*s,top+239*s,9*s,
+                                Color.FromArgb(255,244,187,101));
+                    } else DrawCar(g,left,top,s,view.Reading);
                     Stat(g,"ENGINE",view.Reading.Engine,left+232*s,top+76*s,176*s,s);
                     Stat(g,"BODY",view.Reading.Body,left+232*s,top+133*s,176*s,s);
                     Stat(g,"FUEL TANK",view.Reading.Tank,left+232*s,top+190*s,176*s,s);

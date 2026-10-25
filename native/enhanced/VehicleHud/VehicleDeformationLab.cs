@@ -20,6 +20,15 @@ namespace LSA.Enhanced.VehicleHud
         int saved,vehicleHandle;
         string pending,sessionId,model;
         DeformationCapture active;
+        DeformationCapture baselineSnapshot,readyBaseline,readyDamaged;
+        // Consumed exclusively on the game fiber after successful file save.
+        // No disk reads or native calls are needed to preview a matched pair.
+        public bool TryConsumePair(out DeformationCapture baseline,out DeformationCapture damaged)
+        {
+            baseline=readyBaseline;damaged=readyDamaged;
+            readyBaseline=null;readyDamaged=null;
+            return baseline!=null && damaged!=null;
+        }
         readonly List<string> probeTrace = new List<string>();
         Stopwatch captureClock;
         long maxNativeMicroseconds;
@@ -36,6 +45,7 @@ namespace LSA.Enhanced.VehicleHud
             enabled=on;
             pending=null;active=null;vehicleHandle=0;
             sessionId=null;probeTrace.Clear();captureClock=null;
+            baselineSnapshot=null;readyBaseline=null;readyDamaged=null;
             Status=on?"READY - capture baseline":"OFF";
         }
         public string Request(string phase)
@@ -55,12 +65,14 @@ namespace LSA.Enhanced.VehicleHud
             if(!enabled || (pending==null&&active==null))return;
             if(car==null||!car.IsValid()||!car.IsCar) {
                 pending=null;active=null;probeTrace.Clear();sessionId=null;vehicleHandle=0;
+                baselineSnapshot=null;readyBaseline=null;readyDamaged=null;
                 Status="NO DRIVEN CAR - RECAPTURE BASELINE";return;
             }
             int handle=unchecked((int)car.Handle.Value);
             if(active!=null && active.Handle!=handle) {
                 active=null;pending=null;sessionId=null;vehicleHandle=0;
-                probeTrace.Clear();
+                probeTrace.Clear();baselineSnapshot=null;
+                readyBaseline=null;readyDamaged=null;
                 Status="CANCELLED - VEHICLE CHANGED";return;
             }
             // These 48 calls are diagnostic only: never scan while driving.
@@ -195,7 +207,17 @@ namespace LSA.Enhanced.VehicleHud
                 if(finished.Phase=="baseline") {
                     sessionId=finished.CaptureId;
                     vehicleHandle=finished.Handle;
+                    baselineSnapshot=finished;
+                    readyBaseline=null;readyDamaged=null;
                 } else {
+                    if(baselineSnapshot!=null &&
+                        baselineSnapshot.CaptureId==finished.CaptureId &&
+                        baselineSnapshot.Handle==finished.Handle &&
+                        baselineSnapshot.Model==finished.Model) {
+                        readyBaseline=baselineSnapshot;
+                        readyDamaged=finished;
+                    }
+                    baselineSnapshot=null;
                     sessionId=null;vehicleHandle=0;
                 }
                 int zeros=0;
