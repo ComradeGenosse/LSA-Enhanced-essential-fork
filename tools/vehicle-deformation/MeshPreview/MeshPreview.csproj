@@ -9,8 +9,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="../../native/enhanced/VehicleHud/VehicleMeshGeometry.cs" />
-    <Compile Include="../../native/enhanced/VehicleHud/VehicleMeshSvg.cs" />
-    <Compile Include="../../native/enhanced/VehicleHud/VehicleDeformationExperiment.cs" />
+    <Compile Include="../../../native/enhanced/VehicleHud/VehicleMeshGeometry.cs" />
+    <Compile Include="../../../native/enhanced/VehicleHud/VehicleMeshSvg.cs" />
+    <Compile Include="../../../native/enhanced/VehicleHud/VehicleDeformationExperiment.cs" />
   </ItemGroup>
 </Project>
