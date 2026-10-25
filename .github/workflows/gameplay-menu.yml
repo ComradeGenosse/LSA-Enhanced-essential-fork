@@ -46,6 +46,15 @@ jobs:
         run: node tools/native-sdk/compileProductionNative.mjs
       - name: Run F11 input and dispatcher tests
         run: dotnet run --project native/enhanced/input-tests/InputTests.csproj --configuration Release
+      - name: Render seven vehicle silhouettes and simulated crash replays
+        run: dotnet run --project tools/vehicle-deformation/MeshPreview/MeshPreview.csproj --configuration Release -- demo vh3-preview
+      - name: Upload VH3-B mesh previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: vh3b-vehicle-silhouettes-and-synthetic-damage
+          path: vh3-preview/*.svg
+          if-no-files-found: error
+          retention-days: 14
       - name: Validate native ACT adapter boundaries
         run: dotnet run --project native/activities/tests/ActivityTests.csproj --configuration Release
   companion:

@@ -32,7 +32,13 @@ namespace LSA.Enhanced.Ui
         readonly UiContext context;
         readonly MenuPool pool = new MenuPool();
         readonly List<UIMenu> menus = new List<UIMenu>();
-        readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage;
+        readonly UIMenu quick, main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage, vehicleHud;
+        readonly UIMenu cheatMenu, cheatVehicles, cheatFavorites, cheatPlayer, vehicleSearch;
+        readonly VehicleFavorites favorites;
+        readonly VehicleCatalog catalog;
+        string vehicleQuery = "", selectedVehicleModel;
+        int vehicleResultPage;
+        readonly VehicleCheats cheats;
         readonly Dictionary<UIMenu,Page> pages = new Dictionary<UIMenu,Page>();
         readonly MenuData data;
         readonly OnscreenKeyboard keyboard = new OnscreenKeyboard();
@@ -56,7 +62,12 @@ namespace LSA.Enhanced.Ui
         {
             this.context = context;
             data = new MenuData(context.Companion,context.Clock);
-            main = Menu("Main menu");
+            favorites = new VehicleFavorites(context.PluginsPath);
+            catalog = new VehicleCatalog(context.PluginsPath,favorites);
+            cheats = new VehicleCheats(context.Log);
+            quick = Menu("Quick Controls");
+            main = Menu("All tools & settings");
+            main.ParentMenu = quick;
             current = Menu("Current NPC");
             roster = Menu("Characters");
             character = Menu("Character");
@@ -67,6 +78,18 @@ namespace LSA.Enhanced.Ui
             navigation = Menu("Activities & Navigation");
             director = Menu("Director & Social");
             settingsPage = Menu("Settings / Browser Editor");
+            cheatMenu = Menu("Cheat Menu");
+            cheatVehicles = Menu("Vehicle Options");
+            cheatFavorites = Menu("Vehicle Favorites");
+            cheatPlayer = Menu("Player Options");
+            vehicleSearch = Menu("Vehicle Search");
+            vehicleHud = Menu("Vehicle Diagnostics");
+            Bind(cheatMenu,"Cheat Menu","Local single-player gameplay tools; no AI required.");
+            Bind(cheatVehicles,"Vehicle Options","Repair, spawn and manage cars.",cheatMenu);
+            cheatFavorites.ParentMenu = cheatVehicles; // Dynamic parent items are rebuilt by Render; navigate through a local action.
+            vehicleSearch.ParentMenu = cheatVehicles;
+            vehicleHud.ParentMenu = cheatVehicles; // Opened using a local action, so menu refresh retains navigation.
+            Bind(cheatPlayer,"Player Options","Health, armor, wanted and invincibility.",cheatMenu);
             Bind(current,"Current NPC","Status and actions for the NPC Essential has selected.");
             Bind(roster,"My Characters","Select a promoted character, summon, dismiss or manage gameplay.");
             Bind(navigation,"Activities & Navigation","ACT activity status, control and navigation readiness.");
@@ -79,7 +102,7 @@ namespace LSA.Enhanced.Ui
             settingsPage.AddItem(editorItem);
             character.ParentMenu = roster;
             activities.ParentMenu = current;
-            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director)})
+            foreach (var pair in new[] {("quick",quick),("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director),("cheatVehicles",cheatVehicles),("cheatFavorites",cheatFavorites),("cheatPlayer",cheatPlayer),("vehicleSearch",vehicleSearch),("vehicleHud",vehicleHud)})
                 pages[pair.Item2] = new Page {Name = pair.Item1,Menu = pair.Item2};
         }
         UIMenu Menu(string subtitle)
@@ -108,16 +131,18 @@ namespace LSA.Enhanced.Ui
         {
             if (keyboard.Active || hiddenForKeyboard != null) return;
             if (pool.IsAnyMenuOpen()) {
-                bool switchToCurrent = page == "current" && !current.Visible;
-                Disarm(); pool.CloseAllMenus();
-                if (!switchToCurrent) return;
+                // F11 and controller L4+R4 use the same quick root; either
+                // shortcut closes our menu safely, regardless of subpage.
+                Disarm(); pool.CloseAllMenus(); return;
             }
             // Another plugin's RNUI menu, such as Essential's F7 menu, owns the
             // controls; with none of ours open, RNUI's cross-plugin flag means theirs.
             if (OtherMenusVisible()) { context.Hud.Show(context.Catalog.Describe("input_busy")); return; }
-            // The quick page closes on Back; from the main menu it returns there.
-            if (page == "current") current.ParentMenu = null;
-            (page == "current" ? current : main).Visible = true;
+            // Keep explicit legacy 'current' entrypoint, but both shortcuts open quick.
+            if (page == "current") {
+                current.ParentMenu = quick;
+                current.Visible = true;
+            } else quick.Visible = true;
         }
         bool OtherMenusVisible()
         {
@@ -206,6 +231,10 @@ namespace LSA.Enhanced.Ui
         {
             if (rendering || !pages.TryGetValue(sender,out var page) || !page.Lines.TryGetValue(item,out var line) || line.Info || !line.Enabled || line.Toggle) return;
             if (line.Options != null) { SaveChoice(page,item,line); return; }
+            if (line.Command != null && line.Command.StartsWith("cheat.",StringComparison.Ordinal)) {
+                if (line.Confirm && !(armedItem == item && context.Clock.Monotonic <= armedUntil)) { Arm(page,item,line); return; }
+                Disarm(); Cheat(page,line); return;
+            }
             if (line.Command == null || line.Command.StartsWith("local.",StringComparison.Ordinal)) { Local(page,line); return; }
             if (line.Command == CommandCatalog.CharacterRename || line.Command == CommandCatalog.CharacterMemoryAdd) { TypeText(page,line); return; }
             if (line.Command == CommandCatalog.DirectorSocialManual) {
@@ -237,6 +266,11 @@ namespace LSA.Enhanced.Ui
             Disarm();
             // The chord window is session-local and applies at once; character
             // fields are saved only when the player selects the row.
+            if (line.Command == "local.vehicleSearchSelect" && newIndex >= 0 && newIndex < line.Options.Length) {
+                selectedVehicleModel = line.Options[newIndex];
+                Invalidate(page);
+                return;
+            }
             if (line.Command == ControlsView.ChordWindowCommand && newIndex >= 0 && newIndex < line.Options.Length
                 && int.TryParse(line.Options[newIndex],NumberStyles.None,CultureInfo.InvariantCulture,out int window)) context.Router()?.SetSessionChordWindow(window);
         }
@@ -245,6 +279,18 @@ namespace LSA.Enhanced.Ui
         void SaveChoice(Page page,UIMenuItem item,MenuLine line)
         {
             if (line.Command == ControlsView.ChordWindowCommand || !(item is UIMenuListScrollerItem<string> scroller)) return;
+            if (line.Command == "local.vehicleSearchSelect") {
+                int selected = scroller.Index;
+                if (selected >= 0 && selected < line.Options.Length) {
+                    selectedVehicleModel = line.Options[selected]; Invalidate(page);
+                }
+                return;
+            }
+            if (line.Command == "local.vehicleHudMode") {
+                int choice = scroller.Index;
+                if (choice >= 0 && choice < line.Options.Length) { context.SetVehicleHudMode(line.Options[choice]); Invalidate(page); }
+                return;
+            }
             int index = scroller.Index;
             if (index < 0 || index >= line.Options.Length || line.Options[index] == line.Value) return;
             var args = new CommandArgs {Value = line.Options[index]};
@@ -256,6 +302,76 @@ namespace LSA.Enhanced.Ui
         {
             switch (line.Command ?? line.Key) {
                 case LocalOpenCharacter: OpenCharacter(line.Value,page.Menu); break;
+                case "local.openAdvanced":
+                    main.ParentMenu = quick;
+                    page.Menu.Visible = false; main.Visible = true; break;
+                case "local.openQuickCurrent":
+                    current.ParentMenu = quick; Invalidate(pages[current]);
+                    page.Menu.Visible = false; current.Visible = true; break;
+                case "local.flightToggle":
+                    context.SetCrashFlightRecording(!context.CrashFlightRecording());
+                    context.Hud.Show(context.CrashFlightRecording() ?
+                        "Crash flight recorder armed (5Hz, opt-in)" : "Crash flight recorder stopped");
+                    Invalidate(page); break;
+                case "local.vh3Toggle":
+                    context.SetVehicleDeformationEnabled(!context.VehicleDeformationEnabled());
+                    context.Hud.Show(context.VehicleDeformationEnabled() ?
+                        "VH3 deformation experiment enabled" : "VH3 deformation experiment disabled");
+                    Invalidate(page); break;
+                case "local.vh5LiveToggle":
+                    context.SetLiveMeshEnabled(!context.LiveMeshEnabled());
+                    context.Hud.Show(context.LiveMeshEnabled() ?
+                        "Experimental live deformation enabled - park a CLEAN car to calibrate" :
+                        "Experimental live deformation disabled");
+                    Invalidate(page); break;
+                case "local.vh3PreviewToggle":
+                    context.SetCaptureMeshPreview(!context.CaptureMeshPreviewEnabled());
+                    context.Hud.Show(context.CaptureMeshPreviewEnabled() ?
+                        "VH3 saved-capture mesh preview enabled (Full HUD)" :
+                        "VH3 saved-capture mesh preview disabled");
+                    Invalidate(page); break;
+                case "local.vh3Baseline":
+                case "local.vh3Damaged":
+                    context.Hud.Show(context.CaptureVehicleDeformation(
+                        line.Command == "local.vh3Baseline" ? "baseline" : "damaged"));
+                    Invalidate(page); break;
+                case "local.vehicleLogToggle":
+                    context.SetVehicleTelemetryLogging(!context.VehicleTelemetryLogging());
+                    context.Hud.Show(context.VehicleTelemetryLogging() ? "Vehicle CSV logging enabled" : "Vehicle CSV logging disabled");
+                    Invalidate(page); break;
+                case "local.openVehicleHud":
+                    vehicleHud.ParentMenu = page.Menu;
+                    Invalidate(pages[vehicleHud]);
+                    page.Menu.Visible = false; vehicleHud.Visible = true; break;
+                case "local.openVehicleSearch":
+                    vehicleSearch.ParentMenu = page.Menu;
+                    Invalidate(pages[vehicleSearch]);
+                    page.Menu.Visible = false; vehicleSearch.Visible = true; break;
+                case "local.vehicleSearchText":
+                    try {
+                        keyboard.Open(vehicleQuery,48,value => {
+                            var prior = hiddenForKeyboard; hiddenForKeyboard = null;
+                            if (prior != null) prior.Visible = true;
+                            if (value == null) return;
+                            vehicleQuery = value.Trim(); vehicleResultPage = 0;
+                            selectedVehicleModel = null; Invalidate(pages[vehicleSearch]);
+                        });
+                        hiddenForKeyboard = page.Menu; page.Menu.Visible = false;
+                    } catch { context.Hud.Show("Vehicle search input unavailable"); }
+                    break;
+                case "local.vehicleSearchReset":
+                    vehicleQuery = ""; vehicleResultPage = 0; selectedVehicleModel = null;
+                    Invalidate(pages[vehicleSearch]); break;
+                case "local.vehicleSearchPrev":
+                    vehicleResultPage = Math.Max(0,vehicleResultPage - 1);
+                    selectedVehicleModel = null; Invalidate(pages[vehicleSearch]); break;
+                case "local.vehicleSearchNext":
+                    vehicleResultPage = Math.Min(catalog.Search(vehicleQuery,vehicleResultPage).Pages - 1,vehicleResultPage + 1);
+                    selectedVehicleModel = null; Invalidate(pages[vehicleSearch]); break;
+                case "local.openCheatFavorites":
+                    cheatFavorites.ParentMenu = page.Menu;
+                    Invalidate(pages[cheatFavorites]);
+                    page.Menu.Visible = false; cheatFavorites.Visible = true; break;
                 case "local.openDirector":
                     director.ParentMenu = page.Menu; Invalidate(pages[director]);
                     page.Menu.Visible = false; director.Visible = true; break;
@@ -289,6 +405,49 @@ namespace LSA.Enhanced.Ui
                 case "log": context.Log("[UX] diagnostics " + string.Join("; ",DiagnosticsLines().Where(item => item.Info).Select(item => item.Text + "=" + item.Right))); context.Hud.Show("Diagnostics written to RagePluginHook.log"); break;
                 case CurrentNpcView.ClearTalkCommand: context.ClearTalkTarget(); Invalidate(page); break;
             }
+        }
+        void Cheat(Page page,MenuLine line)
+        {
+            string cmd = line.Command.Substring("cheat.".Length);
+            if (cmd == "spawn" || cmd == "addFavorite" || cmd == "addCatalog") {
+                try {
+                    keyboard.Open("",32,value => {
+                        var prior = hiddenForKeyboard; hiddenForKeyboard = null;
+                        if (prior != null) prior.Visible = true;
+                        if (value == null) return;
+                        string result = cmd == "spawn" ? cheats.Spawn(value) :
+                            cmd == "addFavorite" ? (favorites.Add(value) ? "Favorite added" : "Invalid/duplicate favorite or file not writable") :
+                            !cheats.IsVehicleModel(value) ? "Model not installed as a vehicle" :
+                            (catalog.AddCustom(value) ? "Addon model added to search" : "Already listed, invalid, full or not writable");
+                        if (cmd == "addCatalog" && result == "Addon model added to search") {
+                            vehicleQuery = value.Trim(); vehicleResultPage = 0; selectedVehicleModel = null;
+                            Invalidate(pages[vehicleSearch]);
+                        }
+                        context.Hud.Show(result);
+                        Invalidate(page);
+                    });
+                    hiddenForKeyboard = page.Menu; page.Menu.Visible = false;
+                } catch { context.Hud.Show("Vehicle input unavailable"); }
+                return;
+            }
+            string message;
+            switch (cmd) {
+                case "saveCurrent": {
+                    string model = cheats.CurrentModel();
+                    message = model == null ? "Current vehicle model unknown" :
+                        (favorites.Add(model) ? "Favorite saved: " + model : "Duplicate, full or file not writable");
+                    break;
+                }
+                case "spawnFavorite": message = cheats.Spawn(line.Value); break;
+                case "spawnSearch": message = selectedVehicleModel == null ? "Select a result first" : cheats.Spawn(selectedVehicleModel); break;
+                case "favoriteSearch": message = selectedVehicleModel == null ? "Select a result first" :
+                    favorites.Add(selectedVehicleModel) ? "Favorite saved: " + selectedVehicleModel : "Already favorited, full or not writable"; break;
+                case "removeFavorite": message = favorites.Remove(line.Value) ? "Favorite removed: " + line.Value : "Could not remove favorite"; break;
+                default: message = cheats.Apply(cmd); break;
+            }
+            context.Hud.Show(message);
+            Invalidate(page);
+            if (cmd == "removeFavorite") Invalidate(pages[cheatFavorites]);
         }
         void OpenCharacter(string characterId,UIMenu from)
         {
@@ -491,6 +650,100 @@ namespace LSA.Enhanced.Ui
         {
             var settings = context.Settings();
             long utc = context.Clock.Utc;
+            if (page.Menu == quick) {
+                subtitle = "Quick Controls";
+                var vehicle = context.VehicleHudView();
+                bool inCar = cheats.InVehicle;
+                string vehicleText = inCar ? "In vehicle / telemetry unavailable" : "On foot";
+                if (inCar && vehicle?.Reading != null) {
+                    var v = vehicle.Reading;
+                    vehicleText = "Engine " + Math.Round(v.Engine).ToString(CultureInfo.InvariantCulture) +
+                        " / Body " + Math.Round(v.Body).ToString(CultureInfo.InvariantCulture);
+                    if ((v.BurstTires & v.KnownTires) != 0) vehicleText += " / PUNCTURE";
+                } else if (inCar && context.VehicleHudMode() == "off")
+                    vehicleText = "In vehicle / HUD off";
+                var npc = LiveNpcModel(utc,settings);
+                string npcStatus = "None";
+                if (npc.Present) {
+                    var mode = npc.Lines.FirstOrDefault(line => line.Key == "mode")?.Right;
+                    npcStatus = npc.Title;
+                    if (mode != null) npcStatus += " / " + mode;
+                    if (npcStatus.Length > 32) npcStatus = npcStatus.Substring(0,29) + "...";
+                }
+                return QuickControlsView.Build(vehicleText,inCar,context.VehicleHudMode(),
+                    cheats.Invincible,cheats.WantedLevel,npcStatus);
+            }
+            if (page.Menu == cheatVehicles) {
+                subtitle = "Vehicle Options";
+                return new List<MenuLine> {
+                    MenuLine.Action("repair","Repair current vehicle","cheat.repair","Repair engine, body and standard vehicle components."),
+                    MenuLine.Action("clean","Clean current vehicle","cheat.clean","Remove dirt."),
+                    MenuLine.Action("upright","Set vehicle upright","cheat.upright","Try to place the current vehicle on its wheels."),
+                    MenuLine.Action("openVehicleSearch","Browse / search vehicles","local.openVehicleSearch","Search names and models, select from a dropdown and spawn or favorite."),
+                    MenuLine.Action("spawn","Spawn vehicle by model","cheat.spawn","Manual fallback: type an exact installed model name."),
+                    MenuLine.Action("saveCurrent","Favorite current vehicle","cheat.saveCurrent","Save your current vehicle's model to the favorites file."),
+                    MenuLine.Action("addFavorite","Add favorite by model","cheat.addFavorite","Type a vehicle model to save for later spawning."),
+                    MenuLine.Action("deleteLast","Delete last spawned vehicle","cheat.deleteLast","Delete only the last unoccupied vehicle created by this cheat menu.",true,true),
+                    MenuLine.Action("openFavorites","Vehicle Favorites","local.openCheatFavorites","Browse, spawn or remove saved favorites."),
+                    MenuLine.Action("openVehicleHud","Vehicle Diagnostics","local.openVehicleHud","See damage, tire bursts, handling inference and diagnostics overlay settings.")
+                };
+            }
+            if (page.Menu == vehicleSearch) {
+                var result = catalog.Search(vehicleQuery,vehicleResultPage);
+                vehicleResultPage = result.Page;
+                subtitle = "Vehicle Search (" + result.Total + " found)";
+                var lines = new List<MenuLine> {
+                    MenuLine.Fact("query","Search",vehicleQuery.Length == 0 ? "All vehicles" : vehicleQuery,
+                        "Enter part of a display name or model; matches rank exact, prefix, then partial."),
+                    MenuLine.Action("search","Enter search text","local.vehicleSearchText",
+                        "Use GTA's on-screen keyboard. Suggestions appear after confirming; the native keyboard does not support live typing events."),
+                    MenuLine.Action("reset","Show all vehicles","local.vehicleSearchReset","Clear the search and browse alphabetically, favorites first.")
+                };
+                if (result.Items.Length == 0) {
+                    selectedVehicleModel = null;
+                    lines.Add(MenuLine.Fact("noresults","No matching vehicles","","Try a shorter or different name, or add an installed addon model."));
+                } else {
+                    string[] ids = result.Items.Select(entry => entry.Model).ToArray();
+                    if (!ids.Contains(selectedVehicleModel)) selectedVehicleModel = ids[0];
+                    string[] labels = result.Items.Select(entry =>
+                        (entry.Favorite ? "[Fav] " : "") + entry.Label + " (" + entry.Model + ")").ToArray();
+                    lines.Add(MenuLine.Choice("matches","Matching vehicles","local.vehicleSearchSelect",
+                        selectedVehicleModel,ids,labels,
+                        "Left/right selects a matching model. Use Spawn selected or Add favorite below."));
+                    lines.Add(MenuLine.Action("spawnResult","Spawn selected","cheat.spawnSearch",
+                        "Spawn the currently selected model near the player if installed."));
+                    lines.Add(MenuLine.Action("favoriteResult","Favorite selected","cheat.favoriteSearch",
+                        "Save the selected model in persistent vehicle favorites."));
+                }
+                lines.Add(MenuLine.Fact("paging","Page", (result.Page+1) + " / " + result.Pages));
+                lines.Add(MenuLine.Action("prev","Previous results","local.vehicleSearchPrev","Show previous matching vehicles.",result.Page > 0));
+                lines.Add(MenuLine.Action("next","Next results","local.vehicleSearchNext","Show next matching vehicles.",result.Page < result.Pages-1));
+                lines.Add(MenuLine.Action("addon","Register installed addon","cheat.addCatalog",
+                    "Enter an exact installed addon vehicle model, validate it in-game, and persist it in the search catalog."));
+                return lines;
+            }
+            if (page.Menu == cheatFavorites) {
+                subtitle = "Vehicle Favorites";
+                var lines = new List<MenuLine>();
+                if (favorites.Models.Count == 0)
+                    lines.Add(MenuLine.Fact("empty","No favorites saved","", "From Vehicle Options choose Favorite current vehicle or Add favorite by model."));
+                foreach (var model in favorites.Models) {
+                    lines.Add(MenuLine.Action("spawn:" + model,"Spawn " + model,"cheat.spawnFavorite","Spawn this favorite vehicle next to the player."));
+                    lines[lines.Count - 1].Value = model;
+                    lines.Add(MenuLine.Action("remove:" + model,"Remove " + model,"cheat.removeFavorite","Remove this model from saved favorites.",true,true));
+                    lines[lines.Count - 1].Value = model;
+                }
+                return lines;
+            }
+            if (page.Menu == cheatPlayer) {
+                subtitle = "Player Options";
+                return new List<MenuLine> {
+                    MenuLine.Action("heal","Restore health","cheat.heal","Restore the current player character to maximum health."),
+                    MenuLine.Action("armor","Full armor","cheat.armor","Set armor to 100."),
+                    MenuLine.Action("wanted","Clear wanted level","cheat.wanted","Clear the current wanted level once."),
+                    MenuLine.Action("invincible","Toggle invincibility","cheat.invincible","Toggle invincibility for the current player.",true)
+                };
+            }
             if (page.Menu == activities) {
                 subtitle = "Assign Activity";
                 bool sameActor = activityTargetBinding == null ||
@@ -581,6 +834,88 @@ namespace LSA.Enhanced.Ui
                 } else lines.Insert(1,MenuLine.Fact("activitySelection","Activity actions",
                     row.Spawned || row.Suspended ? "Checking native binding" : "Summon first",
                     "An absent character cannot perform world actions. Otherwise wait for verified native ownership."));
+                return lines;
+            }
+            if (page.Menu == vehicleHud) {
+                subtitle = "Vehicle Diagnostics";
+                var view = context.VehicleHudView();
+                var lines = new List<MenuLine> {
+                    MenuLine.Choice("mode","Overlay mode","local.vehicleHudMode",context.VehicleHudMode(),
+                        new[] {"off","minimal","full"},new[] {"Off","Minimal","Full"},
+                        "Choose an overlay mode, then press Select to apply. Session-only; edit LSA.Enhanced.json to persist."),
+                    MenuLine.Fact("scope","Vehicle","Driver only","The panel is shown only when driving a car, not in other seats."),
+                    MenuLine.Fact("brakes","Brake wear","N/A","No verified per-wheel brake damage source is available."),
+                    MenuLine.Fact("suspension","Suspension damage","N/A","External damage mods need an explicit telemetry integration."),
+                    MenuLine.Fact("wheel","Tire status","Direct","Tire burst native; wheel detach or rim health is not implied.")
+                };
+                var logging = MenuLine.Action("record","Vehicle telemetry CSV","local.vehicleLogToggle",
+                    "Optional 1 Hz read-only snapshots and damage events. Plugins/LSA/Logs/vehicle-telemetry.csv; stops at 10 MiB.");
+                logging.Right = context.VehicleTelemetryLogging() ? "ON" : "OFF";
+                lines.Insert(1,logging);
+                var flight=MenuLine.Action("flight","Crash flight recorder (5Hz)",
+                    "local.flightToggle",
+                    "Optional 10s before / 8s after body, engine or tire damage. " +
+                    "Uses existing samples only; writes when parked, max 10 incidents. OFF by default.");
+                flight.Right=context.CrashFlightRecording() ? "ON" : "OFF";
+                lines.Insert(2,flight);
+                lines.Insert(3,MenuLine.Fact("flightState","Flight recorder status",
+                    context.CrashFlightStatus(),"Crash recorder is entirely optional, never adds dense mesh probes."));
+                // Research-only: deliberate one-shot 48-point sweeps, never
+                // active by default and never used to color the driving HUD.
+                var labEnabled = context.VehicleDeformationEnabled();
+                var lab = MenuLine.Action("vh3","VH3 deformation experiment","local.vh3Toggle",
+                    "Read-only 48-point capture; session-only, disabled by default.");
+                lab.Right = labEnabled ? "ON" : "OFF";
+                lines.Add(lab);
+                lines.Add(MenuLine.Fact("vh3state","VH3 capture status",
+                    context.VehicleDeformationStatus(),"One-shot capture progress or last result."));
+                var liveMesh=MenuLine.Action("vh5live",
+                    "VH5 live deformation (experimental)",
+                    "local.vh5LiveToggle",
+                    "Opt-in read-only 48-probe scans while driving, bounded by per-tick and per-call watchdogs. Must start PARKED in a clean car.");
+                liveMesh.Right=context.LiveMeshEnabled()?"ON":"OFF";
+                lines.Add(liveMesh);
+                lines.Add(MenuLine.Fact("vh5status","Live deformation status",
+                    context.LiveMeshStatus(),
+                    "Needs clean parked reference. Preview OFF if you want to see live mesh."));
+                var meshPreview=MenuLine.Action("vh3preview","Preview last paired VH3 mesh",
+                    "local.vh3PreviewToggle",
+                    "Experimental, OFF by default. Uses a completed baseline/impact pair for the current car; only changes Full HUD silhouette.");
+                meshPreview.Right=context.CaptureMeshPreviewEnabled()?"ON":"OFF";
+                lines.Add(meshPreview);
+                lines.Add(MenuLine.Fact("vh3previewstatus","Mesh preview status",
+                    context.CaptureMeshPreviewStatus(),
+                    "One-shot visualization only. Not continuous deformation or exact game geometry."));
+                if (labEnabled) {
+                    lines.Add(MenuLine.Action("vh3baseline","Capture undamaged baseline",
+                        "local.vh3Baseline",
+                        "Stop car on level ground first; 48 position/vector probes collected incrementally."));
+                    lines.Add(MenuLine.Action("vh3damaged","Capture after impact",
+                        "local.vh3Damaged",
+                        "Same vehicle as saved baseline. Results export into Plugins/LSA/Logs/VH3/"));
+                }
+                if (view != null) {
+                    var sample = view.Reading;
+                    lines.Add(MenuLine.Fact("engine","Engine health",Math.Round(sample.Engine).ToString(CultureInfo.InvariantCulture) + " HP"));
+                    lines.Add(MenuLine.Fact("body","Body health",Math.Round(sample.Body).ToString(CultureInfo.InvariantCulture) + " HP"));
+                    lines.Add(MenuLine.Fact("tank","Fuel tank health",Math.Round(sample.Tank).ToString(CultureInfo.InvariantCulture) + " HP"));
+                    lines.Add(MenuLine.Fact("pull","Handling drift",view.DriftHint ?? "Not detected","Inference; not confirmed alignment or brake damage."));
+                    for (int i = 0; i < 4; i++) {
+                        int bit = 1 << i;
+                        string wh = (sample.KnownWheelHealth & bit) == 0 ? "N/A" :
+                            Math.Round(sample.WheelHealth[i]).ToString(CultureInfo.InvariantCulture) + " raw";
+                        string th = (sample.KnownTireHealth & bit) == 0 ? "N/A" :
+                            Math.Round(sample.TireHealth[i]).ToString(CultureInfo.InvariantCulture) + " raw";
+                        lines.Add(MenuLine.Fact("wheel:"+i,"Wheel slot " + i,wh + " / tire " + th,
+                            "Supported RPH getter; wheel index mapping and Enhanced runtime operation unverified. Neither value proves axle attachment."));
+                        string deformation = (sample.KnownDeformation & bit) == 0 ? "N/A" :
+                            Math.Round(sample.Deformation[i],2).ToString(CultureInfo.InvariantCulture) + " raw";
+                        lines.Add(MenuLine.Fact("deform:"+i,"Chassis sample " + i,deformation,
+                            "Fixed local chassis sample offset. Magnitude is not per-panel damage and needs in-game calibration."));
+                    }
+                    for (int i = 0; i < view.Events.Length; i++)
+                        lines.Add(MenuLine.Fact("damage:"+i,view.Events[i].Text,"Observed"));
+                } else lines.Add(MenuLine.Fact("drive","No driven car","","Enter the driver seat to start live diagnostics."));
                 return lines;
             }
             if (page.Menu == controls) {

@@ -91,7 +91,7 @@ namespace LSA.Enhanced.Commands
         string ToggleUi(CommandInfo info,CommandArgs args)
         {
             if (Ui == null || !Ui.Available) return Reject(info.Id,"menu_unavailable",args,true);
-            Ui.Toggle(info.Id == CommandCatalog.UiQuickMenu ? "current" : "main");
+            Ui.Toggle("quick");
             Record(info.Id,null); return null;
         }
         // Current-NPC commands: P2 control for an owned character, otherwise an ask

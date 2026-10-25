@@ -8,12 +8,14 @@
     <!-- UX phases 2-3: input router, command dispatch and the native menu, all in
          the loader's AppDomain. input-tests compiles the pure subset offline. -->
     <Compile Include="../enhanced/EnhancedHost.cs" />
+    <Compile Include="../enhanced/VehicleHud/VehicleDamageTimeline.cs;../enhanced/VehicleHud/VehicleHudPresentation.cs;../enhanced/VehicleHud/VehicleTelemetryCsv.cs;../enhanced/VehicleHud/VehicleDeformationExperiment.cs;../enhanced/VehicleHud/VehicleProbeTrace.cs;../enhanced/VehicleHud/VehicleCrashFlightRecorder.cs;../enhanced/VehicleHud/VehicleDeformationLab.cs;../enhanced/VehicleHud/VehicleLiveDeformationSampler.cs;../enhanced/VehicleHud/VehicleMeshGeometry.cs;../enhanced/VehicleHud/VehicleHudController.cs" />
     <Compile Include="../enhanced/Commands/CommandCatalog.cs;../enhanced/Commands/Contracts.cs;../enhanced/Commands/LoaderDispatcher.cs;../enhanced/Commands/NativeBridge.cs;../enhanced/Commands/NativeSnapshot.cs" />
     <Compile Include="../enhanced/Companion/CompanionClient.cs" />
     <Compile Include="../enhanced/Input/IEssentialInputBridge.cs;../enhanced/Input/PhysicalKeys.cs;../enhanced/Input/Gestures.cs;../enhanced/Input/GestureRecognizer.cs;../enhanced/Input/EssentialBindings.cs;../enhanced/Input/EssentialKeyRelay.cs;../enhanced/Input/InputGates.cs;../enhanced/Input/InputRouter.cs;../enhanced/Input/TalkTargetInput.cs;../enhanced/Input/TalkFeedback.cs" />
     <Compile Include="../enhanced/Settings/EnhancedSettings.cs" />
-    <Compile Include="../enhanced/Ui/UiBridge.cs;../enhanced/Ui/TalkFeedbackOverlay.cs;../enhanced/Ui/MenuData.cs;../enhanced/Ui/NativeMenu.cs;../enhanced/Ui/OnscreenKeyboard.cs;../enhanced/Ui/ViewModels/MenuModels.cs" />
+    <Compile Include="../enhanced/Ui/UiBridge.cs;../enhanced/Ui/TalkFeedbackOverlay.cs;../enhanced/Ui/MenuData.cs;../enhanced/Ui/NativeMenu.cs;../enhanced/Ui/OnscreenKeyboard.cs;../enhanced/Ui/VehicleFavorites.cs;../enhanced/Ui/VehicleCatalog.cs;../enhanced/Ui/VehicleCheats.cs;../enhanced/Ui/ViewModels/MenuModels.cs" />
     <EmbeddedResource Include="../../contracts/commands.v2.json" LogicalName="LSA.Enhanced.commands.v2.json" />
+    <EmbeddedResource Include="../enhanced/Ui/VehicleModels.txt" LogicalName="LSA.Enhanced.vehicle_models.txt" />
     <ProjectReference Include="Bootstrap.csproj" />
     <Reference Include="RagePluginHook"><HintPath>$(RphReferencePath)</HintPath><Private>false</Private></Reference>
     <!-- Compile-only, hash-pinned by buildCharactersAddon.mjs (LSA_RNUI_REFERENCE).

@@ -28,5 +28,6 @@
     "indicator": true
   },
   "ui": { "enabled": false },
+  "vehicleHud": { "mode": "full" },
   "feedback": { "hud": "notification" }
 }

@@ -8,6 +8,7 @@ using LSA.Enhanced.Companion;
 using LSA.Enhanced.Input;
 using LSA.Enhanced.Settings;
 using LSA.Enhanced.Ui;
+using LSA.Enhanced.VehicleHud;
 using LSA.PromotedCharacters;
 using Rage;
 
@@ -115,14 +116,33 @@ namespace LSA.Enhanced
             talk.AttachCompanion(companion);
             talk.AttachVoiceStatus(companion);
             var feedbackOverlay = new TalkFeedbackOverlay(() => talk.Feedback);
+            var vehicleHud = new VehicleHudController(plugins);
+            try { vehicleHud.Hook(); } catch { Game.LogTrivial("[VH1] overlay hook_failed"); }
             try { feedbackOverlay.Hook(); } catch { Game.LogTrivial("[UX4] talk_feedback state=unavailable reason=hook_failed"); }
             EnhancedSettings settings = EnhancedSettings.Defaults(catalog);
+            vehicleHud.Configure(settings.VehicleHudMode);
+            string appliedVehicleHudRevision = settings.Revision;
             EssentialBindings essential = EssentialBindings.Unavailable();
             dispatcher.Settings = () => settings; dispatcher.Essential = () => essential;
             hud.Mode = () => settings.Hud;
             var context = new UiContext {Dispatcher = dispatcher,Bridge = bridge,Catalog = catalog,Hud = hud,Clock = clock,Companion = companion,
                 Settings = () => settings,Essential = () => essential,Router = () => router,HostStatus = bridge.Describe,Origin = origin,
                 TalkStatus = () => talk.DisplayState,ClearTalkTarget = () => talk.Clear("manual"),TalkConflict = () => talk.Conflict,
+                VehicleHudMode = () => vehicleHud.Mode,SetVehicleHudMode = vehicleHud.SetMode,VehicleHudView = () => vehicleHud.Current,
+                VehicleDeformationEnabled = () => vehicleHud.DeformationEnabled,
+                SetVehicleDeformationEnabled = vehicleHud.SetDeformationEnabled,
+                VehicleDeformationStatus = () => vehicleHud.DeformationStatus,
+                CaptureVehicleDeformation = vehicleHud.CaptureDeformation,
+                LiveMeshEnabled = () => vehicleHud.LiveDeformationEnabled,
+                SetLiveMeshEnabled = vehicleHud.SetLiveDeformationEnabled,
+                LiveMeshStatus = () => vehicleHud.LiveDeformationStatus,
+                CaptureMeshPreviewEnabled = () => vehicleHud.CaptureMeshPreviewEnabled,
+                SetCaptureMeshPreview = vehicleHud.SetCaptureMeshPreview,
+                CaptureMeshPreviewStatus = () => vehicleHud.CaptureMeshPreviewStatus,
+                VehicleTelemetryLogging = () => vehicleHud.Logging, SetVehicleTelemetryLogging = vehicleHud.SetLogging,
+                CrashFlightRecording = () => vehicleHud.CrashRecording,
+                SetCrashFlightRecording = vehicleHud.SetCrashRecording,
+                CrashFlightStatus = () => vehicleHud.CrashRecordingStatus,
                 EndpointState = EndpointState,Paused = () => gameState.Paused,PluginsPath = plugins,Log = Game.LogTrivial};
             ui = new UiBridge(context,CreateMenu);
             dispatcher.Ui = ui; router.UiAvailable = () => ui.Available; router.MenuOpen = () => ui.AnyMenuOpen;
@@ -154,11 +174,12 @@ namespace LSA.Enhanced
                             uiStatus = ui.Status;
                             if (ui.Available != uiWasAvailable) { uiWasAvailable = ui.Available; changed = true; }
                             if (changed) { router.Apply(settings,essential); talk.Apply(settings,essential); }
+                            if (settings.Revision != appliedVehicleHudRevision) { vehicleHud.Configure(settings.VehicleHudMode); appliedVehicleHudRevision = settings.Revision; }
                             firstPass = false;
                         }
                         string page = Interlocked.Exchange(ref requestedPage,null);
                         if (page != null) ui.Toggle(page);
-                        router.Tick(); talk.Tick(); ui.Tick(); failures = 0;
+                        router.Tick(); talk.Tick(); vehicleHud.Tick(now,gameState.Paused); ui.Tick(); failures = 0;
                     } catch (ThreadAbortException) { throw; }
                     catch (Exception error) {
                         router.CancelPending();
@@ -177,6 +198,7 @@ namespace LSA.Enhanced
                 running = false; uiStatus = "off";
                 try { talk.Stop(); } catch { }
                 try { feedbackOverlay.Unhook(); } catch { }
+                try { vehicleHud.Unhook(); } catch { }
                 try { router.Stop(); } catch { }
                 try { ui.Close(); } catch { }
                 activeTalk = null;

@@ -173,7 +173,7 @@ static partial class Program
         Check(d.Dispatch(CommandCatalog.UiQuickMenu,"chord") == "menu_unavailable" && c.Hud.Last == "LSA menu is unavailable","menu commands need the native menu");
         var ui = new FakeUi(); d.Ui = ui;
         d.Dispatch(CommandCatalog.UiQuickMenu,"chord"); d.Dispatch(CommandCatalog.UiMainMenu,"key");
-        Check(ui.Toggles.SequenceEqual(new[] {"current","main"}),"quick menu opens the current NPC page; main menu the root");
+        Check(ui.Toggles.SequenceEqual(new[] {"quick","quick"}),"controller chord and F11 target the same quick dashboard");
         c.Clock.Advance(1000); c.Fresh(FakeBridge.Ordinary());
         Check(d.Dispatch(CommandCatalog.NpcAsk,"menu",new CommandArgs {Phrase = "Meet me at the docks."}) == null && ((Dictionary<string,object>)c.Bridge.LastEnvelope["args"])["phrase"] as string == "Meet me at the docks.","custom asks use the player's phrase");
         c.Bridge.Complete(null); d.Update(); c.Clock.Advance(1000);
@@ -228,11 +228,11 @@ static partial class Program
         menu.Router.Apply(menu.Settings,menu.Essential);
         Check(menu.Router.ActiveBindings.Count == 5,"with the native menu all default bindings are active");
         menu.Frame(2); menu.Hold(F11,50); menu.Frame(5);
-        Check(ui.Toggles.SequenceEqual(new[] {"main"}) && ui.AnyMenuOpen,"the menu key opens the main menu on press");
+        Check(ui.Toggles.SequenceEqual(new[] {"quick"}) && ui.AnyMenuOpen,"the menu key opens the unified quick dashboard");
         menu.Hold(F6,60); menu.Frame(10); menu.Chord(F6,F8,20,100); menu.Frame(10);
         Check(menu.Injector.Calls.Count == 0 && menu.Companion.Bodies.Count == 0,"while a menu is open gestures other than menu toggles are dropped");
         menu.Keys.Down.Add(F6); menu.Keys.Down.Add(F8); menu.Frame(70); menu.Keys.Down.Clear(); menu.Frame(2);
-        Check(ui.Toggles.SequenceEqual(new[] {"main","current"}) && !ui.AnyMenuOpen,"the chord-hold toggles the quick menu even while a menu is open");
+        Check(ui.Toggles.SequenceEqual(new[] {"quick","quick"}) && !ui.AnyMenuOpen,"controller chord toggles the same root even while a menu is open");
         menu.Chord(F6,F8,20,100); menu.Frame(5);
         Check(menu.Companion.Bodies.Count == 1,"with the quick menu bound, a short chord follows on release");
 

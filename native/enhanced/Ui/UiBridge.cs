@@ -26,6 +26,24 @@ namespace LSA.Enhanced.Ui
         public Func<string> Origin = () => null;
         public Func<string> EndpointState = () => null;
         public Func<bool> Paused = () => false;
+        public Func<string> VehicleHudMode = () => "off";
+        public Action<string> SetVehicleHudMode = _ => { };
+        public Func<LSA.Enhanced.VehicleHud.VehicleView> VehicleHudView = () => null;
+        public Func<bool> VehicleTelemetryLogging = () => false;
+        public Action<bool> SetVehicleTelemetryLogging = _ => { };
+        public Func<bool> CrashFlightRecording = () => false;
+        public Action<bool> SetCrashFlightRecording = _ => { };
+        public Func<string> CrashFlightStatus = () => "OFF";
+        public Func<bool> VehicleDeformationEnabled = () => false;
+        public Action<bool> SetVehicleDeformationEnabled = _ => { };
+        public Func<string> VehicleDeformationStatus = () => "OFF";
+        public Func<string,string> CaptureVehicleDeformation = _ => "Unavailable";
+        public Func<bool> LiveMeshEnabled = () => false;
+        public Action<bool> SetLiveMeshEnabled = _ => { };
+        public Func<string> LiveMeshStatus = () => "OFF";
+        public Func<bool> CaptureMeshPreviewEnabled = () => false;
+        public Action<bool> SetCaptureMeshPreview = _ => { };
+        public Func<string> CaptureMeshPreviewStatus = () => "NO CAPTURE";
         public string PluginsPath;
         public Action<string> Log = _ => { };
     }
