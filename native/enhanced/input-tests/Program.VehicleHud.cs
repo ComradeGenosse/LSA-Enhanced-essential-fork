@@ -79,9 +79,9 @@ static partial class Program
         // VH2 player HUD: readable alerts must never map unverified RPH wheel
         // slots to physical corners or declare unknown values healthy.
         var uiTracker = new VehicleDamageTimeline();
-        uiTracker.Update(Reading(known:0),20000);
-        Check(VehicleHudPresentation.WheelState(uiTracker.Current.Reading,0) == 0,
+        Check(VehicleHudPresentation.WheelState(Reading(known:0),0) == 0,
             "unavailable native puncture data is unknown, not a healthy wheel");
+        uiTracker.Update(Reading(),20000);
         uiTracker.Update(Reading(known:15,burst:1,body:905),20200);
         var uiView = uiTracker.Current;
         var ui = VehicleHudPresentation.Build(uiView,20200);

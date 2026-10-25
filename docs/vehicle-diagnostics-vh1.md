@@ -1,6 +1,56 @@
 # VH1 — Vehicle Diagnostics HUD
 
-Status: draft pending pinned Windows compilation and GTA V Enhanced runtime acceptance.
+Status: draft; GTA V Enhanced gameplay acceptance not yet performed. See VH2 changes below.
+
+## VH2: driver HUD redesign and opt-in telemetry trace
+
+The previous HUD mixed raw developer telemetry with a tiny car diagram. VH2
+separates **driving feedback** from **investigation tools**:
+
+- **Full mode:** larger couch-readable car silhouette with hood, cabin, trunk,
+  four native tire-puncture blocks, clear engine/body/fuel-tank condition bars,
+  an overall monitoring/caution/puncture label and up to two recent alerts.
+  Wheel blocks are cyan for **no native puncture reported**, red for a known
+  burst and gray for unavailable. Cyan does NOT certify wheel/rim health.
+- **Minimal mode:** a small clean three-condition strip. No raw wheel slots,
+  chassis probes or permanently scrolling diagnostics text.
+- **Off:** no on-screen drawing; independent CSV capture is still possible when
+  explicitly turned on for testing.
+- **Pause-map guard:** the panel must not paint over GTA's pause/map UI or the
+  RPH console. The overlay also clears on exit or car change.
+- **Alert behavior:** recognizable events like tire punctures, body impacts,
+  engine/tank damage and possible lateral drift show for at most **9 seconds**.
+  Experimental wheel-slot health deltas and deformation probes are deliberately
+  excluded from gameplay alerts, since the RPH slot-to-corner mapping and probe
+  semantics are not proven for the installed build.
+- **No fake "healthy" claims:** "MONITORING" is the normal status; an intact
+  native tire is not proof that the rim/axle is intact. "Fuel tank" describes
+  tank integrity, not measured fuel quantity. "POSSIBLE DRIFT" is inference,
+  not ImmersiveSantos's internal alignment fault state.
+
+### Optional vehicle telemetry CSV
+
+In **F11/L4+R4 → Quick Controls → All tools & settings → Cheat Menu →
+Vehicle Options → Vehicle Diagnostics**, toggle **Vehicle telemetry CSV**.
+
+The feature defaults to **OFF** each plugin session and writes to:
+\`Plugins/LSA/Logs/vehicle-telemetry.csv\`
+
+When ON, the loader GameFiber writes an ISO-8601 UTC timestamp and sampled
+engine/body/tank health, native puncture masks, raw RPH wheel and tire values,
+and all four anonymous deformation-probe magnitudes at **most once per second**,
+plus individual bounded damage-event records. Unknown slot values serialize as
+empty CSV cells, not zero. Recording errors disable only the recorder. The
+recorder stops at a **10 MiB** file limit rather than silently rotating or
+deleting old data. No mod writes, physics changes or memory offsets.
+
+**GTA acceptance still required:** verify pause-map suppression, proper
+TV-scale text, event expiry after 9 seconds, unknown wheel coloring, all four
+native puncture positions, CSV sample/event frequency and zero-vs-unknown
+distinction. Confirm the RPH health getters and deformation probes against
+controlled damage tests before deriving further user-facing diagnoses.
+
+---
 
 ## Access
 
