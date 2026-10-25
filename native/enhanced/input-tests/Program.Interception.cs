@@ -69,7 +69,7 @@ static partial class Program
             Check(r.Companion.Bodies.Count == 1 && r.Bridge.Pulses.Count == 0 && r.Injector.Calls.Count == 0,"short shared chord follows once with no text or mark");
         }
         var hold = rig(); hold.Chord(120,6,30,700);
-        Check(((FakeUi)hold.Dispatcher.Ui).Toggles.SequenceEqual(new[] {"current"}) && hold.Bridge.Pulses.Count == 0,"held shared chord opens only quick menu");
+        Check(((FakeUi)hold.Dispatcher.Ui).Toggles.SequenceEqual(new[] {"quick"}) && hold.Bridge.Pulses.Count == 0,"held shared chord opens unified quick dashboard");
         hold.Frame(2);
         Check(hold.Dispatcher.Dispatch(CommandCatalog.EssentialMark,"menu") == null,"explicit menu mark can use shared key");
         hold.Frame(2);
@@ -84,11 +84,11 @@ static partial class Program
         failed.Router.Apply(failed.Settings,failed.Essential); failed.Frame(2);
         Check(failed.Router.State == "suspended" && failed.Router.ActiveBindings.Count == 1,"missing interception disables paddles but keeps independent menu binding");
         failed.Hold(F11,60); failed.Frame(5);
-        Check(((FakeUi)failed.Dispatcher.Ui).Toggles.SequenceEqual(new[] {"main"}),"F11 opens menu even when interception fails");
+        Check(((FakeUi)failed.Dispatcher.Ui).Toggles.SequenceEqual(new[] {"quick"}),"F11 opens unified quick menu even when interception fails");
         failed.Hold(120,60); failed.Hold(6,60); failed.Frame(100);
         Check(failed.Bridge.Pulses.Count == 0 && failed.Injector.Calls.Count == 0 && failed.Companion.Bodies.Count == 0,"failed hook never dispatches unsafe shared-key gestures");
         failed.Hold(F11,60);
-        Check(((FakeUi)failed.Dispatcher.Ui).Toggles.SequenceEqual(new[] {"main","main"}),"F11 closes menu after interception retries");
+        Check(((FakeUi)failed.Dispatcher.Ui).Toggles.SequenceEqual(new[] {"quick","quick"}),"F11 closes quick dashboard after interception retries");
         failed.Keys.Focus = false; failed.Hold(F11,60); failed.Keys.Focus = true; failed.Frame(2);
         Check(((FakeUi)failed.Dispatcher.Ui).Toggles.Count == 2,"independent menu still respects focus gate");
     }
