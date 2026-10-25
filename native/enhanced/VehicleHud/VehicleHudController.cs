@@ -17,6 +17,11 @@ namespace LSA.Enhanced.VehicleHud
         const long CsvSizeLimit = 10L * 1024 * 1024; // bounded log, never auto-delete
         readonly string traceFile;
         readonly VehicleDeformationLab deformationLab;
+        readonly VehicleLiveDeformationSampler liveDeformation =
+            new VehicleLiveDeformationSampler();
+        public bool LiveDeformationEnabled => liveDeformation.Enabled;
+        public string LiveDeformationStatus => liveDeformation.Status;
+        public void SetLiveDeformationEnabled(bool value) => liveDeformation.SetEnabled(value);
         volatile VehicleBodyMesh completedCaptureMesh;
         int completedCaptureHandle;
         volatile bool showCaptureMesh;
@@ -97,11 +102,13 @@ namespace LSA.Enhanced.VehicleHud
             timeline.Clear(); published = null; publishedBody = null;
             completedCaptureMesh=null;completedCaptureHandle=0;showCaptureMesh=false;
             deformationLab.SetEnabled(false);
+            liveDeformation.SetEnabled(false);
             flight.Stop();
         }
         public void Tick(long now,bool paused)
         {
-            if ((mode == "off" && !Logging && !deformationLab.Enabled && !flight.Enabled && pendingFlight.Count==0) || samplerDisabled) return;
+            if ((mode == "off" && !Logging && !deformationLab.Enabled &&
+                !liveDeformation.Enabled && !flight.Enabled && pendingFlight.Count==0) || samplerDisabled) return;
             if (now < nextSample) return;
             nextSample = now + SampleEveryMs;
             if (paused) { timeline.Clear(); published = null; return; }
@@ -113,6 +120,7 @@ namespace LSA.Enhanced.VehicleHud
                     publishedBody = null; bodyHandle = 0;
                     completedCaptureMesh=null;completedCaptureHandle=0;
                     deformationLab.Tick(null,now);
+                    liveDeformation.VehicleLost();
                     flight.NoVehicle();
                     FlushFlightWhenStationary(true);
                     failures = 0; return;
@@ -136,6 +144,9 @@ namespace LSA.Enhanced.VehicleHud
                 // Optional VH3 sampling: six probe calls per sampler tick.
                 // The live HUD does not use this experimental data.
                 deformationLab.Tick(car,now);
+                // An experimental live scan never competes with a manual
+                // 48-point VH3 capture on the same 5Hz game fiber.
+                liveDeformation.Tick(car,publishedBody,deformationLab.IsBusy,now);
                 DeformationCapture before,after;
                 if(deformationLab.TryConsumePair(out before,out after)) {
                     // This is a ONE-SHOT paired snapshot review, not live
@@ -160,7 +171,7 @@ namespace LSA.Enhanced.VehicleHud
                 // In HUD-off / flight-only mode, ordinary health sampling is
                 // still required for the flight recorder. It runs at 5Hz,
                 // never adds deformation probes beyond the existing four.
-                if(mode=="off" && !Logging && !flight.Enabled) {
+                if(mode=="off" && !Logging && !flight.Enabled && !liveDeformation.Enabled) {
                     FlushFlightWhenStationary(car.Speed<=0.5f);
                     published=null;failures=0;return;
                 }
@@ -369,11 +380,16 @@ namespace LSA.Enhanced.VehicleHud
                     var shape = publishedBody;
                     bool capturedPreview=showCaptureMesh && completedCaptureMesh!=null &&
                         completedCaptureHandle==view.Reading.Handle;
-                    if(capturedPreview) shape=completedCaptureMesh;
+                    bool livePreview=!capturedPreview && liveDeformation.Enabled &&
+                        liveDeformation.Handle==view.Reading.Handle &&
+                        liveDeformation.Current!=null;
+                    if(capturedPreview)shape=completedCaptureMesh;
+                    else if(livePreview)shape=liveDeformation.Current;
                     if(shape != null && bodyHandle == view.Reading.Handle) {
                         DrawBodyMesh(g,left,top,s,view.Reading,shape);
-                        if(capturedPreview)
-                            Text(g,"VH3 CAPTURE REPLAY",left+38*s,top+239*s,9*s,
+                        if(capturedPreview || livePreview)
+                            Text(g,capturedPreview?"VH3 CAPTURE REPLAY":"VH5 LIVE EXPERIMENT",
+                                left+35*s,top+239*s,9*s,
                                 Color.FromArgb(255,244,187,101));
                     } else DrawCar(g,left,top,s,view.Reading);
                     Stat(g,"ENGINE",view.Reading.Engine,left+232*s,top+76*s,176*s,s);

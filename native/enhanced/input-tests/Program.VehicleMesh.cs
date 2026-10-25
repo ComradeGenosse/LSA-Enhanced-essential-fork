@@ -77,6 +77,18 @@ static partial class Program
         Check(observedLike.Outline.All(v=>v.X>=-.54f && v.X<=.54f &&
             v.Y>=0 && v.Y<=1 && !float.IsNaN(v.X) && !float.IsNaN(v.Y)),
             "real-scale synthetic vectors never escape bounded screen footprint");
+        var half=VehicleMeshGeometry.Blend(buffaloMesh,observedLike,.5f);
+        Check(half!=null && half.ExperimentalDeformation &&
+            Math.Abs(half.Outline[0].X-(buffaloMesh.Outline[0].X+
+                observedLike.Outline[0].X)*.5f)<.00001f,
+            "live interpolation follows actual deformation direction halfway");
+        Check(VehicleMeshGeometry.Blend(half,observedLike,1f)==observedLike &&
+            VehicleMeshGeometry.Blend(observedLike,observedLike,.38f)==observedLike,
+            "completed interpolation returns target without repeated allocation");
+        var repairBlend=VehicleMeshGeometry.Blend(observedLike,buffaloMesh,.5f);
+        Check(repairBlend.Outline[0].X<observedLike.Outline[0].X &&
+            repairBlend.Outline[0].X>buffaloMesh.Outline[0].X,
+            "native return-to-zero can smoothly restore original silhouette");
         var unchanged=new DeformationCapture("pair_1","damaged","adder",42,
             "2026-10-25T19:00:05Z",bounds,1000,700);
         while(!unchanged.Complete)unchanged.Record(0,0,0);

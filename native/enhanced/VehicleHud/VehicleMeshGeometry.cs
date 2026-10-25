@@ -132,6 +132,36 @@ namespace LSA.Enhanced.VehicleHud
             return new VehicleBodyMesh(model??"unknown",archetype,bounds,
                 outline.ToArray(),cabin,s.FrontAxle,s.RearAxle);
         }
+        // Smooth each completed native sweep over the existing 5Hz game-fiber
+        // updates. At rest, converge and return target directly to avoid
+        // unnecessary allocations on a long drive. This is never run on draw.
+        public static VehicleBodyMesh Blend(VehicleBodyMesh current,VehicleBodyMesh target,float factor)
+        {
+            if(current==null)return target;
+            if(target==null || current.Outline.Length!=target.Outline.Length ||
+                current.Cabin.Length!=target.Cabin.Length || current.Model!=target.Model)
+                return target;
+            factor=Math.Max(0f,Math.Min(1f,factor));
+            float maxChange=0;
+            for(int i=0;i<current.Outline.Length;i++) {
+                maxChange=Math.Max(maxChange,Math.Abs(current.Outline[i].X-target.Outline[i].X));
+                maxChange=Math.Max(maxChange,Math.Abs(current.Outline[i].Y-target.Outline[i].Y));
+            }
+            for(int i=0;i<current.Cabin.Length;i++) {
+                maxChange=Math.Max(maxChange,Math.Abs(current.Cabin[i].X-target.Cabin[i].X));
+                maxChange=Math.Max(maxChange,Math.Abs(current.Cabin[i].Y-target.Cabin[i].Y));
+            }
+            if(maxChange<.0004f || factor>=1f)return target;
+            Func<BodyVertex[],BodyVertex[],BodyVertex[]> mix=(oldPoints,newPoints) =>
+                oldPoints.Select((p,i) => new BodyVertex(
+                    p.X+(newPoints[i].X-p.X)*factor,
+                    p.Y+(newPoints[i].Y-p.Y)*factor
+                )).ToArray();
+            return new VehicleBodyMesh(target.Model,target.Archetype,target.Bounds,
+                mix(current.Outline,target.Outline),mix(current.Cabin,target.Cabin),
+                target.FrontWheelY,target.RearWheelY,
+                target.ExperimentalDeformation);
+        }
         // Strict pair integrity: never combine captures from a different car
         // or deform the HUD from body health, native tyre burst or nonfinite
         // readings. At least 36 matching samples and 3 spatially changed probes
@@ -150,6 +180,17 @@ namespace LSA.Enhanced.VehicleHud
                 return mesh;
             var a=baseline.Results;var b=damaged.Results;
             var changes=new List<Motion>();
+            float dominant=0f;
+            var regionalMax=new Dictionary<string,float>();
+            for(int i=0;i<48;i++) {
+                if(!a[i].Valid || !b[i].Valid)continue;
+                float vx=b[i].Dx-a[i].Dx,vy=b[i].Dy-a[i].Dy,vz=b[i].Dz-a[i].Dz;
+                float mag=(float)Math.Sqrt(vx*vx+vy*vy+vz*vz);
+                if(!Finite(mag) || mag>2.5f)continue;
+                if(!regionalMax.TryGetValue(a[i].Point.Region,out float peak)||mag>peak)
+                    regionalMax[a[i].Point.Region]=mag;
+                dominant=Math.Max(dominant,mag);
+            }
             int comparable=0,changed=0;
             float length=mesh.Bounds.MaxY-mesh.Bounds.MinY;
             float width=mesh.Bounds.MaxX-mesh.Bounds.MinX;
@@ -168,6 +209,11 @@ namespace LSA.Enhanced.VehicleHud
                 float py=(mesh.Bounds.MaxY-p.Y)/length;
                 // Roof interior points have little influence on outer silhouette.
                 float surface=p.Region=="roof"?.25f:1f;
+                // Real Buffalo calibration: weaker displacement in distant
+                // regions can reflect earlier impacts or model flex. Preserve
+                // the vectors but damp regions far below the strongest zone.
+                if(dominant>.25f && regionalMax.TryGetValue(p.Region,out float regional) &&
+                    regional<dominant*.35f)surface*=.25f;
                 changes.Add(new Motion(px,py,dx/width,-dy/length,surface));
             }
             if(comparable<36||changed<3||changes.Count==0)return mesh;

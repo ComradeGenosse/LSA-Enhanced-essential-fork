@@ -35,6 +35,7 @@ namespace LSA.Enhanced.VehicleHud
         float maxCaptureSpeed;
         string gameVersion="unavailable",rphVersion="unavailable";
         public bool Enabled => enabled;
+        public bool IsBusy => enabled && (active!=null || pending!=null);
         public string Status {get;private set;}="OFF";
         public VehicleDeformationLab(string plugins)
         {

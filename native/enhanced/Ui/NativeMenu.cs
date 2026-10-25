@@ -318,6 +318,12 @@ namespace LSA.Enhanced.Ui
                     context.Hud.Show(context.VehicleDeformationEnabled() ?
                         "VH3 deformation experiment enabled" : "VH3 deformation experiment disabled");
                     Invalidate(page); break;
+                case "local.vh5LiveToggle":
+                    context.SetLiveMeshEnabled(!context.LiveMeshEnabled());
+                    context.Hud.Show(context.LiveMeshEnabled() ?
+                        "Experimental live deformation enabled - park a CLEAN car to calibrate" :
+                        "Experimental live deformation disabled");
+                    Invalidate(page); break;
                 case "local.vh3PreviewToggle":
                     context.SetCaptureMeshPreview(!context.CaptureMeshPreviewEnabled());
                     context.Hud.Show(context.CaptureMeshPreviewEnabled() ?
@@ -863,6 +869,15 @@ namespace LSA.Enhanced.Ui
                 lines.Add(lab);
                 lines.Add(MenuLine.Fact("vh3state","VH3 capture status",
                     context.VehicleDeformationStatus(),"One-shot capture progress or last result."));
+                var liveMesh=MenuLine.Action("vh5live",
+                    "VH5 live deformation (experimental)",
+                    "local.vh5LiveToggle",
+                    "Opt-in read-only 48-probe scans while driving, bounded by per-tick and per-call watchdogs. Must start PARKED in a clean car.");
+                liveMesh.Right=context.LiveMeshEnabled()?"ON":"OFF";
+                lines.Add(liveMesh);
+                lines.Add(MenuLine.Fact("vh5status","Live deformation status",
+                    context.LiveMeshStatus(),
+                    "Needs clean parked reference. Preview OFF if you want to see live mesh."));
                 var meshPreview=MenuLine.Action("vh3preview","Preview last paired VH3 mesh",
                     "local.vh3PreviewToggle",
                     "Experimental, OFF by default. Uses a completed baseline/impact pair for the current car; only changes Full HUD silhouette.");
