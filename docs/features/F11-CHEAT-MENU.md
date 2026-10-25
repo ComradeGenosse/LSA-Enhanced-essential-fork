@@ -61,3 +61,30 @@ ground-placement helper may fail on obstructed geometry.
 
 Rollback: revert this isolated change and redeploy the prior loader DLL. Back
 up/remove `Plugins/LSA.CheatFavorites.json` only if you no longer want favorites.
+
+## Vehicle name search, suggestions and picker (PR #327 extension)
+
+Advanced F11 → Cheat Menu → Vehicle Options → **Browse / search vehicles**.
+The bundled **845-name reference catalogue** is generated from the
+[ScriptHookVDotNet vehicle-hash enumeration](https://github.com/scripthookvdotnet/scripthookvdotnet/blob/main/source/scripting_v2/GTA.Native/VehicleHash.cs).
+The display text is simplified from enum identifiers, while the underlying exact
+model strings are retained. Entries are **candidates**, not installation proof;
+the runtime spawn command still checks the game model and can reject missing DLC.
+
+- **Enter search text**: GTA keyboard accepts full or partial names, e.g. `Comet`,
+  `Sultan`, `comet2`. After confirmation, exact, prefix and substring matches
+  appear in a native **Matching vehicles** dropdown/scroller. The game's modal
+  keyboard does **not** expose per-keystroke change events, so this is
+  after-confirm autocomplete/suggestions, not live character-by-character completion.
+- **Spawn selected** and **Favorite selected** use the dropdown selection.
+- Results are paginated 12 per page with Previous/Next; empty search browses all.
+- **Register installed addon** validates a typed model using the current RPH game
+  API before saving it to `Plugins/LSA.VehicleCatalog.json` (version 1, up to
+  128 entries). A favorite from the existing favorites file is also searchable
+  automatically. Custom entries survive restarts, without scanning DLC archives.
+- No online access, repeated game scans, or second controller; keyboard and F7
+  gating remain those of the existing NativeMenu.
+
+Offline validation covers matching, paging, candidate count, custom-model file
+persistence/corruption and favorites. In-game acceptance must also verify the
+matching dropdown and next/previous selection with keyboard and controller.

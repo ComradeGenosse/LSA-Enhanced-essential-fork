@@ -74,6 +74,15 @@ namespace LSA.Enhanced.Ui
                 return "Cheat failed (see RPH log)";
             }
         }
+        public bool IsVehicleModel(string input)
+        {
+            string name = VehicleFavorites.Normalize(input);
+            if (name == null) return false;
+            try {
+                var model = new Model(name);
+                return model.IsValid && model.IsVehicle;
+            } catch { return false; }
+        }
         public string Spawn(string input)
         {
             string name = VehicleFavorites.Normalize(input);

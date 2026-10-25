@@ -13,8 +13,9 @@
     <Compile Include="../Companion/CompanionClient.cs" />
     <Compile Include="../Settings/EnhancedSettings.cs" />
     <Compile Include="../VehicleHud/VehicleDamageTimeline.cs" />
-    <Compile Include="../Ui/ViewModels/MenuModels.cs;../Ui/MenuData.cs;../Ui/UiBridge.cs;../Ui/VehicleFavorites.cs" />
+    <Compile Include="../Ui/ViewModels/MenuModels.cs;../Ui/MenuData.cs;../Ui/UiBridge.cs;../Ui/VehicleFavorites.cs;../Ui/VehicleCatalog.cs" />
     <EmbeddedResource Include="../../../contracts/commands.v2.json" LogicalName="LSA.Enhanced.commands.v2.json" />
+    <EmbeddedResource Include="../Ui/VehicleModels.txt" LogicalName="LSA.Enhanced.vehicle_models.txt" />
     <EmbeddedResource Include="../LSA.Enhanced.example.json" LogicalName="LSA.Enhanced.example.json" />
     <EmbeddedResource Include="../../../lsa-essential-e1-candidate/e1.config.example.json" LogicalName="e1.config.example.json" />
     <Reference Include="System.Web.Extensions" />

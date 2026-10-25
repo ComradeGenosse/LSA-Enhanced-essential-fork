@@ -33,8 +33,11 @@ namespace LSA.Enhanced.Ui
         readonly MenuPool pool = new MenuPool();
         readonly List<UIMenu> menus = new List<UIMenu>();
         readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage, vehicleHud;
-        readonly UIMenu cheatMenu, cheatVehicles, cheatFavorites, cheatPlayer;
+        readonly UIMenu cheatMenu, cheatVehicles, cheatFavorites, cheatPlayer, vehicleSearch;
         readonly VehicleFavorites favorites;
+        readonly VehicleCatalog catalog;
+        string vehicleQuery = "", selectedVehicleModel;
+        int vehicleResultPage;
         readonly VehicleCheats cheats;
         readonly Dictionary<UIMenu,Page> pages = new Dictionary<UIMenu,Page>();
         readonly MenuData data;
@@ -60,6 +63,7 @@ namespace LSA.Enhanced.Ui
             this.context = context;
             data = new MenuData(context.Companion,context.Clock);
             favorites = new VehicleFavorites(context.PluginsPath);
+            catalog = new VehicleCatalog(context.PluginsPath,favorites);
             cheats = new VehicleCheats(context.Log);
             main = Menu("Main menu");
             current = Menu("Current NPC");
@@ -76,10 +80,12 @@ namespace LSA.Enhanced.Ui
             cheatVehicles = Menu("Vehicle Options");
             cheatFavorites = Menu("Vehicle Favorites");
             cheatPlayer = Menu("Player Options");
+            vehicleSearch = Menu("Vehicle Search");
             vehicleHud = Menu("Vehicle Diagnostics");
             Bind(cheatMenu,"Cheat Menu","Local single-player gameplay tools; no AI required.");
             Bind(cheatVehicles,"Vehicle Options","Repair, spawn and manage cars.",cheatMenu);
             cheatFavorites.ParentMenu = cheatVehicles; // Dynamic parent items are rebuilt by Render; navigate through a local action.
+            vehicleSearch.ParentMenu = cheatVehicles;
             vehicleHud.ParentMenu = cheatVehicles; // Opened using a local action, so menu refresh retains navigation.
             Bind(cheatPlayer,"Player Options","Health, armor, wanted and invincibility.",cheatMenu);
             Bind(current,"Current NPC","Status and actions for the NPC Essential has selected.");
@@ -94,7 +100,7 @@ namespace LSA.Enhanced.Ui
             settingsPage.AddItem(editorItem);
             character.ParentMenu = roster;
             activities.ParentMenu = current;
-            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director),("cheatVehicles",cheatVehicles),("cheatFavorites",cheatFavorites),("cheatPlayer",cheatPlayer),("vehicleHud",vehicleHud)})
+            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director),("cheatVehicles",cheatVehicles),("cheatFavorites",cheatFavorites),("cheatPlayer",cheatPlayer),("vehicleSearch",vehicleSearch),("vehicleHud",vehicleHud)})
                 pages[pair.Item2] = new Page {Name = pair.Item1,Menu = pair.Item2};
         }
         UIMenu Menu(string subtitle)
@@ -256,6 +262,11 @@ namespace LSA.Enhanced.Ui
             Disarm();
             // The chord window is session-local and applies at once; character
             // fields are saved only when the player selects the row.
+            if (line.Command == "local.vehicleSearchSelect" && newIndex >= 0 && newIndex < line.Options.Length) {
+                selectedVehicleModel = line.Options[newIndex];
+                Invalidate(page);
+                return;
+            }
             if (line.Command == ControlsView.ChordWindowCommand && newIndex >= 0 && newIndex < line.Options.Length
                 && int.TryParse(line.Options[newIndex],NumberStyles.None,CultureInfo.InvariantCulture,out int window)) context.Router()?.SetSessionChordWindow(window);
         }
@@ -264,6 +275,13 @@ namespace LSA.Enhanced.Ui
         void SaveChoice(Page page,UIMenuItem item,MenuLine line)
         {
             if (line.Command == ControlsView.ChordWindowCommand || !(item is UIMenuListScrollerItem<string> scroller)) return;
+            if (line.Command == "local.vehicleSearchSelect") {
+                int selected = scroller.Index;
+                if (selected >= 0 && selected < line.Options.Length) {
+                    selectedVehicleModel = line.Options[selected]; Invalidate(page);
+                }
+                return;
+            }
             if (line.Command == "local.vehicleHudMode") {
                 int choice = scroller.Index;
                 if (choice >= 0 && choice < line.Options.Length) { context.SetVehicleHudMode(line.Options[choice]); Invalidate(page); }
@@ -284,6 +302,31 @@ namespace LSA.Enhanced.Ui
                     vehicleHud.ParentMenu = page.Menu;
                     Invalidate(pages[vehicleHud]);
                     page.Menu.Visible = false; vehicleHud.Visible = true; break;
+                case "local.openVehicleSearch":
+                    vehicleSearch.ParentMenu = page.Menu;
+                    Invalidate(pages[vehicleSearch]);
+                    page.Menu.Visible = false; vehicleSearch.Visible = true; break;
+                case "local.vehicleSearchText":
+                    try {
+                        keyboard.Open(vehicleQuery,48,value => {
+                            var prior = hiddenForKeyboard; hiddenForKeyboard = null;
+                            if (prior != null) prior.Visible = true;
+                            if (value == null) return;
+                            vehicleQuery = value.Trim(); vehicleResultPage = 0;
+                            selectedVehicleModel = null; Invalidate(pages[vehicleSearch]);
+                        });
+                        hiddenForKeyboard = page.Menu; page.Menu.Visible = false;
+                    } catch { context.Hud.Show("Vehicle search input unavailable"); }
+                    break;
+                case "local.vehicleSearchReset":
+                    vehicleQuery = ""; vehicleResultPage = 0; selectedVehicleModel = null;
+                    Invalidate(pages[vehicleSearch]); break;
+                case "local.vehicleSearchPrev":
+                    vehicleResultPage = Math.Max(0,vehicleResultPage - 1);
+                    selectedVehicleModel = null; Invalidate(pages[vehicleSearch]); break;
+                case "local.vehicleSearchNext":
+                    vehicleResultPage = Math.Min(catalog.Search(vehicleQuery,vehicleResultPage).Pages - 1,vehicleResultPage + 1);
+                    selectedVehicleModel = null; Invalidate(pages[vehicleSearch]); break;
                 case "local.openCheatFavorites":
                     cheatFavorites.ParentMenu = page.Menu;
                     Invalidate(pages[cheatFavorites]);
@@ -325,14 +368,20 @@ namespace LSA.Enhanced.Ui
         void Cheat(Page page,MenuLine line)
         {
             string cmd = line.Command.Substring("cheat.".Length);
-            if (cmd == "spawn" || cmd == "addFavorite") {
+            if (cmd == "spawn" || cmd == "addFavorite" || cmd == "addCatalog") {
                 try {
                     keyboard.Open("",32,value => {
                         var prior = hiddenForKeyboard; hiddenForKeyboard = null;
                         if (prior != null) prior.Visible = true;
                         if (value == null) return;
                         string result = cmd == "spawn" ? cheats.Spawn(value) :
-                            (favorites.Add(value) ? "Favorite added" : "Invalid/duplicate favorite or file not writable");
+                            cmd == "addFavorite" ? (favorites.Add(value) ? "Favorite added" : "Invalid/duplicate favorite or file not writable") :
+                            !cheats.IsVehicleModel(value) ? "Model not installed as a vehicle" :
+                            (catalog.AddCustom(value) ? "Addon model added to search" : "Already listed, invalid, full or not writable");
+                        if (cmd == "addCatalog" && result == "Addon model added to search") {
+                            vehicleQuery = value.Trim(); vehicleResultPage = 0; selectedVehicleModel = null;
+                            Invalidate(pages[vehicleSearch]);
+                        }
                         context.Hud.Show(result);
                         Invalidate(page);
                     });
@@ -349,6 +398,9 @@ namespace LSA.Enhanced.Ui
                     break;
                 }
                 case "spawnFavorite": message = cheats.Spawn(line.Value); break;
+                case "spawnSearch": message = selectedVehicleModel == null ? "Select a result first" : cheats.Spawn(selectedVehicleModel); break;
+                case "favoriteSearch": message = selectedVehicleModel == null ? "Select a result first" :
+                    favorites.Add(selectedVehicleModel) ? "Favorite saved: " + selectedVehicleModel : "Already favorited, full or not writable"; break;
                 case "removeFavorite": message = favorites.Remove(line.Value) ? "Favorite removed: " + line.Value : "Could not remove favorite"; break;
                 default: message = cheats.Apply(cmd); break;
             }
@@ -563,13 +615,48 @@ namespace LSA.Enhanced.Ui
                     MenuLine.Action("repair","Repair current vehicle","cheat.repair","Repair engine, body and standard vehicle components."),
                     MenuLine.Action("clean","Clean current vehicle","cheat.clean","Remove dirt."),
                     MenuLine.Action("upright","Set vehicle upright","cheat.upright","Try to place the current vehicle on its wheels."),
-                    MenuLine.Action("spawn","Spawn vehicle by model","cheat.spawn","Type any valid stock or installed addon vehicle model."),
+                    MenuLine.Action("openVehicleSearch","Browse / search vehicles","local.openVehicleSearch","Search names and models, select from a dropdown and spawn or favorite."),
+                    MenuLine.Action("spawn","Spawn vehicle by model","cheat.spawn","Manual fallback: type an exact installed model name."),
                     MenuLine.Action("saveCurrent","Favorite current vehicle","cheat.saveCurrent","Save your current vehicle's model to the favorites file."),
                     MenuLine.Action("addFavorite","Add favorite by model","cheat.addFavorite","Type a vehicle model to save for later spawning."),
                     MenuLine.Action("deleteLast","Delete last spawned vehicle","cheat.deleteLast","Delete only the last unoccupied vehicle created by this cheat menu.",true,true),
                     MenuLine.Action("openFavorites","Vehicle Favorites","local.openCheatFavorites","Browse, spawn or remove saved favorites."),
                     MenuLine.Action("openVehicleHud","Vehicle Diagnostics","local.openVehicleHud","See damage, tire bursts, handling inference and diagnostics overlay settings.")
                 };
+            }
+            if (page.Menu == vehicleSearch) {
+                var result = catalog.Search(vehicleQuery,vehicleResultPage);
+                vehicleResultPage = result.Page;
+                subtitle = "Vehicle Search (" + result.Total + " found)";
+                var lines = new List<MenuLine> {
+                    MenuLine.Fact("query","Search",vehicleQuery.Length == 0 ? "All vehicles" : vehicleQuery,
+                        "Enter part of a display name or model; matches rank exact, prefix, then partial."),
+                    MenuLine.Action("search","Enter search text","local.vehicleSearchText",
+                        "Use GTA's on-screen keyboard. Suggestions appear after confirming; the native keyboard does not support live typing events."),
+                    MenuLine.Action("reset","Show all vehicles","local.vehicleSearchReset","Clear the search and browse alphabetically, favorites first.")
+                };
+                if (result.Items.Length == 0) {
+                    selectedVehicleModel = null;
+                    lines.Add(MenuLine.Fact("noresults","No matching vehicles","","Try a shorter or different name, or add an installed addon model."));
+                } else {
+                    string[] ids = result.Items.Select(entry => entry.Model).ToArray();
+                    if (!ids.Contains(selectedVehicleModel)) selectedVehicleModel = ids[0];
+                    string[] labels = result.Items.Select(entry =>
+                        (entry.Favorite ? "[Fav] " : "") + entry.Label + " (" + entry.Model + ")").ToArray();
+                    lines.Add(MenuLine.Choice("matches","Matching vehicles","local.vehicleSearchSelect",
+                        selectedVehicleModel,ids,labels,
+                        "Left/right selects a matching model. Use Spawn selected or Add favorite below."));
+                    lines.Add(MenuLine.Action("spawnResult","Spawn selected","cheat.spawnSearch",
+                        "Spawn the currently selected model near the player if installed."));
+                    lines.Add(MenuLine.Action("favoriteResult","Favorite selected","cheat.favoriteSearch",
+                        "Save the selected model in persistent vehicle favorites."));
+                }
+                lines.Add(MenuLine.Fact("paging","Page", (result.Page+1) + " / " + result.Pages));
+                lines.Add(MenuLine.Action("prev","Previous results","local.vehicleSearchPrev","Show previous matching vehicles.",result.Page > 0));
+                lines.Add(MenuLine.Action("next","Next results","local.vehicleSearchNext","Show next matching vehicles.",result.Page < result.Pages-1));
+                lines.Add(MenuLine.Action("addon","Register installed addon","cheat.addCatalog",
+                    "Enter an exact installed addon vehicle model, validate it in-game, and persist it in the search catalog."));
+                return lines;
             }
             if (page.Menu == cheatFavorites) {
                 subtitle = "Vehicle Favorites";
