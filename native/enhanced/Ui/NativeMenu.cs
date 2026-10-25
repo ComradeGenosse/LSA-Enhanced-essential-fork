@@ -78,7 +78,7 @@ namespace LSA.Enhanced.Ui
             cheatPlayer = Menu("Player Options");
             Bind(cheatMenu,"Cheat Menu","Local single-player gameplay tools; no AI required.");
             Bind(cheatVehicles,"Vehicle Options","Repair, spawn and manage cars.",cheatMenu);
-            Bind(cheatFavorites,"Vehicle Favorites","Spawn or remove saved favorite vehicle models.",cheatVehicles);
+            cheatFavorites.ParentMenu = cheatVehicles; // Dynamic parent items are rebuilt by Render; navigate through a local action.
             Bind(cheatPlayer,"Player Options","Health, armor, wanted and invincibility.",cheatMenu);
             Bind(current,"Current NPC","Status and actions for the NPC Essential has selected.");
             Bind(roster,"My Characters","Select a promoted character, summon, dismiss or manage gameplay.");
@@ -273,6 +273,10 @@ namespace LSA.Enhanced.Ui
         {
             switch (line.Command ?? line.Key) {
                 case LocalOpenCharacter: OpenCharacter(line.Value,page.Menu); break;
+                case "local.openCheatFavorites":
+                    cheatFavorites.ParentMenu = page.Menu;
+                    Invalidate(pages[cheatFavorites]);
+                    page.Menu.Visible = false; cheatFavorites.Visible = true; break;
                 case "local.openDirector":
                     director.ParentMenu = page.Menu; Invalidate(pages[director]);
                     page.Menu.Visible = false; director.Visible = true; break;
@@ -551,7 +555,8 @@ namespace LSA.Enhanced.Ui
                     MenuLine.Action("spawn","Spawn vehicle by model","cheat.spawn","Type any valid stock or installed addon vehicle model."),
                     MenuLine.Action("saveCurrent","Favorite current vehicle","cheat.saveCurrent","Save your current vehicle's model to the favorites file."),
                     MenuLine.Action("addFavorite","Add favorite by model","cheat.addFavorite","Type a vehicle model to save for later spawning."),
-                    MenuLine.Action("deleteLast","Delete last spawned vehicle","cheat.deleteLast","Delete only the last unoccupied vehicle created by this cheat menu.",true,true)
+                    MenuLine.Action("deleteLast","Delete last spawned vehicle","cheat.deleteLast","Delete only the last unoccupied vehicle created by this cheat menu.",true,true),
+                    MenuLine.Action("openFavorites","Vehicle Favorites","local.openCheatFavorites","Browse, spawn or remove saved favorites.")
                 };
             }
             if (page.Menu == cheatFavorites) {
