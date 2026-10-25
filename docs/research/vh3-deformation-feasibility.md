@@ -2,6 +2,60 @@
 
 **Status:** Implementation candidate only. No GTA runtime capture has occurred. **VH3-B is NO-GO pending actual game data**, even if Windows compilation and offline tests pass.
 
+## Capture audit / forensic trace addendum
+
+The original 48-point paired CSV is still the canonical vector capture and
+remains unchanged for compatibility with existing offline mesh/SVG tools.
+Each new successful capture also creates a **second 48-row forensic sidecar**
+named \`<capture-id>_<model>_<phase>.diagnostics.csv\` in the same directory.
+
+For every native call, that sidecar records:
+
+- Individual UTC sample timestamp and milliseconds elapsed into the sweep
+- Exact probe index, named approximate region and local X/Y/Z offsets
+- Full observed X/Y/Z displacement or blank values with an error reason
+- Native-call elapsed microseconds measured by \`Stopwatch\`
+- Vehicle speed and world-space position when readable; unavailable values
+  stay blank, **not zero**
+- Model, vehicle handle, capture phase/ID, engine/body HP
+- GTA executable file version and RPH managed assembly version when readable,
+  otherwise an explicit \`unavailable\` string
+
+Each save also logs to \`RagePluginHook.log\` an aggregate summary:
+valid probe count, how many returned near-zero displacement, duration in ms,
+largest native-call duration in µs, maximum observed speed, and CSV path.
+\`MOVING - REVIEW\` appears when sampled speed exceeds 0.5 m/s and
+\`ALL ZERO\` when no valid sample reports nonzero displacement; **neither is
+proof that the car was geometrically intact**. This is a diagnostic warning,
+not automatic ground-truth labeling.
+
+Analyse a baseline/impact pair without modifying either file:
+
+\`\`\`powershell
+python tools/vehicle-deformation/audit_capture.py "C:\...\baseline.csv" "C:\...\damaged.csv" --out ".\vh3-audit.json"
+\`\`\`
+
+The report summarizes comparable probes, all-zero/unchanged conditions,
+per-region changes, capture timing, speed and missing metadata. It intentionally
+does **not** return a GO decision without visual GTA evidence.
+
+**For the best first real capture**, supply the **four CSV files** (baseline +
+damaged + corresponding two diagnostics sidecars), one undamaged screenshot,
+one visibly crushed screenshot, and the matching \`[VH3]\` log lines. Captures
+need a stationary car during both scans. Repeat a second baseline/impact pair
+with **no collision** as a negative control before assuming changes are
+crash-specific.
+
+**Still NOT recorded or proven:** every drawable vertex, detailed individual
+panel state, detached geometry or repair effects from ImmersiveSantos, exact
+wheel/bone mapping, continuous crash-impact time series, external asset
+silhouettes, native spatial coverage between 48 sparse samples or a validated
+native return coordinate system. More logs cannot manufacture these signals.
+Increase spatial density or pursue offline .yft / DX12 analysis only after we
+see what actual captures demonstrate.
+
+---
+
 ## Hypothesis
 
 `GET_VEHICLE_DEFORMATION_AT_POS` returns a local-space Vector3 at offsets near a car's visible damaged surface. A model-scaled probe set might reveal *where* its appearance changes. This does **not** prove access to the rendered vehicle mesh, individual drawable vertices, detached panels, or ImmersiveSantos's internal state.

@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Diagnostics;
+using System.Collections.Generic;
 using Rage;
 using Rage.Native;
 
@@ -15,6 +17,11 @@ namespace LSA.Enhanced.VehicleHud
         int saved,vehicleHandle;
         string pending,sessionId,model;
         DeformationCapture active;
+        readonly List<string> probeTrace = new List<string>();
+        Stopwatch captureClock;
+        long maxNativeMicroseconds;
+        float maxCaptureSpeed;
+        string gameVersion="unavailable",rphVersion="unavailable";
         public bool Enabled => enabled;
         public string Status {get;private set;}="OFF";
         public VehicleDeformationLab(string plugins)
@@ -25,7 +32,7 @@ namespace LSA.Enhanced.VehicleHud
         {
             enabled=on;
             pending=null;active=null;vehicleHandle=0;
-            sessionId=null;
+            sessionId=null;probeTrace.Clear();captureClock=null;
             Status=on?"READY - capture baseline":"OFF";
         }
         public string Request(string phase)
@@ -44,11 +51,13 @@ namespace LSA.Enhanced.VehicleHud
         {
             if(!enabled || (pending==null&&active==null))return;
             if(car==null||!car.IsValid()||!car.IsCar) {
-                pending=null;active=null; Status="NO DRIVEN CAR";return;
+                pending=null;active=null;probeTrace.Clear();
+                Status="NO DRIVEN CAR";return;
             }
             int handle=unchecked((int)car.Handle.Value);
             if(active!=null && active.Handle!=handle) {
                 active=null;pending=null;sessionId=null;vehicleHandle=0;
+                probeTrace.Clear();
                 Status="CANCELLED - VEHICLE CHANGED";return;
             }
             if(active==null) {
@@ -70,6 +79,14 @@ namespace LSA.Enhanced.VehicleHud
                     active=new DeformationCapture(id,pending,model,handle,
                         DateTime.UtcNow.ToString("o"),bounds,car.EngineHealth,body);
                     pending=null;
+                    probeTrace.Clear();
+                    captureClock=Stopwatch.StartNew();
+                    maxCaptureSpeed=0f;
+                    maxNativeMicroseconds=0L;
+                    try {gameVersion=Process.GetCurrentProcess().MainModule.FileVersionInfo.FileVersion ?? "unavailable"; }
+                    catch {gameVersion="unavailable";}
+                    try {rphVersion=typeof(Game).Assembly.GetName().Version.ToString();}
+                    catch {rphVersion="unavailable";}
                 } catch(Exception e) {
                     active=null;pending=null;
                     Status="SETUP FAILED "+e.GetType().Name;
@@ -79,6 +96,7 @@ namespace LSA.Enhanced.VehicleHud
             }
             for(int i=0;i<ProbeBatch&&!active.Complete;i++) {
                 var p=active.Next;
+                long nativeStart=Stopwatch.GetTimestamp();
                 try {
                     var d=NativeFunction.CallByHash<Vector3>(0x4EC6CFBC7B2E9536UL,
                         handle,p.X,p.Y,p.Z);
@@ -86,6 +104,28 @@ namespace LSA.Enhanced.VehicleHud
                 } catch(Exception ex) {
                     active.Record(float.NaN,float.NaN,float.NaN,
                         "native_"+ex.GetType().Name);
+                }
+                long elapsedTicks=Stopwatch.GetTimestamp()-nativeStart;
+                long callUs=elapsedTicks<=0?0:(long)(elapsedTicks*1000000d/Stopwatch.Frequency);
+                if(callUs>maxNativeMicroseconds)maxNativeMicroseconds=callUs;
+                float speed=float.NaN,wx=float.NaN,wy=float.NaN,wz=float.NaN;
+                try {
+                    speed=car.Speed;
+                    var location=car.Position;
+                    wx=location.X;wy=location.Y;wz=location.Z;
+                    if(!float.IsNaN(speed)&&!float.IsInfinity(speed))
+                        maxCaptureSpeed=Math.Max(maxCaptureSpeed,Math.Abs(speed));
+                } catch { /* Missing optional context is never rendered as zero. */ }
+                // One forensic row per native call, even if the native itself
+                // failed or returned a zero displacement; no probe is lost.
+                try {
+                    probeTrace.Add(VehicleProbeTrace.Row(active,
+                        active.Results[active.Count-1],DateTime.UtcNow.ToString("o"),
+                        callUs,captureClock==null?0:captureClock.ElapsedMilliseconds,
+                        speed,wx,wy,wz,gameVersion,rphVersion));
+                } catch(Exception traceError) {
+                    probeTrace.Add(""); // preserve index ordering as a visible gap
+                    Game.LogTrivial("[VH3] trace_row_failed "+traceError.GetType().Name);
                 }
             }
             if(!active.Complete) {
@@ -105,6 +145,18 @@ namespace LSA.Enhanced.VehicleHud
                 // GTA assets, network requests, or arbitrary output filenames.
                 if(File.Exists(path))throw new IOException("capture_exists");
                 File.WriteAllText(path,finished.Csv());
+                // A separate forensic audit retains precise probe timings,
+                // sample UTC, speed and position without breaking the existing
+                // 24-column capture/replay parser or old saved files.
+                try {
+                    string tracePath=Path.Combine(root,finished.CaptureId+"_"+safeModel+
+                        "_"+finished.Phase+".diagnostics.csv");
+                    if(File.Exists(tracePath))throw new IOException("trace_exists");
+                    File.WriteAllText(tracePath,VehicleProbeTrace.Header+Environment.NewLine+
+                        string.Join(Environment.NewLine,probeTrace.ToArray())+Environment.NewLine);
+                } catch(Exception auditError) {
+                    Game.LogTrivial("[VH3] diagnostics_write_failed "+auditError.GetType().Name);
+                }
                 saved++;
                 if(finished.Phase=="baseline") {
                     sessionId=finished.CaptureId;
@@ -112,9 +164,21 @@ namespace LSA.Enhanced.VehicleHud
                 } else {
                     sessionId=null;vehicleHandle=0;
                 }
-                Status="SAVED "+finished.Phase+" "+finished.ValidCount+"/48 VALID";
+                int zeros=0;
+                foreach(var r in finished.Results)
+                    if(r.Valid && r.Magnitude<0.00001f)zeros++;
+                long totalMs=captureClock==null?0:captureClock.ElapsedMilliseconds;
+                bool moving=maxCaptureSpeed>0.5f;
+                Status="SAVED "+finished.Phase+" "+finished.ValidCount+"/48 VALID"+
+                    (moving?" / MOVING - REVIEW":"")+
+                    (zeros==finished.ValidCount?" / ALL ZERO":"");
                 Game.LogTrivial("[VH3] saved phase="+finished.Phase+
-                    " valid="+finished.ValidCount+"/48 path="+path);
+                    " valid="+finished.ValidCount+"/48 zeros="+zeros+
+                    " duration_ms="+totalMs+" max_native_us="+maxNativeMicroseconds+
+                    " max_speed_mps="+maxCaptureSpeed.ToString("0.###",
+                        System.Globalization.CultureInfo.InvariantCulture)+
+                    " moving="+moving+" path="+path);
+                probeTrace.Clear();captureClock=null;
             } catch(Exception ex) {
                 Status="WRITE FAILED "+ex.GetType().Name;
                 Game.LogTrivial("[VH3] capture_write_failed "+ex.GetType().Name);

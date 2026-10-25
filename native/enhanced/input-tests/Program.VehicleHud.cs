@@ -111,6 +111,27 @@ static partial class Program
             csv.Contains(",,,,") && VehicleTelemetryCsv.Header.Split(',').Length == 22,
             "CSV preserves zero tire health separately from unavailable slots");
 
+        // VH3 forensic trace: a valid zero differs from an unsupported
+        // sample, and timing/position are retained without changing 24-field CSV.
+        var traceBounds=new DeformationBounds(-1,-2,-.2f,1,2,1.5f);
+        var traceCapture=new DeformationCapture("trace-01","baseline","adder",31,
+            "2026-10-25T19:00:00Z",traceBounds,987,943);
+        traceCapture.Record(0f,0f,0f);
+        var traceRow=VehicleProbeTrace.Row(traceCapture,traceCapture.Results[0],
+            "2026-10-25T19:00:01Z",240,42,0f,float.NaN,2.5f,12f,
+            "1.0.1158.16","1.132");
+        Check(VehicleProbeTrace.Header.Split(',').Length==25 &&
+            traceRow.Split(',').Length==25 && traceRow.Contains(",240,42,0,") &&
+            traceRow.Contains(",,2.5,12,"),
+            "forensic CSV retains per-probe time, real zero speed and unknown coordinate");
+        traceCapture.Record(float.NaN,float.NaN,float.NaN,"native_Unsupported");
+        var badRow=VehicleProbeTrace.Row(traceCapture,traceCapture.Results[1],
+            "2026-10-25T19:00:02Z",650,248,float.NaN,float.NaN,float.NaN,float.NaN,
+            "unavailable","1.132");
+        Check(badRow.Contains("native_Unsupported") && badRow.Contains(",0,") &&
+            badRow.Split(',').Length==25,
+            "unsupported probe is recorded with reason and missing motion data");
+
         // VH3: geometry normalization and native-independent capture/export.
         var bounds = new DeformationBounds(-1f,-2.2f,-0.25f,1f,2.2f,1.65f);
         var probeGrid = VehicleDeformationGrid.Build(bounds);
