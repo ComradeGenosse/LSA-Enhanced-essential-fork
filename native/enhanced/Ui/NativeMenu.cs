@@ -32,7 +32,7 @@ namespace LSA.Enhanced.Ui
         readonly UiContext context;
         readonly MenuPool pool = new MenuPool();
         readonly List<UIMenu> menus = new List<UIMenu>();
-        readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage, vehicleHud;
+        readonly UIMenu quick, main, current, roster, character, controls, ai, diagnostics, activities, navigation, director, settingsPage, vehicleHud;
         readonly UIMenu cheatMenu, cheatVehicles, cheatFavorites, cheatPlayer, vehicleSearch;
         readonly VehicleFavorites favorites;
         readonly VehicleCatalog catalog;
@@ -65,7 +65,9 @@ namespace LSA.Enhanced.Ui
             favorites = new VehicleFavorites(context.PluginsPath);
             catalog = new VehicleCatalog(context.PluginsPath,favorites);
             cheats = new VehicleCheats(context.Log);
-            main = Menu("Main menu");
+            quick = Menu("Quick Controls");
+            main = Menu("All tools & settings");
+            main.ParentMenu = quick;
             current = Menu("Current NPC");
             roster = Menu("Characters");
             character = Menu("Character");
@@ -100,7 +102,7 @@ namespace LSA.Enhanced.Ui
             settingsPage.AddItem(editorItem);
             character.ParentMenu = roster;
             activities.ParentMenu = current;
-            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director),("cheatVehicles",cheatVehicles),("cheatFavorites",cheatFavorites),("cheatPlayer",cheatPlayer),("vehicleSearch",vehicleSearch),("vehicleHud",vehicleHud)})
+            foreach (var pair in new[] {("quick",quick),("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities),("navigation",navigation),("director",director),("cheatVehicles",cheatVehicles),("cheatFavorites",cheatFavorites),("cheatPlayer",cheatPlayer),("vehicleSearch",vehicleSearch),("vehicleHud",vehicleHud)})
                 pages[pair.Item2] = new Page {Name = pair.Item1,Menu = pair.Item2};
         }
         UIMenu Menu(string subtitle)
@@ -129,16 +131,18 @@ namespace LSA.Enhanced.Ui
         {
             if (keyboard.Active || hiddenForKeyboard != null) return;
             if (pool.IsAnyMenuOpen()) {
-                bool switchToCurrent = page == "current" && !current.Visible;
-                Disarm(); pool.CloseAllMenus();
-                if (!switchToCurrent) return;
+                // F11 and controller L4+R4 use the same quick root; either
+                // shortcut closes our menu safely, regardless of subpage.
+                Disarm(); pool.CloseAllMenus(); return;
             }
             // Another plugin's RNUI menu, such as Essential's F7 menu, owns the
             // controls; with none of ours open, RNUI's cross-plugin flag means theirs.
             if (OtherMenusVisible()) { context.Hud.Show(context.Catalog.Describe("input_busy")); return; }
-            // The quick page closes on Back; from the main menu it returns there.
-            if (page == "current") current.ParentMenu = null;
-            (page == "current" ? current : main).Visible = true;
+            // Keep explicit legacy 'current' entrypoint, but both shortcuts open quick.
+            if (page == "current") {
+                current.ParentMenu = quick;
+                current.Visible = true;
+            } else quick.Visible = true;
         }
         bool OtherMenusVisible()
         {
@@ -298,6 +302,16 @@ namespace LSA.Enhanced.Ui
         {
             switch (line.Command ?? line.Key) {
                 case LocalOpenCharacter: OpenCharacter(line.Value,page.Menu); break;
+                case "local.openAdvanced":
+                    main.ParentMenu = quick;
+                    page.Menu.Visible = false; main.Visible = true; break;
+                case "local.openQuickCurrent":
+                    current.ParentMenu = quick; Invalidate(pages[current]);
+                    page.Menu.Visible = false; current.Visible = true; break;
+                case "local.vehicleLogToggle":
+                    context.SetVehicleTelemetryLogging(!context.VehicleTelemetryLogging());
+                    context.Hud.Show(context.VehicleTelemetryLogging() ? "Vehicle CSV logging enabled" : "Vehicle CSV logging disabled");
+                    Invalidate(page); break;
                 case "local.openVehicleHud":
                     vehicleHud.ParentMenu = page.Menu;
                     Invalidate(pages[vehicleHud]);
@@ -609,6 +623,29 @@ namespace LSA.Enhanced.Ui
         {
             var settings = context.Settings();
             long utc = context.Clock.Utc;
+            if (page.Menu == quick) {
+                subtitle = "Quick Controls";
+                var vehicle = context.VehicleHudView();
+                bool inCar = cheats.InVehicle;
+                string vehicleText = inCar ? "In vehicle / telemetry unavailable" : "On foot";
+                if (inCar && vehicle?.Reading != null) {
+                    var v = vehicle.Reading;
+                    vehicleText = "Engine " + Math.Round(v.Engine).ToString(CultureInfo.InvariantCulture) +
+                        " / Body " + Math.Round(v.Body).ToString(CultureInfo.InvariantCulture);
+                    if ((v.BurstTires & v.KnownTires) != 0) vehicleText += " / PUNCTURE";
+                } else if (inCar && context.VehicleHudMode() == "off")
+                    vehicleText = "In vehicle / HUD off";
+                var npc = LiveNpcModel(utc,settings);
+                string npcStatus = "None";
+                if (npc.Present) {
+                    var mode = npc.Lines.FirstOrDefault(line => line.Key == "mode")?.Right;
+                    npcStatus = npc.Title;
+                    if (mode != null) npcStatus += " / " + mode;
+                    if (npcStatus.Length > 32) npcStatus = npcStatus.Substring(0,29) + "...";
+                }
+                return QuickControlsView.Build(vehicleText,inCar,context.VehicleHudMode(),
+                    cheats.Invincible,cheats.WantedLevel,npcStatus);
+            }
             if (page.Menu == cheatVehicles) {
                 subtitle = "Vehicle Options";
                 return new List<MenuLine> {
@@ -784,6 +821,10 @@ namespace LSA.Enhanced.Ui
                     MenuLine.Fact("suspension","Suspension damage","N/A","External damage mods need an explicit telemetry integration."),
                     MenuLine.Fact("wheel","Tire status","Direct","Tire burst native; wheel detach or rim health is not implied.")
                 };
+                var logging = MenuLine.Action("record","Vehicle telemetry CSV","local.vehicleLogToggle",
+                    "Optional 1 Hz read-only snapshots and damage events. Plugins/LSA/Logs/vehicle-telemetry.csv; stops at 10 MiB.");
+                logging.Right = context.VehicleTelemetryLogging() ? "ON" : "OFF";
+                lines.Insert(1,logging);
                 if (view != null) {
                     var sample = view.Reading;
                     lines.Add(MenuLine.Fact("engine","Engine health",Math.Round(sample.Engine).ToString(CultureInfo.InvariantCulture) + " HP"));

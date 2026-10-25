@@ -116,7 +116,7 @@ namespace LSA.Enhanced
             talk.AttachCompanion(companion);
             talk.AttachVoiceStatus(companion);
             var feedbackOverlay = new TalkFeedbackOverlay(() => talk.Feedback);
-            var vehicleHud = new VehicleHudController();
+            var vehicleHud = new VehicleHudController(plugins);
             try { vehicleHud.Hook(); } catch { Game.LogTrivial("[VH1] overlay hook_failed"); }
             try { feedbackOverlay.Hook(); } catch { Game.LogTrivial("[UX4] talk_feedback state=unavailable reason=hook_failed"); }
             EnhancedSettings settings = EnhancedSettings.Defaults(catalog);
@@ -129,6 +129,7 @@ namespace LSA.Enhanced
                 Settings = () => settings,Essential = () => essential,Router = () => router,HostStatus = bridge.Describe,Origin = origin,
                 TalkStatus = () => talk.DisplayState,ClearTalkTarget = () => talk.Clear("manual"),TalkConflict = () => talk.Conflict,
                 VehicleHudMode = () => vehicleHud.Mode,SetVehicleHudMode = vehicleHud.SetMode,VehicleHudView = () => vehicleHud.Current,
+                VehicleTelemetryLogging = () => vehicleHud.Logging, SetVehicleTelemetryLogging = vehicleHud.SetLogging,
                 EndpointState = EndpointState,Paused = () => gameState.Paused,PluginsPath = plugins,Log = Game.LogTrivial};
             ui = new UiBridge(context,CreateMenu);
             dispatcher.Ui = ui; router.UiAvailable = () => ui.Available; router.MenuOpen = () => ui.AnyMenuOpen;

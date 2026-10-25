@@ -1,5 +1,8 @@
 using System;
 using System.Drawing;
+using System.IO;
+using System.Collections.Generic;
+using System.Text;
 using Rage;
 using Rage.Native;
 
@@ -9,7 +12,24 @@ namespace LSA.Enhanced.VehicleHud
     // immutable-by-convention snapshots and never queries or mutates an entity.
     internal sealed class VehicleHudController
     {
-        const int SampleEveryMs = 200;
+        const int SampleEveryMs = 200, CsvSampleMs = 1000;
+        const long CsvSizeLimit = 10L * 1024 * 1024; // bounded log, never auto-delete
+        readonly string traceFile;
+        long nextCsv;
+        int lastLoggedVehicle;
+        long lastEventAt = -1;
+        readonly HashSet<string> eventsAtTimestamp = new HashSet<string>(StringComparer.Ordinal);
+        public bool Logging {get;private set;}
+        public VehicleHudController(string plugins)
+        {
+            traceFile = Path.Combine(plugins ?? "", "LSA", "Logs", "vehicle-telemetry.csv");
+        }
+        public void SetLogging(bool enabled)
+        {
+            Logging = enabled;
+            nextCsv = 0; lastLoggedVehicle = 0; lastEventAt = -1;
+            eventsAtTimestamp.Clear();
+        }
         readonly VehicleDamageTimeline timeline = new VehicleDamageTimeline();
         volatile VehicleView published;
         volatile string mode = "full";
@@ -41,7 +61,7 @@ namespace LSA.Enhanced.VehicleHud
         }
         public void Tick(long now,bool paused)
         {
-            if (mode == "off" || samplerDisabled) return;
+            if ((mode == "off" && !Logging) || samplerDisabled) return;
             if (now < nextSample) return;
             nextSample = now + SampleEveryMs;
             if (paused) { timeline.Clear(); published = null; return; }
@@ -54,11 +74,52 @@ namespace LSA.Enhanced.VehicleHud
                 var v = Read(car);
                 timeline.Update(v,now);
                 published = timeline.Current;
+                if (Logging) Trace(car,published,now);
                 failures = 0;
             } catch (Exception error) {
                 timeline.Clear(); published = null;
                 if (++failures == 1) Game.LogTrivial("[VH1] sample_failed " + error.GetType().Name);
                 if (failures >= 5) { samplerDisabled = true; Game.LogTrivial("[VH1] sampler_disabled; other LSA features unaffected"); }
+            }
+        }
+        // Only the game fiber performs file I/O; samples are rate limited,
+        // events are written once, and failures cannot break the HUD or LSA.
+        void Trace(Vehicle car,VehicleView view,long now)
+        {
+            if (view?.Reading == null) return;
+            try {
+                bool snapshot = now >= nextCsv;
+                if (lastLoggedVehicle != view.Reading.Handle) {
+                    lastLoggedVehicle = view.Reading.Handle;
+                    lastEventAt = -1; eventsAtTimestamp.Clear(); snapshot = true;
+                }
+                var output = new StringBuilder();
+                string stamp = DateTime.UtcNow.ToString("o");
+                string model;
+                try { model = car.Model.Name; } catch { model = "unavailable"; }
+                if (snapshot) {
+                    nextCsv = now + CsvSampleMs;
+                    output.AppendLine(VehicleTelemetryCsv.Row(stamp,"sample",model,view));
+                }
+                foreach (var evt in view.Events) {
+                    if (evt.AtMs < lastEventAt) continue;
+                    if (evt.AtMs == lastEventAt && eventsAtTimestamp.Contains(evt.Text)) continue;
+                    if (evt.AtMs > lastEventAt) { lastEventAt = evt.AtMs; eventsAtTimestamp.Clear(); }
+                    eventsAtTimestamp.Add(evt.Text);
+                    output.AppendLine(VehicleTelemetryCsv.Row(stamp,"event",model,view,evt.Text));
+                }
+                if (output.Length == 0) return;
+                var dir = Path.GetDirectoryName(traceFile);
+                Directory.CreateDirectory(dir);
+                var info = new FileInfo(traceFile);
+                if (info.Exists && info.Length >= CsvSizeLimit) {
+                    Logging = false; Game.LogTrivial("[VH2] telemetry_csv_limit_reached"); return;
+                }
+                bool header = !info.Exists || info.Length == 0;
+                File.AppendAllText(traceFile,(header ? VehicleTelemetryCsv.Header + Environment.NewLine : "") + output);
+            } catch (Exception error) {
+                Logging = false;
+                Game.LogTrivial("[VH2] telemetry_csv_disabled reason=" + error.GetType().Name);
             }
         }
         static VehicleReading Read(Vehicle car)
@@ -118,99 +179,132 @@ namespace LSA.Enhanced.VehicleHud
         }
         static bool Plausible(float value) => !float.IsNaN(value) && !float.IsInfinity(value) &&
             value >= 0f && value <= 5000f;
+        // Presentation is intentionally separate from the read-only 5Hz sampler.
+        // Raw wheel health and deformation never appear on this driver-facing UI.
         void Paint(object sender,GraphicsEventArgs args)
         {
             if (mode == "off" || drawDisabled || args?.Graphics == null) return;
+            // Pause menu (including the full-screen map) and RPH console must
+            // never have a diagnostics panel drawn on top of them.
+            try { if (Game.IsPaused || Game.Console.IsOpen) return; }
+            catch { return; }
             var view = published;
             if (view?.Reading == null) return;
             try {
                 var screen = Game.Resolution;
                 if (screen.Width < 640 || screen.Height < 400) return;
-                float scale = Math.Max(0.8f,Math.Min(1.6f,screen.Height / 1080f));
+                float s = Math.Max(0.8f,Math.Min(1.85f,screen.Height / 1080f));
+                bool expanded = mode == "full";
+                float width = 442f*s, height = (expanded ? 324f : 112f)*s;
+                float left = screen.Width-width-26f*s;
+                float top = screen.Height-height-119f*s;
                 var g = args.Graphics;
-                float w = 290f * scale, h = (mode == "full" ? 390f : 145f) * scale;
-                float x = screen.Width - w - 24f * scale, y = screen.Height - h - 125f * scale;
-                g.DrawRectangle(new RectangleF(x,y,w,h),Color.FromArgb(190,7,17,24));
-                g.DrawRectangle(new RectangleF(x,y,w,2f * scale),Color.FromArgb(230,70,201,199));
-                Text(g,"LSA / VEHICLE DIAGNOSTICS",x+12*scale,y+10*scale,15*scale,Color.FromArgb(255,130,233,225));
-                if (mode == "minimal") {
-                    Health(g,"ENG",view.Reading.Engine,x+12*scale,y+48*scale,scale);
-                    Health(g,"BODY",view.Reading.Body,x+105*scale,y+48*scale,scale);
-                    Health(g,"FUEL",view.Reading.Tank,x+202*scale,y+48*scale,scale);
-                    Text(g,TireSummary(view.Reading),x+12*scale,y+86*scale,14*scale,Color.White);
-                    if (view.DriftHint != null) Text(g,view.DriftHint,x+12*scale,y+109*scale,12*scale,Color.Orange);
+                var presentation = VehicleHudPresentation.Build(view,view.SampleAtMs);
+                if (presentation == null) return;
+                var severity = SeverityColor(presentation.Severity);
+
+                Fill(g,left,top,width,height,Color.FromArgb(213,9,18,27));
+                Fill(g,left,top,width,3*s,Color.FromArgb(245,57,184,204));
+                Fill(g,left,top+3*s,4*s,height-3*s,severity);
+                Text(g,"VEHICLE CONDITION",left+22*s,top+15*s,19*s,Color.White);
+                Text(g,presentation.Status,left+264*s,top+18*s,12*s,severity);
+                Fill(g,left+18*s,top+49*s,width-36*s,1*s,Color.FromArgb(95,94,120,133));
+
+                if (!expanded) {
+                    Stat(g,"ENGINE",view.Reading.Engine,left+24*s,top+61*s,116*s,s);
+                    Stat(g,"BODY",view.Reading.Body,left+169*s,top+61*s,116*s,s);
+                    Stat(g,"TANK",view.Reading.Tank,left+312*s,top+61*s,107*s,s);
+                    // A genuine puncture is an actionable alert; the minimized
+                    // state otherwise stays compact and quiet.
+                    if (presentation.Severity == 2 && presentation.Status == "TIRE PUNCTURE")
+                        Text(g,"!",left+423*s,top+15*s,15*s,severity);
                 } else {
-                    float bx = x + 17*scale, by = y+44*scale;
-                    Outline(g,bx+27*scale,by+4*scale,75*scale,140*scale,scale,Color.FromArgb(220,67,196,195));
-                    Outline(g,bx+37*scale,by+21*scale,55*scale,37*scale,scale,Color.FromArgb(180,67,196,195));
-                    Outline(g,bx+37*scale,by+97*scale,55*scale,31*scale,scale,Color.FromArgb(180,67,196,195));
-                    for (int i = 0; i < 4; i++) {
-                        float wx = bx + (i%2==0 ? 13 : 102)*scale;
-                        float wy = by + (i<2 ? 23 : 106)*scale;
-                        int bit = 1 << i;
-                        Color color = (view.Reading.KnownTires & bit)==0 ? Color.Gray :
-                            (view.Reading.BurstTires & bit)!=0 ? Color.FromArgb(245,88,73) : Color.FromArgb(65,207,132);
-                        g.DrawRectangle(new RectangleF(wx,wy,12*scale,30*scale),color);
+                    DrawCar(g,left,top,s,view.Reading);
+                    Stat(g,"ENGINE",view.Reading.Engine,left+232*s,top+76*s,176*s,s);
+                    Stat(g,"BODY",view.Reading.Body,left+232*s,top+133*s,176*s,s);
+                    Stat(g,"FUEL TANK",view.Reading.Tank,left+232*s,top+190*s,176*s,s);
+                    Fill(g,left+18*s,top+249*s,width-36*s,1*s,Color.FromArgb(95,94,120,133));
+                    Text(g,"LATEST DAMAGE",left+23*s,top+260*s,12*s,Color.FromArgb(255,139,180,190));
+                    if (presentation.Alerts.Length == 0) {
+                        Text(g,"No recent alerts",left+23*s,top+287*s,16*s,Color.FromArgb(200,170,195,204));
+                    } else {
+                        for (int i=0;i<presentation.Alerts.Length;i++) {
+                            var alert=presentation.Alerts[i];
+                            Fill(g,left+22*s,top+(284+i*19)*s,5*s,12*s,SeverityColor(alert.Severity));
+                            Text(g,alert.Text,left+35*s,top+(281+i*19)*s,15*s,Color.White);
+                        }
                     }
-                    float rx = x + 142*scale;
-                    Health(g,"ENGINE",view.Reading.Engine,rx,by+8*scale,scale);
-                    Health(g,"BODY",view.Reading.Body,rx,by+51*scale,scale);
-                    Health(g,"FUEL TANK",view.Reading.Tank,rx,by+94*scale,scale);
-                    Text(g,"BRAKES / SUSP  N/A",x+14*scale,y+199*scale,12*scale,Color.LightGray);
-                    Text(g,view.DriftHint ?? "ALIGNMENT  UNVERIFIED",x+14*scale,y+221*scale,12*scale,view.DriftHint==null?Color.Gray:Color.Orange);
-                    Text(g,"RPH WHEEL / TIRE HEALTH  (RAW, UNVERIFIED)",
-                        x+14*scale,y+242*scale,10*scale,Color.FromArgb(255,130,233,225));
-                    for (int i = 0; i < 4; i++) {
-                        int bit = 1 << i;
-                        string wheel = (view.Reading.KnownWheelHealth & bit) == 0 ? "?" :
-                            Math.Round(view.Reading.WheelHealth[i]).ToString();
-                        string tire = (view.Reading.KnownTireHealth & bit) == 0 ? "?" :
-                            Math.Round(view.Reading.TireHealth[i]).ToString();
-                        Text(g,"Slot " + i + ": W " + wheel + " / T " + tire,
-                            x+14*scale,y+(256+i*14)*scale,11*scale,Color.White);
-                    }
-                    float maxDeformation = float.NaN;
-                    for (int i = 0; i < 4; i++) if ((view.Reading.KnownDeformation & (1<<i)) != 0) {
-                        if (float.IsNaN(maxDeformation) || view.Reading.Deformation[i] > maxDeformation)
-                            maxDeformation = view.Reading.Deformation[i];
-                    }
-                    Text(g,"Deformation probes: " + (float.IsNaN(maxDeformation) ? "N/A" :
-                        "max " + Math.Round(maxDeformation,2) + " raw units"),
-                        x+14*scale,y+312*scale,11*scale,Color.LightGray);
-                    Text(g,"RECENT DAMAGE  (LATEST LAST)",x+14*scale,y+332*scale,10*scale,Color.FromArgb(255,130,233,225));
-                    int start = Math.Max(0,view.Events.Length-2);
-                    for (int i = start; i < view.Events.Length; i++)
-                        Text(g,view.Events[i].Text,x+14*scale,y+(349+(i-start)*17)*scale,11*scale,Color.White);
-                    if (view.Events.Length==0) Text(g,"No damage changes observed",x+14*scale,y+350*scale,11*scale,Color.Gray);
                 }
-                drawFailures = 0;
-            } catch (Exception error) {
-                if (++drawFailures >= 3) { drawDisabled = true; Game.LogTrivial("[VH1] draw_disabled " + error.GetType().Name); }
+                drawFailures=0;
+            } catch(Exception error) {
+                if (++drawFailures >= 3) {
+                    drawDisabled=true; Game.LogTrivial("[VH1] draw_disabled " + error.GetType().Name);
+                }
             }
         }
+        static void DrawCar(Rage.Graphics g,float px,float py,float s,VehicleReading reading)
+        {
+            // A stronger top-down silhouette: distinct hood, glass cabin, trunk,
+            // chassis centerline and four unambiguous wheel corners. The four
+            // wheel colors reflect *only* GTA puncture readings, not unverified
+            // RPH wheel health slot ordering.
+            float x=px+57*s, y=py+83*s;
+            Text(g,"FRONT",px+96*s,py+62*s,10*s,Color.FromArgb(220,140,191,202));
+            Fill(g,x+17*s,y,82*s,162*s,Color.FromArgb(93,33,82,96));
+            Outline(g,x+17*s,y,82*s,162*s,s,Color.FromArgb(255,82,199,216));
+            // Rounded-looking shoulder shoulders using stepped fill.
+            Fill(g,x+24*s,y-5*s,68*s,6*s,Color.FromArgb(255,35,90,103));
+            Fill(g,x+12*s,y+24*s,6*s,29*s,Color.FromArgb(180,71,143,160));
+            Fill(g,x+99*s,y+24*s,6*s,29*s,Color.FromArgb(180,71,143,160));
+            Fill(g,x+29*s,y+22*s,58*s,20*s,Color.FromArgb(90,97,157,172));
+            Fill(g,x+27*s,y+51*s,62*s,66*s,Color.FromArgb(70,56,112,129));
+            Outline(g,x+27*s,y+51*s,62*s,66*s,s,Color.FromArgb(185,92,181,197));
+            Fill(g,x+34*s,y+54*s,48*s,22*s,Color.FromArgb(100,103,188,204));
+            Fill(g,x+34*s,y+86*s,48*s,28*s,Color.FromArgb(65,103,188,204));
+            Fill(g,x+29*s,y+127*s,58*s,20*s,Color.FromArgb(90,97,157,172));
+            Fill(g,x+54*s,y+22*s,1.5f*s,125*s,Color.FromArgb(105,82,199,216));
+            Fill(g,x+22*s,y+3*s,25*s,4*s,Color.FromArgb(160,238,235,220));
+            Fill(g,x+69*s,y+3*s,25*s,4*s,Color.FromArgb(160,238,235,220));
+            Fill(g,x+23*s,y+156*s,24*s,4*s,Color.FromArgb(170,217,66,71));
+            Fill(g,x+69*s,y+156*s,24*s,4*s,Color.FromArgb(170,217,66,71));
+            // Four standard GTA native burst indices: LF 0, RF 1, LR 4, RR 5.
+            Wheel(g,x+1*s,y+26*s,s,VehicleHudPresentation.WheelState(reading,0));
+            Wheel(g,x+100*s,y+26*s,s,VehicleHudPresentation.WheelState(reading,1));
+            Wheel(g,x+1*s,y+116*s,s,VehicleHudPresentation.WheelState(reading,2));
+            Wheel(g,x+100*s,y+116*s,s,VehicleHudPresentation.WheelState(reading,3));
+            Text(g,"L",x-13*s,y+80*s,10*s,Color.FromArgb(190,165,191,201));
+            Text(g,"R",x+120*s,y+80*s,10*s,Color.FromArgb(190,165,191,201));
+        }
+        static void Wheel(Rage.Graphics g,float x,float y,float s,int state)
+        {
+            Color fill = state == 2 ? Color.FromArgb(241,234,78,77) :
+                state == 1 ? Color.FromArgb(210,48,173,190) : Color.FromArgb(105,120,130,137);
+            Fill(g,x,y,16*s,35*s,fill);
+            Fill(g,x+4*s,y+4*s,8*s,27*s,Color.FromArgb(165,9,18,27));
+            if (state == 2) Fill(g,x+2*s,y+15*s,12*s,5*s,Color.White);
+        }
+        static void Stat(Rage.Graphics g,string name,float raw,float x,float y,float width,float s)
+        {
+            int percent=VehicleHudPresentation.HealthPercent(raw);
+            Color tint=percent<0 ? Color.Gray : percent<=25 ? Color.FromArgb(245,88,73) :
+                percent<=65 ? Color.FromArgb(241,190,76) : Color.FromArgb(91,217,202);
+            Text(g,name,x,y,14*s,Color.FromArgb(240,196,215,223));
+            Text(g,percent<0 ? "N/A" : percent+"%",x+width-63*s,y-3*s,21*s,tint);
+            Fill(g,x,y+29*s,width,7*s,Color.FromArgb(90,95,117,130));
+            if (percent>=0 && percent>0) Fill(g,x,y+29*s,width*percent/100f,7*s,tint);
+        }
+        static Color SeverityColor(int severity) => severity>=2 ? Color.FromArgb(247,95,82) :
+            severity==1 ? Color.FromArgb(255,199,101) : Color.FromArgb(99,206,205);
         static void Text(Rage.Graphics g,string text,float x,float y,float size,Color color) =>
             g.DrawText(text,"Arial",size,new PointF(x,y),color);
+        static void Fill(Rage.Graphics g,float x,float y,float w,float h,Color color) =>
+            g.DrawRectangle(new RectangleF(x,y,w,h),color);
         static void Outline(Rage.Graphics g,float x,float y,float w,float h,float s,Color color)
         {
-            g.DrawRectangle(new RectangleF(x,y,w,1.5f*s),color);
-            g.DrawRectangle(new RectangleF(x,y+h-1.5f*s,w,1.5f*s),color);
-            g.DrawRectangle(new RectangleF(x,y,1.5f*s,h),color);
-            g.DrawRectangle(new RectangleF(x+w-1.5f*s,y,1.5f*s,h),color);
-        }
-        static void Health(Rage.Graphics g,string name,float raw,float x,float y,float s)
-        {
-            bool valid = !float.IsNaN(raw) && !float.IsInfinity(raw);
-            int percent = valid ? (int)Math.Round(Math.Max(0,Math.Min(100,raw/10f))) : -1;
-            Color color = !valid ? Color.Gray : percent<=30 ? Color.FromArgb(245,88,73) :
-                percent <=70 ? Color.FromArgb(240,183,68) : Color.FromArgb(65,207,132);
-            Text(g,name,x,y,12*s,Color.White);
-            Text(g,percent<0 ? "N/A" : percent+"%",x,y+16*s,15*s,color);
-        }
-        static string TireSummary(VehicleReading v)
-        {
-            if (v.KnownTires == 0) return "TIRES: unavailable";
-            if ((v.BurstTires & v.KnownTires) == 0) return "TIRES: no bursts detected";
-            return "TIRES: burst detected";
+            Fill(g,x,y,w,1.7f*s,color);
+            Fill(g,x,y+h-1.7f*s,w,1.7f*s,color);
+            Fill(g,x,y,1.7f*s,h,color);
+            Fill(g,x+w-1.7f*s,y,1.7f*s,h,color);
         }
     }
 }

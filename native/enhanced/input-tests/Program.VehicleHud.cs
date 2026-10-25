@@ -76,6 +76,40 @@ static partial class Program
         samples.Update(Reading(handle:77,body:820),10600);
         Check(samples.Current.Events.Length == 0,"wheel/probe history resets across vehicles");
 
+        // VH2 player HUD: readable alerts must never map unverified RPH wheel
+        // slots to physical corners or declare unknown values healthy.
+        var uiTracker = new VehicleDamageTimeline();
+        uiTracker.Update(Reading(known:0),20000);
+        Check(VehicleHudPresentation.WheelState(uiTracker.Current.Reading,0) == 0,
+            "unavailable native puncture data is unknown, not a healthy wheel");
+        uiTracker.Update(Reading(known:15,burst:1,body:905),20200);
+        var uiView = uiTracker.Current;
+        var ui = VehicleHudPresentation.Build(uiView,20200);
+        Check(ui.Status == "TIRE PUNCTURE" && ui.Severity == 2 &&
+            VehicleHudPresentation.WheelState(uiView.Reading,0) == 2 &&
+            VehicleHudPresentation.WheelState(uiView.Reading,1) == 1,
+            "puncture is critical while other wheels mean no native burst only");
+        Check(ui.Alerts.Any(x=>x.Text == "FRONT-LEFT TIRE PUNCTURED") &&
+            ui.Alerts.Any(x=>x.Text == "BODY DAMAGE"),
+            "high-level alerts report two actionable observations");
+        Check(VehicleHudPresentation.Translate("Wheel slot 0 -40 raw units") == null &&
+            VehicleHudPresentation.Translate("Tire slot 0 -200 raw units") == null &&
+            VehicleHudPresentation.Translate("Chassis probe 2 +0.13 units (sample)") == null,
+            "experimental raw slots and probes never become gameplay alerts");
+        Check(VehicleHudPresentation.Build(uiView,30000).Alerts.Length == 0,
+            "alerts expire instead of lingering during normal driving");
+        Check(VehicleHudPresentation.HealthPercent(float.NaN) == -1 &&
+            VehicleHudPresentation.HealthPercent(-10) == -1 &&
+            VehicleHudPresentation.HealthPercent(980) == 98,
+            "missing health cannot be drawn as 100% condition");
+        var csvReading=Reading();
+        csvReading.KnownTireHealth=1; csvReading.TireHealth[0]=0;
+        var csv = VehicleTelemetryCsv.Row("2026-10-25T00:00:00Z","sample","testcar",
+            new VehicleView(csvReading,null,new DamageEvent[0]));
+        Check(csv.Split(',').Length == 22 && csv.Contains(",0,") &&
+            csv.Contains(",,,,") && VehicleTelemetryCsv.Header.Split(',').Length == 22,
+            "CSV preserves zero tire health separately from unavailable slots");
+
         Check(Settings("{\"version\":1,\"vehicleHud\":{\"mode\":\"minimal\"}}").VehicleHudMode == "minimal",
             "minimal vehicle HUD setting accepted");
         Check(Settings("{\"version\":1,\"vehicleHud\":{\"mode\":\"off\"}}").VehicleHudMode == "off",

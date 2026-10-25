@@ -36,8 +36,9 @@ namespace LSA.Enhanced.VehicleHud
         public readonly VehicleReading Reading;
         public readonly string DriftHint;
         public readonly DamageEvent[] Events;
-        public VehicleView(VehicleReading reading,string driftHint,DamageEvent[] events)
-        { Reading = reading; DriftHint = driftHint; Events = events; }
+        public readonly long SampleAtMs;
+        public VehicleView(VehicleReading reading,string driftHint,DamageEvent[] events,long sampleAtMs=0)
+        { Reading = reading; DriftHint = driftHint; Events = events; SampleAtMs = sampleAtMs; }
     }
 
     public sealed class VehicleDamageTimeline
@@ -60,7 +61,7 @@ namespace LSA.Enhanced.VehicleHud
             if (previous == null || previous.Handle != next.Handle) {
                 Clear();
                 previous = next;
-                Current = new VehicleView(next,null,new DamageEvent[0]);
+                Current = new VehicleView(next,null,new DamageEvent[0],timeMs);
                 return;
             }
             AddHealth("Engine",previous.Engine,next.Engine,timeMs);
@@ -94,7 +95,7 @@ namespace LSA.Enhanced.VehicleHud
                 driftLastEvent = timeMs;
             }
             previous = next;
-            Current = new VehicleView(next,drift != null && timeMs - driftSince >= 1600 ? "Possible " + drift + " drift (inferred)" : null,events.ToArray());
+            Current = new VehicleView(next,drift != null && timeMs - driftSince >= 1600 ? "Possible " + drift + " drift (inferred)" : null,events.ToArray(),timeMs);
         }
         // Lateral movement is not proof of alignment or steering pull. Suppress turns,
         // reversing, very slow speeds, airborne states, and large sideways slides.
