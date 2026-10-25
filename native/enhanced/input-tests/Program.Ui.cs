@@ -431,7 +431,7 @@ static partial class Program
         var bridgeUi = new UiBridge(context,_ => menuSurface,() => null); bridgeUi.Configure(true);
         rig.Dispatcher.Ui = bridgeUi; rig.Router.UiAvailable = () => bridgeUi.Available; rig.Router.MenuOpen = () => bridgeUi.AnyMenuOpen;
         rig.Router.Apply(rig.Settings,rig.Essential); rig.Frame(2); rig.Hold(F11,50); rig.Frame(5);
-        Check(menuSurface.Calls.Contains("toggle:main") && bridgeUi.AnyMenuOpen,"the menu key opens the RNUI surface through the bridge");
+        Check(menuSurface.Calls.Contains("toggle:quick") && bridgeUi.AnyMenuOpen,"the menu key opens unified Quick Controls through the bridge");
         rig.Hold(F6,60); rig.Frame(10);
         Check(rig.Injector.Calls.Count == 0,"gestures pause while the menu is open");
     }
