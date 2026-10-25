@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "vh6.vehicle-geometry.manifest.v1",
+  "vehicleModel": "buffalo",
+  "source": {
+    "files": ["buffalo_hi.yft", "buffalo.yft"],
+    "archive": "x64e.rpf/levels/gta5/vehicles.rpf/",
+    "highLod": {"resourceVersion": 171, "sourceSha256": "280B518DDF52C60AC951A45255C8716909389EC35B1BCD60D3E629D621AE350C", "triangleCount": 64562, "meshNodeCount": 24, "boneCount": 80},
+    "alternateLodSha256": "027C74E5874200B793DB92A87851E8D23036897DCCB7A09C3A6BE621103D5417",
+    "licenseOrDistributionAssessment": "Unresolved. Exact simplified geometry remains local; no geometry coordinates or previews are included in this public-safe metadata file."
+  },
+  "tools": {"extractor": "RPFView CLI 0.11.0", "converter": "VH6 stdlib Python converter", "format": "glTF 2.0 GLB"},
+  "coordinates": {"source": "glTF Y-up", "transform": "GTA X=glTF X; GTA Y=-glTF Z; GTA Z=glTF Y", "gtaFront": "+Y", "hud": "front normalized Y=0, rear normalized Y=1, left is negative X"},
+  "localValidationSummary": {"genuineHighLodParsed": true, "triangleCount": 64562, "simplifiedContourVertices": 14, "windowMaterialProjectionRings": 6, "namedWheelsFound": ["lf", "rf", "lr", "rr"], "contourSelfIntersection": false, "rasterContourIoU": 0.98606, "deterministic": true, "testsPassed": 4},
+  "geometryArtifact": {"availableOnGitHub": false, "localReason": "No suitable existing authorized private geometry staging repository was available; source-derived geometry and visual previews are retained locally.", "files": []},
+  "knownLimitations": ["Hood, trunk, door, bumper, and fender polygons are not semantically named by this export and were not invented.", "Window regions are projected from material names containing glass; they are not cabin semantic labels.", "Source mesh projection has no occlusion or texture rendering.", "The source GLB and geometry are Rockstar-derived assets and are not included here.", "Actual GTA runtime and integration validation remain out of scope."]
+}

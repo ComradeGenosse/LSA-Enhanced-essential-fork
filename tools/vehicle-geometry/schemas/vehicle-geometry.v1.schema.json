@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vh6:vehicle-geometry:v1:schema",
+  "title": "VH6 Vehicle HUD Geometry",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "model",
+    "source",
+    "coordinateSystem",
+    "bounds",
+    "dimensions",
+    "contour",
+    "windowRegions",
+    "wheels",
+    "deformationMapping",
+    "sourceParts",
+    "validation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "vh6.vehicle-geometry.v1"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "format",
+        "lod",
+        "gameAsset",
+        "meshClassification"
+      ]
+    },
+    "coordinateSystem": {
+      "type": "object",
+      "required": [
+        "source",
+        "transform",
+        "gtaFront",
+        "hudConvention"
+      ]
+    },
+    "bounds": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "dimensions": {
+      "type": "object",
+      "required": [
+        "width",
+        "length",
+        "aspectWidthToLength"
+      ]
+    },
+    "contour": {
+      "type": "object",
+      "required": [
+        "coordinateUnits",
+        "winding",
+        "vertices",
+        "rasterStepMeters",
+        "simplificationToleranceMeters"
+      ],
+      "properties": {
+        "coordinateUnits": {
+          "const": "normalized HUD XY; X centered and scaled by full width, Y front=0 rear=1"
+        },
+        "winding": {
+          "enum": [
+            "counterclockwise",
+            "clockwise"
+          ]
+        },
+        "vertices": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/vertex"
+          }
+        },
+        "rasterStepMeters": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "simplificationToleranceMeters": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "windowRegions": {
+      "type": "object",
+      "required": ["classification", "rings"],
+      "properties": {
+        "classification": {"type": "string"},
+        "rings": {"type": "array", "items": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/vertex"}}}
+      }
+    },
+    "wheels": {
+      "type": "object",
+      "required": [
+        "lf",
+        "rf",
+        "lr",
+        "rr"
+      ]
+    },
+    "deformationMapping": {
+      "type": "object",
+      "required": [
+        "source",
+        "probes",
+        "vertexAssociations"
+      ],
+      "properties": {
+        "probes": {
+          "type": "array",
+          "minItems": 48,
+          "maxItems": 48
+        },
+        "vertexAssociations": {
+          "type": "array"
+        }
+      }
+    },
+    "sourceParts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "node",
+          "mesh",
+          "material",
+          "triangleCount",
+          "classification"
+        ]
+      }
+    },
+    "validation": {
+      "type": "object",
+      "required": [
+        "contourSelfIntersection",
+        "contourVertexCount",
+        "rasterContourIoU"
+      ],
+      "properties": {
+        "contourSelfIntersection": {
+          "type": "boolean"
+        },
+        "contourVertexCount": {
+          "type": "integer",
+          "minimum": 3
+        },
+        "rasterContourIoU": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "vertex": {
+      "type": "object",
+      "required": [
+        "id",
+        "x",
+        "y"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "region": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}
